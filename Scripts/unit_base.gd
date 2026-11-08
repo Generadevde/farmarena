@@ -182,6 +182,12 @@ func _physics_process(delta):
 	_process_poison(delta)
 	_update_status_modulate()
 
+	# a recarga do ataque conta SEMPRE (antes só contava enquanto estava no
+	# alcance -- se o alvo se mexia um pouco, a recarga congelava e o golpe
+	# seguinte demorava muito ou nem saía)
+	if attack_cooldown > 0:
+		attack_cooldown -= delta
+
 	_retarget_check_cooldown -= delta
 	if _retarget_check_cooldown <= 0:
 		_retarget_check_cooldown = RETARGET_CHECK_INTERVAL
@@ -238,15 +244,7 @@ func _process_building(delta):
 	if target == null:
 		return
 
-	var distance = global_position.distance_to(target.global_position)
-	var effective_range = stats.attack_range
-
-	if _is_base(target):
-		effective_range += _get_target_radius(target)
-
-	effective_range = max(effective_range, _get_min_contact_range(target))
-
-	if distance <= effective_range:
+	if _in_attack_range(target):
 		_try_attack(delta)
 
 
@@ -507,15 +505,8 @@ func _move_towards_base():
 
 
 func _process_combat(delta):
-	var distance = global_position.distance_to(target.global_position)
-	var effective_range = stats.attack_range
 	var target_is_base = _is_base(target)
-
-	if target_is_base:
-		effective_range += _get_target_radius(target)
-
-	effective_range = max(effective_range, _get_min_contact_range(target))
-	_is_actively_attacking = distance <= effective_range
+	_is_actively_attacking = _in_attack_range(target)
 
 	# Clash Royale de verdade NÃO usa desvio inteligente (RVO) entre
 	# unidades -- cada uma trava no alvo e anda RETO até ele; o empurrão
@@ -525,12 +516,15 @@ func _process_combat(delta):
 	# encostar -- por isso desliga o desvio de vez enquanto perseguindo
 	# alvo de combate (liga de novo assim que volta a andar rumo à base,
 	# onde ainda ajuda a desviar de obstáculo de verdade)
-	if !target_is_base:
-		nav_agent.avoidance_enabled = false
-	else:
-		nav_agent.avoidance_enabled = true
+	# em combate o desvio RVO fica desligado (alvo unidade OU base): quem
+	# resolve aglomeração agora é a separação por peso. Com RVO ligado perto
+	# da base, a fila de aliados "negociava" espaço e tinha unidade que nunca
+	# chegava a encostar na base pra bater
+	nav_agent.avoidance_enabled = false
+	if target_is_base:
+		pass
 
-	if distance > effective_range:
+	if !_is_actively_attacking:
 		if _is_rooted():
 			_set_nav_velocity(Vector2.ZERO)
 		else:
@@ -655,6 +649,35 @@ func _get_target_radius(body) -> float:
 	return 20.0
 
 
+# distância do MEU CENTRO até a BORDA do outro -- usa o formato real da
+# colisão (a base é um retângulo alto; antes era tratada como círculo pelo
+# lado menor, e unidade de alcance curto encostava na base sem conseguir bater)
+func _edge_distance(body) -> float:
+	var col = body.get_node_or_null("CollisionShape2D")
+	if col != null and col.shape is RectangleShape2D:
+		var xf: Transform2D = col.global_transform
+		var local = xf.affine_inverse() * global_position
+		var half = col.shape.size / 2.0
+		var closest = Vector2(clamp(local.x, -half.x, half.x), clamp(local.y, -half.y, half.y))
+		return global_position.distance_to(xf * closest)
+	return max(global_position.distance_to(body.global_position) - _get_target_radius(body), 0.0)
+
+
+# regra ÚNICA de alcance pra todo mundo:
+#  - corpo a corpo: alcance = folga entre a MINHA borda e a borda do alvo
+#    (encostou, bate -- não importa o tamanho de ninguém)
+#  - à distância: alcance = do meu centro até a borda do alvo
+const MELEE_MIN_REACH = 8.0
+
+func _in_attack_range(body) -> bool:
+	if body == null or !is_instance_valid(body):
+		return false
+	var edge = _edge_distance(body)
+	if stats.is_ranged:
+		return edge <= stats.attack_range
+	return edge - _get_own_target_radius() <= max(stats.attack_range, MELEE_MIN_REACH)
+
+
 func _get_own_target_radius() -> float:
 	return _get_target_radius(self)
 
@@ -665,8 +688,7 @@ func _get_min_contact_range(body) -> float:
 
 # ---------- COMBATE ----------
 
-func _try_attack(delta):
-	attack_cooldown -= delta
+func _try_attack(_delta):
 	if attack_cooldown <= 0:
 		if is_instance_valid(target):
 			_perform_attack()
@@ -961,10 +983,8 @@ func find_target():
 				return
 
 		var is_base_target = _is_base(body)
-		var max_range = sight + (_get_target_radius(body) if is_base_target else 0.0)
-		max_range = max(max_range, _get_min_contact_range(body))
-
-		if dist > max_range:
+		# visão medida até a BORDA do alvo, igual ao alcance de ataque
+		if _edge_distance(body) - _get_own_target_radius() > max(sight, stats.attack_range):
 			continue
 
 		if is_base_target:

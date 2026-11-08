@@ -38,6 +38,10 @@ func _ready():
 		await _push_test()
 		get_tree().quit()
 		return
+	if mode == "corpo":
+		await _melee_test()
+		get_tree().quit()
+		return
 	await get_tree().create_timer(75.0).timeout  # ~75s de jogo (time_scale acelera)
 	_report()
 	get_tree().quit()
@@ -89,6 +93,42 @@ func _push_test():
 	await get_tree().create_timer(10.0).timeout
 	var d1 = cow.global_position.distance_to(eb.global_position) if is_instance_valid(cow) else -1
 	print("RESULTADO empurrão: vaca andou ", int(d0 - d1), "px em ~10s de jogo; passou do muro? ", d1 < wall_d - 20)
+
+
+# cada unidade corpo a corpo do jogo, sozinha, na frente da base inimiga:
+# tem que causar dano em poucos segundos
+func _melee_test():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	var eb = get_tree().get_first_node_in_group("enemy_base")
+	var pb = get_tree().get_first_node_in_group("player_base")
+	var ok_list: Array = []
+	var fail_list: Array = []
+	for c in CardDatabase.all_cards:
+		if c == null or c.is_spell():
+			continue
+		var st = DeckBuilder.get_unit_stats(c)
+		if st == null or st.is_ranged or st.unit_type == UnitData.UnitType.BUILDING or st.target_type == UnitData.TargetType.AIR:
+			continue
+		for u in get_tree().get_nodes_in_group("units"):
+			u.queue_free()
+		await get_tree().process_frame
+		eb.hp = eb.max_hp
+		var before = eb.hp
+		battle.spawn_unit(c.unit_scene, GameManager.Team.PLAYER, pb.global_position, c)
+		await get_tree().process_frame
+		for u in get_tree().get_nodes_in_group("units"):
+			u.global_position = eb.global_position.lerp(pb.global_position, 0.12) + Vector2(randf_range(-20, 20), 0)
+		await get_tree().create_timer(9.0).timeout
+		var dealt = before - eb.hp
+		if dealt > 0:
+			ok_list.append("%s(%d)" % [c.card_name, dealt])
+		else:
+			fail_list.append(c.card_name)
+	print("RESULTADO corpo a corpo OK: ", ok_list)
+	print("RESULTADO corpo a corpo SEM DANO NA BASE: ", fail_list)
 
 
 func _process(delta):

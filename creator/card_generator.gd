@@ -113,7 +113,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 	st.unit_count = 1
 	st.move_speed = rng.randf_range(40.0, 55.0)
 	st.attack_speed = rng.randf_range(0.9, 1.5)
-	st.attack_range = 25.0
+	st.attack_range = 15.0  # corpo a corpo: folga da borda
 	st.push_weight = 1.0
 	st.unit_type = UnitData.UnitType.GROUND
 	st.target_type = UnitData.TargetType.GROUND
@@ -170,7 +170,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			budget *= 0.8  # a cura "paga" parte do orçamento
 		CardData.CardRole.CONTROLE:
 			st.is_ranged = rng.randf() < 0.6
-			st.attack_range = 110.0 if st.is_ranged else 25.0
+			st.attack_range = 110.0 if st.is_ranged else 15.0
 			st.on_hit_effect = [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.STUN, UnitData.OnHitEffect.WEAKNESS][rng.randi() % 3]
 			st.on_hit_effect_strength = 0.5
 			st.on_hit_effect_duration = 1.5

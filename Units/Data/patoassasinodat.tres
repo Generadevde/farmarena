@@ -8,6 +8,6 @@ hp = 180
 damage = 360
 move_speed = 70.0
 attack_speed = 4.0
-attack_range = 40.0
+attack_range = 15.0
 unit_scale = 0.7
 metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

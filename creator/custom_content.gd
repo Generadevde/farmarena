@@ -48,7 +48,7 @@ const UNIT_FIELDS = [
 	["hp", "Vida", "int", [1, 20000, 10]],
 	["damage", "Dano", "int", [0, 5000, 5]],
 	["attack_speed", "Tempo entre ataques (s)", "float", [0.1, 10.0, 0.1]],
-	["attack_range", "Alcance", "float", [5.0, 600.0, 5.0]],
+	["attack_range", "Alcance (corpo a corpo: folga até encostar, padrão 15)", "float", [0.0, 600.0, 5.0]],
 	["move_speed", "Velocidade", "float", [0.0, 200.0, 5.0]],
 	["unit_count", "Quantidade", "int", [1, 20, 1]],
 	["push_weight", "Peso (empurrão)", "float", [0.1, 10.0, 0.1]],
@@ -485,7 +485,7 @@ func make_blank_card(is_spell: bool) -> Dictionary:
 		stats.hp = 400
 		stats.damage = 60
 		stats.attack_speed = 1.2
-		stats.attack_range = 25.0
+		stats.attack_range = 15.0
 		stats.move_speed = 45.0
 	var img = Image.create_empty(CARD_ART_SIZE.x, CARD_ART_SIZE.y, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
