@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://cv5ppruj81rdc"]
+
+[ext_resource type="Texture2D" uid="uid://dtylouovlo17k" path="res://Resources/Projectiles/neve_bullet.png" id="1_pifdn"]
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_tk06t"]
+
+[resource]
+script = ExtResource("1_tk06t")
+hp = 110
+damage = 15
+push_weight = 0.6
+move_speed = 65.0
+attack_speed = 0.9
+attack_range = 90.0
+unit_scale = 0.7
+unit_count = 3
+spawn_formation = 3
+is_ranged = true
+projectile_texture = ExtResource("1_pifdn")
+projectile_speed = 240.0
+target_type = 2
+is_aoe = true
+aoe_radius = 25.0
+on_hit_effect = 3
+on_hit_effect_duration = 1.0
+on_hit_effect_strength = 0.2
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

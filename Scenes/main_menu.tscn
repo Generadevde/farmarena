@@ -1,0 +1,169 @@
+[gd_scene format=3 uid="uid://bvgxi2acf63bh"]
+
+[ext_resource type="Script" uid="uid://bu2cwyyosxjq8" path="res://Scripts/main_menu.gd" id="1_28flt"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_48xlc"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1ehe0"]
+bg_color = Color(0.16470589, 0.74509805, 0.827451, 1)
+
+[node name="main_menu" type="Control" unique_id=1080198138]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_28flt")
+
+[node name="Farm_Arena" type="Label" parent="." unique_id=1675765818]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -224.5
+offset_top = 208.0
+offset_right = 236.5
+offset_bottom = 309.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 73
+text = "FARM ARENA"
+
+[node name="XPLabel" type="Label" parent="." unique_id=218101302]
+layout_mode = 0
+offset_left = 504.0
+offset_top = 402.0
+offset_right = 524.0
+offset_bottom = 425.0
+theme_override_font_sizes/font_size = 14
+text = "XP"
+
+[node name="SeasonWidget" type="VBoxContainer" parent="." unique_id=1971850990]
+layout_mode = 0
+offset_left = 128.0
+offset_top = 768.0
+offset_right = 368.0
+offset_bottom = 948.0
+
+[node name="SeasonLabel" type="Label" parent="SeasonWidget" unique_id=1749820910]
+layout_mode = 2
+text = "🌽 Safra #1"
+
+[node name="SeasonBar" type="ProgressBar" parent="SeasonWidget" unique_id=310366135]
+layout_mode = 2
+
+[node name="SeasonSubLabel" type="Label" parent="SeasonWidget" unique_id=1531580660]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=1344598457]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -47.5
+offset_top = -68.0
+offset_right = 47.5
+offset_bottom = 68.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="BattleButton" type="Button" parent="VBoxContainer" unique_id=168007241]
+layout_mode = 2
+text = "Batalhar"
+
+[node name="LibraryButton" type="Button" parent="VBoxContainer" unique_id=1392334530]
+layout_mode = 2
+text = "Coleção"
+
+[node name="journal_button" type="Button" parent="VBoxContainer" unique_id=435109420]
+layout_mode = 2
+text = "Jornal"
+
+[node name="stats_button" type="Button" parent="VBoxContainer" unique_id=2104970408]
+layout_mode = 2
+text = "Estatisticas"
+
+[node name="missions_button" type="Button" parent="VBoxContainer" unique_id=1428656634]
+layout_mode = 2
+text = "Missões Diarias"
+
+[node name="exit_button" type="Button" parent="VBoxContainer" unique_id=102466495]
+layout_mode = 2
+text = "Sair"
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="." unique_id=798101653]
+custom_minimum_size = Vector2(320, 220)
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -160.0
+offset_top = 328.0
+offset_right = 160.0
+offset_bottom = 548.0
+grow_horizontal = 2
+
+[node name="PlayerInfoPanel" type="PanelContainer" parent="VBoxContainer2" unique_id=1122190242]
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="VBoxContainer2/PlayerInfoPanel" unique_id=76698999]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TopRow" type="HBoxContainer" parent="VBoxContainer2/PlayerInfoPanel/VBox" unique_id=872308016]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="NameLabel" type="Label" parent="VBoxContainer2/PlayerInfoPanel/VBox/TopRow" unique_id=185286537]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+
+[node name="Spacer1" type="Control" parent="VBoxContainer2/PlayerInfoPanel/VBox/TopRow" unique_id=325764333]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.01
+
+[node name="LevelLabel" type="Label" parent="VBoxContainer2/PlayerInfoPanel/VBox/TopRow" unique_id=1839168279]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+
+[node name="BottomRow" type="HBoxContainer" parent="VBoxContainer2/PlayerInfoPanel/VBox" unique_id=1308123361]
+layout_mode = 2
+
+[node name="CoinsLabel" type="Label" parent="VBoxContainer2/PlayerInfoPanel/VBox/BottomRow" unique_id=1140874588]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+
+[node name="Spacer2" type="Control" parent="VBoxContainer2/PlayerInfoPanel/VBox/BottomRow" unique_id=1557556537]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ArenaLabel" type="Label" parent="VBoxContainer2/PlayerInfoPanel/VBox/BottomRow" unique_id=1167730727]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+
+[node name="XPBar" type="ProgressBar" parent="VBoxContainer2" unique_id=1323598652]
+layout_mode = 2
+theme_override_styles/background = SubResource("StyleBoxFlat_48xlc")
+theme_override_styles/fill = SubResource("StyleBoxFlat_1ehe0")
+show_percentage = false
+
+[node name="update_button" type="Button" parent="." unique_id=1477236626]
+layout_mode = 0
+offset_left = 528.0
+offset_top = 8.0
+offset_right = 643.0
+offset_bottom = 39.0
+text = "Atualizações"
+
+[connection signal="pressed" from="VBoxContainer/BattleButton" to="." method="_on_batlhe_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/BattleButton" to="." method="_on_battle_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/LibraryButton" to="." method="_on_library_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/journal_button" to="." method="_on_journal_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/stats_button" to="." method="_on_stats_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/missions_button" to="." method="_on_missions_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/exit_button" to="." method="_on_quit_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/exit_button" to="." method="_on_exit_button_pressed"]
+[connection signal="pressed" from="update_button" to="." method="_on_updates_button_pressed"]

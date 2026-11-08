@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://cjv4ltek16fve"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_7aku3"]
+[ext_resource type="Texture2D" uid="uid://jur7scfc4hg" path="res://Resources/Assets/Units/cow_test.png" id="1_ow0xn"]
+[ext_resource type="Resource" uid="uid://fv7566gvamqe" path="res://nations/nationsdata/animaisdosul.tres" id="2_j51hd"]
+[ext_resource type="PackedScene" uid="uid://vsy2h3b38er2" path="res://Units/scenes/warrior_cow.tscn" id="3_j51hd"]
+
+[resource]
+script = ExtResource("1_7aku3")
+card_name = "Warrior Cow"
+cost = 40
+icon = ExtResource("1_ow0xn")
+description = "Muuuuu!"
+pros = Array[String](["Alto HP", "Dano aceitavel", "Carta barata"])
+cons = Array[String](["Velocidade devagar", "Fraca contra enxame"])
+unit_scene = ExtResource("3_j51hd")
+role = 1
+nation_data = ExtResource("2_j51hd")
+danger_level = 6
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

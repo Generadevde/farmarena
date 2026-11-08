@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://blhvj117h62r5"]
+
+[ext_resource type="Texture2D" uid="uid://beatxqukd6d85" path="res://Resources/Assets/Units/granizo.png" id="1_nw4rb"]
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_p0l8i"]
+[ext_resource type="Resource" uid="uid://cit7fjerkjq72" path="res://nations/nationsdata/naturezaleve.tres" id="2_q4dx2"]
+[ext_resource type="Resource" uid="uid://bbkgc4m6anld7" path="res://Units/spells/granizo.tres" id="3_q4dx2"]
+
+[resource]
+script = ExtResource("1_p0l8i")
+card_name = "Granizo"
+cost = 30
+icon = ExtResource("1_nw4rb")
+description = "Ta esfriando !"
+pros = Array[String](["Grande area de efeito", "Efeito em desacelerar", "Boa contra enxames"])
+cons = Array[String](["Pouco dano", "Efeito raso"])
+unlock_level = 0
+spell_data = ExtResource("3_q4dx2")
+role = 5
+nation_data = ExtResource("2_q4dx2")
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

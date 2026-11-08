@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://b5tngjvgv7i22"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_jou1s"]
+[ext_resource type="Texture2D" uid="uid://h7lsqknywy3j" path="res://Resources/Assets/Units/chicken.png" id="1_mi3xv"]
+[ext_resource type="Resource" uid="uid://6fgq7nojtd61" path="res://nations/nationsdata/avesselvagens.tres" id="2_skqrp"]
+[ext_resource type="PackedScene" uid="uid://c1ot6w4lymxts" path="res://Units/scenes/chicken.tscn" id="3_skqrp"]
+
+[resource]
+script = ExtResource("1_jou1s")
+card_name = "Chicken"
+cost = 20
+icon = ExtResource("1_mi3xv")
+description = "Três amigas!"
+pros = Array[String](["Trio efetivo", "Carta Barata", "Dano Alto"])
+cons = Array[String](["Pouco Hp", "Fraco contra unidade de dano em area"])
+unlock_level = 0
+unit_scene = ExtResource("3_skqrp")
+nation_data = ExtResource("2_skqrp")
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

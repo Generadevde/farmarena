@@ -1,0 +1,111 @@
+[gd_scene load_steps=3 format=3 uid="uid://cnqlbuwi5pw7r"]
+
+[ext_resource type="Script" uid="uid://ba0fuxke7du3" path="res://Scripts/profile_setup.gd" id="1_cpqen"]
+[ext_resource type="FontFile" uid="uid://xqcpemulwwlx" path="res://fonts/rustic_font.ttf" id="2_31m00"]
+
+[node name="profile_setup" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cpqen")
+
+[node name="WelcomeLabel" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -102.0
+offset_top = 352.0
+offset_right = 103.0
+offset_bottom = 375.0
+grow_horizontal = 2
+theme_override_fonts/font = ExtResource("2_31m00")
+theme_override_font_sizes/font_size = 30
+text = "Bem vindo ao Farm Arena!"
+
+[node name="NameInput" type="LineEdit" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -102.0
+offset_top = 128.0
+offset_right = 54.0
+offset_bottom = 160.0
+grow_horizontal = 2
+grow_vertical = 2
+placeholder_text = "Digite seu nome"
+
+[node name="ProfileList" type="VBoxContainer" parent="."]
+custom_minimum_size = Vector2(320, 320)
+layout_mode = 0
+offset_left = 224.0
+offset_top = 512.0
+offset_right = 544.0
+offset_bottom = 832.0
+alignment = 1
+
+[node name="NewProfileButton" type="Button" parent="."]
+layout_mode = 0
+offset_left = 256.0
+offset_top = 736.0
+offset_right = 392.0
+offset_bottom = 767.0
+text = "Criar Novo Perfil"
+
+[node name="CreateButton" type="Button" parent="."]
+layout_mode = 0
+offset_left = 424.0
+offset_top = 768.0
+offset_right = 470.0
+offset_bottom = 799.0
+text = "Criar"
+
+[node name="ContinueLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 248.0
+offset_top = 512.0
+offset_right = 377.0
+offset_bottom = 535.0
+text = "Continuar como "
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -63.5
+offset_top = -50.5
+offset_right = 63.5
+offset_bottom = 50.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ContinueButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Continuar"
+
+[node name="SwitchProfileButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Trocar de Perfil"
+
+[node name="BackButton" type="Button" parent="VBoxContainer"]
+layout_mode = 2
+text = "Voltar"
+
+[node name="VBoxContainer2" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[connection signal="pressed" from="NewProfileButton" to="." method="_on_new_profile_button_pressed"]
+[connection signal="pressed" from="CreateButton" to="." method="_on_create_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/ContinueButton" to="." method="_on_continue_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/SwitchProfileButton" to="." method="_on_switch_profile_button_pressed"]

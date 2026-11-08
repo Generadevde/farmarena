@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="NationData" format=3 uid="uid://bf7hlyyn4r1ae"]
+
+[ext_resource type="Script" uid="uid://bdul44o48vex8" path="res://nations/nation_data.gd" id="1_go0b5"]
+
+[resource]
+script = ExtResource("1_go0b5")
+nation_name = "Trabalhadores Rurais"
+color = Color(0, 0.72849345, 0.008316416, 1)
+metadata/_custom_type_script = "uid://bdul44o48vex8"

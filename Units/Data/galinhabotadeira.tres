@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://ca5en3sqjhnvk"]
+
+[ext_resource type="Texture2D" uid="uid://d2jirm0almutw" path="res://Resources/Assets/Units/ovo.png" id="1_0oxxr"]
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_4bkdo"]
+
+[resource]
+script = ExtResource("1_4bkdo")
+hp = 180
+damage = 50
+push_weight = 0.9
+move_speed = 55.0
+attack_speed = 1.4
+attack_range = 100.0
+unit_scale = 0.9
+unit_count = 3
+is_ranged = true
+projectile_texture = ExtResource("1_0oxxr")
+projectile_speed = 250.0
+target_type = 2
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

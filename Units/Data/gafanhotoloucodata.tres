@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://dj0l4d71estfm"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_h67ln"]
+
+[resource]
+script = ExtResource("1_h67ln")
+hp = 280
+damage = 20
+move_speed = 45.0
+attack_speed = 2.0
+attack_range = 35.0
+unit_scale = 0.9
+unit_count = 4
+spawn_formation = 1
+ramping_attack_speed = true
+attack_speed_ramp_per_hit = 0.25
+attack_speed_ramp_min_multiplier = 0.2
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://vqbwjbx1gwye"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_0l873"]
+[ext_resource type="Texture2D" uid="uid://dg58yt0rj8urf" path="res://Resources/Assets/Units/pomba_bomba.png" id="1_vwkos"]
+[ext_resource type="Resource" uid="uid://6fgq7nojtd61" path="res://nations/nationsdata/avesselvagens.tres" id="2_1bjth"]
+[ext_resource type="PackedScene" uid="uid://bf37tbt5t7c5f" path="res://Units/scenes/pomba_bomba.tscn" id="3_dk63n"]
+[ext_resource type="Resource" uid="uid://b5tngjvgv7i22" path="res://Cards/Data/chickencard.tres" id="4_nktao"]
+[ext_resource type="Resource" uid="uid://p46xv1ftcj01" path="res://Cards/Data/galinhabotadeiracard.tres" id="5_k6h4q"]
+
+[resource]
+script = ExtResource("1_0l873")
+card_name = "Pomba Bomba"
+cost = 50
+icon = ExtResource("1_vwkos")
+description = "Prull... BOOM!"
+pros = Array[String](["Alto HP", "Alto Dano", "Não pode ser ignorado"])
+cons = Array[String](["Velocidade baixa", "Lenta taxa de ataque"])
+unit_scene = ExtResource("3_dk63n")
+role = 6
+nation_data = ExtResource("2_1bjth")
+nation_xp_cost = 400
+predecessor_cards = Array[ExtResource("1_0l873")]([ExtResource("4_nktao"), ExtResource("5_k6h4q")])
+tier = 4
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="NationData" format=3 uid="uid://fv7566gvamqe"]
+
+[ext_resource type="Script" uid="uid://bdul44o48vex8" path="res://nations/nation_data.gd" id="1_5whrg"]
+
+[resource]
+script = ExtResource("1_5whrg")
+nation_name = "Animais do Sul"
+color = Color(0.25027028, 0.6073364, 1, 1)
+metadata/_custom_type_script = "uid://bdul44o48vex8"

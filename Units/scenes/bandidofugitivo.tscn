@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://46c6qkqfvoxs"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_ye3b8"]
+[ext_resource type="Resource" uid="uid://bub4gpmb5okiq" path="res://Units/Data/bandidofugitivo.tres" id="2_l8wyw"]
+[ext_resource type="Texture2D" uid="uid://d1ef5ocpvh0vb" path="res://Resources/Assets/Units/bandidofugitivo.png" id="3_nd7v6"]
+
+[node name="Unit_Base" unique_id=979038069 instance=ExtResource("1_ye3b8")]
+stats = ExtResource("2_l8wyw")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_nd7v6")

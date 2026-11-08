@@ -1,0 +1,56 @@
+[gd_scene format=3 uid="uid://c0utx5s6n3hro"]
+
+[ext_resource type="Script" uid="uid://c1maabjc6hnwk" path="res://season_stats_menu.gd" id="1_u0ecw"]
+
+[node name="season_stats_menu" type="Control" unique_id=1022567299]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_u0ecw")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="." unique_id=1399140450]
+layout_mode = 1
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScrollContainer" unique_id=1288114953]
+layout_mode = 2
+
+[node name="TopWinRate" type="VBoxContainer" parent="ScrollContainer/VBoxContainer" unique_id=129309376]
+custom_minimum_size = Vector2(200, 320)
+layout_mode = 2
+
+[node name="LowWinRate" type="VBoxContainer" parent="ScrollContainer/VBoxContainer" unique_id=782957452]
+custom_minimum_size = Vector2(200, 320)
+layout_mode = 2
+
+[node name="TrendingUp" type="VBoxContainer" parent="ScrollContainer/VBoxContainer" unique_id=1004630296]
+custom_minimum_size = Vector2(200, 320)
+layout_mode = 2
+
+[node name="TrendingDown" type="VBoxContainer" parent="ScrollContainer/VBoxContainer" unique_id=1592896167]
+custom_minimum_size = Vector2(200, 320)
+layout_mode = 2
+
+[node name="BestPairs" type="VBoxContainer" parent="ScrollContainer/VBoxContainer" unique_id=2001631774]
+custom_minimum_size = Vector2(200, 320)
+layout_mode = 2
+
+[node name="Forgotten" type="VBoxContainer" parent="ScrollContainer/VBoxContainer" unique_id=391551361]
+custom_minimum_size = Vector2(200, 320)
+layout_mode = 2
+
+[node name="Controversial" type="VBoxContainer" parent="ScrollContainer/VBoxContainer" unique_id=1857438081]
+custom_minimum_size = Vector2(200, 320)
+layout_mode = 2
+
+[node name="back_button" type="Button" parent="." unique_id=1124341898]
+layout_mode = 0
+offset_left = 416.0
+offset_top = 80.0
+offset_right = 471.0
+offset_bottom = 111.0
+text = "Voltar"
+
+[connection signal="pressed" from="back_button" to="." method="_on_back_button_pressed"]

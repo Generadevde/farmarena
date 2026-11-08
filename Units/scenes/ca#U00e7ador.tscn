@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://b753y0hipl60r"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_k72nx"]
+[ext_resource type="Resource" uid="uid://b4k6wx5vwy2r2" path="res://Units/Data/caçadordatra.tres" id="2_kkyq8"]
+[ext_resource type="Texture2D" uid="uid://osx0cvdlnw6j" path="res://Resources/Assets/Units/caçador.png" id="3_is8ln"]
+
+[node name="Unit_Base" instance=ExtResource("1_k72nx")]
+stats = ExtResource("2_kkyq8")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_is8ln")

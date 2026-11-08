@@ -1,0 +1,11 @@
+[gd_scene load_steps=5 format=3 uid="uid://4lwwa0ti37gk"]
+
+[ext_resource type="Script" uid="uid://gimwtv1rp0ww" path="res://Sounds/music_player.gd" id="1_hl2ct"]
+[ext_resource type="AudioStream" uid="uid://cbwc87iqwshqu" path="res://Sounds/aberrantrealities-an-ordinary-rarity-529740.mp3" id="2_pw2f6"]
+[ext_resource type="AudioStream" uid="uid://d1jplsuqlretx" path="res://Sounds/aberrantrealities-river-disco-529739.mp3" id="3_sjsdw"]
+[ext_resource type="AudioStream" uid="uid://bnfn1ipyluvdq" path="res://Sounds/rolandomat-epic-battle-song-182915.mp3" id="4_nj16y"]
+
+[node name="Node" type="Node"]
+script = ExtResource("1_hl2ct")
+menu_tracks = Array[AudioStream]([ExtResource("2_pw2f6"), ExtResource("3_sjsdw")])
+battle_tracks = Array[AudioStream]([ExtResource("4_nj16y")])

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://blwqs3jfoy6qs"]
+
+[ext_resource type="Texture2D" uid="uid://bdvsbaixasiwn" path="res://Resources/Assets/Units/playet_test.png" id="1_cwnvk"]
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="2_g8sk2"]
+[ext_resource type="Resource" uid="uid://bf7hlyyn4r1ae" path="res://nations/nationsdata/Trabalhadoresrurais.tres" id="2_hoddq"]
+[ext_resource type="PackedScene" uid="uid://dorad8cofatj8" path="res://Units/scenes/estilingueboy.tscn" id="3_g8sk2"]
+
+[resource]
+script = ExtResource("2_g8sk2")
+card_name = "EstilingueBoy"
+cost = 30
+icon = ExtResource("1_cwnvk")
+description = "Com seu estilingue, ele vai a caça!"
+pros = Array[String](["Alto DPM", "Boa taxa de tiro", "Bom para controle"])
+cons = Array[String](["Baixo HP", "Fraco contra enxames", "Lento"])
+unlock_level = 0
+unit_scene = ExtResource("3_g8sk2")
+role = 3
+nation_data = ExtResource("2_hoddq")
+danger_level = 5
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

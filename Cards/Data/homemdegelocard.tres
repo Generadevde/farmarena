@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://cttcb18l0vpn3"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_hfxca"]
+[ext_resource type="Texture2D" uid="uid://bwfki6v1o86wq" path="res://Resources/Assets/Units/homemdegelo.png" id="1_of8vr"]
+[ext_resource type="Resource" uid="uid://bf7hlyyn4r1ae" path="res://nations/nationsdata/Trabalhadoresrurais.tres" id="2_i2pr6"]
+[ext_resource type="PackedScene" uid="uid://biofsk61q410y" path="res://Units/scenes/homemdegelo.tscn" id="3_k7m5r"]
+[ext_resource type="Resource" uid="uid://ccjodg68onimy" path="res://Cards/Data/fantasmascard.tres" id="5_avfcw"]
+
+[resource]
+script = ExtResource("1_hfxca")
+card_name = "Homem de Gelo"
+cost = 40
+icon = ExtResource("1_of8vr")
+description = "Que frio é esse homem?"
+pros = Array[String](["Alto HP", "Consegue desacelerar  inimigos", "Bom no 1x1"])
+cons = Array[String](["Não congela realmente", "Fraco no dano", "Taxa de ataque lenta", "Fragil contra exame"])
+unit_scene = ExtResource("3_k7m5r")
+role = 5
+nation_data = ExtResource("2_i2pr6")
+nation_xp_cost = 360
+predecessor_cards = Array[ExtResource("1_hfxca")]([ExtResource("5_avfcw")])
+tier = 5
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

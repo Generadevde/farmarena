@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="BaseData" format=3 uid="uid://b01o3smrd4euf"]
+
+[ext_resource type="Texture2D" uid="uid://dhve2sawux711" path="res://Resources/Assets/Bases/base2.png" id="1_fdcfs"]
+[ext_resource type="Script" uid="uid://dpirx56yxnfd0" path="res://Cards/bases/base_data.gd" id="2_bg1d6"]
+[ext_resource type="Resource" uid="uid://cit7fjerkjq72" path="res://nations/nationsdata/naturezaleve.tres" id="2_nej3t"]
+[ext_resource type="Texture2D" uid="uid://3n58vq2ilnw5" path="res://Resources/Projectiles/cactus_seeding.png" id="5_ukctu"]
+
+[resource]
+script = ExtResource("2_bg1d6")
+base_name = "Casa de anões"
+nation_data = ExtResource("2_nej3t")
+description = "Casa simples de um anão  rural!"
+pros = Array[String](["Dano em area", "Alcance bom"])
+cons = Array[String](["Pouco HP", "Dano fraco", "Baixa taxa de disparo "])
+icon = ExtResource("1_fdcfs")
+base_texture = ExtResource("1_fdcfs")
+base_hp = 900
+attack_damage = 25
+attack_range = 180.0
+attack_speed = 3.0
+projectile_texture = ExtResource("5_ukctu")
+projectile_speed = 250.0
+is_aoe = true
+metadata/_custom_type_script = "uid://dpirx56yxnfd0"

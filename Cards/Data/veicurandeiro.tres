@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://806td2e6nfvk"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_5jlb1"]
+[ext_resource type="Texture2D" uid="uid://bfyk0w1ph82l8" path="res://Resources/Assets/Units/vei_curandeiro.png" id="1_ifogq"]
+[ext_resource type="Resource" uid="uid://bf7hlyyn4r1ae" path="res://nations/nationsdata/Trabalhadoresrurais.tres" id="2_7ps5q"]
+[ext_resource type="Resource" uid="uid://ccjodg68onimy" path="res://Cards/Data/fantasmascard.tres" id="4_ot2ec"]
+[ext_resource type="PackedScene" uid="uid://cnw56nljtk1fs" path="res://Units/scenes/veicurandeiro.tscn" id="5_i6wh7"]
+
+[resource]
+script = ExtResource("1_5jlb1")
+card_name = "Velho Curandeiro"
+cost = 30
+icon = ExtResource("1_ifogq")
+description = "Não se engane com a idade!"
+pros = Array[String](["Bom HP", "Pode curar aliados perto", "Velocidade aceitavel"])
+cons = Array[String](["Baixissimo Dano", "Fraco no 1vs!", "Tem que ser bem posicionado"])
+unit_scene = ExtResource("5_i6wh7")
+role = 5
+nation_data = ExtResource("2_7ps5q")
+nation_xp_cost = 200
+predecessor_cards = Array[ExtResource("1_5jlb1")]([ExtResource("4_ot2ec")])
+danger_level = 4
+tier = 3
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

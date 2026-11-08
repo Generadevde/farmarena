@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://dkcygvwuufnln"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_oky8a"]
+[ext_resource type="PackedScene" uid="uid://62ikgfceow8o" path="res://Units/scenes/abelhaoperaria.tscn" id="2_f5kp7"]
+
+[resource]
+script = ExtResource("1_oky8a")
+hp = 860
+damage = 110
+push_weight = 1.5
+move_speed = 30.0
+attack_speed = 1.4
+attack_range = 40.0
+unit_scale = 1.5
+target_type = 2
+unit_type = 1
+spawns_units = true
+spawn_unit_scene = ExtResource("2_f5kp7")
+spawn_interval = 12.0
+spawn_count = 2
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://6gawdbuku8bp"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_5gcr7"]
+[ext_resource type="Texture2D" uid="uid://i88ebjrcryv4" path="res://Resources/Assets/Units/trio_nelore.png" id="2_5k7d3"]
+[ext_resource type="Resource" uid="uid://dt4rg888x3m3s" path="res://Units/Data/trio_nelore.tres" id="2_22hdy"]
+
+[node name="Unit_Base" instance=ExtResource("1_5gcr7")]
+stats = ExtResource("2_22hdy")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("2_5k7d3")

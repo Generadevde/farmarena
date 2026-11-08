@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cpvgy0cyoo5jx"]
+
+[ext_resource type="Script" uid="uid://c32867ysdbhn6" path="res://ranking/journal.gd" id="1_civ5d"]
+
+[node name="journal" type="Node"]
+script = ExtResource("1_civ5d")

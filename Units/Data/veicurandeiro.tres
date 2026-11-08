@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://umt40rcslsgg"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_ke4hs"]
+
+[resource]
+script = ExtResource("1_ke4hs")
+hp = 720
+damage = 20
+move_speed = 55.0
+attack_range = 42.0
+can_heal_allies = true
+heal_aura_amount = 20
+heal_aura_radius = 100.0
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

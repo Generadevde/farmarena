@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://dm6f8iy1vfex6"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_7ebat"]
+
+[resource]
+script = ExtResource("1_7ebat")
+hp = 360
+damage = 70
+push_weight = 1.4
+move_speed = 40.0
+attack_speed = 1.8
+attack_range = 38.0
+unit_scale = 1.3
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BotQuote" load_steps=2 format=3 uid="uid://c6xprx1nwntum"]
+
+[ext_resource type="Script" uid="uid://dql4jahp8mjrr" path="res://journal/bot_quote.gd" id="1_xd03t"]
+
+[resource]
+script = ExtResource("1_xd03t")
+bot_name = "Matutinho"
+phrases = Array[String](["Eu sou inevitavel!"])
+metadata/_custom_type_script = "uid://dql4jahp8mjrr"

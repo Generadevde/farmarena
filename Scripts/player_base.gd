@@ -1,0 +1,316 @@
+extends StaticBody2D
+
+signal destroyed(team)
+signal damaged(amount)
+
+# Valor usado apenas antes de uma BaseData ser instalada.
+# Assim que install_base_data() roda, o HP passa a vir do base_hp da BaseData.
+@export var max_hp: int = 1000
+@export var team: GameManager.Team
+
+var hp: int
+var base_data: BaseData = null
+var _base_cooldown: float = 0.0
+var _level_multiplier: float = 1.0
+
+
+func _ready():
+	hp = max_hp
+	$ProgressBar.max_value = max_hp
+	$ProgressBar.value = hp
+	$ProgressBar.theme = ThemeBuilder.game_theme
+	$ProgressBar.custom_minimum_size = Vector2(80, 16)
+	_update_label()
+
+	add_to_group("damageable")
+	add_to_group(
+		"player_base" if team == GameManager.Team.PLAYER else "enemy_base"
+	)
+
+	# Camada 3: construções.
+	# Permite que unidades terrestres e aéreas continuem colidindo
+	# fisicamente com a base.
+	collision_layer = 0b100
+	collision_mask = 0
+
+
+# Instala os dados da base escolhida no começo da partida.
+func install_base_data(new_base_data: BaseData, level: int = 1):
+	base_data = new_base_data
+	_base_cooldown = 0.0
+
+	var mult = PlayerProfile.compute_base_stat_multiplier(level)
+	_level_multiplier = mult
+
+	max_hp = round(base_data.base_hp * mult)
+	hp = max_hp
+
+	$ProgressBar.max_value = max_hp
+	$ProgressBar.value = hp
+	_update_label()
+
+	# Troca a aparência da base se houver uma textura específica.
+	if base_data.base_texture != null:
+		$Sprite2D.texture = base_data.base_texture
+
+
+func _process(delta):
+	if base_data == null:
+		return
+
+	match base_data.base_type:
+		BaseData.BaseType.CANNON:
+			_process_cannon(delta)
+
+		BaseData.BaseType.HEAL:
+			_process_heal(delta)
+
+		BaseData.BaseType.AURA:
+			_process_aura(delta)
+
+		# Production não faz nada aqui.
+		# O efeito dela é aplicado pelo sistema de recursos da batalha.
+
+
+# ============================================================
+# CANHÃO
+# ============================================================
+
+func _process_cannon(delta):
+	_base_cooldown -= delta
+
+	if _base_cooldown > 0:
+		return
+
+	var target = _find_cannon_target()
+
+	if target == null:
+		return
+
+	var dmg = int(round(base_data.attack_damage * _level_multiplier))
+
+	# --------------------------------------------------------
+	# COM PROJÉTIL VISUAL
+	# --------------------------------------------------------
+
+	if base_data.projectile_texture != null:
+		var proj = Projectile.new()
+
+		proj.target = target
+		proj.damage = dmg
+		proj.speed = base_data.projectile_speed
+		proj.texture = base_data.projectile_texture
+
+		# Ataque em área
+		proj.is_aoe = base_data.is_aoe
+		proj.aoe_radius = base_data.aoe_radius
+
+		proj.attacker_team = team
+
+		# Efeitos
+		proj.on_hit_effect = base_data.effect
+		proj.on_hit_effect_duration = base_data.effect_duration
+		proj.on_hit_effect_strength = base_data.effect_strength
+		proj.on_hit_effect_tick_interval = base_data.effect_tick_interval
+		proj.knockback_distance = base_data.knockback_distance
+
+		get_parent().add_child(proj)
+		proj.global_position = global_position
+
+	# --------------------------------------------------------
+	# SEM PROJÉTIL VISUAL
+	# --------------------------------------------------------
+
+	else:
+		_apply_cannon_damage(target, dmg)
+
+	_base_cooldown = base_data.attack_speed
+
+
+# Aplica o dano do canhão quando não existe projétil visual.
+#
+# Se for AOE:
+# - o alvo principal recebe dano;
+# - todos os inimigos dentro do raio da explosão também recebem dano.
+#
+# O centro da explosão é a posição do alvo atingido,
+# e não a posição da base.
+func _apply_cannon_damage(target, dmg):
+	if target == null:
+		return
+
+	if base_data.is_aoe:
+		for other in get_tree().get_nodes_in_group("damageable"):
+
+			if other == self:
+				continue
+
+			if !("team" in other):
+				continue
+
+			if other.team == team:
+				continue
+
+			if !is_instance_valid(other):
+				continue
+
+			if target.global_position.distance_to(other.global_position) <= base_data.aoe_radius:
+				if other.has_method("take_damage"):
+					other.take_damage(dmg)
+
+				_apply_base_effect_to(other)
+
+	else:
+		if target.has_method("take_damage"):
+			target.take_damage(dmg)
+
+		_apply_base_effect_to(target)
+
+
+# Procura o inimigo mais próximo dentro do alcance do canhão.
+func _find_cannon_target():
+	var closest = null
+	var closest_dist = INF
+
+	for body in get_tree().get_nodes_in_group("damageable"):
+
+		if body == self:
+			continue
+
+		if !("team" in body):
+			continue
+
+		if body.team == team:
+			continue
+
+		if !is_instance_valid(body):
+			continue
+
+		var dist = global_position.distance_to(body.global_position)
+
+		if dist <= base_data.attack_range and dist < closest_dist:
+			closest_dist = dist
+			closest = body
+
+	return closest
+
+
+# ============================================================
+# CURA
+# ============================================================
+
+func _process_heal(delta):
+	_base_cooldown -= delta
+
+	if _base_cooldown > 0:
+		return
+
+	_base_cooldown = base_data.heal_interval
+
+	for body in get_tree().get_nodes_in_group("damageable"):
+
+		if body == self:
+			continue
+
+		if !("team" in body):
+			continue
+
+		if body.team != team:
+			continue
+
+		if !body.has_method("heal"):
+			continue
+
+		if global_position.distance_to(body.global_position) <= base_data.heal_radius:
+			body.heal(base_data.heal_amount * _level_multiplier)
+
+
+# ============================================================
+# AURA
+# ============================================================
+
+# Aplica o efeito configurado em todos os inimigos
+# que estiverem dentro do raio da aura.
+func _process_aura(delta):
+
+	if base_data.effect == UnitData.OnHitEffect.NONE:
+		return
+
+	_base_cooldown -= delta
+
+	if _base_cooldown > 0:
+		return
+
+	_base_cooldown = base_data.aura_tick_interval
+
+	for body in get_tree().get_nodes_in_group("damageable"):
+
+		if body == self:
+			continue
+
+		if !("team" in body):
+			continue
+
+		if body.team == team:
+			continue
+
+		if !is_instance_valid(body):
+			continue
+
+		if global_position.distance_to(body.global_position) <= base_data.aura_radius:
+			_apply_base_effect_to(body)
+
+
+# ============================================================
+# EFEITOS
+# ============================================================
+
+func _apply_base_effect_to(body):
+
+	if base_data.effect == UnitData.OnHitEffect.NONE:
+		return
+
+	if !body.has_method("apply_on_hit_effect"):
+		return
+
+	body.apply_on_hit_effect(
+		base_data.effect,
+		base_data.effect_strength,
+		base_data.effect_duration,
+		base_data.effect_tick_interval,
+		base_data.knockback_distance,
+		global_position
+	)
+
+
+# ============================================================
+# DANO DA BASE
+# ============================================================
+
+func take_damage(amount):
+	hp = clamp(hp - amount, 0, max_hp)
+
+	$ProgressBar.value = hp
+	_update_label()
+
+	damaged.emit(amount)
+
+	if hp <= 0:
+		die()
+
+
+# ============================================================
+# INTERFACE
+# ============================================================
+
+func _update_label():
+	$HPLabel.text = str(hp) + " / " + str(max_hp)
+
+
+# ============================================================
+# MORTE
+# ============================================================
+
+func die():
+	destroyed.emit(team)
+	queue_free()

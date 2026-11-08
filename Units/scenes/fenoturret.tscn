@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://d2jkbldfxu5dm"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_o54fg"]
+[ext_resource type="Resource" uid="uid://cbt7quhhmr1a6" path="res://Units/Data/fenoturret.tres" id="2_o54fg"]
+[ext_resource type="Texture2D" uid="uid://bvstq53xlf3w2" path="res://Resources/Assets/Units/feno_gun.png" id="3_yh0bp"]
+
+[node name="Unit_Base" instance=ExtResource("1_o54fg")]
+stats = ExtResource("2_o54fg")
+
+[node name="CollisionShape2D" parent="." index="0"]
+position = Vector2(-1, 0.5)
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_yh0bp")
+
+[node name="Area2D" parent="." index="3"]
+scale = Vector2(6.5205684, 5.138206)

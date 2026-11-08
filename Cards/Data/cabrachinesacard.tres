@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://carnihc0x0b2n"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_0ahom"]
+[ext_resource type="Texture2D" uid="uid://bi57y3rrmtp4q" path="res://Resources/Assets/Units/cabrachinesa.png" id="1_e7bj3"]
+[ext_resource type="Resource" uid="uid://dxhc2k42n0k4" path="res://nations/nationsdata/animaisdonorte.tres" id="2_kqsdc"]
+[ext_resource type="PackedScene" uid="uid://bdnwhqbv2d5jk" path="res://Units/scenes/cabrachinesa.tscn" id="3_kqsdc"]
+[ext_resource type="Resource" uid="uid://ceklmxvjd2j60" path="res://Cards/Data/desert_scorpion.tres" id="4_u53n6"]
+
+[resource]
+script = ExtResource("1_0ahom")
+card_name = "Cabra Chinesa"
+cost = 30
+icon = ExtResource("1_e7bj3")
+description = "Com um lança granadas, tudo se resolve!"
+pros = Array[String](["Bom dano em area ", "Velocidade aceitavel"])
+cons = Array[String](["Não ataca aereo", "Pouco HP", "Fraca em confrontos 1x1"])
+unit_scene = ExtResource("3_kqsdc")
+role = 3
+nation_data = ExtResource("2_kqsdc")
+nation_xp_cost = 100
+predecessor_cards = Array[ExtResource("1_0ahom")]([ExtResource("4_u53n6")])
+danger_level = 4
+tier = 2
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

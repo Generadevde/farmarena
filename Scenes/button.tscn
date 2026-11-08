@@ -1,0 +1,29 @@
+[gd_scene load_steps=3 format=3 uid="uid://dkc5c1l2ucjos"]
+
+[ext_resource type="Script" uid="uid://sxpq27ino47s" path="res://Cards/Cards/button.gd" id="1_1cmwl"]
+[ext_resource type="Resource" uid="uid://b5tngjvgv7i22" path="res://Cards/Data/chickencard.tres" id="2_0kpiu"]
+
+[node name="Button" type="Button"]
+offset_right = 8.0
+offset_bottom = 8.0
+script = ExtResource("1_1cmwl")
+card = ExtResource("2_0kpiu")
+
+[node name="Icon" type="TextureRect" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+expand_mode = 3
+
+[node name="Name" type="Label" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 23.0
+theme_override_font_sizes/font_size = 8
+
+[node name="Cost" type="Label" parent="."]
+layout_mode = 0
+offset_top = 22.0
+offset_right = 40.0
+offset_bottom = 45.0
+theme_override_font_sizes/font_size = 8

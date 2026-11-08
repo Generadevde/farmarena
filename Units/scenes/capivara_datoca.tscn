@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://p4whc40ngh3o"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_fgd3u"]
+[ext_resource type="Resource" uid="uid://dm6f8iy1vfex6" path="res://Units/Data/capivaradatocadata.tres" id="2_fgd3u"]
+[ext_resource type="Texture2D" uid="uid://de6gpj2kjvihr" path="res://Resources/Assets/Units/capivara_guerreira.png" id="3_mis4c"]
+
+[node name="Unit_Base" instance=ExtResource("1_fgd3u")]
+stats = ExtResource("2_fgd3u")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_mis4c")

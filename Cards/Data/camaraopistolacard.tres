@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://daa5a0mnkx0x0"]
+
+[ext_resource type="Texture2D" uid="uid://hhfa00bp5r04" path="res://Resources/Assets/Units/camaraopistola.png" id="1_4g5oh"]
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_uj2t7"]
+[ext_resource type="Resource" uid="uid://baht2oq2u4c1o" path="res://nations/nationsdata/Reinodosinsetos.tres" id="2_r0okx"]
+[ext_resource type="Resource" uid="uid://cm51ec50af1g4" path="res://Cards/Data/gafanhotocard.tres" id="4_o8v8a"]
+[ext_resource type="PackedScene" uid="uid://bmshh4tko8evo" path="res://Units/scenes/camaraopistola.tscn" id="5_gmdmk"]
+
+[resource]
+script = ExtResource("1_uj2t7")
+card_name = "Camarão Pistola"
+cost = 45
+icon = ExtResource("1_4g5oh")
+description = "Ele vai te jogar longe!"
+pros = Array[String](["Consegue empurrar unidades", "Boa contra tanks", "Boa no X1"])
+cons = Array[String](["Vida Mediana", "Fraco contra unidades a distancia", "Não efetivo contra bases"])
+unit_scene = ExtResource("5_gmdmk")
+role = 11
+nation_data = ExtResource("2_r0okx")
+nation_xp_cost = 300
+predecessor_cards = Array[ExtResource("1_uj2t7")]([ExtResource("4_o8v8a")])
+tier = 4
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://bm8px743qmrk5"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_r7r4d"]
+[ext_resource type="Texture2D" uid="uid://3n58vq2ilnw5" path="res://Resources/Projectiles/cactus_seeding.png" id="1_y0m6p"]
+
+[resource]
+script = ExtResource("1_r7r4d")
+hp = 400
+damage = 20
+move_speed = 0.0
+attack_speed = 0.4
+attack_range = 220.0
+detection_range = 220.0
+unit_scale = 1.5
+is_ranged = true
+projectile_texture = ExtResource("1_y0m6p")
+projectile_speed = 360.0
+target_type = 2
+unit_type = 2
+duration = 48.0
+aoe_radius = 500.0
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

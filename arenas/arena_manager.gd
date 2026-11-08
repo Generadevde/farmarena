@@ -1,0 +1,167 @@
+extends Node
+
+const SAVE_DIR = "user://profiles/"
+
+# limiar de troféu pra cada arena -- modelo clássico: sua arena depende só
+# do seu PRÓPRIO troféu acumulado, nunca de comparação com quem mais tá
+# jogando. Isso resolve de vez o problema de bot rodando de fundo "roubar
+# vaga" de quem joga pouco -- não existe vaga, existe só o seu progresso
+const ARENAS = [
+	{},  # índice 0 não existe, só de preenchimento
+	{"name": "Arena 1", "emoji": "🌱", "trophy_threshold": 0},
+	{"name": "Arena 2", "emoji": "🐄", "trophy_threshold": 600},
+	{"name": "Arena 3", "emoji": "🚜", "trophy_threshold": 1300},
+	{"name": "Arena 4", "emoji": "🌽", "trophy_threshold": 2100},
+	{"name": "Arena 5", "emoji": "🏭", "trophy_threshold": 3000},
+	{"name": "Arena 6", "emoji": "👑", "trophy_threshold": 4000},
+	{"name": "Arena 7", "emoji": "🏆", "trophy_threshold": 5000},
+]
+const MAX_ARENA = 7
+
+# faixa de troféu ganho/perdido por partida -- continua variando conforme a
+# diferença de troféu entre os dois lados, igual já tínhamos
+const WIN_MIN = 25.0
+const WIN_MAX = 50.0
+const LOSS_MIN = 5.0
+const LOSS_MAX = 20.0
+const REFERENCE_POINT_GAP = 200.0
+
+var trophies: Dictionary = {}  # nome (bot ou jogador) -> troféu acumulado -- NUNCA reseta por temporada
+
+
+func _get_save_path() -> String:
+	return SAVE_DIR + "arenas_%d.save" % PlayerProfile.active_profile_id
+
+
+func load_for_active_profile():
+	trophies = {}
+
+	var path = _get_save_path()
+	if FileAccess.file_exists(path):
+		var file = FileAccess.open(path, FileAccess.READ)
+		var data = JSON.parse_string(file.get_as_text())
+		if data != null:
+			trophies = data.get("trophies", {})
+
+	_sync_player_arena_cache()
+
+
+func _save():
+	DirAccess.make_dir_recursive_absolute(SAVE_DIR)
+	var file = FileAccess.open(_get_save_path(), FileAccess.WRITE)
+	file.store_string(JSON.stringify({"trophies": trophies}))
+
+
+func get_trophies(participant_name: String) -> int:
+	return trophies.get(participant_name, 0)
+
+
+func get_arena_info(index: int) -> Dictionary:
+	return ARENAS[clamp(index, 1, MAX_ARENA)]
+
+
+# calcula a arena a partir do troféu -- nunca é "guardada e movida", é
+# sempre derivada na hora, então nunca fica dessincronizada de nada
+func get_arena_for_trophies(trophy_count: int) -> int:
+	var result = 1
+	for i in range(2, MAX_ARENA + 1):
+		if trophy_count >= ARENAS[i]["trophy_threshold"]:
+			result = i
+	return result
+
+
+func get_participant_arena(participant_name: String) -> int:
+	return get_arena_for_trophies(get_trophies(participant_name))
+
+
+# ouro por vitória escalando por arena -- Arena 1 = 40, sobe 30 a cada arena
+# seguinte (Arena 2 = 70, Arena 3 = 100, ..., Arena 7 = 220). Vale tanto pro
+# jogador quanto pro bot, usando a arena de CADA UM na hora (get_participant_arena)
+# tabela de recompensa por arena -- cada faixa é [mínimo, máximo], sorteado
+# na hora. Só Arena 1 preenchida por enquanto -- arena sem entrada própria
+# cai no fallback da Arena 1 (get() com default), até você definir as outras
+const REWARD_TABLE = {
+	1: {
+		"win_gold": [50, 100], "win_xp": [25, 75],
+		"loss_gold": [25, 40], "loss_xp": [20, 40],
+	},
+}
+
+
+func get_match_reward(arena_index: int, won: bool) -> Dictionary:
+	var table = REWARD_TABLE.get(arena_index, REWARD_TABLE[1])
+	var gold_range = table["win_gold"] if won else table["loss_gold"]
+	var xp_range = table["win_xp"] if won else table["loss_xp"]
+	return {
+		"gold": randi_range(gold_range[0], gold_range[1]),
+		"xp": randi_range(xp_range[0], xp_range[1]),
+	}
+
+
+func get_player_arena() -> int:
+	return get_participant_arena(PlayerProfile.player_name)
+
+
+# lista todo mundo que está NA MESMA arena que esse índice agora mesmo,
+# ordenado por troféu -- calculado na hora, sempre em dia
+func get_arena_ranking(arena_index: int) -> Array:
+	var entries = []
+
+	if get_player_arena() == arena_index:
+		entries.append({
+			"name": PlayerProfile.player_name,
+			"score": get_trophies(PlayerProfile.player_name),
+			"is_player": true,
+		})
+
+	for bot_name in BotSimulator.roster_names:
+		if get_participant_arena(bot_name) == arena_index:
+			entries.append({
+				"name": bot_name,
+				"score": get_trophies(bot_name),
+				"is_player": false,
+			})
+
+	entries.sort_custom(func(a, b): return a["score"] > b["score"])
+	return entries
+
+
+# calcula o troféu ganho/perdido (variável, pela diferença de troféu entre
+# os dois) e já aplica nos dois lados -- chama isso em vez de
+# Leaderboard.record_match() direto, toda vez que o resultado for de arena
+func record_match_points(winner_name: String, loser_name: String):
+	var winner_trophies = get_trophies(winner_name)
+	var loser_trophies = get_trophies(loser_name)
+
+	# positivo = o perdedor tinha MAIS troféu que o vencedor (vitória de zebra)
+	var diff = loser_trophies - winner_trophies
+	var t = (clamp(diff / REFERENCE_POINT_GAP, -1.0, 1.0) + 1.0) / 2.0  # 0.0 a 1.0
+
+	var win_points = lerp(WIN_MIN, WIN_MAX, t)
+	var loss_points = lerp(LOSS_MIN, LOSS_MAX, t)
+
+	trophies[winner_name] = get_trophies(winner_name) + int(round(win_points))
+	trophies[loser_name] = max(get_trophies(loser_name) - int(round(loss_points)), 0)
+
+	print("DEBUG ArenaManager: ", winner_name, " venceu ", loser_name,
+		" -- troféu antes: ", winner_trophies, "/", loser_trophies,
+		" | ganhou +", int(round(win_points)), " | troféu depois: ", trophies[winner_name])
+
+	# o Leaderboard/temporada continuam existindo, só que agora são um
+	# placar PURAMENTE informativo (como foi essa semana) -- não afetam
+	# mais a arena de ninguém, essa parte agora é só o troféu acima
+	Leaderboard.record_match(winner_name, true, loser_name, win_points, -loss_points)
+
+	_sync_player_arena_cache()
+	_save()
+
+
+# mantém PlayerProfile.arena_index/arena_name em dia, em TEMPO REAL, a cada
+# partida -- é só um cache de conveniência pra quem já lê esses campos
+# direto (menu, tela de ranking); a fonte da verdade é sempre o troféu
+func _sync_player_arena_cache():
+	var new_arena = get_player_arena()
+	if PlayerProfile.arena_index != new_arena:
+		PlayerProfile.arena_index = new_arena
+		PlayerProfile.arena_name = get_arena_info(new_arena)["name"]
+		PlayerProfile.save_profile()

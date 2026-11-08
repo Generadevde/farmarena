@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://brx7083lmgi16"]
+
+[ext_resource type="Texture2D" uid="uid://cgaqq0hdl6g8u" path="res://Resources/Assets/Units/snake_test.png" id="1_spdrq"]
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="2_4aox5"]
+[ext_resource type="Resource" uid="uid://dxhc2k42n0k4" path="res://nations/nationsdata/animaisdonorte.tres" id="2_mymet"]
+[ext_resource type="PackedScene" uid="uid://djy7vf7gcxhlg" path="res://Units/scenes/snake.tscn" id="3_4aox5"]
+
+[resource]
+script = ExtResource("2_4aox5")
+card_name = "Snake"
+cost = 25
+icon = ExtResource("1_spdrq")
+description = "Mini, mini cobras!"
+pros = Array[String](["Alto DPM juntas", "Boa para defesa", "Conseguem se espallhar"])
+cons = Array[String](["Fraco contra suportes ", "Facil de se defender", "Fraco contra unidades de dano em area"])
+unit_scene = ExtResource("3_4aox5")
+role = 0
+nation_data = ExtResource("2_mymet")
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

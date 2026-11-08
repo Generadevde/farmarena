@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://83uschh3vdht"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_1w1du"]
+[ext_resource type="Texture2D" uid="uid://osx0cvdlnw6j" path="res://Resources/Assets/Units/caçador.png" id="1_ni5vf"]
+[ext_resource type="Resource" uid="uid://bf7hlyyn4r1ae" path="res://nations/nationsdata/Trabalhadoresrurais.tres" id="2_a67jd"]
+[ext_resource type="PackedScene" uid="uid://b753y0hipl60r" path="res://Units/scenes/caçador.tscn" id="3_fmi4q"]
+[ext_resource type="Resource" uid="uid://blwqs3jfoy6qs" path="res://Cards/Data/estilingueboy.tres" id="4_hv32x"]
+
+[resource]
+script = ExtResource("1_1w1du")
+card_name = "Caçador"
+cost = 35
+icon = ExtResource("1_ni5vf")
+description = "De longe ele te acerta!"
+pros = Array[String](["Alcance longissimo", "Consegue ser bom em defesa e em ataque", "Não pode ser ignorado"])
+cons = Array[String](["Pouco dano", "Pouco Hp"])
+unit_scene = ExtResource("3_fmi4q")
+role = 5
+nation_data = ExtResource("2_a67jd")
+nation_xp_cost = 300
+predecessor_cards = Array[ExtResource("1_1w1du")]([ExtResource("4_hv32x")])
+danger_level = 7
+tier = 3
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

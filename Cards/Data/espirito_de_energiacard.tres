@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://ds8qah8poq6ma"]
+
+[ext_resource type="Texture2D" uid="uid://7rc8hx7u4stp" path="res://Resources/Assets/Units/untitled.png" id="1_htfcr"]
+[ext_resource type="Resource" uid="uid://cit7fjerkjq72" path="res://nations/nationsdata/naturezaleve.tres" id="2_b7s7o"]
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="3_n2b2r"]
+[ext_resource type="Resource" uid="uid://yaiuc2ixyse1" path="res://Cards/Data/raio.tres" id="4_mkont"]
+[ext_resource type="PackedScene" uid="uid://do5ighabfld6y" path="res://Units/scenes/espiritodeenergia.tscn" id="5_b7s7o"]
+
+[resource]
+script = ExtResource("3_n2b2r")
+card_name = "Espirito de Energia"
+cost = 20
+icon = ExtResource("1_htfcr")
+description = "Cuidado com o shock!"
+pros = Array[String](["Bom dano em dupla", "Consegue atrasar bem", "Da reset em unidades"])
+cons = Array[String](["Fraco de HP", "Pouco dano individual", "Facil de ser derrotada"])
+unit_scene = ExtResource("5_b7s7o")
+role = 3
+nation_data = ExtResource("2_b7s7o")
+nation_xp_cost = 150
+predecessor_cards = Array[ExtResource("3_n2b2r")]([ExtResource("4_mkont")])
+danger_level = 5
+tier = 3

@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://pqccuj3e1280"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_uxaeh"]
+[ext_resource type="Resource" uid="uid://dqy6qv35snll4" path="res://Units/Data/nuvemnervorsa.tres" id="2_1d251"]
+[ext_resource type="Texture2D" uid="uid://c0jl2ojpc0tqv" path="res://Resources/Assets/Units/nuvemnervosa.png" id="3_l2eu2"]
+
+[node name="Unit_Base" unique_id=103374558 instance=ExtResource("1_uxaeh")]
+stats = ExtResource("2_1d251")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_l2eu2")

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://dqy6qv35snll4"]
+
+[ext_resource type="Texture2D" uid="uid://b2u6xdo6d03nh" path="res://Resources/Projectiles/raio.png" id="1_enm3x"]
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_n0nkm"]
+
+[resource]
+script = ExtResource("1_n0nkm")
+hp = 620
+damage = 180
+push_weight = 2.0
+move_speed = 45.0
+attack_speed = 4.0
+attack_range = 65.0
+unit_scale = 1.4
+is_ranged = true
+projectile_texture = ExtResource("1_enm3x")
+projectile_max_targets = 5
+projectile_chains = true
+projectile_chain_range = 100.0
+target_type = 2
+unit_type = 1
+on_hit_effect = 7
+mastery_effect = 7
+mastery_effect_duration = 3.0
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

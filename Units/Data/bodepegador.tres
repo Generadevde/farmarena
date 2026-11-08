@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://dvr8vbf2fim3t"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_5r7uh"]
+
+[resource]
+script = ExtResource("1_5r7uh")
+hp = 1560
+damage = 180
+push_weight = 1.5
+attack_speed = 2.0
+attack_range = 40.0
+unit_scale = 1.5
+charge_attack = true
+charge_distance_needed = 120.0
+charge_knockback_distance = 0.0
+pre_attack_speed_boost = true
+pre_attack_boost_multiplier = 2.0
+pre_attack_boost_duration = 1.0
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

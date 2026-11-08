@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://w5dn10nlqp1m"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_kkuec"]
+[ext_resource type="Texture2D" uid="uid://j146v3qccbwn" path="res://Resources/Assets/Units/ovelhatnt.png" id="1_q20of"]
+[ext_resource type="Resource" uid="uid://dxhc2k42n0k4" path="res://nations/nationsdata/animaisdonorte.tres" id="2_ubvla"]
+[ext_resource type="PackedScene" uid="uid://dxkqhkjq3e1hw" path="res://Units/scenes/ovelhatnt.tscn" id="3_ftgvb"]
+[ext_resource type="Resource" uid="uid://ceklmxvjd2j60" path="res://Cards/Data/desert_scorpion.tres" id="4_ltq16"]
+
+[resource]
+script = ExtResource("1_kkuec")
+card_name = "Ovelha Bomba"
+cost = 25
+icon = ExtResource("1_q20of")
+description = "La vem pedradada! Digo bomba!"
+pros = Array[String](["Não pode ser ignorada", "Dano altissimo", "Velocidade boa"])
+cons = Array[String](["Pouco HP", "Fraca contra enxames", "Pode ser derrotada com qualquer construção"])
+unit_scene = ExtResource("3_ftgvb")
+role = 2
+nation_data = ExtResource("2_ubvla")
+nation_xp_cost = 150
+predecessor_cards = Array[ExtResource("1_kkuec")]([ExtResource("4_ltq16")])
+tier = 2
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

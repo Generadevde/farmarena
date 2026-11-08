@@ -1,0 +1,39 @@
+[gd_scene load_steps=5 format=3 uid="uid://b4e3tielq7111"]
+
+[ext_resource type="Script" uid="uid://clcpj5nj2jh41" path="res://Scripts/player_base.gd" id="1_rwrnp"]
+[ext_resource type="Texture2D" uid="uid://brb1ske34cswg" path="res://icon.svg" id="2_rwrnp"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_rwrnp"]
+size = Vector2(15.464486, 17.99604)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_mv22w"]
+size = Vector2(33, 64)
+
+[node name="Player_Base" type="StaticBody2D" groups=["damageable"]]
+script = ExtResource("1_rwrnp")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_rwrnp")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." groups=["damageable"]]
+position = Vector2(-0.49999976, -1.66893e-06)
+scale = Vector2(2.004593, -3.4452024)
+shape = SubResource("RectangleShape2D_rwrnp")
+
+[node name="AttackArea" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackArea"]
+shape = SubResource("RectangleShape2D_mv22w")
+
+[node name="ProgressBar" type="ProgressBar" parent="."]
+offset_left = -16.0
+offset_top = -46.0
+offset_right = -12.0
+offset_bottom = -19.0
+show_percentage = false
+
+[node name="HPLabel" type="Label" parent="."]
+offset_left = -16.0
+offset_top = -46.0
+offset_right = 24.0
+offset_bottom = -23.0

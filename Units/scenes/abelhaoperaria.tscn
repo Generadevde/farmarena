@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://62ikgfceow8o"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_ife58"]
+[ext_resource type="Texture2D" uid="uid://buln0ej3gdcea" path="res://Resources/Assets/Units/abelhaoperaria.png" id="2_8arms"]
+[ext_resource type="Resource" uid="uid://6korh68uwt38" path="res://Units/Data/abelhaoperariadata.tres" id="2_t6u43"]
+
+[node name="Unit_Base" instance=ExtResource("1_ife58")]
+stats = ExtResource("2_t6u43")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("2_8arms")

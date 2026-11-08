@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://714vyr8yhee0"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_q74py"]
+
+[resource]
+script = ExtResource("1_q74py")
+hp = 1650
+damage = 70
+push_weight = 1.9
+move_speed = 35.0
+attack_speed = 2.2
+attack_range = 38.0
+unit_scale = 1.6
+on_hit_effect = 3
+on_hit_effect_duration = 3.0
+immune_to_effect = 3
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

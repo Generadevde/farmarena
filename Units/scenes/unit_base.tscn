@@ -1,0 +1,93 @@
+[gd_scene format=3 uid="uid://dymo4e2xrinn4"]
+
+[ext_resource type="Script" uid="uid://clmg621e8515" path="res://Scripts/unit_base.gd" id="1_2vsbj"]
+[ext_resource type="Texture2D" uid="uid://h7lsqknywy3j" path="res://Resources/Assets/Units/chicken.png" id="1_yagyl"]
+[ext_resource type="Theme" uid="uid://drdqesd4a8gol" path="res://Units/Data/theme_heatlh_bar.tres" id="4_kgawp"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_kgawp"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hcom0"]
+bg_color = Color(0.35686275, 0.22745098, 0.101960786, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.23921569, 0.14117648, 0.0627451, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_kgawp"]
+bg_color = Color(0.29803923, 0.6862745, 0.3137255, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.18039216, 0.49019608, 0.19607843, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_aj46g"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_kgawp"]
+radius = 2.236068
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_60rih"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_er1vh"]
+bg_color = Color(1, 1, 1, 1)
+
+[node name="Unit_Base" type="CharacterBody2D"]
+script = ExtResource("1_2vsbj")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CapsuleShape2D_kgawp")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("1_yagyl")
+
+[node name="ProgressBar" type="ProgressBar" parent="."]
+custom_minimum_size = Vector2(32, 2)
+offset_left = -16.0
+offset_top = -14.0
+offset_right = 16.0
+offset_bottom = -10.0
+theme = ExtResource("4_kgawp")
+theme_override_styles/background = SubResource("StyleBoxFlat_hcom0")
+theme_override_styles/fill = SubResource("StyleBoxFlat_kgawp")
+show_percentage = false
+
+[node name="Area2D" type="Area2D" parent="." groups=["teste"]]
+scale = Vector2(1.2143809, 1.0908961)
+collision_mask = 7
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+shape = SubResource("CircleShape2D_aj46g")
+
+[node name="AttackArea" type="Area2D" parent="."]
+collision_mask = 7
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="AttackArea"]
+shape = SubResource("CircleShape2D_kgawp")
+
+[node name="NavigationAgent2D" type="NavigationAgent2D" parent="."]
+
+[node name="LevelLabel" type="Label" parent="."]
+offset_left = 15.0
+offset_top = -33.0
+offset_right = 25.0
+offset_bottom = -10.0
+
+[node name="DurationBar" type="ProgressBar" parent="."]
+offset_left = -16.0
+offset_top = -18.0
+offset_right = 16.0
+offset_bottom = -14.0
+theme_override_styles/background = SubResource("StyleBoxFlat_60rih")
+theme_override_styles/fill = SubResource("StyleBoxFlat_er1vh")
+show_percentage = false
+
+[connection signal="body_entered" from="Area2D" to="." method="_on_area_2d_body_entered"]

@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://cauqkrbx36m4g"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_l1qoy"]
+[ext_resource type="Resource" uid="uid://bg4psn4e1woip" path="res://Units/Data/lagostaboxeadoradata.tres" id="2_l1qoy"]
+[ext_resource type="Texture2D" uid="uid://d3ky5doc8c6un" path="res://Resources/Assets/Units/lagostaboxeadora.png" id="3_l1qoy"]
+
+[node name="Unit_Base" unique_id=676505959 instance=ExtResource("1_l1qoy")]
+stats = ExtResource("2_l1qoy")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_l1qoy")

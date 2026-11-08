@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=3 uid="uid://6pdrwr60c3v"]
+
+[ext_resource type="Script" uid="uid://brl3yp2x3yvn4" path="res://leaderbord_menu.gd" id="1_pah3l"]
+
+[node name="leaderbord_menu" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_pah3l")
+
+[node name="ScrollContainer" type="ScrollContainer" parent="."]
+custom_minimum_size = Vector2(320, 360)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -160.0
+offset_top = -180.0
+offset_right = 160.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="List" type="VBoxContainer" parent="ScrollContainer"]
+layout_mode = 2
+
+[node name="back_button" type="Button" parent="."]
+layout_mode = 0
+offset_left = 256.0
+offset_top = 696.0
+offset_right = 311.0
+offset_bottom = 727.0
+text = "Voltar"
+
+[connection signal="pressed" from="back_button" to="." method="_on_back_button_pressed"]

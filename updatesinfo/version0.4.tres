@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UpdateData" format=3 uid="uid://du65fu6b0lvwp"]
+
+[ext_resource type="Script" uid="uid://dolr0mg41u1s5" path="res://updatesinfo/update_data.gd" id="1_smg3t"]
+
+[resource]
+script = ExtResource("1_smg3t")
+version = "0.4"
+title = "Balanceamento e afins"
+date = "12-08-2026"
+description = "Finalmente o primeiro de muitos balanceamentos gerais.
+Nações adicionadas
+Info adicionado
+Mechendo na camera
+A alguns bugs
+Paciencia!"
+metadata/_custom_type_script = "uid://dolr0mg41u1s5"

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://bub4gpmb5okiq"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_0hhe0"]
+
+[resource]
+script = ExtResource("1_0hhe0")
+hp = 760
+damage = 20
+push_weight = 1.4
+move_speed = 40.0
+attack_speed = 1.2
+attack_range = 35.0
+initial_stun_duration = 2.5
+can_spawn_anywhere = true
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

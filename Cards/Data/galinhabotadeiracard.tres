@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://p46xv1ftcj01"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_36iey"]
+[ext_resource type="Texture2D" uid="uid://b3s8jicachk24" path="res://Resources/Assets/Units/galinhabotadeira.png" id="1_cas6f"]
+[ext_resource type="Resource" uid="uid://6fgq7nojtd61" path="res://nations/nationsdata/avesselvagens.tres" id="2_my8oy"]
+[ext_resource type="PackedScene" uid="uid://bdvvuitrcm4ww" path="res://Units/scenes/galinhabotadeira.tscn" id="3_my8oy"]
+[ext_resource type="Resource" uid="uid://b5tngjvgv7i22" path="res://Cards/Data/chickencard.tres" id="4_03ccu"]
+
+[resource]
+script = ExtResource("1_36iey")
+card_name = "Galinhas Botadeiras"
+cost = 20
+icon = ExtResource("1_cas6f")
+description = "As 3 amigas voltaram, tacando ovo!"
+pros = Array[String](["Bom dano", "Boa versatibilidade", "Carta Barata"])
+cons = Array[String](["Pouco HP", "Velocidade questionavel", "Fracas contra dano em area"])
+unit_scene = ExtResource("3_my8oy")
+nation_data = ExtResource("2_my8oy")
+nation_xp_cost = 100
+predecessor_cards = Array[ExtResource("1_36iey")]([ExtResource("4_03ccu")])
+danger_level = 4
+tier = 2
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

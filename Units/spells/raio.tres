@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="SpellData" load_steps=3 format=3 uid="uid://d24bjpbl51d4x"]
+
+[ext_resource type="Texture2D" uid="uid://b2u6xdo6d03nh" path="res://Resources/Projectiles/raio.png" id="1_jjeoj"]
+[ext_resource type="Script" uid="uid://bqgk6be5l40en" path="res://Units/spells/SpellData.gd" id="1_k8jy0"]
+
+[resource]
+script = ExtResource("1_k8jy0")
+radius = 40.0
+duration = 1.0
+damage = 70
+status_effect = 5
+ground_effect_texture = ExtResource("1_jjeoj")
+metadata/_custom_type_script = "uid://bqgk6be5l40en"

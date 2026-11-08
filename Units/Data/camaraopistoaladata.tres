@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://dshvnh6uala5c"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_qsdvf"]
+
+[resource]
+script = ExtResource("1_qsdvf")
+hp = 720
+damage = 90
+push_weight = 1.3
+move_speed = 30.0
+attack_speed = 2.8
+attack_range = 42.0
+unit_scale = 1.3
+on_hit_effect = 6
+knockback_distance = 120.0
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

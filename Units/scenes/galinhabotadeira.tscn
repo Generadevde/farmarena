@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://bdvvuitrcm4ww"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_keqx0"]
+[ext_resource type="Resource" uid="uid://ca5en3sqjhnvk" path="res://Units/Data/galinhabotadeira.tres" id="2_0n3a3"]
+[ext_resource type="Texture2D" uid="uid://b3s8jicachk24" path="res://Resources/Assets/Units/galinhabotadeira.png" id="3_0bgwn"]
+
+[node name="Unit_Base" instance=ExtResource("1_keqx0")]
+stats = ExtResource("2_0n3a3")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_0bgwn")

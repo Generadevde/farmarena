@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://b5hwaly7xyg3f"]
+
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_i1vdl"]
+[ext_resource type="Texture2D" uid="uid://bmwrxg3sm8mk6" path="res://Resources/Assets/Units/espeiritodeneve.png" id="1_ww6gw"]
+[ext_resource type="Resource" uid="uid://cit7fjerkjq72" path="res://nations/nationsdata/naturezaleve.tres" id="2_swucp"]
+[ext_resource type="PackedScene" uid="uid://b4yxpxvnsa7w8" path="res://Units/scenes/espiritodeneve.tscn" id="4_kwipg"]
+
+[resource]
+script = ExtResource("1_i1vdl")
+card_name = "Espirito de neve"
+cost = 25
+icon = ExtResource("1_ww6gw")
+description = "Fica frio ai! "
+pros = Array[String](["Consegeu para o inimigo", "Taxa de tiro rapida", "Tem dano em area"])
+cons = Array[String](["Pouco HP", "Dano em area bem pequeno", "Fraco contra dano em area "])
+unit_scene = ExtResource("4_kwipg")
+role = 3
+nation_data = ExtResource("2_swucp")
+danger_level = 4
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

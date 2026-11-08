@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://cnw56nljtk1fs"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_36q42"]
+[ext_resource type="Resource" uid="uid://umt40rcslsgg" path="res://Units/Data/veicurandeiro.tres" id="2_36q42"]
+[ext_resource type="Texture2D" uid="uid://bfyk0w1ph82l8" path="res://Resources/Assets/Units/vei_curandeiro.png" id="3_xnnk6"]
+
+[node name="Unit_Base" unique_id=2054242342 instance=ExtResource("1_36q42")]
+stats = ExtResource("2_36q42")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_xnnk6")

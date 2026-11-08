@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://brb56f6ikn5p1"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_2yc0k"]
+[ext_resource type="Texture2D" uid="uid://ct1yq0clbcf1r" path="res://Resources/Projectiles/stone_axe.png" id="1_25r7n"]
+
+[resource]
+script = ExtResource("1_2yc0k")
+hp = 400
+damage = 110
+push_weight = 1.5
+move_speed = 40.0
+attack_speed = 1.2
+attack_range = 140.0
+detection_range = 150.0
+unit_scale = 0.9
+is_ranged = true
+projectile_texture = ExtResource("1_25r7n")
+projectile_speed = 280.0
+target_type = 2
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"

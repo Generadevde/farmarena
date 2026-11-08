@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="NationData" format=3 uid="uid://dxhc2k42n0k4"]
+
+[ext_resource type="Script" uid="uid://bdul44o48vex8" path="res://nations/nation_data.gd" id="1_boogu"]
+
+[resource]
+script = ExtResource("1_boogu")
+nation_name = "Animais do Norte"
+color = Color(1, 0.31602046, 0.45115387, 1)
+metadata/_custom_type_script = "uid://bdul44o48vex8"

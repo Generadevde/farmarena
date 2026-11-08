@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://cje8dje601g28"]
+
+[ext_resource type="Script" uid="uid://dcft4a7xl2d0r" path="res://updatesinfo/update_database.gd" id="1_706ii"]
+[ext_resource type="Script" uid="uid://dolr0mg41u1s5" path="res://updatesinfo/update_data.gd" id="2_8ix11"]
+[ext_resource type="Resource" uid="uid://du65fu6b0lvwp" path="res://updatesinfo/version0.4.tres" id="3_nvys1"]
+
+[node name="UpdateDatabase" type="Node" unique_id=1094877917]
+script = ExtResource("1_706ii")
+all_updates = Array[ExtResource("2_8ix11")]([ExtResource("3_nvys1")])

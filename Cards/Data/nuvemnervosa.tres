@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="CardData" format=3 uid="uid://dlq441dlfgqjm"]
+
+[ext_resource type="Texture2D" uid="uid://c0jl2ojpc0tqv" path="res://Resources/Assets/Units/nuvemnervosa.png" id="1_foip6"]
+[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="1_qq4g3"]
+[ext_resource type="Resource" uid="uid://cit7fjerkjq72" path="res://nations/nationsdata/naturezaleve.tres" id="2_u0hak"]
+[ext_resource type="PackedScene" uid="uid://pqccuj3e1280" path="res://Units/scenes/nuvemnervosa.tscn" id="3_ieaur"]
+[ext_resource type="Resource" uid="uid://du5cyp47cnrl6" path="res://Cards/Data/cactus.tres" id="4_qsx5v"]
+[ext_resource type="Resource" uid="uid://yaiuc2ixyse1" path="res://Cards/Data/raio.tres" id="5_qsx5v"]
+
+[resource]
+script = ExtResource("1_qq4g3")
+card_name = "Nuvem Nervosa"
+cost = 70
+icon = ExtResource("1_foip6")
+description = "Corre que la bem chuva!"
+pros = Array[String](["Dano alto", "Dano em corrente ", "HP alto"])
+cons = Array[String](["Carta cara", "Taxa de ataque lento "])
+unit_scene = ExtResource("3_ieaur")
+role = 8
+nation_data = ExtResource("2_u0hak")
+nation_xp_cost = 400
+predecessor_cards = Array[ExtResource("1_qq4g3")]([ExtResource("4_qsx5v"), ExtResource("5_qsx5v")])
+danger_level = 6
+tier = 4
+metadata/_custom_type_script = "uid://46ws3cp5xyn7"

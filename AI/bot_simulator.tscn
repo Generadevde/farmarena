@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://djpj8hft25t3c"]
+
+[ext_resource type="Script" uid="uid://btflrl60s87uu" path="res://AI/bot_simulator.gd" id="1_1bvpm"]
+[ext_resource type="Script" uid="uid://dpirx56yxnfd0" path="res://Cards/bases/base_data.gd" id="2_v6rku"]
+[ext_resource type="Resource" uid="uid://b532pklrjt1ql" path="res://Cards/bases/base1teste.tres" id="3_pualr"]
+[ext_resource type="Resource" uid="uid://b01o3smrd4euf" path="res://Cards/bases/base2teste.tres" id="4_wmu8s"]
+
+[node name="BotSimulator" type="Node" unique_id=2147306927]
+script = ExtResource("1_1bvpm")
+roster_names = Array[String](["Matutinho", "Ze do bar", "Lojas Galpão", "Fred e det", "Ribeirnho", "Gauchin", "Caboclo dagua", "Irmandade da Seta", "Oi", "Treinador Will", "Dono do Jogo", "Qual é ", "Senhor Oscar", "Nessi", "Iamel", "Aquele cara la", "Usuario582671", "Os fortes", "Dex", "Anti Op", "Nova Dong", "Pão de Queijo", "Broa de Massa", "Vaca Leiteira", "Trem", "Oiaaa o Trem", "Nova Dex", "Nova Matutinho", "Neskaul", "Oloco", "Raul", "Gilberto", "Renato do Mato", "Clenio Queijerio", "Leoj e Joel", "Material de Construção", "So Joaquin", "Pés limpos", "Caetano", "Coxinhas", "Cia do abraço", "Mecanico ", "Grafites ", "Promoçao!!!", "Pao de queijin", "Nova Dex", "Supremo Ri", "0800", "2012", "040 o que", "Deixa eu vence", "Gabriel", "Lusquomha", "Presunto defumado", "usuario 45", "123456789", "sem noção", "Nova 0800", "Rebeldes", "Raposa", "Amigos", "Bot offline", "Treinador amarelo", "Pia ", "Como é?", "Ganhando", "Joao", "Dev JA", "New kid", "Rita M", "Victoria", "Vidinha", "Cafe com Leite", "Cassorola", "Mimosa", "Rafaela", "Olga", "Gatinho", "Miau Miau", "55555", "Erro 4000", "Tia e Tio", "Oncoto?", "Churrasqueira velha", "sem nome", "zilvio zantos", ":D", "D:", ":-)", "o.O", "Boa sorte! ", "Vem pro pai!", "Ursinho rosa", "Premiun account", "noite escura", "0.0.000.000.000", "Olha ali ", "AFK", "Farm Arena", "Farm Arena 2", "Nova Tia e Tio"])
+available_bases = Array[ExtResource("2_v6rku")]([ExtResource("3_pualr"), ExtResource("4_wmu8s")])

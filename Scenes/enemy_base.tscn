@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3 uid="uid://fnmgssphwvyj"]
+
+[ext_resource type="Script" uid="uid://er8hhoho3yxb" path="res://Scenes/enemy_base.gd" id="1_cs1oe"]
+[ext_resource type="Texture2D" uid="uid://brb1ske34cswg" path="res://icon.svg" id="2_cs1oe"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_cs1oe"]
+size = Vector2(17.302412, 18.750002)
+
+[node name="Enemy_Base" type="StaticBody2D" groups=["damageable"]]
+script = ExtResource("1_cs1oe")
+team = 1
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_cs1oe")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." groups=["damageable"]]
+position = Vector2(-2.3841858e-07, 0.4999988)
+scale = Vector2(1.8494531, 3.3599997)
+shape = SubResource("RectangleShape2D_cs1oe")
+
+[node name="ProgressBar" type="ProgressBar" parent="."]
+offset_left = -15.0
+offset_top = -45.0
+offset_right = -11.0
+offset_bottom = -18.0
+show_percentage = false
+
+[node name="HPLabel" type="Label" parent="."]
+offset_left = -17.0
+offset_top = -41.0
+offset_right = 23.0
+offset_bottom = -18.0

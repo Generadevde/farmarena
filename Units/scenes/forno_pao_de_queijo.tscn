@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://c6vky2vmy2jki"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_13hbr"]
+[ext_resource type="Texture2D" uid="uid://31dlqljbxk5y" path="res://Resources/Assets/Units/forno_pao_de_queijo.png" id="2_hfk3h"]
+[ext_resource type="Resource" uid="uid://bcvw1e440ww23" path="res://Units/Data/forno_de_pao_de_quijodata.tres" id="2_xi14u"]
+
+[node name="Unit_Base" unique_id=864367463 instance=ExtResource("1_13hbr")]
+stats = ExtResource("2_xi14u")
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("2_hfk3h")

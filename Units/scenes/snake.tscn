@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://djy7vf7gcxhlg"]
+
+[ext_resource type="PackedScene" uid="uid://dymo4e2xrinn4" path="res://Units/scenes/unit_base.tscn" id="1_f8okq"]
+[ext_resource type="Resource" uid="uid://c3kllrqshqypp" path="res://Units/Data/snake.tres" id="2_f8okq"]
+[ext_resource type="Texture2D" uid="uid://cgaqq0hdl6g8u" path="res://Resources/Assets/Units/snake_test.png" id="3_nrdp2"]
+
+[node name="Unit_Base" instance=ExtResource("1_f8okq")]
+stats = ExtResource("2_f8okq")
+
+[node name="CollisionShape2D" parent="." index="0"]
+position = Vector2(-1, 0.5)
+
+[node name="Sprite2D" parent="." index="1"]
+texture = ExtResource("3_nrdp2")
+
+[node name="Area2D" parent="." index="3"]
+scale = Vector2(6.5205684, 5.138206)

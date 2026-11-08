@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="UnitData" format=3 uid="uid://cfwm4xygqfl2q"]
+
+[ext_resource type="Script" uid="uid://cxfinkhv1t4mj" path="res://Scripts/UnitData.gd" id="1_8vwmh"]
+[ext_resource type="Texture2D" uid="uid://dsch0lb4mubs5" path="res://Resources/Projectiles/bazoocashels.png" id="1_y5wa8"]
+
+[resource]
+script = ExtResource("1_8vwmh")
+hp = 380
+damage = 40
+push_weight = 1.4
+move_speed = 60.0
+attack_speed = 0.9
+attack_range = 130.0
+detection_range = 140.0
+unit_scale = 1.2
+is_ranged = true
+projectile_texture = ExtResource("1_y5wa8")
+projectile_speed = 250.0
+is_aoe = true
+aoe_radius = 40.0
+metadata/_custom_type_script = "uid://cxfinkhv1t4mj"
