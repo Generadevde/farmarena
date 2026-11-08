@@ -141,7 +141,22 @@ func _melee_test():
 		await get_tree().process_frame
 		for u in get_tree().get_nodes_in_group("units"):
 			u.global_position = eb.global_position.lerp(pb.global_position, 0.12) + Vector2(randf_range(-20, 20), 0)
-		await get_tree().create_timer(9.0).timeout
+		var watch = c.card_name.contains("Cascalho") or c.card_name.contains("Bandido")
+		if watch:
+			for k in 18:
+				await get_tree().create_timer(0.5).timeout
+				for u in get_tree().get_nodes_in_group("units"):
+					if u.team != GameManager.Team.PLAYER:
+						continue
+					var tgt = "nada"
+					if u.target != null and is_instance_valid(u.target):
+						tgt = "base" if u._is_base(u.target) else str(u.target.name)
+					print("FILME ", c.card_name, " t=", k * 0.5, " pos=", u.global_position.round(), " alvo=", tgt,
+						" folga=", (snapped(u._gap_to(u.target), 0.1) if tgt != "nada" else -1.0),
+						" atacando=", u._is_actively_attacking, " recarga=", snapped(u.attack_cooldown, 0.01),
+						" atordoado=", u._is_incapacitated(), " vel=", u.velocity.round(), " base_hp=", eb.hp)
+		else:
+			await get_tree().create_timer(9.0).timeout
 		var dealt = before - eb.hp
 		if dealt > 0:
 			ok_list.append("%s(%d)" % [c.card_name, dealt])
