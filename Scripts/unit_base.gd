@@ -1209,7 +1209,13 @@ func _flash_color(color: Color, duration: float = 0.15):
 
 # cor "de repouso" atual, considerando os status contínuos ativos --
 # congelamento tem prioridade visual sobre veneno, já que imobiliza também
+var _frozen_until: float = -999.0
+const FREEZE_IMMUNITY = 1.0
+
+
 func _get_status_base_color() -> Color:
+	if _frozen_until > GameManager.game_time:
+		return Color(0.45, 0.75, 1.0)  # azul-gelo -- congelada
 	if _is_incapacitated():
 		return Color(0.75, 0.9, 1.0)  # esbranquiçado/pálido -- atordoada (STUN)
 	if speed_multiplier < 1.0:
@@ -1316,7 +1322,16 @@ func apply_on_hit_effect(effect, strength: float, duration: float, tick_interval
 		UnitData.OnHitEffect.WEAKNESS:
 			apply_damage_multiplier(strength, duration)
 		UnitData.OnHitEffect.FREEZE:
-			apply_speed_multiplier(strength, duration)  # lentidão forte, não trava mais o ataque/movimento por completo
+			# congela DE VERDADE: não anda nem ataca pela duração (antes era só
+			# uma lentidão forte e a unidade continuava andando e batendo)
+			# já congelada não prolonga; e depois de descongelar fica
+			# FREEZE_IMMUNITY segundos sem poder ser congelada de novo -- senão
+			# quem congela rápido (Espírito de Neve) travava o alvo pra sempre
+			var now = GameManager.game_time
+			if now < _frozen_until or now < _frozen_until + FREEZE_IMMUNITY:
+				return
+			apply_incapacitate(duration)
+			_frozen_until = now + duration
 		UnitData.OnHitEffect.STUN:
 			apply_incapacitate(duration)
 		UnitData.OnHitEffect.ROOT:

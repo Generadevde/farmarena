@@ -40,6 +40,7 @@ const CARD_FIELDS = [
 	["card_name", "Nome", "text", []],
 	["cost", "Custo (0 a 100, igual a barra de recurso)", "int", [5, 100, 5]],
 	["role", "Categoria", "enum", ROLE_NAMES],
+	["nation_data", "Nação", "nation", []],
 	["danger_level", "Perigo (pra IA)", "int", [1, 10, 1]],
 	["description", "Descrição", "multiline", []],
 ]
@@ -223,6 +224,7 @@ const BASE_FIELDS = [
 	["base_hp", "Vida", "int", [100, 20000, 50]],
 	["base_type", "Função", "enum", ["Canhão", "Produção", "Cura", "Vida extra", "Espaço", "Aura"]],
 	["category", "Categoria", "enum", ["Ofensivo", "Defensivo", "Econômico"]],
+	["nation_data", "Nação", "nation", []],
 	["attack_damage", "Dano do canhão", "int", [0, 2000, 5]],
 	["attack_range", "Alcance do canhão", "float", [20.0, 600.0, 10.0]],
 	["attack_speed", "Tempo entre tiros (s)", "float", [0.1, 10.0, 0.1]],
@@ -415,7 +417,7 @@ static func snapshot(obj: Object, fields: Array) -> Dictionary:
 	var d = {}
 	for f in fields:
 		var v = obj.get(f[0])
-		if f[2] == "scene":
+		if f[2] == "scene" or f[2] == "nation":
 			v = "res:" + (v.resource_path if v is Resource else "")
 		d[f[0]] = v
 	return d
@@ -426,7 +428,7 @@ static func apply_snapshot(obj: Object, data: Dictionary, fields: Array):
 		if !data.has(f[0]):
 			continue
 		var v = data[f[0]]
-		if f[2] == "scene":
+		if f[2] == "scene" or f[2] == "nation":
 			var path = String(v).trim_prefix("res:")
 			obj.set(f[0], load(path) if path != "" and ResourceLoader.exists(path) else null)
 		else:

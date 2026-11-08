@@ -645,7 +645,7 @@ func _field(obj: Object, f: Array):
 	var kind: String = f[2]
 	var opts: Array = f[3]
 	var value = obj.get(prop)
-	if value == null and kind != "text" and kind != "multiline" and kind != "scene":
+	if value == null and kind != "text" and kind != "multiline" and kind != "scene" and kind != "nation":
 		return  # propriedade não existe nesse tipo de recurso
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
@@ -687,6 +687,17 @@ func _field(obj: Object, f: Array):
 		"enum":
 			row.add_child(_field_label(f[1]))
 			row.add_child(_option(opts, int(value), func(i): obj.set(prop, i)))
+		"nation":
+			# nação da carta/base -- "Coringa" = sem nação (só XP livre)
+			row.add_child(_field_label(f[1]))
+			var nations: Array = [null]
+			var nation_names: Array = ["Coringa (sem nação)"]
+			for n in NationDatabase.all_nations:
+				if n != null:
+					nations.append(n)
+					nation_names.append(n.nation_name)
+			var nsel = max(nations.find(value), 0)
+			row.add_child(_option(nation_names, nsel, func(i): obj.set(prop, nations[i])))
 		"scene":
 			# escolhe a unidade entre as cartas de unidade do jogo
 			row.add_child(_field_label(f[1]))

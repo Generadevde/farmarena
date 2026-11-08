@@ -153,6 +153,8 @@ enum OnHitEffect {
 	## Reduz o dano causado pelo alvo por [Duration] segundos. [Strength] é
 	## um MULTIPLICADOR do dano normal (ex: 0.5 = causa metade do dano).
 	WEAKNESS,
+	## CONGELA o alvo por [Duration] segundos: não anda nem ataca (fica azul).
+	## (Texto antigo abaixo, de quando era só lentidão forte:)
 	## Deixa o alvo MUITO mais lento por [Duration] segundos -- funciona
 	## igual SLOW (mesmo mecanismo por baixo), só que pensado pra ser uma
 	## lentidão bem mais forte. [Strength] é o MULTIPLICADOR de velocidade
