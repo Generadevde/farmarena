@@ -2,6 +2,16 @@
 
 Jogo estilo Clash Royale, offline, contra bots. Feito em Godot 4.7 (GDScript).
 
+## 📱 Instalar no celular
+
+Abra este link no celular e instale:
+
+**https://github.com/Generadevde/farmarena/releases/latest/download/farmarena.apk**
+
+- Cada vez que algo é enviado pro GitHub, um APK novo é gerado sozinho em uns 2 minutos, no mesmo link.
+- Pra atualizar, baixe e instale por cima. Seu progresso continua.
+- Na primeira vez, o Android pede pra permitir "instalar apps desconhecidos" pro navegador.
+
 ## Baixar e abrir no PC
 
 ```bash
