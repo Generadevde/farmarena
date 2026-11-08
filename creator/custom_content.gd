@@ -213,6 +213,7 @@ const SPELL_FIELDS = [
 	["heal_amount", "Cura", "int", [0, 2000, 5]],
 	["status_effect", "Efeito", "enum", EFFECT_NAMES],
 	["status_effect_strength", "Força do efeito", "float", [0.0, 500.0, 0.05]],
+	["status_effect_duration", "Duração do efeito em quem é atingido (s) — 0 = automático", "float", [0.0, 30.0, 0.5]],
 	["affects_enemies", "Afeta inimigos", "bool", []],
 	["affects_allies", "Afeta aliados", "bool", []],
 	["base_damage_multiplier", "Dano na base (fração)", "float", [0.0, 2.0, 0.02]],

@@ -28,6 +28,10 @@ class_name SpellData
 # multiplicador de velocidade/dano (SLOW/WEAKNESS -- valor >1 no SLOW vira um
 # "acelera", tipo fúria) ou dano extra (SHOCK)
 @export var status_effect_strength: float = 0.5
+## quanto tempo o efeito (congelar, lentidão, veneno...) dura em quem foi
+## atingido, em segundos. 0 = automático (2s no instantâneo; no feitiço que
+## fica no chão, dura enquanto a unidade está na área + um pouquinho)
+@export var status_effect_duration: float = 0.0
 # distância do empurrão (só usado se status_effect = KNOCKBACK)
 @export var knockback_distance: float = 40.0
 

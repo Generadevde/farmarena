@@ -100,6 +100,7 @@ static func _fill_spell(sp: SpellData, role: int, cost: int, rng: RandomNumberGe
 			sp.status_effect_strength = 0.4
 			sp.duration = rng.randf_range(2.0, 4.0)
 			sp.tick_interval = 0.5
+			sp.status_effect_duration = snapped(rng.randf_range(2.0, 4.0), 0.5)
 		_:
 			sp.damage = int(cu * rng.randf_range(70.0, 100.0))
 			sp.duration = 0.0

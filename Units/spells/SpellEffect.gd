@@ -80,6 +80,8 @@ func _apply_effect(body):
 	# se ele fica na área, usa um pouco mais que o próprio tick (mesmo truque de
 	# antes, evita o efeito "piscar" entre uma reaplicação e outra)
 	var status_duration = spell.tick_interval * 1.5 if spell.duration > 0 else 2.0
+	if spell.status_effect_duration > 0:
+		status_duration = spell.status_effect_duration  # duração escolhida no Criador
 
 	body.apply_on_hit_effect(
 		spell.status_effect,

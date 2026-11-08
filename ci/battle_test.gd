@@ -141,6 +141,17 @@ func _freeze_test():
 	u.apply_on_hit_effect(UnitData.OnHitEffect.FREEZE, 0.2, 2.0, 1.0, 0.0, Vector2.ZERO)  # dentro da imunidade
 	await get_tree().create_timer(0.5).timeout
 	var moved_after = u.global_position.distance_to(p1)
+	# feitiço instantâneo de gelo com duração de efeito 4s
+	await get_tree().create_timer(1.5).timeout  # sai da imunidade
+	var sp = SpellData.new()
+	sp.damage = 0
+	sp.radius = 60.0
+	sp.status_effect = UnitData.OnHitEffect.FREEZE
+	sp.status_effect_duration = 4.0
+	battle.cast_spell(sp, u.global_position, GameManager.Team.ENEMY)
+	var p2 = u.global_position
+	await get_tree().create_timer(3.5).timeout
+	print("RESULTADO feitiço gelo 4s: andou em 3,5s=", snapped(u.global_position.distance_to(p2), 0.1), "px (esperado ~0)")
 	print("RESULTADO congelar: andou congelada=", snapped(moved_frozen, 0.1), "px (esperado ~0) | travada=", frozen_flag,
 		" | depois andou ", snapped(moved_after, 0.1), "px (esperado >0, imunidade)")
 
