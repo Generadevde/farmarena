@@ -20,6 +20,8 @@ var _orig: Dictionary = {}      # pacote original (vai ser salvo)
 var _work: Dictionary = {}      # cópias sendo editadas
 var _image_changed := false
 var _art_rect: TextureRect
+var _proj_rect: TextureRect
+var _proj_changed := false
 var _field_box: VBoxContainer
 
 # filtro da lista de cartas
@@ -283,7 +285,9 @@ func _open_card_form(pack: Dictionary):
 		"stats": pack["stats"].duplicate() if pack["stats"] != null else null,
 		"spell": pack["spell"].duplicate() if pack["spell"] != null else null,
 		"image": pack["image"].duplicate(),
+		"proj_image": pack.get("proj_image", CustomContent.default_projectile_image()).duplicate(),
 	}
+	_proj_changed = false
 	_clear_body()
 
 	_body.add_child(_label("Editando: " + card.card_name, 22))
@@ -304,6 +308,8 @@ func _open_card_form(pack: Dictionary):
 		_section("Unidade")
 		for f in CustomContent.UNIT_FIELDS:
 			_field(_work["stats"], f)
+		_section("Projétil (só vale com \"Ataque à distância\" ligado)")
+		_build_proj_block()
 		_section("Habilidades e efeitos (todas)")
 		_field_box.add_child(_label("Liga a habilidade e ajusta os números logo abaixo dela.", 14))
 		for f in CustomContent.unit_extra_fields():
@@ -335,6 +341,8 @@ func _save_card():
 	if _orig["spell"] != null and _work["spell"] != null:
 		CustomContent.apply_snapshot(_orig["spell"], CustomContent.snapshot(_work["spell"], CustomContent.SPELL_FIELDS), CustomContent.SPELL_FIELDS)
 	_orig["image"] = _work["image"]
+	_orig["proj_image"] = _work["proj_image"]
+	_orig["proj_changed"] = _proj_changed
 	var saved = CustomContent.save_card(_orig, _image_changed)
 	_close_form()
 	_say("✔ \"%s\" salva! Já aparece na coleção e os bots podem usar." % saved.card_name)
@@ -382,7 +390,9 @@ func _open_base_form(pack: Dictionary):
 		CustomContent.remember_original_base(b)
 	_orig = pack
 	_image_changed = pack.get("is_new", false)
-	_work = {"base": b.duplicate(), "image": pack["image"].duplicate()}
+	_work = {"base": b.duplicate(), "image": pack["image"].duplicate(),
+		"proj_image": pack.get("proj_image", CustomContent.default_projectile_image()).duplicate()}
+	_proj_changed = false
 	_clear_body()
 	_body.add_child(_label("Editando: " + b.base_name, 22))
 	_build_art_block(CustomContent.BASE_ART_SIZE, "Arte da base", Vector2(100, 200))
@@ -391,6 +401,8 @@ func _open_base_form(pack: Dictionary):
 	_section("Base")
 	for f in CustomContent.BASE_FIELDS:
 		_field(_work["base"], f)
+	_section("Projétil do canhão")
+	_build_proj_block()
 	_body.add_child(_label("Canhão usa dano/alcance/tempo. Produção usa \"produção extra\". Cura usa cura/raio/intervalo. Espaço usa \"espaço extra\". Aura usa raio + efeito.", 14))
 	_form_buttons(_save_base, CustomContent.is_custom(b), CustomContent.has_override(b),
 		_delete_base.bind(b), _restore_base.bind(b))
@@ -419,6 +431,8 @@ func _save_base():
 	var b: BaseData = _orig["base"]
 	CustomContent.apply_snapshot(b, CustomContent.snapshot(_work["base"], CustomContent.BASE_FIELDS), CustomContent.BASE_FIELDS)
 	_orig["image"] = _work["image"]
+	_orig["proj_image"] = _work["proj_image"]
+	_orig["proj_changed"] = _proj_changed
 	CustomContent.save_base(_orig, _image_changed)
 	_close_form()
 	_say("✔ Base \"%s\" salva! Aparece na Coleção > Bases." % b.base_name)
@@ -556,6 +570,36 @@ func _build_art_block(art_size: Vector2i, title: String, show_size: Vector2):
 		_work["image"] = img
 		_image_changed = true
 		_art_rect.texture = ImageTexture.create_from_image(img)
+	))
+
+
+# desenho do projétil (16x16) -- desenhe apontando pra DIREITA, ele gira
+# sozinho na direção do tiro
+func _build_proj_block():
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	_field_box.add_child(row)
+	var frame = PanelContainer.new()
+	row.add_child(frame)
+	_proj_rect = _icon_rect(ImageTexture.create_from_image(_work["proj_image"]), Vector2(96, 96))
+	frame.add_child(_proj_rect)
+	var col = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	col.add_child(_label("Desenhe apontando pra direita ➡ (16x16)", 15))
+	col.add_child(_button("🎯 Desenhar projétil", func():
+		_open_pixel_editor(_work["proj_image"], "Projétil", func(img: Image):
+			if !is_instance_valid(_proj_rect) or _work.is_empty():
+				return
+			_work["proj_image"] = img
+			_proj_changed = true
+			_proj_rect.texture = ImageTexture.create_from_image(img)
+		)
+	))
+	col.add_child(_button("Bolinha padrão", func():
+		_work["proj_image"] = CustomContent.default_projectile_image()
+		_proj_changed = true
+		_proj_rect.texture = ImageTexture.create_from_image(_work["proj_image"])
 	))
 
 

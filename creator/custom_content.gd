@@ -25,6 +25,7 @@ const UNIT_TEMPLATE = "res://Units/scenes/unit_base.tscn"
 const CARD_ART_SIZE = Vector2i(32, 32)
 const BASE_ART_SIZE = Vector2i(32, 64)
 const ARENA_ART_SIZE = Vector2i(36, 64)  # 9:16, igual a tela
+const PROJ_ART_SIZE = Vector2i(16, 16)  # projétil -- desenhe apontando pra DIREITA (ele gira na direção do tiro)
 
 # ---------------------------------------------------------------- campos
 # lista ÚNICA de campos editáveis -- usada pelo formulário do criador E pra
@@ -337,6 +338,34 @@ static func texture_to_image(tex: Texture2D, size: Vector2i) -> Image:
 	return img
 
 
+func default_projectile_image() -> Image:
+	var img = Image.create_empty(PROJ_ART_SIZE.x, PROJ_ART_SIZE.y, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	for x in PROJ_ART_SIZE.x:
+		for y in PROJ_ART_SIZE.y:
+			var d = Vector2(x - 7.5, y - 7.5).length()
+			if d <= 3.2:
+				img.set_pixel(x, y, Color(1, 0.95, 0.6))
+			elif d <= 4.3:
+				img.set_pixel(x, y, Color("1a1018"))
+	return img
+
+
+# grava a arte do projétil (se foi desenhada) e devolve a textura a usar
+func _store_projectile(pack: Dictionary, art_path: String, current: Texture2D) -> Texture2D:
+	if !pack.get("proj_changed", false) or pack.get("proj_image") == null:
+		return current
+	var tex: ImageTexture = null
+	if current is ImageTexture and current.resource_path == art_path:
+		tex = current
+		tex.set_image(pack["proj_image"])
+		ResourceSaver.save(tex, art_path)
+	else:
+		tex = image_to_texture(pack["proj_image"])
+		_save_texture(tex, art_path)
+	return tex
+
+
 func _make_default_projectile() -> ImageTexture:
 	var img = Image.create_empty(6, 6, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -460,14 +489,18 @@ func make_blank_card(is_spell: bool) -> Dictionary:
 		stats.move_speed = 45.0
 	var img = Image.create_empty(CARD_ART_SIZE.x, CARD_ART_SIZE.y, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	return {"card": card, "stats": stats, "spell": spell, "image": img, "is_new": true}
+	return {"card": card, "stats": stats, "spell": spell, "image": img, "is_new": true,
+		"proj_image": default_projectile_image()}
 
 
 # monta o "pacote de edição" de uma carta existente (original ou criada)
 func open_card_for_edit(card: CardData) -> Dictionary:
 	var stats: UnitData = DeckBuilder.get_unit_stats(card)
 	var img = texture_to_image(card.icon, CARD_ART_SIZE)
-	return {"card": card, "stats": stats, "spell": card.spell_data, "image": img, "is_new": false}
+	var proj_img = default_projectile_image()
+	if stats != null and stats.projectile_texture != null:
+		proj_img = texture_to_image(stats.projectile_texture, PROJ_ART_SIZE)
+	return {"card": card, "stats": stats, "spell": card.spell_data, "image": img, "is_new": false, "proj_image": proj_img}
 
 
 # salva um pacote de edição. Pra carta criada: grava os arquivos. Pra carta
@@ -511,6 +544,7 @@ func _save_custom_card(pack: Dictionary, image_changed: bool) -> CardData:
 	else:
 		var stats: UnitData = pack["stats"]
 		stats.role = card.role
+		stats.projectile_texture = _store_projectile(pack, ART_DIR + id + "_proj.res", stats.projectile_texture)
 		if stats.is_ranged and stats.projectile_texture == null:
 			stats.projectile_texture = default_projectile
 		var stats_path = UNITS_DIR + id + "_stats.tres"
@@ -569,6 +603,10 @@ func _save_card_override(pack: Dictionary, image_changed: bool):
 	entry["card"] = snapshot(card, CARD_FIELDS)
 	if pack["stats"] != null:
 		entry["unit"] = snapshot(pack["stats"], all_unit_fields())
+		if pack.get("proj_changed", false):
+			var proj_path = ART_DIR + "ovp_" + str(abs(hash(path))) + ".res"
+			pack["stats"].projectile_texture = _store_projectile(pack, proj_path, null)
+			entry["proj_art"] = proj_path
 	if pack["spell"] != null:
 		entry["spell"] = snapshot(pack["spell"], SPELL_FIELDS)
 	if image_changed:
@@ -590,6 +628,7 @@ func restore_original_card(card: CardData):
 		var stats = DeckBuilder.get_unit_stats(card)
 		if stats != null and o.has("unit"):
 			apply_snapshot(stats, o["unit"], all_unit_fields())
+			stats.projectile_texture = o.get("proj", stats.projectile_texture)
 		if card.spell_data != null and o.has("spell"):
 			apply_snapshot(card.spell_data, o["spell"], SPELL_FIELDS)
 		if o.has("icon"):
@@ -610,6 +649,7 @@ func remember_original_card(card: CardData):
 	var stats = DeckBuilder.get_unit_stats(card)
 	if stats != null:
 		o["unit"] = snapshot(stats, all_unit_fields())
+		o["proj"] = stats.projectile_texture
 	if card.spell_data != null:
 		o["spell"] = snapshot(card.spell_data, SPELL_FIELDS)
 	_originals[path] = o
@@ -619,7 +659,7 @@ func remember_original_base(base: BaseData):
 	var path = base.resource_path
 	if _originals.has(path) or is_custom(base):
 		return
-	_originals[path] = {"base": snapshot(base, BASE_FIELDS), "icon": base.icon, "texture": base.base_texture}
+	_originals[path] = {"base": snapshot(base, BASE_FIELDS), "icon": base.icon, "texture": base.base_texture, "proj": base.projectile_texture}
 
 
 # ================================================================ bases
@@ -646,12 +686,13 @@ func make_blank_base() -> Dictionary:
 	b.nation_xp_cost = 0
 	var img = Image.create_empty(BASE_ART_SIZE.x, BASE_ART_SIZE.y, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	return {"base": b, "image": img, "is_new": true}
+	return {"base": b, "image": img, "is_new": true, "proj_image": default_projectile_image()}
 
 
 func open_base_for_edit(b: BaseData) -> Dictionary:
 	var tex = b.base_texture if b.base_texture != null else b.icon
-	return {"base": b, "image": texture_to_image(tex, BASE_ART_SIZE), "is_new": false}
+	var proj_img = texture_to_image(b.projectile_texture, PROJ_ART_SIZE) if b.projectile_texture != null else default_projectile_image()
+	return {"base": b, "image": texture_to_image(tex, BASE_ART_SIZE), "is_new": false, "proj_image": proj_img}
 
 
 func save_base(pack: Dictionary, image_changed: bool) -> BaseData:
@@ -667,6 +708,10 @@ func save_base(pack: Dictionary, image_changed: bool) -> BaseData:
 			entry["art"] = art_path
 			b.base_texture = tex
 			b.icon = tex
+		if pack.get("proj_changed", false):
+			var proj_path = ART_DIR + "ovbp_" + str(abs(hash(path))) + ".res"
+			b.projectile_texture = _store_projectile(pack, proj_path, null)
+			entry["proj_art"] = proj_path
 		_overrides["bases"][path] = entry
 		_write_overrides()
 		content_changed.emit()
@@ -683,6 +728,7 @@ func save_base(pack: Dictionary, image_changed: bool) -> BaseData:
 		ResourceSaver.save(tex, art_path)
 	b.base_texture = tex
 	b.icon = tex
+	b.projectile_texture = _store_projectile(pack, ART_DIR + id + "_proj.res", b.projectile_texture)
 	if b.projectile_texture == null:
 		b.projectile_texture = default_projectile
 	var base_path = BASES_DIR + id + ".tres"
@@ -699,6 +745,7 @@ func restore_original_base(b: BaseData):
 		apply_snapshot(b, _originals[path]["base"], BASE_FIELDS)
 		b.icon = _originals[path]["icon"]
 		b.base_texture = _originals[path]["texture"]
+		b.projectile_texture = _originals[path].get("proj", b.projectile_texture)
 	_overrides["bases"].erase(path)
 	_write_overrides()
 	content_changed.emit()
@@ -758,6 +805,9 @@ func _load_overrides():
 				stats.projectile_texture = default_projectile
 		if card.spell_data != null and entry.has("spell"):
 			apply_snapshot(card.spell_data, entry["spell"], SPELL_FIELDS)
+		var proj_art = entry.get("proj_art", "")
+		if stats != null and proj_art != "" and ResourceLoader.exists(proj_art):
+			stats.projectile_texture = load(proj_art)
 		var art = entry.get("art", "")
 		if art != "" and ResourceLoader.exists(art):
 			var tex = load(art)
@@ -773,6 +823,9 @@ func _load_overrides():
 		remember_original_base(b)
 		var entry = _overrides["bases"][path]
 		apply_snapshot(b, entry.get("base", {}), BASE_FIELDS)
+		var bproj = entry.get("proj_art", "")
+		if bproj != "" and ResourceLoader.exists(bproj):
+			b.projectile_texture = load(bproj)
 		var art = entry.get("art", "")
 		if art != "" and ResourceLoader.exists(art):
 			var tex = load(art)
