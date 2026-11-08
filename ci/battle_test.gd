@@ -122,6 +122,7 @@ func _melee_test():
 	var pb = get_tree().get_first_node_in_group("player_base")
 	var ok_list: Array = []
 	var fail_list: Array = []
+	eb.max_hp = 999999  # base "infinita" -- o teste mede dano, não quer acabar a partida
 	for c in CardDatabase.all_cards:
 		if c == null or c.is_spell():
 			continue
@@ -133,6 +134,9 @@ func _melee_test():
 		await get_tree().process_frame
 		eb.hp = eb.max_hp
 		var before = eb.hp
+		if battle.match_over:
+			print("TESTE partida acabou no meio do teste")
+			break
 		battle.spawn_unit(c.unit_scene, GameManager.Team.PLAYER, pb.global_position, c)
 		await get_tree().process_frame
 		for u in get_tree().get_nodes_in_group("units"):
