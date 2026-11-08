@@ -61,6 +61,15 @@ jobs:
       - name: Importar projeto
         run: timeout 900 ./godot --headless --import || true
 
+      - name: Conferir scripts (erros de GDScript)
+        run: |
+          : > script_check.txt
+          find . -name "*.gd" -not -path "./.godot/*" | sort | while read f; do
+            out=$(timeout 60 ./godot --headless --check-only --script "$f" 2>&1 | grep -E "SCRIPT ERROR|Parse Error|ERROR: Failed|at: GDScript" || true)
+            if [ -n "$out" ]; then echo "== $f"; echo "$out"; fi
+          done | tee script_check.txt
+          echo "Arquivos com problema: $(grep -c '^== ' script_check.txt || true)"
+
       - name: Exportar APK
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/android_ci/debug.keystore
