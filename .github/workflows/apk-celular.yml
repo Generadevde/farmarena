@@ -1,0 +1,82 @@
+# Gera o APK do jogo automaticamente a cada push na main e publica em
+# "Releases" com o nome fixo farmarena.apk -- é só abrir no celular:
+# https://github.com/Generadevde/farmarena/releases/latest/download/farmarena.apk
+name: APK pro celular
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: "4.7"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Baixar Godot + templates de exportação
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" godot
+          chmod +x godot
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q templates.tpz
+          mv templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Configurar Android SDK e Java no Godot
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          for f in "editor_settings-4.tres" "editor_settings-${GODOT_VERSION}.tres"; do
+            cat > "$HOME/.config/godot/$f" <<EOS
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          export/android/java_sdk_path = "$JAVA_HOME_17_X64"
+          EOS
+          done
+
+      - name: Número da versão
+        run: |
+          # versionCode sobe sozinho a cada build (preset "Android Celular" é o último do arquivo)
+          python3 - <<'PY'
+          import os, re
+          p = "export_presets.cfg"
+          s = open(p, encoding="utf-8").read()
+          i = s.index('name="Android Celular"')
+          head, tail = s[:i], s[i:]
+          tail = re.sub(r"^version/code=\d+", "version/code=" + os.environ["GITHUB_RUN_NUMBER"], tail, count=1, flags=re.M)
+          open(p, "w", encoding="utf-8").write(head + tail)
+          PY
+
+      - name: Importar projeto
+        run: timeout 900 ./godot --headless --import || true
+
+      - name: Exportar APK
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/android_ci/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          mkdir -p build
+          ./godot --headless --export-debug "Android Celular" build/farmarena.apk
+          ls -lh build/farmarena.apk
+
+      - name: Publicar em Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete celular -y --cleanup-tag || true
+          gh release create celular build/farmarena.apk \
+            --title "Farm Arena - última versão (celular)" \
+            --notes "Build automático do commit ${GITHUB_SHA::7}. No celular, baixe o farmarena.apk e instale (permita 'instalar apps desconhecidos')." \
+            --target "$GITHUB_SHA" --latest
