@@ -250,7 +250,10 @@ static func _load_style():
 		var used: Rect2i = img.get_used_rect()
 		if used.size.x < 8 or used.size.y < 12:
 			continue
-		_donors.append({"img": img, "rect": used})
+		# só arte de UM bicho em pé serve de doadora de peça: grupo (trio,
+		# enxame) ou bicho de lado (comprido) gera monstro quebrado
+		if used.size.y >= used.size.x * 0.85 and _components(img) == 1:
+			_donors.append({"img": img, "rect": used})
 		for y in range(used.position.y, used.end.y):
 			for x in range(used.position.x, used.end.x):
 				var c = img.get_pixel(x, y)
@@ -331,8 +334,64 @@ static func _kitbash(rng: RandomNumberGenerator) -> Image:
 				if c.a < 0.5 or c.s < 0.18 or c.v < 0.18:
 					continue
 				out.set_pixel(x, y, Color.from_hsv(fposmod(c.h + shift, 1.0), clamp(c.s * sat_mul, 0, 1), c.v))
+	_keep_largest(out)
 	_outline(out)
 	return out
+
+
+# quantos "pedaços" separados (de tamanho relevante) a arte tem
+static func _components(img: Image) -> int:
+	var seen: Dictionary = {}
+	var count = 0
+	for y in img.get_height():
+		for x in img.get_width():
+			var p = Vector2i(x, y)
+			if seen.has(p) or img.get_pixelv(p).a < 0.5:
+				continue
+			var size = _flood_size(img, p, seen)
+			if size >= 12:
+				count += 1
+	return count
+
+
+static func _flood_size(img: Image, start: Vector2i, seen: Dictionary) -> int:
+	var stack: Array[Vector2i] = [start]
+	var n = 0
+	var cells: Array = []
+	while !stack.is_empty():
+		var p: Vector2i = stack.pop_back()
+		if seen.has(p) or p.x < 0 or p.y < 0 or p.x >= img.get_width() or p.y >= img.get_height():
+			continue
+		if img.get_pixelv(p).a < 0.5:
+			continue
+		seen[p] = true
+		n += 1
+		cells.append(p)
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			stack.append(p + d)
+	seen["__last"] = cells
+	return n
+
+
+# apaga pedacinhos soltos -- fica só o maior pedaço (o bicho)
+static func _keep_largest(img: Image):
+	var seen: Dictionary = {}
+	var best: Array = []
+	for y in img.get_height():
+		for x in img.get_width():
+			var p = Vector2i(x, y)
+			if seen.has(p) or img.get_pixelv(p).a < 0.5:
+				continue
+			var n = _flood_size(img, p, seen)
+			if n > best.size():
+				best = seen["__last"]
+	var keep: Dictionary = {}
+	for p in best:
+		keep[p] = true
+	for y in img.get_height():
+		for x in img.get_width():
+			if img.get_pixel(x, y).a >= 0.5 and !keep.has(Vector2i(x, y)):
+				img.set_pixel(x, y, Color(0, 0, 0, 0))
 
 
 static func _pick(rng: RandomNumberGenerator, filter: Callable) -> Color:

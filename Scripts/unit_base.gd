@@ -649,33 +649,61 @@ func _get_target_radius(body) -> float:
 	return 20.0
 
 
-# distância do MEU CENTRO até a BORDA do outro -- usa o formato real da
-# colisão (a base é um retângulo alto; antes era tratada como círculo pelo
-# lado menor, e unidade de alcance curto encostava na base sem conseguir bater)
-func _edge_distance(body) -> float:
+# ponto da SUPERFÍCIE de `body` mais perto de `from` -- usa o formato real
+# da colisão: retângulo (base), cápsula (unidade, comprida na vertical) ou
+# círculo. Antes tudo era tratado como círculo pelo lado menor
+func _closest_surface_point(body, from: Vector2) -> Vector2:
 	var col = body.get_node_or_null("CollisionShape2D")
-	if col != null and col.shape is RectangleShape2D:
+	if col != null and col.shape != null:
 		var xf: Transform2D = col.global_transform
-		var local = xf.affine_inverse() * global_position
-		var half = col.shape.size / 2.0
-		var closest = Vector2(clamp(local.x, -half.x, half.x), clamp(local.y, -half.y, half.y))
-		return global_position.distance_to(xf * closest)
-	return max(global_position.distance_to(body.global_position) - _get_target_radius(body), 0.0)
+		var local = xf.affine_inverse() * from
+		var shape = col.shape
+		if shape is RectangleShape2D:
+			var half = shape.size / 2.0
+			return xf * Vector2(clamp(local.x, -half.x, half.x), clamp(local.y, -half.y, half.y))
+		if shape is CapsuleShape2D:
+			var seg = max(shape.height / 2.0 - shape.radius, 0.0)
+			var core = Vector2(0, clamp(local.y, -seg, seg))
+			var dir = local - core
+			var surf = core + (dir.normalized() * shape.radius if dir.length() > 0.001 else Vector2(shape.radius, 0))
+			return xf * surf
+		if shape is CircleShape2D:
+			var d = local.normalized() if local.length() > 0.001 else Vector2.RIGHT
+			return xf * (d * shape.radius)
+	var c = body.global_position
+	var r = _get_target_radius(body)
+	var dd = (from - c)
+	return c + (dd.normalized() * r if dd.length() > 0.001 else Vector2.ZERO)
+
+
+# distância do MEU CENTRO até a borda do outro (usada pelo ataque à distância)
+func _edge_distance(body) -> float:
+	var p = _closest_surface_point(body, global_position)
+	return global_position.distance_to(p)
+
+
+# folga entre a MINHA borda e a borda do outro (usada pelo corpo a corpo):
+# acha o ponto do outro mais perto de mim e mede até a minha superfície
+func _gap_to(body) -> float:
+	var p = _closest_surface_point(body, global_position)
+	var mine = _closest_surface_point(self, p)
+	var to_p = global_position.distance_to(p)
+	var to_mine = global_position.distance_to(mine)
+	return max(to_p - to_mine, 0.0)
 
 
 # regra ÚNICA de alcance pra todo mundo:
 #  - corpo a corpo: alcance = folga entre a MINHA borda e a borda do alvo
-#    (encostou, bate -- não importa o tamanho de ninguém)
+#    (encostou, bate -- não importa o tamanho nem o formato de ninguém)
 #  - à distância: alcance = do meu centro até a borda do alvo
 const MELEE_MIN_REACH = 8.0
 
 func _in_attack_range(body) -> bool:
 	if body == null or !is_instance_valid(body):
 		return false
-	var edge = _edge_distance(body)
 	if stats.is_ranged:
-		return edge <= stats.attack_range
-	return edge - _get_own_target_radius() <= max(stats.attack_range, MELEE_MIN_REACH)
+		return _edge_distance(body) <= stats.attack_range
+	return _gap_to(body) <= max(stats.attack_range, MELEE_MIN_REACH)
 
 
 func _get_own_target_radius() -> float:
@@ -984,7 +1012,7 @@ func find_target():
 
 		var is_base_target = _is_base(body)
 		# visão medida até a BORDA do alvo, igual ao alcance de ataque
-		if _edge_distance(body) - _get_own_target_radius() > max(sight, stats.attack_range):
+		if _gap_to(body) > max(sight, stats.attack_range):
 			continue
 
 		if is_base_target:
