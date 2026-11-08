@@ -692,10 +692,9 @@ func _field(obj: Object, f: Array):
 			row.add_child(_field_label(f[1]))
 			var nations: Array = [null]
 			var nation_names: Array = ["Coringa (sem nação)"]
-			for n in NationDatabase.all_nations:
-				if n != null:
-					nations.append(n)
-					nation_names.append(n.nation_name)
+			for n in CustomContent.all_nations():
+				nations.append(n)
+				nation_names.append(n.nation_name)
 			var nsel = max(nations.find(value), 0)
 			row.add_child(_option(nation_names, nsel, func(i): obj.set(prop, nations[i])))
 		"scene":

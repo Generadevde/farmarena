@@ -119,7 +119,7 @@ func _freeze_test():
 	await get_tree().process_frame
 	await get_tree().process_frame
 	battle.get_node("Timer").stop()
-	print("TESTE nações no Criador: ", NationDatabase.all_nations.map(func(n): return n.nation_name if n else "null"))
+	print("TESTE nações no Criador: ", CustomContent.all_nations().map(func(n): return n.nation_name if n else "null"))
 	var card: CardData = null
 	for c in CardDatabase.all_cards:
 		if c != null and c.card_name == "Chicken":

@@ -766,6 +766,29 @@ func delete_custom_base(b: BaseData):
 	content_changed.emit()
 
 
+# todas as nações que existem no jogo: as cadastradas no NationDatabase +
+# as que as cartas e bases já usam (o banco de nações pode estar vazio)
+func all_nations() -> Array:
+	var out: Array = []
+	var names: Dictionary = {}
+	var pools: Array = [NationDatabase.all_nations]
+	var from_items: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and c.nation_data != null:
+			from_items.append(c.nation_data)
+	for b in all_bases([]):
+		if b != null and b.nation_data != null:
+			from_items.append(b.nation_data)
+	pools.append(from_items)
+	for pool in pools:
+		for n in pool:
+			if n != null and !names.has(n.nation_name):
+				names[n.nation_name] = true
+				out.append(n)
+	out.sort_custom(func(a, b): return a.nation_name < b.nation_name)
+	return out
+
+
 # todas as bases que o jogo conhece (originais da coleção + criadas)
 func all_bases(original_list: Array) -> Array:
 	var out: Array = []
