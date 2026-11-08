@@ -1418,6 +1418,8 @@ func _on_timer_timeout():
 		mistake = min(0.5, mistake + 0.25)
 	var defense = BattleBrain.choose_defense(get_tree(), GameManager.Team.ENEMY, affordable_ignoring_reserve,
 		ai_hand, GameManager.enemy_money, enemy_max_money, spawn_enemy_area, self, mistake)
+	if BattleBrain.debug_log:
+		print("IA turno: $", GameManager.enemy_money, " reserva=", reserve, " mão=", ai_hand.map(func(c): return (c.card_name + ":" + str(c.cost)) if c else "null"), " pagáveis=", affordable.size(), " defesa=", defense.keys())
 	if defense.get("wait", false):
 		return  # segurando dinheiro pra carta certa de defesa
 	if defense.has("card"):
@@ -1573,6 +1575,8 @@ func _pick_ai_lane():
 # válida (antes o dinheiro e a carta eram consumidos ANTES de saber se o
 # feitiço tinha alvo, e às vezes o bot "gastava" sem lançar nada)
 func _ai_play_card(chosen: CardData, target_pos: Vector2):
+	if BattleBrain.debug_log:
+		print("IA tenta: ", chosen.card_name if chosen else "null", " pos=", target_pos, " $", GameManager.enemy_money)
 	if chosen == null or target_pos == Vector2.INF or GameManager.enemy_money < chosen.cost:
 		return
 	GameManager.enemy_money -= chosen.cost

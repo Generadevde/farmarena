@@ -16,6 +16,8 @@ class_name BattleBrain
 #     gera no ponto (soma do custo das unidades atingidas, considerando se
 #     mata ou não), e só é lançado se valer a pena.
 
+static var debug_log := false  # ligado só pelo teste automático do GitHub (ci/)
+
 const MIN_THREAT_PRESSURE = 0.8      # abaixo disso não é ameaça, é unidade perdida
 const SERIOUS_THREAT_PRESSURE = 4.0  # "ataque de verdade" -- vale gastar pesado
 const SPELL_VALUE_RATIO = 0.9        # feitiço só sai se gerar >= 90% do próprio custo em valor

@@ -67,6 +67,13 @@ jobs:
           echo "-----"
           grep -E "CHECK|SCRIPT ERROR|Parse Error|ERROR" check.log | head -100 || true
 
+      - name: Teste de partida (1v1 e 2v2, sem tela)
+        run: |
+          for m in 1v1 2v2; do
+            echo "======== $m"
+            CI_MODE=$m timeout 200 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|IA |JOGADOR|RESULTADO|SCRIPT ERROR|ERROR|at: " | head -150 || true
+          done
+
       - name: Exportar APK
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/android_ci/debug.keystore
