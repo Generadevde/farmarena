@@ -118,7 +118,7 @@ func _ready():
 	add_to_group("damageable")
 
 	if stats.spawn_invulnerability_duration > 0:
-		_spawn_invulnerable_until = Time.get_ticks_msec() / 1000.0 + stats.spawn_invulnerability_duration
+		_spawn_invulnerable_until = GameManager.game_time + stats.spawn_invulnerability_duration
 
 	if stats.initial_stun_duration > 0:
 		apply_incapacitate(stats.initial_stun_duration)
@@ -600,7 +600,7 @@ func _get_nav_direction(target_pos: Vector2) -> Vector2:
 	if dir == Vector2.ZERO:
 		dir = (target_pos - global_position).normalized()
 
-	if _confused_until > Time.get_ticks_msec() / 1000.0:
+	if _confused_until > GameManager.game_time:
 		dir = -dir
 
 	return dir
@@ -1038,7 +1038,7 @@ func find_target():
 func _start_bandit_dash():
 	_has_dashed = true
 	_dash_time_remaining = stats.dash_duration
-	_spawn_invulnerable_until = Time.get_ticks_msec() / 1000.0 + stats.dash_duration
+	_spawn_invulnerable_until = GameManager.game_time + stats.dash_duration
 
 
 func _is_valid_enemy(body) -> bool:
@@ -1048,7 +1048,7 @@ func _is_valid_enemy(body) -> bool:
 	# invulnerabilidade ao nascer -- ninguém consegue mirar nela por um
 	# tempo logo que aparece (diferente do stealth permanente por alcance,
 	# essa é só uma janela de tempo desde que ela nasceu)
-	if "_spawn_invulnerable_until" in body and body._spawn_invulnerable_until > Time.get_ticks_msec() / 1000.0:
+	if "_spawn_invulnerable_until" in body and body._spawn_invulnerable_until > GameManager.game_time:
 		return false
 
 	# invisibilidade: só é um alvo válido se eu estiver perto o bastante
@@ -1132,7 +1132,7 @@ func _on_area_2d_body_exited(body):
 
 func take_damage(amount, _is_shared_damage: bool = false):
 	# invulnerável logo ao nascer -- nem dano de área/feitiço passa nessa janela
-	if _spawn_invulnerable_until > Time.get_ticks_msec() / 1000.0:
+	if _spawn_invulnerable_until > GameManager.game_time:
 		return
 
 	# imune enquanto se movendo -- só fica vulnerável de verdade parada
@@ -1143,7 +1143,7 @@ func take_damage(amount, _is_shared_damage: bool = false):
 		_flash_color(Color(1, 0.35, 0.35))  # flash vermelho rápido de "levou hit"
 
 	# marca de vulnerabilidade: multiplica o dano recebido de QUALQUER fonte
-	if _marked_until > Time.get_ticks_msec() / 1000.0:
+	if _marked_until > GameManager.game_time:
 		amount *= _mark_multiplier
 
 	# redução de dano fixa, antes de qualquer outra coisa
@@ -1151,7 +1151,7 @@ func take_damage(amount, _is_shared_damage: bool = false):
 		amount *= (1.0 - stats.damage_reduction_percent)
 
 	# marca quando foi o último dano levado -- usado pelo escudo recarregável
-	_last_damage_time = Time.get_ticks_msec() / 1000.0
+	_last_damage_time = GameManager.game_time
 
 	# escudo absorve o que sobrar
 	if current_shield > 0:
@@ -1243,36 +1243,36 @@ func apply_damage_multiplier(multiplier: float, duration: float):
 
 
 func _is_incapacitated() -> bool:
-	return _incapacitated_until > Time.get_ticks_msec() / 1000.0
+	return _incapacitated_until > GameManager.game_time
 
 
 func _is_rooted() -> bool:
-	return _rooted_until > Time.get_ticks_msec() / 1000.0
+	return _rooted_until > GameManager.game_time
 
 
 func _is_silenced() -> bool:
-	return _silenced_until > Time.get_ticks_msec() / 1000.0
+	return _silenced_until > GameManager.game_time
 
 
 func apply_silence(duration: float):
-	_silenced_until = max(_silenced_until, Time.get_ticks_msec() / 1000.0 + duration)
+	_silenced_until = max(_silenced_until, GameManager.game_time + duration)
 
 
 func apply_mark(multiplier: float, duration: float):
 	_mark_multiplier = multiplier
-	_marked_until = max(_marked_until, Time.get_ticks_msec() / 1000.0 + duration)
+	_marked_until = max(_marked_until, GameManager.game_time + duration)
 
 
 func apply_incapacitate(duration: float):
-	_incapacitated_until = max(_incapacitated_until, Time.get_ticks_msec() / 1000.0 + duration)
+	_incapacitated_until = max(_incapacitated_until, GameManager.game_time + duration)
 
 
 func apply_root(duration: float):
-	_rooted_until = max(_rooted_until, Time.get_ticks_msec() / 1000.0 + duration)
+	_rooted_until = max(_rooted_until, GameManager.game_time + duration)
 
 
 func apply_confuse(duration: float):
-	_confused_until = max(_confused_until, Time.get_ticks_msec() / 1000.0 + duration)
+	_confused_until = max(_confused_until, GameManager.game_time + duration)
 
 
 func apply_knockback(from_position: Vector2, distance: float):
@@ -1400,7 +1400,7 @@ func _process_regen(delta):
 func _process_shield_recharge():
 	if current_shield >= stats.shield_amount:
 		return
-	var time_since_damage = (Time.get_ticks_msec() / 1000.0) - _last_damage_time
+	var time_since_damage = (GameManager.game_time) - _last_damage_time
 	if time_since_damage >= stats.shield_recharge_time:
 		current_shield = stats.shield_amount
 
