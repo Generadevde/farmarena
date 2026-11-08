@@ -42,6 +42,10 @@ func _ready():
 		await _push_test()
 		get_tree().quit()
 		return
+	if mode == "congelar":
+		await _freeze_test()
+		get_tree().quit()
+		return
 	if mode == "corpo":
 		await _melee_test()
 		get_tree().quit()
@@ -109,6 +113,36 @@ func _art_sheet():
 		sheet.blend_rect(img, Rect2i(0, 0, 128, 128), Vector2i((i % 6) * 136 + 4, (i / 6) * 136 + 4))
 	sheet.save_png("user://arte_gerada.png")
 	print("TESTE arte salva em ", ProjectSettings.globalize_path("user://arte_gerada.png"))
+
+
+func _freeze_test():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	battle.get_node("Timer").stop()
+	print("TESTE nações no Criador: ", NationDatabase.all_nations.map(func(n): return n.nation_name if n else "null"))
+	var card: CardData = null
+	for c in CardDatabase.all_cards:
+		if c != null and c.card_name == "Chicken":
+			card = c
+	var pb = get_tree().get_first_node_in_group("player_base")
+	var eb = get_tree().get_first_node_in_group("enemy_base")
+	battle.spawn_unit(card.unit_scene, GameManager.Team.PLAYER, pb.global_position.lerp(eb.global_position, 0.3), card)
+	await get_tree().create_timer(1.0).timeout  # passa o atordoamento de nascer
+	var u = null
+	for x in get_tree().get_nodes_in_group("units"):
+		u = x
+	var p0 = u.global_position
+	u.apply_on_hit_effect(UnitData.OnHitEffect.FREEZE, 0.2, 2.0, 1.0, 0.0, Vector2.ZERO)
+	await get_tree().create_timer(1.5).timeout
+	var moved_frozen = u.global_position.distance_to(p0)
+	var frozen_flag = u._is_incapacitated()
+	await get_tree().create_timer(1.0).timeout  # já descongelou (2s)
+	var p1 = u.global_position
+	u.apply_on_hit_effect(UnitData.OnHitEffect.FREEZE, 0.2, 2.0, 1.0, 0.0, Vector2.ZERO)  # dentro da imunidade
+	await get_tree().create_timer(0.5).timeout
+	var moved_after = u.global_position.distance_to(p1)
+	print("RESULTADO congelar: andou congelada=", snapped(moved_frozen, 0.1), "px (esperado ~0) | travada=", frozen_flag,
+		" | depois andou ", snapped(moved_after, 0.1), "px (esperado >0, imunidade)")
 
 
 # cada unidade corpo a corpo do jogo, sozinha, na frente da base inimiga:
