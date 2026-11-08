@@ -1807,8 +1807,11 @@ func cast_spell(spell_data: SpellData, position: Vector2, caster_team, source_ca
 	effect.spell = spell_data
 	effect.caster_team = caster_team
 	effect.source_card_path = source_card_path
+	# posiciona ANTES de entrar na cena: o SpellEffect aplica o efeito já no
+	# _ready -- antes ele "explodia" na posição (0,0) e só depois era movido,
+	# então feitiço instantâneo (raio, gelo...) não acertava onde você mirou
+	effect.position = to_local(position)
 	add_child(effect)
-	effect.global_position = position
 
 	if caster_team == GameManager.Team.PLAYER and !is_replay_mode:
 		PlayerProfile.record_mission_spell_used()
