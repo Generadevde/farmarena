@@ -34,9 +34,61 @@ func _ready():
 	Engine.time_scale = 3.0
 	battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(battle)
+	if mode == "empurrao":
+		await _push_test()
+		get_tree().quit()
+		return
 	await get_tree().create_timer(75.0).timeout  # ~75s de jogo (time_scale acelera)
 	_report()
 	get_tree().quit()
+
+
+# vaca (3.8) andando contra uma fileira de galinhas inimigas (0.9) paradas
+func _push_test():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	battle.get_node("Timer").stop()  # bot não joga nesse teste
+	battle.set_process(false)
+	var cow_card: CardData = null
+	var chick_card: CardData = null
+	for c in CardDatabase.all_cards:
+		if c == null or c.is_spell():
+			continue
+		var st = DeckBuilder.get_unit_stats(c)
+		if st == null:
+			continue
+		if c.card_name.to_lower().contains("cow"):
+			cow_card = c
+		if c.card_name.to_lower() == "chicken":
+			chick_card = c
+	print("TESTE empurrão: vaca=", cow_card.card_name, " galinha=", chick_card.card_name)
+	var eb = get_tree().get_first_node_in_group("enemy_base")
+	var pb = get_tree().get_first_node_in_group("player_base")
+	var start = pb.global_position.lerp(eb.global_position, 0.3)
+	battle.spawn_unit(cow_card.unit_scene, GameManager.Team.PLAYER, start, cow_card)
+	await get_tree().process_frame
+	var cow = null
+	for u in get_tree().get_nodes_in_group("units"):
+		if u.team == GameManager.Team.PLAYER:
+			cow = u
+	cow.stats = cow.stats.duplicate()
+	cow.stats.target_type = UnitData.TargetType.BUILDING  # só pra testar o empurrão, sem parar pra brigar
+	var wall_center = start.lerp(eb.global_position, 0.15)
+	for i in 6:
+		var pos = wall_center + Vector2((i - 2.5) * 14.0, 0)
+		var before = get_tree().get_nodes_in_group("units").size()
+		battle.spawn_unit(chick_card.unit_scene, GameManager.Team.ENEMY, pos, chick_card)
+		await get_tree().process_frame
+	for u in get_tree().get_nodes_in_group("units"):
+		if u.team == GameManager.Team.ENEMY:
+			u.apply_incapacitate(60.0)  # galinhas paradas, não atacam
+			u.global_position = wall_center + Vector2(randf_range(-40, 40), randf_range(-6, 6))
+	var d0 = cow.global_position.distance_to(eb.global_position)
+	var wall_d = wall_center.distance_to(eb.global_position)
+	print("TESTE vaca a ", int(d0), "px da base inimiga; muro de galinhas a ", int(wall_d), "px")
+	await get_tree().create_timer(10.0).timeout
+	var d1 = cow.global_position.distance_to(eb.global_position) if is_instance_valid(cow) else -1
+	print("RESULTADO empurrão: vaca andou ", int(d0 - d1), "px em ~10s de jogo; passou do muro? ", d1 < wall_d - 20)
 
 
 func _process(delta):

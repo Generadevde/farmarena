@@ -295,20 +295,17 @@ func _configure_physics_layers():
 	if stats.unit_type == UnitData.UnitType.BUILDING:
 		collision_layer = LAYER_BUILDING
 		collision_mask = 0
+	# unidade x unidade NÃO colide mais fisicamente (nem inimiga) -- a
+	# colisão "dura" do Godot ignora peso: 5 galinhas de 0.9 viravam uma
+	# parede pra vaca de 3.8. Quem resolve o encostão agora é só a
+	# separação por peso (_apply_soft_separation). Parede de verdade só
+	# construção e base
 	elif stats.unit_type == UnitData.UnitType.AIR:
-		if team == GameManager.Team.PLAYER:
-			collision_layer = LAYER_AIR_PLAYER
-			collision_mask = LAYER_AIR_ENEMY | LAYER_BUILDING
-		else:
-			collision_layer = LAYER_AIR_ENEMY
-			collision_mask = LAYER_AIR_PLAYER | LAYER_BUILDING
+		collision_layer = LAYER_AIR_PLAYER if team == GameManager.Team.PLAYER else LAYER_AIR_ENEMY
+		collision_mask = LAYER_BUILDING
 	else:
-		if team == GameManager.Team.PLAYER:
-			collision_layer = LAYER_GROUND_PLAYER
-			collision_mask = LAYER_GROUND_ENEMY | LAYER_BUILDING
-		else:
-			collision_layer = LAYER_GROUND_ENEMY
-			collision_mask = LAYER_GROUND_PLAYER | LAYER_BUILDING
+		collision_layer = LAYER_GROUND_PLAYER if team == GameManager.Team.PLAYER else LAYER_GROUND_ENEMY
+		collision_mask = LAYER_BUILDING
 
 
 # raio de DESVIO -- cresce mais devagar que o raio de colisão de verdade
@@ -449,7 +446,7 @@ func _resolve_weight_collisions():
 # nunca afastar quem está corpo a corpo além do alcance mínimo de contato.
 const SEPARATION_RADIUS_FRACTION = 0.85
 const SEPARATION_STRENGTH = 0.5  # fração da sobreposição resolvida por frame (suaviza, evita tremedeira)
-const SEPARATION_MAX_STEP = 6.0  # px máximos por frame, evita "disparar" pro canto
+const SEPARATION_MAX_STEP = 8.0  # px máximos por frame, evita "disparar" pro canto
 
 func _apply_soft_separation():
 	if stats.unit_type == UnitData.UnitType.BUILDING:
@@ -483,9 +480,12 @@ func _apply_soft_separation():
 
 		var my_share = 1.0
 		if !other_is_building:
+			# peso AO QUADRADO: diferença de peso pesa muito mais. Vaca 3.8 x
+			# galinha 0.9 -> a galinha cede 95%, a vaca só 5% (antes 81%/19%,
+			# e várias galinhas juntas ainda seguravam a vaca)
 			var my_w = max(stats.push_weight, 0.1)
 			var their_w = max(body.stats.push_weight, 0.1)
-			my_share = their_w / (my_w + their_w)
+			my_share = (their_w * their_w) / (my_w * my_w + their_w * their_w)
 
 		push_total += (offset / d) * overlap * my_share * SEPARATION_STRENGTH
 
