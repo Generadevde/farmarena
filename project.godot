@@ -17,7 +17,13 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 config/name="Farm Arena"
 run/main_scene="uid://cnqlbuwi5pw7r"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
+boot_splash/image="res://Resources/branding/splash.png"
+boot_splash/bg_color=Color(0.31, 0.5, 0.18, 1)
+boot_splash/fullsize=true
+boot_splash/stretch_mode=4
+boot_splash/use_filter=false
+boot_splash/show_image=true
 config/quit_on_go_back=false
 
 [autoload]
@@ -48,6 +54,7 @@ CustomContent="*res://creator/custom_content.gd"
 window/size/viewport_width=720
 window/size/viewport_height=1280
 window/stretch/mode="canvas_items"
+window/stretch/aspect="keep_width"
 window/handheld/orientation=1
 
 [global_group]

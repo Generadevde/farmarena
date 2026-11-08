@@ -1232,7 +1232,7 @@ func _apply_opening_signature(chosen: CardData, affordable: Array[CardData]) -> 
 		AIProfile.Archetype.PERFECCIONISTA, AIProfile.Archetype.POUPADOR, AIProfile.Archetype.ACUMULADOR:
 			# segura o início -- só joga se for algo que realmente valha a
 			# pena (carta mais cara), senão prefere não jogar nada ainda
-			if chosen != null and chosen.cost < 4:
+			if chosen != null and chosen.cost < 40:  # custo vai de 0 a 100
 				return null
 
 	return chosen

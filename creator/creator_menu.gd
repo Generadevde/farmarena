@@ -36,7 +36,7 @@ func _ready():
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	var bg = ColorRect.new()
-	bg.color = Color(0.13, 0.11, 0.09)
+	bg.color = Color(0.12, 0.09, 0.05, 0.55)  # deixa o fundo de fazenda aparecer
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 

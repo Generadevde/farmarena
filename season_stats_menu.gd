@@ -20,41 +20,33 @@ func _ready():
 	MusicPlayer.play_menu_music()
 	theme = ThemeBuilder.game_theme
 
-	_display_container = $ScrollContainer/VBoxContainer/TopWinRate
+	var list_root: VBoxContainer = $ScrollContainer/VBoxContainer
+	list_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_root.add_theme_constant_override("separation", 14)
+	# os containers fixos antigos da cena (um por categoria, 320px cada) não
+	# são mais usados -- some com eles
+	for child in list_root.get_children():
+		child.visible = false
+
 	_build_category_data()
-	_build_toggle_header()
-	_show_current_category()
-
-
-# monta a barra de navegação (◀ nome da categoria ▶) logo acima do container
-# que mostra o conteúdo -- mesmo padrão já usado pra trocar de arena/coleção
-func _build_toggle_header():
-	var header = HBoxContainer.new()
-	header.alignment = BoxContainer.ALIGNMENT_CENTER
-	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL  # sem isso, o alinhamento central não faz efeito -- o cabeçalho ficava "encolhido" no canto em vez de esticar a largura toda
-	header.add_theme_constant_override("separation", 16)
-	_display_container.get_parent().add_child(header)
-	_display_container.get_parent().move_child(header, _display_container.get_index())
-
-	var prev_button = Button.new()
-	prev_button.text = "◀"
-	prev_button.pressed.connect(func():
-		_current_category = (_current_category - 1 + _categories.size()) % _categories.size()
+	# TODAS as categorias numa tela só, uma embaixo da outra (antes era uma
+	# por vez trocando na setinha)
+	for i in _categories.size():
+		_current_category = i
+		var panel = PanelContainer.new()
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list_root.add_child(panel)
+		var box = VBoxContainer.new()
+		box.add_theme_constant_override("separation", 6)
+		panel.add_child(box)
+		_category_title_label = Label.new()
+		_category_title_label.add_theme_font_size_override("font_size", 22)
+		_category_title_label.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+		box.add_child(_category_title_label)
+		_display_container = VBoxContainer.new()
+		_display_container.add_theme_constant_override("separation", 6)
+		box.add_child(_display_container)
 		_show_current_category()
-	)
-	header.add_child(prev_button)
-
-	_category_title_label = Label.new()
-	_category_title_label.add_theme_font_size_override("font_size", 20)
-	header.add_child(_category_title_label)
-
-	var next_button = Button.new()
-	next_button.text = "▶"
-	next_button.pressed.connect(func():
-		_current_category = (_current_category + 1) % _categories.size()
-		_show_current_category()
-	)
-	header.add_child(next_button)
 
 
 func _build_category_data():

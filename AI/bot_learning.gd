@@ -121,7 +121,9 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 	profile.archetype = data.get("archetype", AIProfile.Archetype.AGRESSIVO)
 	profile.base_level = data.get("base_level", 1)
 	profile.stubbornness = data.get("stubbornness", 0.5)
-	profile.min_money_reserve = data.get("min_money_reserve", 0)
+	# o traço salvo está na escala antiga (0-6); o recurso vai de 0 a 100,
+	# então multiplica por 10 -- senão um Poupador guardava só 5 de 100
+	profile.min_money_reserve = int(data.get("min_money_reserve", 0)) * 10
 	profile.prefer_expensive = data.get("prefer_expensive", false)
 	profile.reacts_to_threats = data.get("reacts_to_threats", false)
 	profile.decision_interval = data.get("decision_interval", 2.0)
@@ -206,7 +208,7 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 	# e já deixa dinheiro de sobra pronto pra quando ela aparecer
 	var feared_card = _get_most_used_player_card(data.get("player_card_usage", {}))
 	if feared_card != null:
-		profile.min_money_reserve = max(profile.min_money_reserve, feared_card.cost)
+		profile.min_money_reserve = max(profile.min_money_reserve, min(feared_card.cost, 40))  # teto, senão o bot ficava passivo demais
 
 	if needs_save:
 		data["deck_paths"] = _deck_to_paths(profile.deck)

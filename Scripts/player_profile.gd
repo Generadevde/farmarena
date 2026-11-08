@@ -560,7 +560,8 @@ func get_nation_xp(nation_name: String) -> int:
 # novo de missões (as antigas, mesmo não completadas, são substituídas)
 func _check_and_reset_daily_missions():
 	var today = Time.get_date_string_from_system()
-	if daily_missions_date != today:
+	# também regenera se tiver menos de 3 (antes só existia 1 modelo de missão)
+	if daily_missions_date != today or daily_missions.size() < MISSION_COUNT_PER_DAY:
 		daily_missions_date = today
 		_generate_daily_missions()
 		save_profile()
@@ -568,8 +569,57 @@ func _check_and_reset_daily_missions():
 
 const MISSION_COUNT_PER_DAY = 3
 
+# missões sorteadas na hora (quantidade e recompensa aleatórias) -- somam
+# com as que estiverem cadastradas no MissionDatabase
+func _random_mission_templates() -> Array[MissionData]:
+	var out: Array[MissionData] = []
+	var unit_cards = CardDatabase.all_cards.filter(func(c): return c != null and !c.is_spell())
+	var my_cards: Array = []
+	for path in deck_card_paths:
+		if ResourceLoader.exists(path):
+			my_cards.append(load(path))
+	if my_cards.is_empty():
+		my_cards = unit_cards
+	var defs = [
+		[MissionData.MissionType.WIN_BATTLES, "Vença {target} partida(s)", randi_range(1, 3), 70],
+		[MissionData.MissionType.PLAY_CARDS, "Jogue {target} cartas", randi_range(3, 6) * 5, 3],
+		[MissionData.MissionType.PLAY_BATTLES, "Jogue {target} partidas", randi_range(2, 5), 35],
+		[MissionData.MissionType.USE_SPELL, "Use {target} feitiços", randi_range(3, 8), 12],
+		[MissionData.MissionType.DEAL_DAMAGE, "Cause {target} de dano na base inimiga", randi_range(3, 10) * 500, 0.03],
+		[MissionData.MissionType.RECEIVE_DAMAGE, "Aguente {target} de dano na sua base", randi_range(2, 6) * 500, 0.03],
+		[MissionData.MissionType.WIN_STREAK, "Vença {target} seguidas", randi_range(2, 3), 90],
+		[MissionData.MissionType.PLAY_SPECIFIC_CARD, "Jogue {card} {target} vezes", randi_range(3, 6), 15],
+		[MissionData.MissionType.KILL_SPECIFIC_UNIT, "Derrote {target}x a unidade {card}", randi_range(2, 5), 20],
+	]
+	if !nation_xp.is_empty():
+		defs.append([MissionData.MissionType.PLAY_NATION_CARDS, "Jogue {target} cartas da nação {nation}", randi_range(5, 12), 8])
+	for d in defs:
+		var m = MissionData.new()
+		m.type = d[0]
+		m.description_template = d[1]
+		m.target = d[2]
+		if m.type == MissionData.MissionType.PLAY_SPECIFIC_CARD:
+			if my_cards.is_empty():
+				continue
+			m.target_card = my_cards[randi() % my_cards.size()]
+		elif m.type == MissionData.MissionType.KILL_SPECIFIC_UNIT:
+			if unit_cards.is_empty():
+				continue
+			m.target_card = unit_cards[randi() % unit_cards.size()]
+		if m.type == MissionData.MissionType.PLAY_NATION_CARDS:
+			m.reward_type = MissionData.RewardType.NATION_XP
+		else:
+			m.reward_type = MissionData.RewardType.COINS if randf() < 0.6 else MissionData.RewardType.FREE_XP
+		var amount = m.target * d[3]
+		if m.reward_type != MissionData.RewardType.COINS:
+			amount *= 0.6
+		m.reward_amount = int(round(clamp(amount, 30, 400) / 5.0)) * 5
+		out.append(m)
+	return out
+
+
 func _generate_daily_missions():
-	var pool: Array[MissionData] = []
+	var pool: Array[MissionData] = _random_mission_templates()
 	for template in MissionDatabase.all_missions:
 		if template == null:
 			continue
