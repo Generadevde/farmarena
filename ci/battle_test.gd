@@ -19,6 +19,10 @@ func _ready():
 	CustomContent.load_all()
 
 	var mode = OS.get_environment("CI_MODE")
+	if mode == "arte":
+		_art_sheet()
+		get_tree().quit()
+		return
 	var bot_name = BotSimulator.roster_names[0]
 	var prof = BotLearning.get_or_create_profile(bot_name)
 	print("TESTE bot=", bot_name, " deck=", prof.deck.map(func(c): return c.card_name + ":" + str(c.cost)))
@@ -93,6 +97,18 @@ func _push_test():
 	await get_tree().create_timer(10.0).timeout
 	var d1 = cow.global_position.distance_to(eb.global_position) if is_instance_valid(cow) else -1
 	print("RESULTADO empurrão: vaca andou ", int(d0 - d1), "px em ~10s de jogo; passou do muro? ", d1 < wall_d - 20)
+
+
+# folha com 24 artes geradas (6x4), ampliadas 4x, pra conferir o estilo
+func _art_sheet():
+	var sheet = Image.create_empty(6 * 136, 4 * 136, false, Image.FORMAT_RGBA8)
+	sheet.fill(Color("4f7f2f"))
+	for i in 24:
+		var img = CardGenerator.generate_styled_sprite(1000 + i * 7)
+		img.resize(128, 128, Image.INTERPOLATE_NEAREST)
+		sheet.blend_rect(img, Rect2i(0, 0, 128, 128), Vector2i((i % 6) * 136 + 4, (i / 6) * 136 + 4))
+	sheet.save_png("user://arte_gerada.png")
+	print("TESTE arte salva em ", ProjectSettings.globalize_path("user://arte_gerada.png"))
 
 
 # cada unidade corpo a corpo do jogo, sozinha, na frente da base inimiga:

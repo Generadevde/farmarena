@@ -220,6 +220,238 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 
 # ============================================================== sprites
 
+# ============================================================ estilo do jogo
+# As artes das SUAS cartas viram matéria-prima do gerador:
+#  - modo "peças" (2): pega cabeça de uma, corpo de outra e pernas de outra,
+#    alinha pelo centro, troca as cores e refaz o contorno -- sai um
+#    "parente" das cartas que você já tem
+#  - modo "estrutura" (3): monta um bicho do zero no formato das suas artes
+#    (em pé, de frente, cabeça grande, chifre/orelha, olhos, manchas, arma
+#    na mão, contorno preto) usando a PALETA tirada das suas artes
+# Quanto mais carta você desenha no Criador, mais peças e cores ele tem.
+static var _donors: Array = []
+static var _palette: Array = []
+const PART_SPLITS = [0.0, 0.40, 0.70, 1.0]  # cabeça / corpo / pernas (fração da altura)
+
+
+static func reset_style_cache():
+	_donors.clear()
+	_palette.clear()
+
+
+static func _load_style():
+	if !_donors.is_empty():
+		return
+	var counts: Dictionary = {}
+	for card in CardDatabase.all_cards:
+		if card == null or card.icon == null:
+			continue
+		var img: Image = CustomContent.texture_to_image(card.icon, Vector2i(32, 32))
+		var used: Rect2i = img.get_used_rect()
+		if used.size.x < 8 or used.size.y < 12:
+			continue
+		_donors.append({"img": img, "rect": used})
+		for y in range(used.position.y, used.end.y):
+			for x in range(used.position.x, used.end.x):
+				var c = img.get_pixel(x, y)
+				if c.a < 0.5 or c.v < 0.2:
+					continue
+				var key = Color(snapped(c.r, 0.0625), snapped(c.g, 0.0625), snapped(c.b, 0.0625)).to_html(false)
+				counts[key] = counts.get(key, 0) + 1
+	var keys = counts.keys()
+	keys.sort_custom(func(a, b): return counts[a] > counts[b])
+	for k in keys.slice(0, 32):
+		_palette.append(Color(k))
+	if _palette.size() < 6:
+		_palette = [Color("6b3e26"), Color("a0663c"), Color("e8d8a8"), Color("7a7a7a"), Color("b8b8b8"), Color("5a9e3a"), Color("ffffff"), Color("c0392b")]
+
+
+static func generate_styled_sprite(seed_value: int) -> Image:
+	_load_style()
+	var rng = RandomNumberGenerator.new()
+	rng.seed = seed_value
+	# mais peças das suas artes quando tem bastante arte pra misturar
+	if _donors.size() >= 3 and rng.randf() < 0.6:
+		return _kitbash(rng)
+	return _structured(rng)
+
+
+const OUTLINE = Color(0.0, 0.0, 0.0, 1.0)
+
+
+static func _kitbash(rng: RandomNumberGenerator) -> Image:
+	var out = Image.create_empty(32, 32, false, Image.FORMAT_RGBA8)
+	out.fill(Color(0, 0, 0, 0))
+	var pieces: Array = []
+	var total_h = 0
+	var bottom = 31
+	for part in 3:
+		var d = _donors[rng.randi() % _donors.size()]
+		var r: Rect2i = d["rect"]
+		var y0 = r.position.y + int(r.size.y * PART_SPLITS[part])
+		var y1 = r.position.y + int(r.size.y * PART_SPLITS[part + 1])
+		if y1 <= y0:
+			continue
+		# centro de massa da peça (ignora arma/acessório puxando pro lado)
+		var sum_x = 0.0
+		var n = 0
+		for y in range(y0, y1):
+			for x in range(r.position.x, r.end.x):
+				if d["img"].get_pixel(x, y).a > 0.5:
+					sum_x += x
+					n += 1
+		pieces.append({"img": d["img"], "rect": r, "y0": y0, "y1": y1, "cx": (sum_x / max(n, 1))})
+		total_h += y1 - y0
+		if part == 2:
+			bottom = r.end.y - 1
+	# se ficou alto demais, corta linhas do meio do corpo
+	while total_h > 31 and pieces.size() >= 2:
+		pieces[1]["y1"] -= 1
+		total_h -= 1
+	var y_cursor = clamp(bottom + 1 - total_h, 0, 31)
+	for p in pieces:
+		var dx = int(round(16.0 - p["cx"]))
+		for y in range(p["y0"], p["y1"]):
+			for x in range(p["rect"].position.x, p["rect"].end.x):
+				var c = p["img"].get_pixel(x, y)
+				if c.a < 0.5:
+					continue
+				var tx = x + dx
+				var ty = y_cursor + (y - p["y0"])
+				if tx >= 0 and tx < 32 and ty >= 0 and ty < 32:
+					out.set_pixel(tx, ty, c)
+		y_cursor += p["y1"] - p["y0"]
+	# troca de cores (mantém contorno, preto, branco e cinza)
+	if rng.randf() < 0.7:
+		var shift = rng.randf_range(0.08, 0.92)
+		var sat_mul = rng.randf_range(0.8, 1.2)
+		for y in 32:
+			for x in 32:
+				var c = out.get_pixel(x, y)
+				if c.a < 0.5 or c.s < 0.18 or c.v < 0.18:
+					continue
+				out.set_pixel(x, y, Color.from_hsv(fposmod(c.h + shift, 1.0), clamp(c.s * sat_mul, 0, 1), c.v))
+	_outline(out)
+	return out
+
+
+static func _pick(rng: RandomNumberGenerator, filter: Callable) -> Color:
+	var opts = _palette.filter(filter)
+	if opts.is_empty():
+		opts = _palette
+	return opts[rng.randi() % opts.size()]
+
+
+static func _rect(img: Image, x0: int, y0: int, w: int, h: int, c: Color, mirror := true):
+	for y in range(y0, y0 + h):
+		for x in range(x0, x0 + w):
+			if x >= 0 and x < 32 and y >= 0 and y < 32:
+				img.set_pixel(x, y, c)
+				if mirror and 31 - x >= 0:
+					img.set_pixel(31 - x, y, c)
+
+
+static func _structured(rng: RandomNumberGenerator) -> Image:
+	var img = Image.create_empty(32, 32, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	var main = _pick(rng, func(c): return c.s > 0.2 and c.v > 0.25 and c.v < 0.9)
+	var dark = main.darkened(rng.randf_range(0.3, 0.45))
+	var light = _pick(rng, func(c): return c.v > 0.7)
+	var metal = Color(0.6, 0.62, 0.66)
+	var eye = [Color("c0392b"), Color.WHITE, Color("ffec27")][rng.randi() % 3]
+
+	# medidas (metade esquerda; o _rect espelha pra direita)
+	var leg_h = rng.randi_range(4, 6)
+	var body_h = rng.randi_range(7, 10)
+	var head_h = rng.randi_range(7, 9)
+	var body_w = rng.randi_range(5, 7)   # meia largura
+	var head_w = rng.randi_range(4, 6)
+	var feet_y = 30
+	var body_y = feet_y - leg_h - body_h + 1
+	var head_y = body_y - head_h + 1
+
+	# pernas
+	var leg_x = 16 - rng.randi_range(3, 4)
+	_rect(img, leg_x - 1, feet_y - leg_h + 1, 3, leg_h, dark)
+	# corpo (cantos arredondados)
+	_rect(img, 16 - body_w, body_y + 1, body_w, body_h - 1, main)
+	_rect(img, 16 - body_w + 1, body_y, body_w - 1, 1, main)
+	# barriga clara
+	if rng.randf() < 0.6:
+		_rect(img, 16 - body_w + 3, body_y + 3, body_w - 3, body_h - 4, light)
+	# manchas (tipo vaca/boi)
+	for i in rng.randi_range(0, 3):
+		var sx = rng.randi_range(16 - body_w, 14)
+		var sy = rng.randi_range(body_y + 1, body_y + body_h - 3)
+		_rect(img, sx, sy, 2, 2, dark, rng.randf() < 0.3)
+	# braços
+	var arm_y = body_y + 1
+	_rect(img, 16 - body_w - 2, arm_y, 2, body_h - 2, main)
+	# cabeça
+	_rect(img, 16 - head_w, head_y + 1, head_w, head_h - 1, main)
+	_rect(img, 16 - head_w + 1, head_y, head_w - 1, 1, main)
+	# focinho
+	if rng.randf() < 0.7:
+		_rect(img, 16 - 2, head_y + head_h - 3, 2, 2, light)
+		img.set_pixel(15, head_y + head_h - 2, OUTLINE)
+		img.set_pixel(16, head_y + head_h - 2, OUTLINE)
+	# olhos
+	var eye_y = head_y + int(head_h * 0.35)
+	_rect(img, 16 - head_w + 1, eye_y, 1, 2, eye)
+	# chifre ou orelha
+	match rng.randi() % 3:
+		0:  # chifres curvos
+			_rect(img, 16 - head_w - 1, head_y - 1, 2, 1, metal)
+			_rect(img, 16 - head_w - 2, head_y - 3, 1, 3, metal)
+			_rect(img, 16 - head_w - 1, head_y - 4, 1, 1, metal)
+		1:  # orelhas pra cima
+			_rect(img, 16 - head_w, head_y - 2, 2, 2, dark)
+		2:  # orelhas de lado
+			_rect(img, 16 - head_w - 2, head_y + 1, 2, 2, dark)
+	# arma na mão direita (não espelha)
+	var hand_x = 31 - (16 - body_w - 2) + 1
+	var hand_y = arm_y + body_h - 3
+	match rng.randi() % 5:
+		0:  # machado/marreta
+			_rect(img, hand_x, hand_y - 9, 1, 13, Color("3b2614"), false)
+			_rect(img, hand_x - 2, hand_y - 10, 5, 3, metal, false)
+		1:  # forcado
+			_rect(img, hand_x, hand_y - 9, 1, 13, Color("6b3e26"), false)
+			for k in [-1, 1]:
+				_rect(img, hand_x + k * 2, hand_y - 12, 1, 3, metal, false)
+			_rect(img, hand_x - 2, hand_y - 10, 5, 1, metal, false)
+			_rect(img, hand_x, hand_y - 12, 1, 3, metal, false)
+		2:  # porrete
+			_rect(img, hand_x, hand_y - 6, 2, 9, Color("8b5a2b"), false)
+			_rect(img, hand_x - 1, hand_y - 8, 4, 3, Color("6b3e26"), false)
+		3:  # espada/foice
+			_rect(img, hand_x, hand_y - 9, 1, 10, metal, false)
+			_rect(img, hand_x - 1, hand_y, 3, 1, Color("6b3e26"), false)
+		_:
+			pass  # sem arma
+	_outline(img)
+	return img
+
+
+# contorno preto de 1px em volta de tudo (igual às suas artes)
+static func _outline(img: Image):
+	var src = img.duplicate()
+	var w = img.get_width()
+	var h = img.get_height()
+	for y in h:
+		for x in w:
+			if src.get_pixel(x, y).a > 0.5:
+				continue
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				var nx = x + d.x
+				var ny = y + d.y
+				if nx >= 0 and ny >= 0 and nx < w and ny < h:
+					var c = src.get_pixel(nx, ny)
+					if c.a > 0.5 and !(c.r < 0.08 and c.g < 0.08 and c.b < 0.08):
+						img.set_pixel(x, y, OUTLINE)
+						break
+
+
 # gerador de "bichinho" em pixel art: máscara simétrica (meia largura,
 # espelhada), corpo com degradê, contorno escuro e olhinhos. Funciona pra
 # 32x32 (carta), 32x64 (base) e 36x64 (fundo de arena vira um padrão)
@@ -231,6 +463,8 @@ static func generate_sprite(w: int, h: int, seed_value: int) -> Image:
 
 	if h > w * 1.5 and w >= 34:
 		return generate_arena_background(w, h, seed_value)
+	if w == 32 and h == 32:
+		return generate_styled_sprite(seed_value)  # no estilo das suas cartas
 
 	var bw = int(w * 0.62)  # largura do corpo
 	var bh = int(h * 0.62) if h <= w else int(h * 0.8)

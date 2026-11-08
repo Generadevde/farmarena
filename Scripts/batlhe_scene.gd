@@ -900,6 +900,7 @@ func _update_battle_timer(delta):
 	# sobrescrever com o valor base), pra não apagar o bônus de produção da base
 	if !_entered_last_minute and _battle_time_remaining < LAST_MINUTE_THRESHOLD:
 		_entered_last_minute = true
+		MusicPlayer.play_final_music()  # trilha acelerada nos 2 minutos finais
 		$ProductionTimer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
 		$EnemyProductionTimer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
 		for extra_timer in _extra_production_timers:

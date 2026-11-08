@@ -74,6 +74,17 @@ jobs:
             CI_MODE=$m timeout 400 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|IA |JOGADOR|RESULTADO|SCRIPT ERROR|ERROR|at: " | head -150 || true
           done
 
+      - name: Folha de artes geradas
+        run: |
+          CI_MODE=arte timeout 120 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|SCRIPT ERROR|at: " || true
+          mkdir -p ci_out && cp "$HOME/.local/share/godot/app_userdata/Farm Arena/arte_gerada.png" ci_out/ || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arte-gerada
+          path: ci_out/
+          if-no-files-found: ignore
+
       - name: Exportar APK
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/android_ci/debug.keystore

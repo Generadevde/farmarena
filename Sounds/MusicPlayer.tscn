@@ -1,11 +1,19 @@
-[gd_scene load_steps=5 format=3 uid="uid://4lwwa0ti37gk"]
+[gd_scene format=3 uid="uid://4lwwa0ti37gk"]
 
 [ext_resource type="Script" uid="uid://gimwtv1rp0ww" path="res://Sounds/music_player.gd" id="1_hl2ct"]
-[ext_resource type="AudioStream" uid="uid://cbwc87iqwshqu" path="res://Sounds/aberrantrealities-an-ordinary-rarity-529740.mp3" id="2_pw2f6"]
-[ext_resource type="AudioStream" uid="uid://d1jplsuqlretx" path="res://Sounds/aberrantrealities-river-disco-529739.mp3" id="3_sjsdw"]
-[ext_resource type="AudioStream" uid="uid://bnfn1ipyluvdq" path="res://Sounds/rolandomat-epic-battle-song-182915.mp3" id="4_nj16y"]
+[ext_resource type="AudioStream" path="res://Sounds/aberrantrealities-an-ordinary-rarity-529740.mp3" id="m0"]
+[ext_resource type="AudioStream" path="res://Sounds/aberrantrealities-river-disco-529739.mp3" id="m1"]
+[ext_resource type="AudioStream" path="res://Sounds/menu_cafe_na_varanda.ogg" id="m2"]
+[ext_resource type="AudioStream" path="res://Sounds/menu_por_do_sol_no_pasto.ogg" id="m3"]
+[ext_resource type="AudioStream" path="res://Sounds/menu_xote_da_porteira.ogg" id="m4"]
+[ext_resource type="AudioStream" path="res://Sounds/rolandomat-epic-battle-song-182915.mp3" id="m5"]
+[ext_resource type="AudioStream" path="res://Sounds/batalha_baiao_da_briga.ogg" id="m6"]
+[ext_resource type="AudioStream" path="res://Sounds/batalha_estouro_da_boiada.ogg" id="m7"]
+[ext_resource type="AudioStream" path="res://Sounds/batalha_rodeio_bravo.ogg" id="m8"]
+[ext_resource type="AudioStream" path="res://Sounds/final_x2_vaca_louca.ogg" id="m9"]
 
 [node name="Node" type="Node"]
 script = ExtResource("1_hl2ct")
-menu_tracks = Array[AudioStream]([ExtResource("2_pw2f6"), ExtResource("3_sjsdw")])
-battle_tracks = Array[AudioStream]([ExtResource("4_nj16y")])
+menu_tracks = Array[AudioStream]([ExtResource("m0"), ExtResource("m1"), ExtResource("m2"), ExtResource("m3"), ExtResource("m4")])
+battle_tracks = Array[AudioStream]([ExtResource("m5"), ExtResource("m6"), ExtResource("m7"), ExtResource("m8")])
+final_tracks = Array[AudioStream]([ExtResource("m9")])

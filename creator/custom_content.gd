@@ -457,6 +457,7 @@ func _load_custom_cards():
 
 
 func _register_card(card: CardData):
+	CardGenerator.reset_style_cache()  # arte nova vira peça/cor pro gerador
 	if !custom_cards.has(card):
 		custom_cards.append(card)
 	if !CardDatabase.all_cards.has(card):
