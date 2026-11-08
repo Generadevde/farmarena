@@ -20,6 +20,8 @@ const ARCHETYPE_SWITCH_CHANCE = 0.3  # nem toda vez que bate o streak troca -- a
 # --- progressão do bot em si (separado do nível de cada carta) ---
 # quantas cartas ele já conhece de cara, antes de evoluir -- um pouco mais
 # que o tamanho do deck, pra já ter alguma escolha desde o início
+const DECK_STYLE_VERSION = 2  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
+const BONUS_KNOWN_CARDS = 4  # cartas extras de começo, puxadas pelo estilo de cada bot
 const STARTING_KNOWN_CARDS = 9  # exatamente o tamanho do deck -- um "starter" de verdade, sem sobrar variedade extra logo de cara. Era 9 antes
 
 
@@ -152,8 +154,25 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 
 	profile.deck = _load_deck(data.get("deck_paths", []))
 	var known_changed = false
+
+	# DECKS VARIADOS (v2): todo bot ganha um estilo próprio fixo e algumas
+	# cartas extras de começo puxadas por esse estilo, e o deck é remontado
+	# UMA vez com o montador novo -- vale também pros bots que já existiam
+	var style = DeckBuilder.style_for_bot(bot_name, profile.archetype, profile.preferred_role)
+	if int(data.get("deck_style_version", 0)) < DECK_STYLE_VERSION:
+		data["deck_style_version"] = DECK_STYLE_VERSION
+		var bonus = DeckBuilder.bonus_known_cards(style, profile.known_cards, BONUS_KNOWN_CARDS)
+		for card in bonus:
+			if !known_paths.has(card.resource_path):
+				known_paths.append(card.resource_path)
+		data["known_card_paths"] = known_paths
+		profile.known_cards = _load_deck(known_paths)
+		profile.deck = []  # força remontar com o estilo novo logo abaixo
+		data.erase("favorite_card_path")
+		known_changed = true
+
 	if profile.deck.is_empty():
-		profile.deck = _generate_random_deck(profile.preferred_role, profile.known_cards)
+		profile.deck = _generate_random_deck(profile.preferred_role, profile.known_cards, style)
 
 		# se alguma carta entrou no deck via fallback (o bot não conhecia o
 		# suficiente ainda), passa a contar como conhecida dele também
@@ -269,68 +288,37 @@ func _pick_initial_known_cards(preferred_role: int, archetype: int = -1) -> Arra
 # monta um baralho de 7 cartas a partir do que o bot JÁ CONHECE (não do banco
 # inteiro), favorecendo a categoria preferida dele -- tenta encher metade do
 # deck com cartas dessa categoria, e completa o resto com o resto que conhece
-func _generate_random_deck(preferred_role: int, known_cards: Array[CardData]) -> Array[CardData]:
-	var preferred_pool: Array[CardData] = []
-	var rest_pool: Array[CardData] = []
+func _generate_random_deck(preferred_role: int, known_cards: Array[CardData], style: Dictionary = {}) -> Array[CardData]:
+	if style.is_empty():
+		style = {"primary_role": preferred_role, "secondary_role": (preferred_role + 2) % CardData.CardRole.size(), "curve": 1, "spells_wanted": 1, "favorite_nation": ""}
+	var deck = DeckBuilder.build_deck(known_cards, style, DECK_SIZE)
 
-	for card in known_cards:
-		if card == null:
-			continue
-		if card.role == preferred_role:
-			preferred_pool.append(card)
-		else:
-			rest_pool.append(card)
-
-	preferred_pool.shuffle()
-	rest_pool.shuffle()
-
-	var deck: Array[CardData] = []
-	var seen: Dictionary = {}
-	var preferred_target = int(DECK_SIZE / 2.0)
-
-	for card in preferred_pool:
-		if deck.size() >= preferred_target:
-			break
-		if seen.has(card.resource_path):
-			continue
-		seen[card.resource_path] = true
-		deck.append(card)
-
-	for card in rest_pool:
-		if deck.size() >= DECK_SIZE:
-			break
-		if seen.has(card.resource_path):
-			continue
-		seen[card.resource_path] = true
-		deck.append(card)
-
-	# se mesmo assim não fechou 7 (o bot não conhece cartas suficientes
-	# ainda), primeiro tenta REPETIR carta que ele já conhece -- nunca
-	# "vaza" carta que ele não desbloqueou de verdade só pra completar o
-	# deck. Só recorre ao banco inteiro se nem repetindo der pra fechar (só
-	# aconteceria com um banco de cartas bem pequeno, bem no começo do jogo)
+	# se não fechou 7 (o bot conhece pouca carta), repete carta conhecida
+	# antes de vazar pro banco inteiro -- mesmo comportamento de antes
 	if deck.size() < DECK_SIZE and !known_cards.is_empty():
 		var known_shuffled = known_cards.duplicate()
 		known_shuffled.shuffle()
 		var i = 0
 		while deck.size() < DECK_SIZE and i < known_shuffled.size() * 3:
-			var card = known_shuffled[i % known_shuffled.size()]
-			if card != null:
-				deck.append(card)
+			if known_shuffled[i % known_shuffled.size()] != null:
+				deck.append(known_shuffled[i % known_shuffled.size()])
 			i += 1
-
 	if deck.size() < DECK_SIZE:
 		var fallback_pool = CardDatabase.all_cards.duplicate()
 		fallback_pool.shuffle()
 		for card in fallback_pool:
 			if deck.size() >= DECK_SIZE:
 				break
-			if card == null or seen.has(card.resource_path):
-				continue
-			seen[card.resource_path] = true
-			deck.append(card)
-
+			if card != null and !deck.has(card):
+				deck.append(card)
 	return deck
+
+
+# estilo de deck de um bot, pra mostrar no popup do ranking
+func get_deck_style_text(bot_name: String) -> String:
+	var data = _load_raw(bot_name)
+	var style = DeckBuilder.style_for_bot(bot_name, data.get("archetype", 0), data.get("preferred_role", CardData.CardRole.VERSATIL))
+	return DeckBuilder.describe_style(style)
 
 
 func _load_deck(paths: Array) -> Array[CardData]:
@@ -1009,7 +997,9 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 	# o bot já conhece (não do banco inteiro -- só do que ele desbloqueou)
 	var known_cards = _load_deck(data.get("known_card_paths", []))
 	var stubbornness = data.get("stubbornness", 0.5)
+	_current_style = DeckBuilder.style_for_bot(bot_name, data.get("archetype", 0), data.get("preferred_role", CardData.CardRole.VERSATIL))
 	data["deck_paths"] = _evolve_deck(deck_paths, card_stats, data.get("card_levels", {}), known_cards, stubbornness)
+	_current_style = {}
 
 	_save_raw(bot_name, data)
 
@@ -1147,35 +1137,15 @@ func _evolve_deck(deck_paths: Array, card_stats: Dictionary, card_levels: Dictio
 # sorteio uniforme puro). É isso que faz uma "meta" emergir de verdade:
 # bots insatisfeitos migram pro que está funcionando pra todo mundo, não
 # só pro que calha de ser sorteado
+var _current_style: Dictionary = {}  # estilo do bot sendo evoluído agora (setado em record_result)
+
+
 func _pick_replacement_card(current_deck_paths: Array, known_cards: Array[CardData]) -> CardData:
-	var candidates: Array[CardData] = []
-	for card in known_cards:
-		if card != null and !current_deck_paths.has(card.resource_path):
-			candidates.append(card)
-
-	if candidates.is_empty():
-		return null
-
-	# monta um peso por candidata: taxa de vitória da temporada (se já tiver
-	# dado confiável), com um piso neutro pra quem ainda não tem histórico
-	var weights: Array[float] = []
-	var total_weight = 0.0
-	var trending = _get_trending_win_rates()
-
-	for card in candidates:
-		var rate = trending.get(card.resource_path, 0.5)  # 0.5 = neutro, sem dado ainda
-		var weight = 0.2 + rate  # nunca zera de vez, só inclina
-		weights.append(weight)
-		total_weight += weight
-
-	var roll = randf() * total_weight
-	var cumulative = 0.0
-	for i in candidates.size():
-		cumulative += weights[i]
-		if roll <= cumulative:
-			return candidates[i]
-
-	return candidates[-1]
+	var current_deck: Array = _load_deck(current_deck_paths)
+	var style = _current_style
+	if style.is_empty():
+		style = {"primary_role": CardData.CardRole.VERSATIL, "secondary_role": CardData.CardRole.TANQUE, "curve": 1, "spells_wanted": 1, "favorite_nation": ""}
+	return DeckBuilder.pick_replacement(current_deck, known_cards, style, _get_trending_win_rates())
 
 
 # taxa de vitória de cada carta na temporada atual, só pra quem já tem dado

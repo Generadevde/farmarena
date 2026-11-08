@@ -39,15 +39,14 @@ func _show_continue_screen(profile: Dictionary):
 	$VBoxContainer/ContinueButton.visible = true
 	$VBoxContainer/SwitchProfileButton.visible = true
 
+	# desconecta a conexão anterior -- antes, cada vez que voltava pra essa
+	# tela (botão Voltar) o pressed ganhava MAIS uma conexão, e um toque
+	# carregava o perfil 2, 3 vezes seguidas
+	for c in $VBoxContainer/ContinueButton.pressed.get_connections():
+		$VBoxContainer/ContinueButton.pressed.disconnect(c["callable"])
 	$VBoxContainer/ContinueButton.pressed.connect(func():
 		PlayerProfile.load_profile_by_id(profile["id"])
-		PlayerBehaviorProfiler.load_for_active_profile()
-		Leaderboard.load_for_active_profile()
-		SeasonStats.load_for_active_profile()
-		SeasonManager.load_for_active_profile()
-		PollManager.load_for_active_profile()
-		ArenaManager.load_for_active_profile()
-		get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+		_finish_entering_profile()
 	)
 
 
@@ -78,13 +77,7 @@ func _show_profile_list(profiles: Array):
 		select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		select_button.pressed.connect(func():
 			PlayerProfile.load_profile_by_id(captured_profile["id"])
-			PlayerBehaviorProfiler.load_for_active_profile()
-			Leaderboard.load_for_active_profile()
-			SeasonStats.load_for_active_profile()
-			SeasonManager.load_for_active_profile()
-			PollManager.load_for_active_profile()
-			ArenaManager.load_for_active_profile()
-			get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+			_finish_entering_profile()
 		)
 		row.add_child(select_button)
 
@@ -193,10 +186,21 @@ func _on_create_button_pressed():
 		return  # não deixa criar com nome vazio
 	$CreateButton.disabled = true
 	PlayerProfile.create_new_profile(typed_name)
+	_finish_entering_profile()
+
+
+# carrega TUDO que depende do perfil ativo, na ordem certa, e só DEPOIS roda
+# a simulação de "tempo que o jogo ficou fechado" dos bots -- antes ela rodava
+# no _ready do BotSimulator, ANTES de qualquer perfil existir, gravando no
+# perfil errado (e o load logo depois apagava). Era por isso que no celular
+# (app fecha/abre toda hora) o ranking parecia parado
+func _finish_entering_profile():
 	PlayerBehaviorProfiler.load_for_active_profile()
 	Leaderboard.load_for_active_profile()
 	SeasonStats.load_for_active_profile()
 	SeasonManager.load_for_active_profile()
 	PollManager.load_for_active_profile()
 	ArenaManager.load_for_active_profile()
+	CustomContent.load_all()
+	BotSimulator.on_profile_loaded()
 	get_tree().change_scene_to_file(MAIN_MENU_SCENE)

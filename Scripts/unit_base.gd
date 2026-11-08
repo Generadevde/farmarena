@@ -102,6 +102,7 @@ func _ready():
 		$CollisionShape2D.disabled = true
 		return
 
+	add_to_group("units")  # usado pela separação macia (_apply_soft_separation)
 	current_hp = stats.hp
 	$ProgressBar.max_value = stats.hp
 	$ProgressBar.value = current_hp
@@ -366,6 +367,7 @@ func _on_velocity_computed(safe_velocity: Vector2):
 	velocity = safe_velocity
 	move_and_slide()
 	_resolve_weight_collisions()
+	_apply_soft_separation()
 
 	if stats.charge_attack:
 		_charge_distance_accumulated += get_position_delta().length()
@@ -427,6 +429,62 @@ func _resolve_weight_collisions():
 			var push_factor = clamp(weight_ratio - 1.0, 0.0, 1.0)
 			var push_dir = -collision.get_normal()  # normal aponta de volta pra mim -- inverto pra apontar pro outro lado
 			collider.global_position += push_dir * push_factor * 1.5
+
+
+# SEPARAÇÃO MACIA (estilo Clash Royale) -- resolve a "mistureba".
+# Unidades do mesmo time não colidem fisicamente (camadas separadas por time,
+# pra não travar em aglomeração), e o desvio RVO desliga durante combate --
+# então aliados acabavam um em cima do outro. Aqui cada unidade, todo frame,
+# se afasta de quem estiver SOBREPOSTO a ela (aliado OU inimigo), só o
+# suficiente pra desfazer a sobreposição. Cada um move só a SI MESMO, e a
+# fatia que cada um cede depende do peso: o mais pesado cede pouco, o leve
+# cede muito -- então o tanque "abre caminho" naturalmente.
+# Usa um raio um pouco menor que o real (SEPARATION_RADIUS_FRACTION) pra
+# nunca afastar quem está corpo a corpo além do alcance mínimo de contato.
+const SEPARATION_RADIUS_FRACTION = 0.85
+const SEPARATION_STRENGTH = 0.5  # fração da sobreposição resolvida por frame (suaviza, evita tremedeira)
+const SEPARATION_MAX_STEP = 6.0  # px máximos por frame, evita "disparar" pro canto
+
+func _apply_soft_separation():
+	if stats.unit_type == UnitData.UnitType.BUILDING:
+		return
+	var my_is_air = stats.unit_type == UnitData.UnitType.AIR
+	var my_r = _get_own_target_radius() * SEPARATION_RADIUS_FRACTION
+	var push_total = Vector2.ZERO
+
+	for body in get_tree().get_nodes_in_group("units"):
+		if body == self or !is_instance_valid(body) or body.stats == null:
+			continue
+		var other_is_building = body.stats.unit_type == UnitData.UnitType.BUILDING
+		var other_is_air = body.stats.unit_type == UnitData.UnitType.AIR
+		# aérea só separa de aérea, terrestre de terrestre (+ construção)
+		if !other_is_building and other_is_air != my_is_air:
+			continue
+		if other_is_building and my_is_air:
+			continue
+
+		var offset = global_position - body.global_position
+		var min_d = my_r + body._get_own_target_radius() * SEPARATION_RADIUS_FRACTION
+		var d = offset.length()
+		if d >= min_d:
+			continue
+		if d < 0.01:
+			# perfeitamente sobrepostos -- direção estável (baseada no id), nunca aleatória por frame
+			var angle = float(get_instance_id() % 628) / 100.0
+			offset = Vector2.RIGHT.rotated(angle)
+			d = 0.01
+		var overlap = min_d - d
+
+		var my_share = 1.0
+		if !other_is_building:
+			var my_w = max(stats.push_weight, 0.1)
+			var their_w = max(body.stats.push_weight, 0.1)
+			my_share = their_w / (my_w + their_w)
+
+		push_total += (offset / d) * overlap * my_share * SEPARATION_STRENGTH
+
+	if push_total != Vector2.ZERO:
+		global_position += push_total.limit_length(SEPARATION_MAX_STEP)
 
 
 # ---------- MOVIMENTO ----------

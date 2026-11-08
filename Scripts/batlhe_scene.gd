@@ -203,8 +203,9 @@ const PRODUCTION_AMOUNT_PER_TICK = 1
 # timer de batalha -- 5 minutos, com boost de produção e agressividade da
 # IA no último minuto. Se zerar sem ninguém destruir a base do outro, empata
 const BATTLE_DURATION = 300.0
-const LAST_MINUTE_THRESHOLD = 60.0
-const LAST_MINUTE_PRODUCTION_MULT = 1.5
+# recurso x2 nos 2 minutos finais (a partir de 1:59) -- antes era 1.5x no 0:59
+const LAST_MINUTE_THRESHOLD = 120.0
+const LAST_MINUTE_PRODUCTION_MULT = 2.0
 
 var _battle_time_remaining: float = BATTLE_DURATION
 var _entered_last_minute: bool = false
@@ -256,6 +257,7 @@ func _ready():
 			ai_profile.min_money_reserve = 0
 			_is_nemesis_match = true
 		_start_ai_hand()
+		_pick_ai_lane()
 		_show_opening_greeting()
 
 	_apply_player_base()
@@ -827,6 +829,7 @@ func _save_match_replay(player_won: bool):
 func _process(delta):
 	_update_resource_bar()
 	_update_battle_timer(delta)
+	_poll_ai_defense(delta)
 
 	if is_replay_mode:
 		_process_replay_playback()
@@ -857,16 +860,25 @@ func _update_battle_timer(delta):
 		var minutes = int(_battle_time_remaining) / 60
 		var seconds = int(_battle_time_remaining) % 60
 		_timer_label.text = "%d:%02d" % [minutes, seconds]
+		if _entered_last_minute:
+			_timer_label.text += "  x2"
+			_timer_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.85))
 
-	# entrando no último minuto: boost de produção pros dois lados + IA mais
-	# agressiva -- só dispara UMA vez (não fica reaplicando o multiplicador
-	# a cada frame, senão a produção ficaria cada vez mais rápida sem fim)
-	if !_entered_last_minute and _battle_time_remaining <= LAST_MINUTE_THRESHOLD:
+	# entrando nos 2 minutos finais: recurso x2 pros dois lados + IA mais
+	# agressiva -- só dispara UMA vez. DIVIDE o wait_time atual (em vez de
+	# sobrescrever com o valor base), pra não apagar o bônus de produção da base
+	if !_entered_last_minute and _battle_time_remaining < LAST_MINUTE_THRESHOLD:
 		_entered_last_minute = true
-		$ProductionTimer.wait_time = BASE_PRODUCTION_INTERVAL / LAST_MINUTE_PRODUCTION_MULT
-		$EnemyProductionTimer.wait_time = BASE_PRODUCTION_INTERVAL / LAST_MINUTE_PRODUCTION_MULT
+		$ProductionTimer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
+		$EnemyProductionTimer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
+		for extra_timer in _extra_production_timers:
+			if is_instance_valid(extra_timer):
+				extra_timer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
 		if ai_profile != null:
-			$Timer.wait_time = ai_profile.decision_interval / LAST_MINUTE_PRODUCTION_MULT
+			$Timer.wait_time = max(0.3, $Timer.wait_time / 1.5)
+		for extra_ai in _extra_ai_controllers:
+			if is_instance_valid(extra_ai):
+				extra_ai.on_double_time()
 
 	if _battle_time_remaining <= 0.0:
 		_end_match_as_draw()
@@ -1348,116 +1360,133 @@ func _on_timer_timeout():
 	if ai_profile == null or ai_profile.deck.is_empty():
 		return
 
-	# se reage a ameaça, confere se tem uma agora -- mas SEM retornar cedo
-	# quando não tiver: o bot continua jogando normalmente (constrói
-	# pressão/economia), só prioriza defesa quando a ameaça existir de
-	# verdade. Antes, isso saía da função inteira sem ameaça, fazendo o
-	# bot nunca jogar carta nenhuma proativamente
-	var threat = null
-	if ai_profile.reacts_to_threats:
-		threat = _get_nearest_threat("enemy_base", GameManager.Team.PLAYER)
-		# erro de execução realista -- de vez em quando "perde o timing" e
-		# não reage a uma ameaça que via normalmente, escalando com a
-		# arena (arena baixa erra mais, arena alta quase nunca)
-		if threat != null and randf() < _get_mistake_chance():
-			threat = null
-
-	# rede de segurança pra TODO TIPO DE BOT -- roda se a checagem de cima
-	# não achou nada, seja porque o bot ignora ameaça por personalidade
-	# (reacts_to_threats false), seja porque reage normalmente mas "errou"
-	# o timing agora. Raio bem maior que o normal (cobre até ataque à
-	# distância) e NUNCA sofre o erro de execução -- ninguém "esquece" a
-	# base pegando fogo de verdade, só perde um lance comum
-	if threat == null:
-		threat = _get_nearest_threat("enemy_base", GameManager.Team.PLAYER, EMERGENCY_DEFENSE_RADIUS)
-
 	# nunca gasta a reserva mínima configurada pra esse bot -- exceto se estiver
 	# no modo vingança (levou dano recente e ignora a reserva por um tempo)
-	# ou no último minuto de partida (todo mundo joga tudo que tem no fim)
+	# ou nos minutos finais (x2, todo mundo joga tudo que tem no fim)
 	var reserve = 0 if (_in_revenge_mode() or _entered_last_minute) else ai_profile.min_money_reserve
 	var spendable = GameManager.enemy_money - reserve
 
 	var affordable: Array[CardData] = []
+	var affordable_ignoring_reserve: Array[CardData] = []
 	for card in ai_hand:
-		if card != null and spendable >= card.cost:
+		if card == null:
+			continue
+		if spendable >= card.cost:
 			affordable.append(card)
+		if GameManager.enemy_money >= card.cost:
+			affordable_ignoring_reserve.append(card)
 
-	var chosen: CardData = null
+	# 1) DEFESA -- lê o campo inteiro (BattleBrain). Defesa ignora a reserva:
+	# a reserva existe justamente pra ter dinheiro na hora de defender.
+	# Bot que "não reage por personalidade" ainda defende, mas com mais erro
+	var mistake = _get_mistake_chance()
+	if !ai_profile.reacts_to_threats:
+		mistake = min(0.5, mistake + 0.25)
+	var defense = BattleBrain.choose_defense(get_tree(), GameManager.Team.ENEMY, affordable_ignoring_reserve,
+		ai_hand, GameManager.enemy_money, enemy_max_money, spawn_enemy_area, self, mistake)
+	if defense.get("wait", false):
+		return  # segurando dinheiro pra carta certa de defesa
+	if defense.has("card"):
+		_ai_play_card(defense["card"], defense["pos"])
+		return
 
-	# se tem uma ameaça de verdade, tenta primeiro achar uma carta que VENCE
-	# a categoria dela na teia de afinidades -- só cai pra escolha normal se
-	# não tiver nenhuma carta boa contra esse tipo específico de ameaça
-	if threat != null and "card_role" in threat:
-		var threat_danger = threat.card_danger_level if "card_danger_level" in threat else 3
-		chosen = _choose_counter_card(affordable, threat.card_role, threat_danger)
-
-	if chosen == null:
-		chosen = ai_profile.choose_card(affordable)
-		# viés de combo -- só na escolha proativa, não na defensiva (ali de
-		# cima já escolhe por contra-categoria, não mexe nisso)
-		chosen = _apply_combo_bias(chosen, affordable)
-		# assinatura de abertura -- só nos primeiros segundos, só quando
-		# não tem ameaça real (defesa sempre vem primeiro)
-		chosen = _apply_opening_signature(chosen, affordable)
-		# impaciência -- se a partida travou sem dano por um tempo, força
-		# jogada pra quem tem personalidade impaciente de propósito
-		chosen = _apply_stalemate_impatience(chosen, affordable)
+	# 2) JOGADA PROATIVA -- personalidade do bot + vieses de combo/abertura
+	var chosen: CardData = ai_profile.choose_card(affordable)
+	chosen = _apply_combo_bias(chosen, affordable)
+	chosen = _apply_opening_signature(chosen, affordable)
+	chosen = _apply_stalemate_impatience(chosen, affordable)
 
 	if chosen == null:
 		return
 
+	var target_pos: Vector2 = Vector2.INF
+	if chosen.is_spell():
+		# feitiço só sai se gerar valor de verdade -- senão tenta outra carta
+		target_pos = BattleBrain.proactive_spell_target(get_tree(), chosen, GameManager.Team.ENEMY)
+		if target_pos == Vector2.INF:
+			var non_spells: Array[CardData] = []
+			for card in affordable:
+				if !card.is_spell():
+					non_spells.append(card)
+			if non_spells.is_empty():
+				return  # guarda o feitiço (e o dinheiro) pra depois
+			chosen = ai_profile.choose_card(non_spells)
+			if chosen == null:
+				return
+
+	if !chosen.is_spell():
+		var stats = DeckBuilder.get_unit_stats(chosen)
+		if _card_allows_spawn_anywhere(chosen) and randf() < 0.6:
+			target_pos = _choose_offensive_anywhere_position()
+		elif _is_building_card(chosen):
+			target_pos = _get_building_placement(spawn_enemy_area, ai_profile.archetype)
+		else:
+			target_pos = BattleBrain.offensive_position(chosen, stats, GameManager.Team.ENEMY, get_tree(), spawn_enemy_area, self, _ai_lane_x)
+			if randf() < 0.15:
+				_pick_ai_lane()  # de vez em quando muda de rota
+
+	_ai_play_card(chosen, target_pos)
+
+
+var _ai_lane_x: float = 360.0
+var _ai_defense_accum: float = 0.0
+
+
+# checagem de defesa mais frequente que a decisão normal do bot -- ele não
+# precisa esperar o "turno" dele (2-3s) pra reagir a um ataque chegando.
+# O intervalo ainda depende do ritmo do bot (bot lento reage mais devagar)
+func _poll_ai_defense(delta):
+	if match_over or is_replay_mode or ai_profile == null or ai_profile.deck.is_empty():
+		return
+	_ai_defense_accum += delta
+	var interval = clamp(ai_profile.decision_interval * 0.4, 0.6, 1.5)
+	if _ai_defense_accum < interval:
+		return
+	_ai_defense_accum = 0.0
+	var affordable: Array[CardData] = []
+	for card in ai_hand:
+		if card != null and GameManager.enemy_money >= card.cost:
+			affordable.append(card)
+	var mistake = _get_mistake_chance() + (0.0 if ai_profile.reacts_to_threats else 0.3)
+	var defense = BattleBrain.choose_defense(get_tree(), GameManager.Team.ENEMY, affordable,
+		ai_hand, GameManager.enemy_money, enemy_max_money, spawn_enemy_area, self, min(mistake, 0.6))
+	if defense.has("card"):
+		_ai_play_card(defense["card"], defense["pos"])
+
+
+func _pick_ai_lane():
+	var rect = spawn_enemy_area.shape.get_rect()
+	var left = spawn_enemy_area.to_global(rect.position).x
+	var right = spawn_enemy_area.to_global(rect.position + rect.size).x
+	var lanes = [lerp(left, right, 0.22), lerp(left, right, 0.5), lerp(left, right, 0.78)]
+	_ai_lane_x = lanes[randi() % lanes.size()]
+
+
+# paga, gira a mão e joga de fato -- SÓ chamada quando já existe alvo/posição
+# válida (antes o dinheiro e a carta eram consumidos ANTES de saber se o
+# feitiço tinha alvo, e às vezes o bot "gastava" sem lançar nada)
+func _ai_play_card(chosen: CardData, target_pos: Vector2):
+	if chosen == null or target_pos == Vector2.INF or GameManager.enemy_money < chosen.cost:
+		return
 	GameManager.enemy_money -= chosen.cost
 	SeasonStats.record_play(chosen)
 
 	if chosen.role in COMBO_TABLE:
 		_last_role_play_time[chosen.role] = Time.get_ticks_msec() / 1000.0
 
-	# registra que ESSA carta específica foi jogada de verdade -- é esse
-	# número (não mais o resultado do deck inteiro) que decide se ela já
-	# pode ser upada, deixando cada carta evoluir no próprio ritmo
 	if ai_profile != null:
 		BotLearning.record_card_played(ai_profile.profile_name, chosen)
 
-	# a carta jogada volta pro fim da fila, e a próxima da fila entra na mão --
-	# mesma rotação do jogador, evita repetir a mesma carta tick após tick
 	var hand_index = ai_hand.find(chosen)
 	if hand_index != -1:
 		ai_draw_queue.push_back(chosen)
 		ai_hand[hand_index] = ai_draw_queue.pop_front()
 
 	if chosen.is_spell():
-		# se está defendendo, mira em cima da ameaça; senão, procura tropa
-		# de verdade em campo -- nunca no vazio. Se não tiver tropa
-		# nenhuma agora, desiste desse feitiço nessa rodada (sem gastar
-		# nada, sem consumir a carta), tenta de novo no próximo tick
-		var target_pos: Vector2
-		if threat != null:
-			target_pos = threat.global_position
-		else:
-			target_pos = _get_offensive_spell_target(GameManager.Team.ENEMY)
-			if target_pos == Vector2.INF:
-				return
 		cast_spell(chosen.spell_data, target_pos, GameManager.Team.ENEMY, chosen.resource_path)
-		_record_action("bot", chosen, target_pos)
 	else:
-		var spawn_pos: Vector2
-		if threat != null:
-			# se está defendendo, nasce perto da ameaça (dentro da própria área de spawn)
-			spawn_pos = _defensive_spawn_position(threat)
-		elif _is_building_card(chosen):
-			# construção não anda -- a posição é permanente, então pensa
-			# melhor em vez de sortear qualquer canto
-			spawn_pos = _get_building_placement(spawn_enemy_area, ai_profile.archetype)
-		elif _card_allows_spawn_anywhere(chosen) and randf() < 0.6:
-			# a carta permite jogar em qualquer lugar do mapa -- usa isso pra
-			# ser ofensivo de vez em quando, jogando na área do JOGADOR
-			# (perto da base dele, ou perto de alguma unidade dele), em vez
-			# de sempre nascer na própria área como as cartas normais
-			spawn_pos = _choose_offensive_anywhere_position()
-		else:
-			spawn_pos = _random_point_in_area(spawn_enemy_area)
-		spawn_unit(chosen.unit_scene, GameManager.Team.ENEMY, spawn_pos, chosen)
-		_record_action("bot", chosen, spawn_pos)
+		spawn_unit(chosen.unit_scene, GameManager.Team.ENEMY, target_pos, chosen)
+	_record_action("bot", chosen, target_pos)
 
 
 # escolhe, entre as cartas pagáveis, uma que vence a categoria da ameaça na

@@ -35,21 +35,50 @@ func _get_last_sim_path() -> String:
 func _ready():
 	print("DEBUG BotSimulator: autoload iniciou, roster_names tem ", roster_names.size(), " bot(s)")
 
+	# continua rodando mesmo com a árvore pausada (fim de partida, popups)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+
 	_timer = Timer.new()
 	_timer.wait_time = SIMULATION_INTERVAL_SECONDS
-	_timer.autostart = true
+	_timer.autostart = false  # só começa depois que um perfil for carregado
 	_timer.timeout.connect(_run_simulation_tick)
 	add_child(_timer)
+	# NÃO roda _catch_up_on_elapsed_time() aqui -- nesse momento nenhum perfil
+	# foi carregado ainda (quem escolhe é a profile_setup). Ver on_profile_loaded()
 
+
+var _profile_ready: bool = false
+
+
+# chamado pela profile_setup DEPOIS que perfil + ArenaManager + Leaderboard
+# foram carregados -- só agora é seguro simular e salvar resultado
+func on_profile_loaded():
+	_profile_ready = true
 	_catch_up_on_elapsed_time()
+	_timer.start()
+
+
+# no Android o app vai pro segundo plano toda hora (o Godot congela os
+# timers) e muitas vezes nem é fechado de verdade -- então ao VOLTAR também
+# recupera o tempo que passou fora, não só quando abre do zero
+func _notification(what):
+	if !_profile_ready:
+		return
+	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_catch_up_on_elapsed_time()
+	elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_remember_last_simulation_time()
 
 
 func _run_simulation_tick():
+	if !_profile_ready:
+		return
 	var match_count = _get_matches_per_tick()
 
 	if roster_names.is_empty():
 		print("DEBUG BotSimulator: roster_names está VAZIO -- nenhuma simulação vai rodar. " +
 			"Confere se o BotSimulator virou cena (.tscn) e se Roster Names foi preenchido nela.")
+		_remember_last_simulation_time()
 		return
 
 	# ordena por troféu (a mesma métrica de força que já usamos pro jogador
@@ -291,11 +320,25 @@ func _catch_up_on_elapsed_time():
 		return
 
 	var elapsed = now - last_time
-	var ticks_missed = int((elapsed / SIMULATION_INTERVAL_SECONDS) * OFFLINE_SIMULATION_FACTOR)
+	# guarda a sobra fracionária -- antes, sair por 3 min (1,0 tick) dava 0
+	# tick e o relógio era zerado, então várias saídas curtas nunca somavam nada
+	var exact_ticks = (elapsed / SIMULATION_INTERVAL_SECONDS) * OFFLINE_SIMULATION_FACTOR + _catchup_remainder
+	var ticks_missed = int(exact_ticks)
+	_catchup_remainder = exact_ticks - ticks_missed
 	ticks_missed = min(ticks_missed, MAX_CATCHUP_TICKS)
 
+	if ticks_missed <= 0:
+		_remember_last_simulation_time()
+		return
+
+	print("DEBUG BotSimulator: recuperando ", ticks_missed, " tick(s) de tempo fora")
 	for i in ticks_missed:
 		_run_simulation_tick()
+	_remember_last_simulation_time()
+	_timer.start()  # reinicia a contagem do tick normal a partir de agora
+
+
+var _catchup_remainder: float = 0.0
 
 
 func _get_last_simulation_time() -> float:

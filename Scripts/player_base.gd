@@ -30,7 +30,10 @@ func _ready():
 	# Camada 3: construções.
 	# Permite que unidades terrestres e aéreas continuem colidindo
 	# fisicamente com a base.
-	collision_layer = 0b100
+	# CORRIGIDO: era 0b100, que no esquema das unidades é a camada "aérea do
+	# jogador" -- terrestre atravessava a base e aérea inimiga batia nela.
+	# 0b010000 = LAYER_BUILDING de unit_base.gd
+	collision_layer = 0b010000
 	collision_mask = 0
 
 
