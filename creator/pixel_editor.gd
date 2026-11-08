@@ -20,7 +20,7 @@ const PALETTE = [
 	Color("ffffff"), Color("7a7a7a"), Color("4b6b8a"), Color("b8e0f0"),
 ]
 
-enum Tool { PENCIL, ERASER, FILL, PICKER }
+enum Tool { PENCIL, ERASER, FILL, PICKER, PAN }
 
 var image: Image
 var _undo: Array = []
@@ -30,6 +30,11 @@ var _color: Color = Color("000000")
 var _mirror := false
 var _show_grid := true
 var _drawing := false
+var _zoom := 1.0          # 1 = cabe inteiro na tela; até 8x
+var _pan := Vector2.ZERO  # deslocamento do desenho quando tem zoom
+var _panning := false
+var _zoom_label: Label
+const MAX_ZOOM = 8.0
 var _last_cell := Vector2i(-1, -1)
 
 var _canvas: Control
@@ -93,6 +98,7 @@ func _ready():
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
 	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_canvas.clip_contents = true  # com zoom, o que sai da área fica cortado
 	_canvas.draw.connect(_draw_canvas)
 	_canvas.gui_input.connect(_canvas_input)
 	_canvas.resized.connect(func(): _canvas.queue_redraw())
@@ -107,6 +113,27 @@ func _ready():
 	_add_tool(tools, Tool.ERASER, "🧽 Borracha")
 	_add_tool(tools, Tool.FILL, "🪣 Balde")
 	_add_tool(tools, Tool.PICKER, "💧 Pegar cor")
+	_add_tool(tools, Tool.PAN, "✋ Mover")
+
+	# zoom: botões + pinça com 2 dedos
+	var zoom_row = HFlowContainer.new()
+	zoom_row.add_theme_constant_override("h_separation", 6)
+	zoom_row.add_theme_constant_override("v_separation", 6)
+	root.add_child(zoom_row)
+	root.move_child(zoom_row, _canvas.get_index())  # logo acima do desenho
+	_btn(zoom_row, "🔍 −", func(): _set_zoom(_zoom / 1.5))
+	_zoom_label = Label.new()
+	_zoom_label.custom_minimum_size = Vector2(110, 60)
+	_zoom_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_zoom_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_zoom_label.add_theme_font_size_override("font_size", 20)
+	zoom_row.add_child(_zoom_label)
+	_btn(zoom_row, "🔍 +", func(): _set_zoom(_zoom * 1.5))
+	_btn(zoom_row, "⟲ Tela toda", func():
+		_pan = Vector2.ZERO
+		_set_zoom(1.0)
+	)
+	_update_zoom_label()
 
 	var tools2 = HFlowContainer.new()  # quebra linha sozinho -- nada fica por cima de nada
 	tools2.add_theme_constant_override("h_separation", 6)
@@ -218,7 +245,7 @@ func _select_tool(t: int):
 func _set_color(c: Color):
 	_color = c
 	_color_swatch.color = c
-	if _tool == Tool.ERASER or _tool == Tool.PICKER:
+	if _tool == Tool.ERASER or _tool == Tool.PICKER or _tool == Tool.PAN:
 		_select_tool(Tool.PENCIL)
 
 
@@ -226,13 +253,43 @@ func _set_color(c: Color):
 
 func _cell_size() -> float:
 	var s = _canvas.size
-	return floor(min(s.x / image.get_width(), s.y / image.get_height()))
+	var fit = floor(min(s.x / image.get_width(), s.y / image.get_height()))
+	return max(1.0, floor(fit * _zoom))
 
 
 func _canvas_origin() -> Vector2:
 	var cs = _cell_size()
 	var used = Vector2(image.get_width(), image.get_height()) * cs
-	return ((_canvas.size - used) / 2.0).floor()
+	return ((_canvas.size - used) / 2.0 + _pan).floor()
+
+
+func _set_zoom(z: float, focus: Vector2 = Vector2.INF):
+	var old_cs = _cell_size()
+	var old_origin = _canvas_origin()
+	_zoom = clamp(z, 1.0, MAX_ZOOM)
+	if _zoom <= 1.0:
+		_pan = Vector2.ZERO
+	elif focus != Vector2.INF:
+		# mantém o pixel que está embaixo dos dedos no mesmo lugar
+		var cell_pos = (focus - old_origin) / old_cs
+		var new_cs = _cell_size()
+		var used = Vector2(image.get_width(), image.get_height()) * new_cs
+		_pan = focus - cell_pos * new_cs - (_canvas.size - used) / 2.0
+	_clamp_pan()
+	_update_zoom_label()
+	_canvas.queue_redraw()
+
+
+func _clamp_pan():
+	var cs = _cell_size()
+	var used = Vector2(image.get_width(), image.get_height()) * cs
+	var limit = ((used - _canvas.size) / 2.0).max(Vector2.ZERO) + Vector2(40, 40)
+	_pan = _pan.clamp(-limit, limit)
+
+
+func _update_zoom_label():
+	if _zoom_label != null:
+		_zoom_label.text = "%d%%" % int(round(_zoom * 100))
 
 
 func _draw_canvas():
@@ -269,6 +326,26 @@ func _in_bounds(c: Vector2i) -> bool:
 # só mouse: no celular o Godot já converte toque em mouse (emulate_mouse_from_touch),
 # tratar os dois faria desenhar duas vezes
 func _canvas_input(event: InputEvent):
+	# pinça com 2 dedos = zoom; arrastar com 2 dedos = mover
+	if event is InputEventMagnifyGesture:
+		_cancel_stroke()
+		_set_zoom(_zoom * event.factor, event.position)
+		return
+	if event is InputEventPanGesture:
+		_cancel_stroke()
+		_pan -= event.delta * 8.0
+		_clamp_pan()
+		_canvas.queue_redraw()
+		return
+	# ferramenta Mover: arrasta o desenho com 1 dedo
+	if _tool == Tool.PAN:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			_panning = event.pressed
+		elif event is InputEventMouseMotion and _panning:
+			_pan += event.relative
+			_clamp_pan()
+			_canvas.queue_redraw()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			var cell = _pos_to_cell(event.position)
@@ -298,6 +375,14 @@ func _canvas_input(event: InputEvent):
 			_paint_line(_last_cell, cell)
 			_last_cell = cell
 			_refresh()
+
+
+# o 1º dedo da pinça começa a desenhar antes do 2º encostar -- desfaz esse risco
+func _cancel_stroke():
+	if _drawing and !_undo.is_empty():
+		image = _undo.pop_back()
+		_refresh()
+	_drawing = false
 
 
 func _paint(cell: Vector2i):

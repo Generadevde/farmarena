@@ -62,6 +62,10 @@ window/handheld/orientation=1
 damageable=""
 navigation_polygon_source_geometry_group=""
 
+[input_devices]
+
+pointing/android/enable_pan_and_scale_gestures=true
+
 [rendering]
 
 textures/canvas_textures/default_texture_filter=0

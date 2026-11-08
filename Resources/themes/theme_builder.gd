@@ -67,6 +67,97 @@ func _build_menu_background():
 	_bg_layer.add_child(rect)
 
 
+# ------------------------------------------------------------ rolar arrastando
+# No celular, arrastar o dedo em QUALQUER lugar de uma lista rola ela --
+# inclusive por cima de botões, campos de texto e ícones (antes só rolava
+# pela barrinha fina). Se o dedo andou mais que DRAG_THRESHOLD, vira rolagem
+# e o toque NÃO conta como clique no botão que estava embaixo.
+const DRAG_THRESHOLD = 16.0
+var _pressing := false
+var _dragging := false
+var _press_pos := Vector2.ZERO
+var _drag_sc: ScrollContainer = null
+var _drag_vertical := true
+var _start_scroll := Vector2.ZERO
+var _sending_cancel := false
+
+
+func _input(event):
+	if _sending_cancel:
+		return
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_pressing = true
+			_dragging = false
+			_drag_sc = null
+			_press_pos = event.position
+		else:
+			if _dragging:
+				get_viewport().set_input_as_handled()
+			_pressing = false
+			_dragging = false
+			_drag_sc = null
+	elif event is InputEventMouseMotion and _pressing:
+		var delta: Vector2 = event.position - _press_pos
+		if !_dragging:
+			if delta.length() < DRAG_THRESHOLD:
+				return
+			_drag_vertical = abs(delta.y) >= abs(delta.x)
+			_drag_sc = _find_scroll_at(_press_pos, _drag_vertical)
+			if _drag_sc == null:
+				_pressing = false  # não é lista -- deixa o toque seguir normal (desenho, batalha...)
+				return
+			_dragging = true
+			_start_scroll = Vector2(_drag_sc.scroll_horizontal, _drag_sc.scroll_vertical)
+			_cancel_pending_click()
+		if is_instance_valid(_drag_sc):
+			if _drag_vertical:
+				_drag_sc.scroll_vertical = int(_start_scroll.y - delta.y)
+			else:
+				_drag_sc.scroll_horizontal = int(_start_scroll.x - delta.x)
+		get_viewport().set_input_as_handled()
+
+
+# "solta" o dedo bem longe da tela pro botão que estava sendo apertado não
+# disparar quando o dedo levantar no fim da rolagem
+func _cancel_pending_click():
+	var ev = InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = false
+	ev.position = Vector2(-9999, -9999)
+	ev.global_position = ev.position
+	_sending_cancel = true
+	get_viewport().push_input(ev)
+	_sending_cancel = false
+
+
+# a lista rolável (visível, na camada mais de cima) que está embaixo do dedo
+# e que realmente tem o que rolar nessa direção -- a menor, se tiver uma
+# dentro da outra (ex: carrossel horizontal dentro da coleção)
+func _find_scroll_at(pos: Vector2, vertical: bool) -> ScrollContainer:
+	var best: ScrollContainer = null
+	var best_layer = -INF
+	var best_area = INF
+	for n in get_tree().root.find_children("*", "ScrollContainer", true, false):
+		var sc: ScrollContainer = n
+		if !sc.is_visible_in_tree() or !sc.get_global_rect().has_point(pos):
+			continue
+		if vertical:
+			if sc.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED or sc.get_v_scroll_bar().max_value <= sc.size.y + 1:
+				continue
+		else:
+			if sc.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED or sc.get_h_scroll_bar().max_value <= sc.size.x + 1:
+				continue
+		var layer_node = sc.get_canvas_layer_node()
+		var layer = layer_node.layer if layer_node != null else 0
+		var area = sc.size.x * sc.size.y
+		if layer > best_layer or (layer == best_layer and area < best_area):
+			best = sc
+			best_layer = layer
+			best_area = area
+	return best
+
+
 func _process(_delta):
 	var scene = get_tree().current_scene
 	if scene == _last_scene:
@@ -173,9 +264,15 @@ func _apply_input_styles(theme: Theme):
 	var scroll_bg = StyleBoxFlat.new()
 	scroll_bg.bg_color = Color(0, 0, 0, 0.18)
 	scroll_bg.set_corner_radius_all(6)
-	scroll_bg.content_margin_left = 6
-	scroll_bg.content_margin_right = 6
+	scroll_bg.content_margin_left = 14   # barra bem mais grossa (~28px), fácil de pegar com o dedo
+	scroll_bg.content_margin_right = 14
+	scroll_bg.content_margin_top = 14
+	scroll_bg.content_margin_bottom = 14
 	var grab = _make_wood_stylebox(COLOR_WOOD_LIGHT, COLOR_WOOD_DARK)
+	grab.content_margin_top = 24
+	grab.content_margin_bottom = 24
+	grab.content_margin_left = 24
+	grab.content_margin_right = 24
 	for t in ["VScrollBar", "HScrollBar"]:
 		theme.set_stylebox("scroll", t, scroll_bg)
 		theme.set_stylebox("grabber", t, grab)
