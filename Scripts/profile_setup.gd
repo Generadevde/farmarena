@@ -171,6 +171,8 @@ func _on_switch_profile_button_pressed():
 
 
 func _on_back_button_pressed():
+	if _last_profile_for_back.is_empty():
+		return
 	_show_continue_screen(_last_profile_for_back)
 
 

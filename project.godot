@@ -18,6 +18,7 @@ config/name="Farm Arena"
 run/main_scene="uid://cnqlbuwi5pw7r"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
+config/quit_on_go_back=false
 
 [autoload]
 
@@ -40,6 +41,7 @@ MissionDatabase="*uid://diij0fj4n2s43"
 NationDatabase="*uid://66ydh2255m1c"
 UpdateDatabase="*uid://cje8dje601g28"
 CardDatabase="*uid://bd8hogbekh1f4"
+CustomContent="*res://creator/custom_content.gd"
 
 [display]
 
@@ -54,6 +56,8 @@ damageable=""
 navigation_polygon_source_geometry_group=""
 
 [rendering]
+
+textures/canvas_textures/default_texture_filter=0
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true

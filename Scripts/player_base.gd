@@ -55,6 +55,17 @@ func install_base_data(new_base_data: BaseData, level: int = 1):
 	# Troca a aparência da base se houver uma textura específica.
 	if base_data.base_texture != null:
 		$Sprite2D.texture = base_data.base_texture
+		if base_data.base_texture is ImageTexture:
+			$Sprite2D.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # arte do Criador, pixel nítido
+
+
+# multiplica a vida máxima (usado no 2v2, onde 2 bots atacam a mesma base)
+func scale_hp(mult: float):
+	max_hp = int(round(max_hp * mult))
+	hp = max_hp
+	$ProgressBar.max_value = max_hp
+	$ProgressBar.value = hp
+	_update_label()
 
 
 func _process(delta):

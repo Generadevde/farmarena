@@ -6,7 +6,7 @@ const SAVE_DIR = "user://profiles/"
 # do seu PRÓPRIO troféu acumulado, nunca de comparação com quem mais tá
 # jogando. Isso resolve de vez o problema de bot rodando de fundo "roubar
 # vaga" de quem joga pouco -- não existe vaga, existe só o seu progresso
-const ARENAS = [
+const DEFAULT_ARENAS = [
 	{},  # índice 0 não existe, só de preenchimento
 	{"name": "Arena 1", "emoji": "🌱", "trophy_threshold": 0},
 	{"name": "Arena 2", "emoji": "🐄", "trophy_threshold": 600},
@@ -16,7 +16,13 @@ const ARENAS = [
 	{"name": "Arena 6", "emoji": "👑", "trophy_threshold": 4000},
 	{"name": "Arena 7", "emoji": "🏆", "trophy_threshold": 5000},
 ]
-const MAX_ARENA = 7
+const DEFAULT_MAX_ARENA = 7
+
+# versão EDITÁVEL das arenas (o Criador de Arenas mexe aqui) -- começa igual
+# às padrões e o CustomContent aplica nome/emoji/troféu/recompensa/fundo
+# personalizados por cima, e pode adicionar arenas novas no fim
+var arenas: Array = DEFAULT_ARENAS.duplicate(true)
+var max_arena: int = DEFAULT_MAX_ARENA
 
 # faixa de troféu ganho/perdido por partida -- continua variando conforme a
 # diferença de troféu entre os dois lados, igual já tínhamos
@@ -57,15 +63,15 @@ func get_trophies(participant_name: String) -> int:
 
 
 func get_arena_info(index: int) -> Dictionary:
-	return ARENAS[clamp(index, 1, MAX_ARENA)]
+	return arenas[clamp(index, 1, max_arena)]
 
 
 # calcula a arena a partir do troféu -- nunca é "guardada e movida", é
 # sempre derivada na hora, então nunca fica dessincronizada de nada
 func get_arena_for_trophies(trophy_count: int) -> int:
 	var result = 1
-	for i in range(2, MAX_ARENA + 1):
-		if trophy_count >= ARENAS[i]["trophy_threshold"]:
+	for i in range(2, max_arena + 1):
+		if trophy_count >= arenas[i]["trophy_threshold"]:
 			result = i
 	return result
 
@@ -88,8 +94,35 @@ const REWARD_TABLE = {
 }
 
 
+# recompensa padrão de uma arena -- a Arena 1 é a da tabela acima; as outras
+# escalam ~+30% de ouro e +25% de XP por arena (antes caíam todas na Arena 1)
+func default_rewards_for(arena_index: int) -> Dictionary:
+	var base = REWARD_TABLE[1]
+	var g = pow(1.3, arena_index - 1)
+	var x = pow(1.25, arena_index - 1)
+	return {
+		"win_gold": [int(base["win_gold"][0] * g), int(base["win_gold"][1] * g)],
+		"win_xp": [int(base["win_xp"][0] * x), int(base["win_xp"][1] * x)],
+		"loss_gold": [int(base["loss_gold"][0] * g), int(base["loss_gold"][1] * g)],
+		"loss_xp": [int(base["loss_xp"][0] * x), int(base["loss_xp"][1] * x)],
+	}
+
+
+func get_rewards(arena_index: int) -> Dictionary:
+	var info = get_arena_info(arena_index)
+	if info.has("rewards"):
+		return info["rewards"]
+	return default_rewards_for(clamp(arena_index, 1, max_arena))
+
+
+# textura de fundo (pixel art) da arena, ou null se não tiver
+func get_background(arena_index: int) -> Texture2D:
+	var info = get_arena_info(arena_index)
+	return info.get("background_texture", null)
+
+
 func get_match_reward(arena_index: int, won: bool) -> Dictionary:
-	var table = REWARD_TABLE.get(arena_index, REWARD_TABLE[1])
+	var table = get_rewards(arena_index)
 	var gold_range = table["win_gold"] if won else table["loss_gold"]
 	var xp_range = table["win_xp"] if won else table["loss_xp"]
 	return {
@@ -143,9 +176,6 @@ func record_match_points(winner_name: String, loser_name: String):
 	trophies[winner_name] = get_trophies(winner_name) + int(round(win_points))
 	trophies[loser_name] = max(get_trophies(loser_name) - int(round(loss_points)), 0)
 
-	print("DEBUG ArenaManager: ", winner_name, " venceu ", loser_name,
-		" -- troféu antes: ", winner_trophies, "/", loser_trophies,
-		" | ganhou +", int(round(win_points)), " | troféu depois: ", trophies[winner_name])
 
 	# o Leaderboard/temporada continuam existindo, só que agora são um
 	# placar PURAMENTE informativo (como foi essa semana) -- não afetam

@@ -64,15 +64,27 @@ func on_profile_loaded():
 func _notification(what):
 	if !_profile_ready:
 		return
-	if what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+	# só RESUMED (voltou do segundo plano) -- FOCUS_IN chega toda hora no
+	# Android (teclado, notificação, popup do sistema) e disparava a
+	# recuperação inteira à toa
+	if what == NOTIFICATION_APPLICATION_RESUMED:
 		_catch_up_on_elapsed_time()
-	elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_CLOSE_REQUEST:
+	elif what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
 		_remember_last_simulation_time()
 
 
+var _tick_running: bool = false
+
+
 func _run_simulation_tick():
-	if !_profile_ready:
+	if !_profile_ready or _tick_running:
 		return
+	_tick_running = true
+	await _run_simulation_tick_inner()
+	_tick_running = false
+
+
+func _run_simulation_tick_inner():
 	var match_count = _get_matches_per_tick()
 
 	if roster_names.is_empty():
@@ -108,6 +120,11 @@ func _run_simulation_tick():
 		simulate_match(sorted_roster[index], sorted_roster[index + 1])
 		index += 2
 		pairs_played += 1
+		# espalha o trabalho entre frames -- cada partida simulada lê/grava
+		# vários arquivos; fazer 50 de uma vez travava a tela (era o
+		# "travamento" que aparecia no ranking)
+		if pairs_played % 2 == 0:
+			await get_tree().process_frame
 
 	print("DEBUG BotSimulator: tick rodou, ", pairs_played, " partida(s) simulada(s) entre ", sorted_roster.size(), " bot(s) no elenco")
 	_remember_last_simulation_time()
@@ -332,13 +349,21 @@ func _catch_up_on_elapsed_time():
 		return
 
 	print("DEBUG BotSimulator: recuperando ", ticks_missed, " tick(s) de tempo fora")
+	_remember_last_simulation_time()  # marca antes, pra não recontar se voltar de novo no meio
+	if _catching_up:
+		return
+	_catching_up = true
+	while _tick_running:
+		await get_tree().process_frame
 	for i in ticks_missed:
-		_run_simulation_tick()
+		await _run_simulation_tick()
+	_catching_up = false
 	_remember_last_simulation_time()
 	_timer.start()  # reinicia a contagem do tick normal a partir de agora
 
 
 var _catchup_remainder: float = 0.0
+var _catching_up: bool = false
 
 
 func _get_last_simulation_time() -> float:

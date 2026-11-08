@@ -50,3 +50,9 @@ func _build_list():
 
 func _on_back_button_pressed():
 	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+
+
+# botão "voltar" do Android (o jogo não fecha mais sozinho com ele)
+func _notification(what):
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_on_back_button_pressed()

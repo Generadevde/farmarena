@@ -216,3 +216,9 @@ func _compute_controversial(entries: Array) -> Array:
 
 func _on_back_button_pressed():
 	get_tree().change_scene_to_file(STATS_HUB_SCENE)
+
+
+# botão "voltar" do Android (o jogo não fecha mais sozinho com ele)
+func _notification(what):
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_on_back_button_pressed()

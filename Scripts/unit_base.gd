@@ -90,6 +90,12 @@ func _reveal_disguise():
 
 
 func _ready():
+	# sprite redesenhado no Criador pra uma carta ORIGINAL do jogo
+	if card_data != null:
+		var sprite_override = CustomContent.get_sprite_override(card_data.resource_path)
+		if sprite_override != null:
+			$Sprite2D.texture = sprite_override
+			$Sprite2D.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_apply_unit_scale()
 
 	if !is_preview and stats.spawns_disguised:

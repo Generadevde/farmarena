@@ -6,6 +6,7 @@ var card: CardData
 
 func _ready():
 	custom_minimum_size = Vector2(90, 138)
+	mouse_filter = Control.MOUSE_FILTER_PASS  # arrastar em cima rola a coleção
 	clip_contents = true  # corta qualquer coisa que ultrapasse os limites do botão
 
 	var vbox = VBoxContainer.new()
@@ -15,6 +16,7 @@ func _ready():
 
 	var icon_rect = TextureRect.new()
 	icon_rect.texture = card.icon
+	icon_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # pixel art nítido
 	icon_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon_rect.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon_rect.custom_minimum_size = Vector2(48, 48)

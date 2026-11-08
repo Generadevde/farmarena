@@ -51,7 +51,7 @@ func _build_list():
 
 	var next_button = Button.new()
 	next_button.text = "▶"
-	next_button.disabled = _viewing_arena_index >= ArenaManager.MAX_ARENA
+	next_button.disabled = _viewing_arena_index >= ArenaManager.max_arena
 	next_button.pressed.connect(func():
 		_viewing_arena_index += 1
 		_build_list()
@@ -75,7 +75,8 @@ func _build_list():
 		var row = Button.new()
 		row.flat = true
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.custom_minimum_size.y = 36.0  # altura fixa, reforça que toda linha fique do mesmo tamanho
+		row.custom_minimum_size.y = 52.0  # altura fixa (maior pra dedo)
+		row.mouse_filter = Control.MOUSE_FILTER_PASS  # deixa rolar a lista arrastando
 		container.add_child(row)
 
 		var hbox = HBoxContainer.new()
@@ -138,6 +139,12 @@ func _show_bot_deck_popup(bot_name: String):
 	bg.color = Color(0, 0, 0, 0.75)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
+	# tocar fora do painel fecha -- nunca mais fica uma camada escura
+	# "travando" a tela sem botão de fechar
+	bg.gui_input.connect(func(e):
+		if e is InputEventMouseButton and e.pressed:
+			overlay.queue_free()
+	)
 	overlay.add_child(bg)
 
 	var center = CenterContainer.new()
@@ -146,7 +153,7 @@ func _show_bot_deck_popup(bot_name: String):
 	overlay.add_child(center)
 
 	var panel = PanelContainer.new()
-	panel.custom_minimum_size = Vector2(280, 0)
+	panel.custom_minimum_size = Vector2(420, 0)
 	panel.theme = ThemeBuilder.game_theme
 	center.add_child(panel)
 
@@ -166,6 +173,7 @@ func _show_bot_deck_popup(bot_name: String):
 
 	var info_button = Button.new()
 	info_button.text = "ⓘ"
+	info_button.custom_minimum_size = Vector2(52, 52)
 	title_row.add_child(info_button)
 
 	var streak = Leaderboard.get_win_streak(bot_name)
@@ -177,6 +185,14 @@ func _show_bot_deck_popup(bot_name: String):
 	vbox.add_child(subtitle)
 
 	# painel de estatísticas gerais -- começa escondido, o botão ⓘ revela
+	var style_label = Label.new()
+	style_label.text = "🃏 Estilo: " + BotLearning.get_deck_style_text(bot_name)
+	style_label.autowrap_mode = TextServer.AUTOWRAP_WORD
+	style_label.custom_minimum_size.x = 380.0
+	style_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	style_label.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(style_label)
+
 	var info_panel = VBoxContainer.new()
 	info_panel.visible = false
 	vbox.add_child(info_panel)
@@ -250,6 +266,7 @@ func _show_bot_deck_popup(bot_name: String):
 
 	var close_button = Button.new()
 	close_button.text = "Fechar"
+	close_button.custom_minimum_size = Vector2(0, 56)
 	close_button.pressed.connect(func(): overlay.queue_free())
 	vbox.add_child(close_button)
 
@@ -331,9 +348,7 @@ func _show_card_stats_popup(card: CardData, level: int):
 				vbox.add_child(_stat_line("Cura", str(round(spell.heal_amount * mult))))
 			vbox.add_child(_stat_line("Raio", str(spell.radius)))
 	elif card.unit_scene != null:
-		var temp = card.unit_scene.instantiate()
-		var stats = temp.stats
-		temp.queue_free()
+		var stats = DeckBuilder.get_unit_stats(card)
 
 		if stats != null:
 			vbox.add_child(_stat_line("HP", str(round(stats.hp * mult))))
@@ -344,6 +359,7 @@ func _show_card_stats_popup(card: CardData, level: int):
 
 	var close_button = Button.new()
 	close_button.text = "Fechar"
+	close_button.custom_minimum_size = Vector2(0, 56)
 	close_button.pressed.connect(func(): overlay.queue_free())
 	vbox.add_child(close_button)
 
@@ -401,3 +417,9 @@ func _describe_style(profile: AIProfile) -> String:
 
 func _on_back_button_pressed():
 	get_tree().change_scene_to_file(STATS_HUB_SCENE)
+
+
+# botão "voltar" do Android (o jogo não fecha mais sozinho com ele)
+func _notification(what):
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_on_back_button_pressed()

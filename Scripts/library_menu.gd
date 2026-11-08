@@ -19,7 +19,19 @@ const TARGET_TYPE_NAMES = {
 
 var _viewing_bases: bool = false
 var _selected_nation: String = ""  # "" = mostrando a lista de nações; senão, mostrando as cartas/bases dessa nação
-var _nation_carousel_index: int = 0  # qual nação está centralizada no carrossel agora
+# índice SEPARADO pro carrossel de cartas e pro de bases -- antes era um só
+# compartilhado, e trocar nação numa aba mexia/estragava a outra
+var _card_carousel_index: int = 0
+var _base_carousel_index: int = 0
+var _carousel_is_base: bool = false
+var _nation_carousel_index: int:
+	get:
+		return _base_carousel_index if _carousel_is_base else _card_carousel_index
+	set(value):
+		if _carousel_is_base:
+			_base_carousel_index = value
+		else:
+			_card_carousel_index = value
 var _line_summon_links: Dictionary = {}  # texto da linha -> CardData vinculada, só pras linhas de invocação (o resto não é clicável)
 var _scroll_container: ScrollContainer
 var _module_grid: GridContainer
@@ -40,6 +52,14 @@ func _ready():
 	_collection_grid = find_child("CollectionGrid", true, false)
 
 	add_to_group("library_menu")
+	# inclui as bases criadas no Criador (e qualquer outra que os bots usem)
+	var merged: Array[BaseData] = []
+	for b in available_bases:
+		merged.append(b)
+	for b in CustomContent.custom_bases:
+		if !merged.has(b):
+			merged.append(b)
+	available_bases = merged
 	_build_collection_toggle()
 	_refresh_collection_visibility()
 
@@ -259,6 +279,8 @@ const _FALLBACK_COLORS = [
 
 
 func _build_nation_list(container: Control, items: Array, on_select: Callable, rebuild_callback: Callable) -> Array:
+	var is_base_list = rebuild_callback == Callable(self, "_build_base_grid")
+	_carousel_is_base = is_base_list
 	var nations: Array = []
 	for item in items:
 		if item == null:
@@ -296,7 +318,9 @@ func _build_nation_list(container: Control, items: Array, on_select: Callable, r
 
 	var prev_button = Button.new()
 	prev_button.text = "◀"
+	prev_button.custom_minimum_size = Vector2(56, 56)
 	prev_button.pressed.connect(func():
+		_carousel_is_base = is_base_list
 		_nation_carousel_index = (_nation_carousel_index - 1 + nations.size()) % nations.size()
 		rebuild_callback.call()
 	)
@@ -321,7 +345,9 @@ func _build_nation_list(container: Control, items: Array, on_select: Callable, r
 
 	var next_button = Button.new()
 	next_button.text = "▶"
+	next_button.custom_minimum_size = Vector2(56, 56)
 	next_button.pressed.connect(func():
+		_carousel_is_base = is_base_list
 		_nation_carousel_index = (_nation_carousel_index + 1) % nations.size()
 		rebuild_callback.call()
 	)
@@ -540,8 +566,8 @@ func equip_base(base_data: BaseData):
 
 
 func _refresh_base_grid_highlight():
-	var grid: GridContainer = _module_grid
-	for button in grid.get_children():
+	# os botões ficam aninhados (scroll/colunas), não são filhos diretos
+	for button in _module_grid.find_children("*", "", true, false):
 		if button is BaseSelectButton:
 			var is_equipped = button.base_data.resource_path == PlayerProfile.equipped_base_path
 			button.modulate = Color(1, 1, 0.6) if is_equipped else Color(1, 1, 1)
@@ -555,10 +581,7 @@ func _on_back_button_pressed():
 func _get_unit_stats(card: CardData) -> UnitData:
 	if card.unit_scene == null:
 		return null
-	var temp = card.unit_scene.instantiate()
-	var stats = temp.stats
-	temp.queue_free()
-	return stats
+	return DeckBuilder.get_unit_stats(card)  # com cache -- instanciar toda hora pesava no celular
 
 
 func _build_unit_lines(card: CardData, stats: UnitData) -> Array[String]:
@@ -1110,3 +1133,9 @@ func _make_icon_button(card: CardData) -> Button:
 		button.add_child(icon)
 
 	return button
+
+
+# botão "voltar" do Android (o jogo não fecha mais sozinho com ele)
+func _notification(what):
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_on_back_button_pressed()

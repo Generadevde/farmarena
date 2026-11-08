@@ -250,3 +250,9 @@ func _show_replay_detail(replay: Dictionary):
 	close_button.text = "Fechar"
 	close_button.pressed.connect(func(): overlay.queue_free())
 	vbox.add_child(close_button)
+
+
+# botão "voltar" do Android (o jogo não fecha mais sozinho com ele)
+func _notification(what):
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_on_back_button_pressed()

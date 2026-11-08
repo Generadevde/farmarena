@@ -107,5 +107,5 @@ offset_bottom = 40.0
 
 [connection signal="pressed" from="NewProfileButton" to="." method="_on_new_profile_button_pressed"]
 [connection signal="pressed" from="CreateButton" to="." method="_on_create_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/ContinueButton" to="." method="_on_continue_button_pressed"]
 [connection signal="pressed" from="VBoxContainer/SwitchProfileButton" to="." method="_on_switch_profile_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/BackButton" to="." method="_on_back_button_pressed"]

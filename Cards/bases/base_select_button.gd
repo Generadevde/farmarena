@@ -14,7 +14,7 @@ func _ready():
 	clip_contents = true
 
 	# Garante que o botão receba os eventos do mouse.
-	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_filter = Control.MOUSE_FILTER_PASS  # deixa a lista rolar arrastando por cima
 
 	if base_data == null:
 		push_warning("BaseSelectButton: base_data não foi definido.")
@@ -110,7 +110,14 @@ func _ready():
 # MOUSE
 # ============================================================
 
+var _press_pos: Vector2 = Vector2.ZERO
+
+
 func _gui_input(event):
+	# arrastando = rolando a lista, cancela o "segurar pra equipar"
+	if event is InputEventMouseMotion and event.button_mask != 0 and event.global_position.distance_to(_press_pos) > 12.0:
+		_cancel_hold_timer()
+
 	if base_data == null or disabled:
 		return
 
@@ -121,11 +128,16 @@ func _gui_input(event):
 		if event.pressed:
 			# Começou a segurar
 			_equipped_via_hold = false
+			_press_pos = event.global_position
 			_start_hold_timer()
 
 		else:
 			# Soltou o botão
 			_cancel_hold_timer()
+
+			# arrastou o dedo (rolando a lista) -- não é toque, ignora
+			if event.global_position.distance_to(_press_pos) > 12.0:
+				return
 
 			# Se já equipou através do hold,
 			# não abre o popup.
@@ -205,7 +217,9 @@ func _show_info_popup(page: int = 1):
 	_info_popup = CanvasLayer.new()
 	_info_popup.layer = 120
 
-	get_tree().get_root().add_child(_info_popup)
+	# pendura na cena atual (não na raiz) -- assim some junto quando troca de
+	# tela, em vez de ficar uma camada invisível bloqueando toque
+	get_tree().current_scene.add_child(_info_popup)
 
 	# =========================
 	# FUNDO

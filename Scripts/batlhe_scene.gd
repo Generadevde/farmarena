@@ -124,7 +124,30 @@ func _setup_hud_anchors():
 		_resource_bar.theme = ThemeBuilder.game_theme
 
 
+# fundo desenhado no Criador de Arenas -- cobre a tela toda atrás da
+# batalha (pixel grande, sem borrar) e esconde o TileMap padrão
+func _apply_custom_arena_background():
+	var tex = ArenaManager.get_background(PlayerProfile.arena_index)
+	if tex == null:
+		return
+	var layer = CanvasLayer.new()
+	layer.layer = -10
+	add_child(layer)
+	var rect = TextureRect.new()
+	rect.texture = tex
+	rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_SCALE
+	rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(rect)
+	var tilemap = find_child("arena", false, false)
+	if tilemap != null:
+		tilemap.visible = false
+
+
 func _load_arena_middle_scenery():
+	_apply_custom_arena_background()
 	var container = get_tree().get_first_node_in_group("arena_middle_container")
 	if container == null:
 		# cena ainda não tem o container reservado pro cenário trocável --
@@ -283,6 +306,11 @@ func _ready():
 		$OpponentNameLabel.text += " 🔥"
 	_apply_ai_decision_speed()
 
+	_is_2v2 = MatchSetup.mode == MatchSetup.MODE_2V2
+	MatchSetup.mode = MatchSetup.MODE_1V1  # consome -- a próxima partida volta a ser 1v1 se ninguém pedir
+	if _is_2v2:
+		_setup_2v2()
+
 
 # configura a cena pra REPRODUZIR um replay salvo, em vez de rodar uma
 # partida normal -- instala as bases exatamente como estavam salvas, esconde
@@ -356,7 +384,8 @@ func _fire_replay_action(action: Dictionary):
 		return
 	var card: CardData = load(card_path)
 	var position = Vector2(action.get("x", 0.0), action.get("y", 0.0))
-	var team = GameManager.Team.PLAYER if action.get("side", "") == "player" else GameManager.Team.ENEMY
+	var side = action.get("side", "")
+	var team = GameManager.Team.PLAYER if (side == "player" or side == "ally") else GameManager.Team.ENEMY
 
 	if card.is_spell():
 		cast_spell(card.spell_data, position, team, card.resource_path)
@@ -630,7 +659,9 @@ func _on_base_destroyed(team):
 	if player_won:
 		PlayerProfile.record_mission_battle_win()
 
-	if ai_profile != null:
+	# 2v2 é amistoso: dá ouro/XP/missão normalmente, mas NÃO mexe em troféu
+	# nem no aprendizado dos bots (seria injusto com eles -- era 2 contra 2)
+	if ai_profile != null and !_is_2v2:
 		BotLearning.record_result(ai_profile.profile_name, !player_won, player_cards_played_this_match, true)
 
 		if player_won:
@@ -1019,7 +1050,7 @@ func _show_bot_emote(emoji: String):
 	tween.tween_callback(label.queue_free)
 
 
-func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null):
+func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, level_profile: AIProfile = null):
 	# instancia a primeira unidade só pra descobrir quantas essa carta deve spawnar
 	var first_unit = unit_scene.instantiate()
 	var count = 1
@@ -1033,7 +1064,11 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null):
 	var level = 1
 
 	if card_data != null:
-		if team == GameManager.Team.PLAYER:
+		if level_profile != null:
+			# bot extra do 2v2 -- usa o nível de carta DELE
+			mult = level_profile.get_stat_multiplier(card_data)
+			level = level_profile.get_card_level(card_data)
+		elif team == GameManager.Team.PLAYER:
 			mult = PlayerProfile.get_stat_multiplier(card_data)
 			level = PlayerProfile.get_card_level(card_data)
 		elif team == GameManager.Team.ENEMY and ai_profile != null:
@@ -1090,7 +1125,6 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null):
 			landing_tween.tween_property(unit, "modulate", Color(1, 1, 1, 1), unit.stats.landing_duration)
 
 	var _debug_elapsed_ms = (Time.get_ticks_usec() - _debug_start_time) / 1000.0
-	print("DEBUG spawn_unit: ", count, " unidade(s) levou ", _debug_elapsed_ms, "ms")
 
 	# vincula as unidades da mesma leva entre si, se a carta tiver essa habilidade
 	if first_unit.stats != null and first_unit.stats.is_linked:
@@ -1429,6 +1463,79 @@ func _on_timer_timeout():
 
 
 var _ai_lane_x: float = 360.0
+
+# ---------------------------------------------------------------- 2v2
+const TWO_V_TWO_BASE_HP_MULT = 1.6  # 2 atacando a mesma base -- mais vida pra partida não acabar em 1 minuto
+var _is_2v2: bool = false
+var _extra_ai_controllers: Array = []
+var _extra_production_timers: Array = []  # reservado (os bots extras têm timer próprio)
+
+
+func _setup_2v2():
+	var ally: AIProfile = MatchSetup.ally_ai_profile
+	var enemy2: AIProfile = MatchSetup.second_enemy_ai_profile
+	MatchSetup.ally_ai_profile = null
+	MatchSetup.second_enemy_ai_profile = null
+
+	# o bot principal ataca por uma rota; o segundo inimigo pela outra
+	var rect = spawn_enemy_area.shape.get_rect()
+	var left = spawn_enemy_area.to_global(rect.position).x
+	var right = spawn_enemy_area.to_global(rect.position + rect.size).x
+	var main_frac = inverse_lerp(left, right, _ai_lane_x) if right != left else 0.5
+	var second_frac = 0.78 if main_frac < 0.5 else 0.22
+
+	if ally != null and !ally.deck.is_empty():
+		var c = BotController.new()
+		c.name = "AllyBot"
+		c.setup(self, ally, GameManager.Team.PLAYER, spawn_player_area, [0.22, 0.78][randi() % 2])
+		add_child(c)
+		_extra_ai_controllers.append(c)
+	if enemy2 != null and !enemy2.deck.is_empty():
+		var c2 = BotController.new()
+		c2.name = "EnemyBot2"
+		c2.setup(self, enemy2, GameManager.Team.ENEMY, spawn_enemy_area, second_frac)
+		add_child(c2)
+		_extra_ai_controllers.append(c2)
+
+	for group in ["player_base", "enemy_base"]:
+		var b = get_tree().get_first_node_in_group(group)
+		if b != null and b.has_method("scale_hp"):
+			b.scale_hp(TWO_V_TWO_BASE_HP_MULT)
+
+	var label = find_child("OpponentNameLabel", true, false)
+	if label != null:
+		var enemy_names = ai_profile.profile_name if ai_profile != null else "?"
+		if enemy2 != null:
+			enemy_names += " + " + enemy2.profile_name
+		label.text = "👥 " + enemy_names
+	var ally_label = Label.new()
+	ally_label.text = "🤝 Aliado: " + (ally.profile_name if ally != null else "—")
+	ally_label.add_theme_font_size_override("font_size", 18)
+	ally_label.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
+	ally_label.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	ally_label.add_theme_constant_override("outline_size", 4)
+	var player_base = get_tree().get_first_node_in_group("player_base")
+	if player_base != null:
+		ally_label.position = player_base.global_position + Vector2(-80, 50)
+	add_child(ally_label)
+
+
+# nome flutuante rápido de quem jogou (só nos bots do 2v2, pra você saber
+# se foi seu aliado ou qual dos dois inimigos)
+func show_bot_play_tag(bot_name: String, pos: Vector2, team):
+	var l = Label.new()
+	l.text = bot_name
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0) if team == GameManager.Team.PLAYER else Color(1.0, 0.6, 0.5))
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	l.add_theme_constant_override("outline_size", 3)
+	l.position = pos + Vector2(-30, -40)
+	l.z_index = 50
+	add_child(l)
+	var tw = create_tween()
+	tw.tween_property(l, "position:y", l.position.y - 25, 1.2)
+	tw.parallel().tween_property(l, "modulate:a", 0.0, 1.2)
+	tw.tween_callback(l.queue_free)
 var _ai_defense_accum: float = 0.0
 
 

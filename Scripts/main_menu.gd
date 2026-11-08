@@ -4,6 +4,7 @@ extends Control
 const BATTLE_SCENE = "res://Scenes/batlhe_scene.tscn"
 const LIBRARY_SCENE = "res://Scenes/library_menu.tscn"
 const STATS_HUB_SCENE = "res://ranking/stats_hub.tscn"
+const CREATOR_SCENE = "res://creator/creator_menu.tscn"
 
 # referências cacheadas, encontradas pelo NOME em qualquer lugar da árvore
 # (não por caminho fixo) -- assim continua funcionando mesmo se você
@@ -235,7 +236,9 @@ func _maybe_show_bot_quote_toast():
 	var panel = PanelContainer.new()
 	panel.custom_minimum_size = Vector2(280, 0)
 	panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	panel.position.y = 24
+	panel.grow_horizontal = Control.GROW_DIRECTION_BOTH  # cresce pros 2 lados, centralizado (antes ia pra direita e cobria o botão Atualizações)
+	panel.position.y = 90
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.theme = ThemeBuilder.game_theme
 	overlay.add_child(panel)
 
@@ -396,8 +399,35 @@ func _refresh_season_widget():
 
 
 func _on_battle_button_pressed():
+	MatchSetup.mode = MatchSetup.MODE_1V1
 	MatchSetup.next_ai_profile = _choose_opponent()
 	get_tree().change_scene_to_file(BATTLE_SCENE)
+
+
+# 2v2: você + 1 bot aliado contra 2 bots. Escolhe 3 bots diferentes perto do
+# seu troféu (o adversário principal usa a mesma regra da partida normal)
+func _on_battle_2v2_button_pressed():
+	MatchSetup.mode = MatchSetup.MODE_2V2
+	var main_enemy = _choose_opponent()
+	MatchSetup.next_ai_profile = main_enemy
+	var used: Array = []
+	if main_enemy != null:
+		used.append(main_enemy.profile_name)
+	var pool: Array = BotSimulator.roster_names.duplicate()
+	var my_trophies = ArenaManager.get_trophies(PlayerProfile.player_name)
+	pool.sort_custom(func(a, b): return abs(ArenaManager.get_trophies(a) - my_trophies) < abs(ArenaManager.get_trophies(b) - my_trophies))
+	var picks: Array = []
+	for bot_name in pool.slice(0, 12):
+		if !used.has(bot_name):
+			picks.append(bot_name)
+	picks.shuffle()
+	MatchSetup.ally_ai_profile = BotLearning.get_or_create_profile(picks[0]) if picks.size() > 0 else null
+	MatchSetup.second_enemy_ai_profile = BotLearning.get_or_create_profile(picks[1]) if picks.size() > 1 else null
+	get_tree().change_scene_to_file(BATTLE_SCENE)
+
+
+func _on_creator_button_pressed():
+	get_tree().change_scene_to_file(CREATOR_SCENE)
 
 
 # sorteia um nome do elenco compartilhado (BotSimulator.roster_names) e busca
@@ -717,7 +747,7 @@ func _show_missions_popup():
 	vbox.add_child(HSeparator.new())
 
 	for mission in PlayerProfile.daily_missions:
-		vbox.add_child(_build_mission_row(mission))
+		vbox.add_child(_build_mission_row(mission, overlay))
 
 	var close_button = Button.new()
 	close_button.text = "Fechar"
@@ -725,7 +755,7 @@ func _show_missions_popup():
 	vbox.add_child(close_button)
 
 
-func _build_mission_row(mission: Dictionary) -> Control:
+func _build_mission_row(mission: Dictionary, overlay: Node = null) -> Control:
 	var row = VBoxContainer.new()
 	row.add_theme_constant_override("separation", 2)
 
@@ -772,6 +802,8 @@ func _build_mission_row(mission: Dictionary) -> Control:
 		claim_button.text = "Resgatar!"
 		claim_button.pressed.connect(func():
 			PlayerProfile.claim_mission_reward(mission["id"])
+			if overlay != null:
+				overlay.queue_free()  # fecha o antigo antes -- antes empilhava um popup em cima do outro
 			_show_missions_popup()  # reabre já atualizado
 		)
 		row.add_child(claim_button)

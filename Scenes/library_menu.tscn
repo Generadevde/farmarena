@@ -208,6 +208,6 @@ alignment = 1
 [node name="ModuleGrid" type="GridContainer" parent="VBoxContainer" unique_id=702726663]
 custom_minimum_size = Vector2(200, 200)
 layout_mode = 2
-columns = 2
+columns = 1
 
 [connection signal="pressed" from="BackButton" to="." method="_on_back_button_pressed"]

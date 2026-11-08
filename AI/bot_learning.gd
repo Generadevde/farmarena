@@ -184,6 +184,11 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 			data["known_card_paths"] = known_paths
 			profile.known_cards = _load_deck(known_paths)
 
+	# cartas que VOCÊ criou no Criador: cada bot "descobre" uma parte delas
+	# (sempre as mesmas pra ele) e às vezes já coloca no deck
+	if _learn_custom_cards(bot_name, data, profile, style, known_paths):
+		known_changed = true
+
 	var needs_save = is_new or known_changed or base_just_rolled or archetype_just_migrated
 
 	# carta favorita: sorteia uma do próprio deck na primeira vez, e depois
@@ -312,6 +317,37 @@ func _generate_random_deck(preferred_role: int, known_cards: Array[CardData], st
 			if card != null and !deck.has(card):
 				deck.append(card)
 	return deck
+
+
+func _learn_custom_cards(bot_name: String, data: Dictionary, profile: AIProfile, style: Dictionary, known_paths: Array) -> bool:
+	var seen: Array = data.get("seen_custom_cards", [])
+	var changed = false
+	for card in CustomContent.custom_cards:
+		if card == null or seen.has(card.resource_path):
+			continue
+		seen.append(card.resource_path)
+		changed = true
+		var roll = abs(hash(bot_name + card.resource_path)) % 100
+		var fit = DeckBuilder.score_card(card, style, [])
+		if roll < 35 + int(fit * 6.0):
+			if !known_paths.has(card.resource_path):
+				known_paths.append(card.resource_path)
+			profile.known_cards.append(card)
+			# metade das vezes já testa a carta nova no deck, no lugar da que
+			# menos combina com o estilo dele
+			if roll % 2 == 0 and !profile.deck.is_empty() and !profile.deck.has(card):
+				var worst_i = 0
+				var worst_s = INF
+				for i in profile.deck.size():
+					var sc = DeckBuilder.score_card(profile.deck[i], style, [])
+					if sc < worst_s:
+						worst_s = sc
+						worst_i = i
+				profile.deck[worst_i] = card
+	if changed:
+		data["seen_custom_cards"] = seen
+		data["known_card_paths"] = known_paths
+	return changed
 
 
 # estilo de deck de um bot, pra mostrar no popup do ranking

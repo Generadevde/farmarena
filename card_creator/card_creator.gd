@@ -18,8 +18,8 @@ const OUTPUT_CARD_DIR = "res://Cards/Data/"
 # herda, confirmado pelo usuário. A ferramenta duplica ele (preserva forma
 # de colisão, barra de vida com tema, conexão de sinal, tudo) em vez de
 # tentar montar uma cena do zero -- muito mais seguro
-const UNIT_TEMPLATE_SCENE_PATH = "res://Scripts/unit_base.tscn"
-const OUTPUT_UNIT_SCENE_DIR = "res://Units/Scenes/"
+const UNIT_TEMPLATE_SCENE_PATH = "res://Units/scenes/unit_base.tscn"
+const OUTPUT_UNIT_SCENE_DIR = "res://Units/scenes/"
 
 # --------------------------------------------------------------
 # Tabela de campos de UnitData -- [propriedade, tipo, padrão, rótulo]
