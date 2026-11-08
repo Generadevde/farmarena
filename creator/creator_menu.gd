@@ -250,7 +250,7 @@ func _build_card_list():
 	)
 	_body.add_child(filter)
 
-	var cards: Array = CardDatabase.all_cards.duplicate()
+	var cards: Array = CardDatabase.all_cards.duplicate() + CustomContent.spawn_only_cards()
 	cards.sort_custom(func(a, b):
 		if a == null or b == null:
 			return a != null
@@ -267,6 +267,8 @@ func _build_card_list():
 		if _show_custom_only and !custom:
 			continue
 		var tag = "⭐ criada por você" if custom else ("✏️ editada" if CustomContent.has_override(card) else "do jogo")
+		if CustomContent.is_spawn_only(card):
+			tag = "🐣 só invocação"
 		var kind_text = "Feitiço" if card.is_spell() else CardData.role_name(card.role)
 		var c = card
 		_body.add_child(_list_row(card.icon, card.card_name, "%s · custo %d · %s" % [kind_text, card.cost, tag],
@@ -300,6 +302,14 @@ func _open_card_form(pack: Dictionary):
 	_section("Carta")
 	for f in CustomContent.CARD_FIELDS:
 		_field(_work["card"], f)
+	if _work["stats"] != null and (pack.get("is_new", false) or CustomContent.is_custom(card)):
+		var so = CheckButton.new()
+		so.text = "🐣 Só invocação (não vai pro baralho nem pra coleção; serve de filhote pra outra carta)"
+		so.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		so.custom_minimum_size = Vector2(0, 64)
+		so.button_pressed = CustomContent.is_spawn_only(card)
+		so.toggled.connect(func(on): _work["card"].set_meta("spawn_only", on))
+		_field_box.add_child(so)
 	if _work["spell"] != null:
 		_section("Feitiço")
 		for f in CustomContent.SPELL_FIELDS:
@@ -335,6 +345,8 @@ func _power_hint() -> Label:
 func _save_card():
 	var card: CardData = _orig["card"]
 	CustomContent.apply_snapshot(card, CustomContent.snapshot(_work["card"], CustomContent.CARD_FIELDS), CustomContent.CARD_FIELDS)
+	if _work["card"].has_meta("spawn_only"):
+		card.set_meta("spawn_only", _work["card"].get_meta("spawn_only"))
 	if _orig["stats"] != null and _work["stats"] != null:
 		var uf = CustomContent.all_unit_fields()
 		CustomContent.apply_snapshot(_orig["stats"], CustomContent.snapshot(_work["stats"], uf), uf)
@@ -345,7 +357,11 @@ func _save_card():
 	_orig["proj_changed"] = _proj_changed
 	var saved = CustomContent.save_card(_orig, _image_changed)
 	_close_form()
-	_say("✔ \"%s\" salva! Já aparece na coleção e os bots podem usar." % saved.card_name)
+	if CustomContent.is_spawn_only(saved):
+		_remove_from_player_deck(saved.resource_path)
+		_say("✔ \"%s\" salva como SÓ INVOCAÇÃO -- escolha ela em \"Unidade invocada\" de outra carta." % saved.card_name)
+	else:
+		_say("✔ \"%s\" salva! Já aparece na coleção e os bots podem usar." % saved.card_name)
 
 
 func _delete_card(card: CardData):
@@ -702,7 +718,7 @@ func _field(obj: Object, f: Array):
 			row.add_child(_field_label(f[1]))
 			var scenes: Array = [null]
 			var names: Array = ["(nenhuma)"]
-			for c in CardDatabase.all_cards:
+			for c in CustomContent.all_unit_cards_for_spawn():
 				if c != null and c.unit_scene != null and !scenes.has(c.unit_scene):
 					scenes.append(c.unit_scene)
 					names.append(c.card_name)

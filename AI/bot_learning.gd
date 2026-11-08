@@ -155,6 +155,10 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 	profile.known_cards = _load_deck(known_paths)
 
 	profile.deck = _load_deck(data.get("deck_paths", []))
+	# carta marcada como "só invocação" no Criador sai do deck do bot
+	for i in range(profile.deck.size() - 1, -1, -1):
+		if CustomContent.is_spawn_only(profile.deck[i]):
+			profile.deck.remove_at(i)
 	var known_changed = false
 
 	# DECKS VARIADOS (v2): todo bot ganha um estilo próprio fixo e algumas
@@ -325,7 +329,7 @@ func _learn_custom_cards(bot_name: String, data: Dictionary, profile: AIProfile,
 	var seen: Array = data.get("seen_custom_cards", [])
 	var changed = false
 	for card in CustomContent.custom_cards:
-		if card == null or seen.has(card.resource_path):
+		if card == null or seen.has(card.resource_path) or CustomContent.is_spawn_only(card):
 			continue
 		seen.append(card.resource_path)
 		changed = true

@@ -459,11 +459,32 @@ func _load_custom_cards():
 			_register_card(card)
 
 
+# carta "só invocação": não entra no baralho, na coleção nem nos bots --
+# existe só pra ser filhote de outra carta (invocar, nascer ao morrer...)
+static func is_spawn_only(card: CardData) -> bool:
+	return card != null and card.has_meta("spawn_only") and bool(card.get_meta("spawn_only"))
+
+
+func spawn_only_cards() -> Array:
+	return custom_cards.filter(func(c): return is_spawn_only(c))
+
+
+# toda carta de unidade que pode ser escolhida como filhote (jogáveis + só invocação)
+func all_unit_cards_for_spawn() -> Array:
+	var out: Array = []
+	for c in CardDatabase.all_cards + spawn_only_cards():
+		if c != null and c.unit_scene != null and !out.has(c):
+			out.append(c)
+	return out
+
+
 func _register_card(card: CardData):
 	CardGenerator.reset_style_cache()  # arte nova vira peça/cor pro gerador
 	if !custom_cards.has(card):
 		custom_cards.append(card)
-	if !CardDatabase.all_cards.has(card):
+	if is_spawn_only(card):
+		CardDatabase.all_cards.erase(card)
+	elif !CardDatabase.all_cards.has(card):
 		CardDatabase.all_cards.append(card)
 
 

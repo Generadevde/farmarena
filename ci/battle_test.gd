@@ -152,6 +152,21 @@ func _freeze_test():
 	var p2 = u.global_position
 	await get_tree().create_timer(3.5).timeout
 	print("RESULTADO feitiço gelo 4s: andou em 3,5s=", snapped(u.global_position.distance_to(p2), 0.1), "px (esperado ~0)")
+	# filhote herda o nível: Abelha Rainha nível 5 invoca operária nível 5
+	var queen: CardData = null
+	for c in CardDatabase.all_cards:
+		if c != null and c.card_name.contains("Rainha"):
+			queen = c
+	if queen != null:
+		var qs = DeckBuilder.get_unit_stats(queen)
+		var parent = queen.unit_scene.instantiate()
+		parent.team = GameManager.Team.PLAYER
+		parent.card_level = 5
+		battle.add_child(parent)
+		parent.global_position = pb.global_position + Vector2(0, -60)
+		var child = parent._spawn_child(qs.spawn_unit_scene, parent.global_position)
+		var base_hp = DeckBuilder.get_unit_stats(queen).spawn_unit_scene.instantiate().stats.hp
+		print("RESULTADO filhote: nível=", child.card_level, " vida=", child.stats.hp, " (base ", base_hp, ", esperado x", PlayerProfile.compute_stat_multiplier(5), ")")
 	print("RESULTADO congelar: andou congelada=", snapped(moved_frozen, 0.1), "px (esperado ~0) | travada=", frozen_flag,
 		" | depois andou ", snapped(moved_after, 0.1), "px (esperado >0, imunidade)")
 

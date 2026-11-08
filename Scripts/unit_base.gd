@@ -845,10 +845,7 @@ func _perform_attack():
 
 	if stats.summons_on_attack and stats.attack_summon_scene != null and !_is_silenced():
 		if randf() < stats.attack_summon_chance:
-			var summoned = stats.attack_summon_scene.instantiate()
-			summoned.team = team
-			get_parent().add_child(summoned)
-			summoned.global_position = global_position + Vector2(randf_range(-15, 15), randf_range(-15, 15))
+			_spawn_child(stats.attack_summon_scene, global_position + Vector2(randf_range(-15, 15), randf_range(-15, 15)))
 
 	if stats.lifesteal_percent > 0:
 		heal(round(dmg * stats.lifesteal_percent))
@@ -1384,12 +1381,7 @@ func _process_unit_spawning(delta):
 	_spawn_cooldown = stats.spawn_interval
 
 	for i in stats.spawn_count:
-		var new_unit = stats.spawn_unit_scene.instantiate()
-		new_unit.team = team
-		new_unit.card_level = card_level  # herda o nível de quem gerou, igual o clone já faz
-		_apply_card_level_to_stats(new_unit)
-		get_parent().add_child(new_unit)
-		new_unit.global_position = global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20))
+		_spawn_child(stats.spawn_unit_scene, global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20)))
 
 
 func _process_resource_generation(delta):
@@ -1423,10 +1415,7 @@ func _process_shield_recharge():
 func _do_transform():
 	if not is_instance_valid(self):
 		return
-	var new_building = stats.transformed_scene.instantiate()
-	new_building.team = team
-	get_parent().add_child(new_building)
-	new_building.global_position = global_position
+	_spawn_child(stats.transformed_scene, global_position)
 	queue_free()
 
 
@@ -1435,6 +1424,22 @@ func _do_transform():
 # pra unidade jogada pela mão; aqui replica pra unidade que nasce DE DENTRO
 # de outra (spawn contínuo, spawn ao morrer), que antes sempre nascia no
 # nível base, ignorando o quanto a carta já tinha evoluído
+# ÚNICO jeito de nascer "filhote" (invocar contínuo, ao atacar, ao morrer,
+# virar construção): sempre herda time e NÍVEL de quem gerou, e a força
+# (vida/dano) escala com esse nível -- igual carta jogada da mão
+func _spawn_child(scene: PackedScene, pos: Vector2) -> Node:
+	if scene == null:
+		return null
+	var child = scene.instantiate()
+	child.team = team
+	if "card_level" in child:
+		child.card_level = card_level
+		_apply_card_level_to_stats(child)
+	get_parent().add_child(child)
+	child.global_position = pos
+	return child
+
+
 func _apply_card_level_to_stats(new_unit):
 	if new_unit.card_level <= 1 or new_unit.stats == null:
 		return
@@ -1457,6 +1462,7 @@ func _spawn_clone():
 		var clone = clone_scene.instantiate()
 		clone.team = team
 		clone.card_level = card_level
+		_apply_card_level_to_stats(clone)  # antes o clone mostrava o nível mas tinha a força do nível 1
 		get_parent().add_child(clone)
 		# espalha um pouco quando é mais de um clone, senão nascem empilhados
 		var offset = Vector2.ZERO if stats.clone_count <= 1 else Vector2(randf_range(-20, 20), randf_range(-20, 20))
@@ -1476,12 +1482,7 @@ func die():
 
 	if stats.spawns_on_death and stats.death_spawn_scene != null:
 		for i in stats.death_spawn_count:
-			var new_unit = stats.death_spawn_scene.instantiate()
-			new_unit.team = team
-			new_unit.card_level = card_level  # herda o nível de quem gerou
-			_apply_card_level_to_stats(new_unit)
-			get_parent().add_child(new_unit)
-			new_unit.global_position = global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20))
+			_spawn_child(stats.death_spawn_scene, global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20)))
 
 	if stats.grants_resource_on_death:
 		var opposing_is_player = team != GameManager.Team.PLAYER
