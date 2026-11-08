@@ -57,7 +57,7 @@ static func generate_card(kind: int = 0, role: int = -1, cost: int = 0, seed_val
 
 	var is_spell = (kind == 2) or (kind == 0 and rng.randf() < 0.18)
 	if cost <= 0:
-		cost = rng.randi_range(1, 7)
+		cost = rng.randi_range(2, 14) * 5  # 10 a 70, igual às cartas do jogo
 	if role < 0:
 		role = rng.randi() % CardData.CardRole.size()
 		if is_spell and !(role in [CardData.CardRole.PUNICAO, CardData.CardRole.CONTROLE, CardData.CardRole.SUPORTE, CardData.CardRole.FINALIZADOR]):
@@ -72,16 +72,17 @@ static func generate_card(kind: int = 0, role: int = -1, cost: int = 0, seed_val
 
 	if is_spell:
 		_fill_spell(pack["spell"], role, cost, rng)
-		card.danger_level = clamp(cost + 1, 1, 10)
+		card.danger_level = clamp(int(cost / 10.0) + 1, 1, 10)
 		card.description = "Feitiço gerado aleatoriamente."
 	else:
 		_fill_unit(pack["stats"], role, cost, rng)
-		card.danger_level = clamp(int(cost * 1.2 + rng.randi_range(-1, 1)), 1, 10)
+		card.danger_level = clamp(int(cost / 10.0 * 1.2 + rng.randi_range(-1, 1)), 1, 10)
 		card.description = "Carta gerada aleatoriamente. Categoria: %s." % CardData.role_name(role)
 	return pack
 
 
 static func _fill_spell(sp: SpellData, role: int, cost: int, rng: RandomNumberGenerator):
+	var cu = cost / 10.0  # custo em "elixir" (0-10) -- o recurso do jogo vai de 0 a 100
 	sp.radius = rng.randf_range(55.0, 100.0)
 	sp.affects_enemies = true
 	sp.affects_allies = false
@@ -90,17 +91,17 @@ static func _fill_spell(sp: SpellData, role: int, cost: int, rng: RandomNumberGe
 			sp.affects_enemies = false
 			sp.affects_allies = true
 			sp.damage = 0
-			sp.heal_amount = int(cost * rng.randf_range(35.0, 55.0))
+			sp.heal_amount = int(cu * rng.randf_range(35.0, 55.0))
 			sp.duration = 3.0
 			sp.tick_interval = 0.5
 		CardData.CardRole.CONTROLE:
-			sp.damage = int(cost * rng.randf_range(15.0, 30.0))
+			sp.damage = int(cu * rng.randf_range(15.0, 30.0))
 			sp.status_effect = [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.STUN, UnitData.OnHitEffect.FREEZE][rng.randi() % 3]
 			sp.status_effect_strength = 0.4
 			sp.duration = rng.randf_range(2.0, 4.0)
 			sp.tick_interval = 0.5
 		_:
-			sp.damage = int(cost * rng.randf_range(70.0, 100.0))
+			sp.damage = int(cu * rng.randf_range(70.0, 100.0))
 			sp.duration = 0.0
 	sp.base_damage_multiplier = 0.12 if role != CardData.CardRole.FINALIZADOR else 0.35
 	sp.radius = round(sp.radius / 5.0) * 5.0
@@ -163,7 +164,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			st.is_ranged = true
 			st.attack_range = 100.0
 			st.can_heal_allies = true
-			st.heal_aura_amount = int(cost * 4)
+			st.heal_aura_amount = int(cost / 10.0 * 4)
 			st.heal_aura_radius = 80.0
 			hp_share = 0.6
 			budget *= 0.8  # a cura "paga" parte do orçamento
@@ -188,7 +189,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			# invoca uma unidade barata que já existe no jogo
 			var pool: Array = []
 			for c in CardDatabase.all_cards:
-				if c != null and !c.is_spell() and c.unit_scene != null and c.cost <= 3:
+				if c != null and !c.is_spell() and c.unit_scene != null and c.cost <= 30:
 					var cs = DeckBuilder.get_unit_stats(c)
 					if cs != null and cs.unit_type != UnitData.UnitType.BUILDING and !cs.spawns_units:
 						pool.append(c)

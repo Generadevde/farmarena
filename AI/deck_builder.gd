@@ -106,12 +106,13 @@ static func describe_style(style: Dictionary) -> String:
 
 
 static func _curve_score(cost: int, curve: int) -> float:
+	var c = cost / 10.0  # custo do jogo vai de 0 a 100
 	match curve:
 		CURVE_CHEAP:
-			return 2.0 - abs(cost - 2.5) * 0.6
+			return 2.0 - abs(c - 2.5) * 0.6
 		CURVE_HEAVY:
-			return 2.0 - abs(cost - 5.5) * 0.5
-	return 2.0 - abs(cost - 4.0) * 0.5
+			return 2.0 - abs(c - 5.5) * 0.5
+	return 2.0 - abs(c - 4.0) * 0.5
 
 
 # quanto essa carta "combina" com o estilo do bot e com o que já foi escolhido

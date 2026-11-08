@@ -89,6 +89,7 @@ func _ready():
 
 	_canvas = Control.new()
 	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_canvas.custom_minimum_size = Vector2(0, 360)
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
 	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -98,16 +99,18 @@ func _ready():
 	root.add_child(_canvas)
 
 	# ferramentas
-	var tools = HBoxContainer.new()
-	tools.add_theme_constant_override("separation", 6)
+	var tools = HFlowContainer.new()  # quebra linha sozinho -- nada fica por cima de nada
+	tools.add_theme_constant_override("h_separation", 6)
+	tools.add_theme_constant_override("v_separation", 6)
 	root.add_child(tools)
 	_add_tool(tools, Tool.PENCIL, "✏️ Lápis")
 	_add_tool(tools, Tool.ERASER, "🧽 Borracha")
 	_add_tool(tools, Tool.FILL, "🪣 Balde")
 	_add_tool(tools, Tool.PICKER, "💧 Pegar cor")
 
-	var tools2 = HBoxContainer.new()
-	tools2.add_theme_constant_override("separation", 6)
+	var tools2 = HFlowContainer.new()  # quebra linha sozinho -- nada fica por cima de nada
+	tools2.add_theme_constant_override("h_separation", 6)
+	tools2.add_theme_constant_override("v_separation", 6)
 	root.add_child(tools2)
 	_mirror_button = _btn(tools2, "↔ Espelho: não", _toggle_mirror)
 	_btn(tools2, "# Grade", _toggle_grid)
@@ -116,20 +119,21 @@ func _ready():
 
 	# paleta
 	var pal_row = HBoxContainer.new()
+	pal_row.add_theme_constant_override("separation", 8)
 	root.add_child(pal_row)
 	_color_swatch = ColorRect.new()
-	_color_swatch.custom_minimum_size = Vector2(56, 56)
+	_color_swatch.custom_minimum_size = Vector2(64, 64)
 	_color_swatch.color = _color
 	pal_row.add_child(_color_swatch)
 	var grid = GridContainer.new()
-	grid.columns = 14
+	grid.columns = 10
 	grid.add_theme_constant_override("h_separation", 3)
 	grid.add_theme_constant_override("v_separation", 3)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pal_row.add_child(grid)
 	for c in PALETTE:
 		var b = Button.new()
-		b.custom_minimum_size = Vector2(40, 40)
+		b.custom_minimum_size = Vector2(50, 50)
 		var sb = StyleBoxFlat.new()
 		sb.bg_color = c
 		sb.set_corner_radius_all(4)
@@ -139,15 +143,16 @@ func _ready():
 		b.pressed.connect(func(): _set_color(cc))
 		grid.add_child(b)
 	var picker = ColorPickerButton.new()
-	picker.custom_minimum_size = Vector2(56, 56)
+	picker.custom_minimum_size = Vector2(64, 64)
 	picker.text = "+"
 	picker.color = _color
 	picker.color_changed.connect(_set_color)
 	pal_row.add_child(picker)
 
 	# ações
-	var actions = HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 6)
+	var actions = HFlowContainer.new()  # quebra linha sozinho -- nada fica por cima de nada
+	actions.add_theme_constant_override("h_separation", 6)
+	actions.add_theme_constant_override("v_separation", 6)
 	root.add_child(actions)
 	_btn(actions, "↶ Desfazer", _do_undo)
 	_btn(actions, "↷ Refazer", _do_redo)
@@ -190,7 +195,7 @@ func _confirm():
 func _btn(parent: Node, text: String, cb: Callable) -> Button:
 	var b = Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 52)
+	b.custom_minimum_size = Vector2(160, 60)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.add_theme_font_size_override("font_size", 16)
 	b.pressed.connect(cb)

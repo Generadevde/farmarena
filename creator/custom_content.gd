@@ -37,7 +37,7 @@ const EFFECT_NAMES = ["Nenhum", "Lentidão", "Fraqueza", "Congelar", "Veneno", "
 
 const CARD_FIELDS = [
 	["card_name", "Nome", "text", []],
-	["cost", "Custo", "int", [1, 10, 1]],
+	["cost", "Custo (0 a 100, igual a barra de recurso)", "int", [5, 100, 5]],
 	["role", "Categoria", "enum", ROLE_NAMES],
 	["danger_level", "Perigo (pra IA)", "int", [1, 10, 1]],
 	["description", "Descrição", "multiline", []],
@@ -78,6 +78,131 @@ const UNIT_FIELDS = [
 	["lifesteal_percent", "Roubo de vida (0-1)", "float", [0.0, 1.0, 0.05]],
 ]
 
+# TODOS os outros campos do UnitData (habilidades/efeitos) -- a lista é
+# montada sozinha a partir do próprio recurso (unit_extra_fields), esses são
+# só os nomes em português. Campo novo que você criar no UnitData aparece
+# sozinho no Criador, com o nome técnico mesmo.
+const UNIT_EXTRA_LABELS = {
+	"spawns_disguised": "Nasce disfarçada (revela no 1º ataque)",
+	"charge_attack": "Golpe carregado (anda e bate forte)",
+	"charge_distance_needed": "Distância pra carregar",
+	"charge_damage_multiplier": "Multiplicador do golpe carregado",
+	"charge_knockback_distance": "Empurrão do golpe carregado",
+	"bandit_dash": "Avanço instantâneo (1x)",
+	"dash_speed_multiplier": "Velocidade do avanço",
+	"dash_duration": "Duração do avanço",
+	"projectile_pierces": "Projétil atravessa",
+	"projectile_max_targets": "Máx. alvos atravessados",
+	"projectile_splits": "Projétil se divide",
+	"projectile_split_count": "Pedaços da divisão",
+	"projectile_split_range": "Alcance da divisão",
+	"projectile_chains": "Projétil em cadeia (pula)",
+	"projectile_chain_max_targets": "Máx. pulos da cadeia",
+	"projectile_chain_range": "Alcance do pulo",
+	"initial_stun_duration": "Atordoado ao nascer (s)",
+	"on_hit_effect_tick_interval": "Intervalo do efeito (veneno)",
+	"knockback_distance": "Distância do empurrão/puxão",
+	"mastery_effect": "Efeito de maestria (nível 7+)",
+	"mastery_effect_duration": "Duração da maestria",
+	"mastery_effect_strength": "Força da maestria",
+	"mastery_effect_tick_interval": "Intervalo da maestria",
+	"heal_aura_interval": "Intervalo da cura",
+	"spawns_units": "Invoca unidades",
+	"spawn_unit_scene": "Unidade invocada",
+	"spawn_interval": "Invoca a cada (s)",
+	"spawn_count": "Quantas invoca",
+	"spawns_on_death": "Invoca ao morrer",
+	"death_spawn_scene": "Unidade que surge ao morrer",
+	"death_spawn_count": "Quantas surgem ao morrer",
+	"generates_resource": "Gera recurso",
+	"resource_per_tick": "Recurso por pulso",
+	"resource_tick_interval": "Intervalo do recurso",
+	"stores_resource": "Aumenta limite de recurso",
+	"storage_capacity_bonus": "Limite extra",
+	"steals_resource_on_base_hit": "Rouba recurso ao bater na base",
+	"resource_steal_amount": "Quanto rouba",
+	"summons_on_attack": "Invoca ao atacar",
+	"attack_summon_scene": "Unidade invocada no ataque",
+	"attack_summon_chance": "Chance de invocar (0-1)",
+	"first_attack_bonus": "Primeiro ataque mais forte",
+	"first_attack_multiplier": "Multiplicador do 1º ataque",
+	"ramping_damage": "Dano cresce a cada golpe",
+	"ramping_damage_per_hit": "Aumento por golpe",
+	"ramping_damage_max_multiplier": "Máximo do aumento",
+	"same_target_ramping_damage": "Dano cresce no mesmo alvo",
+	"same_target_ramping_damage_per_hit": "Aumento por golpe (mesmo alvo)",
+	"same_target_ramping_damage_max_multiplier": "Máximo (mesmo alvo)",
+	"distance_damage_bonus_per_100px": "Dano extra por distância (a cada 100px)",
+	"ramping_attack_speed": "Ataca cada vez mais rápido",
+	"attack_speed_ramp_per_hit": "Aceleração por golpe",
+	"attack_speed_ramp_min_multiplier": "Limite da aceleração",
+	"pre_attack_speed_boost": "Acelera ao achar alvo",
+	"pre_attack_boost_multiplier": "Multiplicador da aceleração",
+	"pre_attack_boost_duration": "Duração da aceleração",
+	"entrance_rage_duration": "Fúria ao entrar (s)",
+	"entrance_rage_damage_mult": "Dano na fúria de entrada",
+	"entrance_rage_speed_mult": "Velocidade na fúria de entrada",
+	"entrance_shockwave_damage": "Onda de choque ao entrar (dano)",
+	"entrance_shockwave_radius": "Raio da onda de choque",
+	"execute_threshold": "Executa alvo com vida abaixo de (0-1)",
+	"execute_damage_mult": "Dano da execução",
+	"low_hp_rage_threshold": "Fúria com vida abaixo de (0-1)",
+	"low_hp_rage_damage_mult": "Dano na fúria de vida baixa",
+	"continuous_attack": "Ataque contínuo (raio/lança-chamas)",
+	"continuous_damage_per_second": "Dano por segundo contínuo",
+	"spin_attack": "Ataque giratório (360°)",
+	"frontal_cone_attack": "Ataque em cone",
+	"cone_angle_degrees": "Ângulo do cone",
+	"aoe_hits_extra_one": "Acerta +1 alvo extra",
+	"has_shield": "Tem escudo",
+	"shield_amount": "Escudo",
+	"shield_recharge_time": "Escudo recarrega após (s)",
+	"has_temp_shield": "Escudo temporário",
+	"temp_shield_amount": "Escudo temporário (valor)",
+	"temp_shield_duration": "Duração do escudo temporário",
+	"is_linked": "Vida compartilhada com o grupo",
+	"link_share_percent": "Fração compartilhada",
+	"can_resurrect": "Ressuscita 1x",
+	"resurrect_hp_percent": "Vida ao ressuscitar (0-1)",
+	"taunt_radius": "Raio da provocação",
+	"immune_to_effect": "Imune ao efeito",
+	"immune_to_knockback": "Imune a empurrão",
+	"immune_to_pull": "Imune a puxão",
+	"counter_attack_chance": "Chance de contra-ataque (0-1)",
+	"reflects_damage": "Reflete dano",
+	"reflect_damage_percent": "Fração refletida",
+	"passive_regen": "Regenera vida",
+	"regen_amount": "Regeneração",
+	"regen_interval": "Intervalo da regeneração",
+	"heals_on_kill": "Cura ao matar",
+	"heal_on_kill_amount": "Cura ao matar (valor)",
+	"converts_kills_to_gold": "Ganha ouro ao matar",
+	"gold_per_kill": "Ouro por abate",
+	"landing_duration": "Tempo pousando (reforço aéreo)",
+	"can_stealth": "Fica invisível",
+	"stealth_reveal_range": "Distância que revela",
+	"immune_while_moving": "Imune enquanto anda",
+	"spawn_invulnerability_duration": "Invulnerável ao nascer (s)",
+	"extra_damage_vs_role": "Dano extra contra categoria",
+	"extra_damage_vs_role_mult": "Dano extra (0.5 = +50%)",
+	"deals_arrival_damage": "Dano ao chegar",
+	"arrival_damage": "Dano de chegada",
+	"arrival_damage_radius": "Raio do dano de chegada",
+	"transforms_into_building": "Vira construção",
+	"transform_after_seconds": "Vira depois de (s)",
+	"transformed_scene": "Construção em que se transforma",
+	"can_clone": "Se clona",
+	"clone_hp_percent": "Vida do clone (0-1)",
+	"clone_count": "Quantos clones",
+	"grants_resource_on_death": "Dá recurso ao morrer",
+	"death_resource_amount": "Recurso ao morrer",
+	"can_convert_enemy": "Converte inimigo",
+	"convert_max_targets": "Máx. conversões",
+}
+
+# campos que não fazem sentido no formulário (já estão acima ou são imagem)
+const UNIT_SKIP = ["role", "projectile_texture"]
+
 const SPELL_FIELDS = [
 	["radius", "Raio", "float", [10.0, 400.0, 5.0]],
 	["damage", "Dano", "int", [0, 5000, 5]],
@@ -111,6 +236,51 @@ const BASE_FIELDS = [
 	["effect", "Efeito da aura", "enum", EFFECT_NAMES],
 	["effect_strength", "Força do efeito", "float", [0.0, 500.0, 0.05]],
 ]
+
+var _extra_fields_cache: Array = []
+
+
+# gera a lista [prop, rótulo, tipo, opções] de TODO campo exportado do
+# UnitData que não está em UNIT_FIELDS
+func unit_extra_fields() -> Array:
+	if !_extra_fields_cache.is_empty():
+		return _extra_fields_cache
+	var base: Dictionary = {}
+	for f in UNIT_FIELDS:
+		base[f[0]] = true
+	var probe = UnitData.new()
+	for p in probe.get_property_list():
+		var pname: String = p["name"]
+		if base.has(pname) or pname in UNIT_SKIP:
+			continue
+		if !(p["usage"] & PROPERTY_USAGE_SCRIPT_VARIABLE) or !(p["usage"] & PROPERTY_USAGE_EDITOR):
+			continue
+		var label = UNIT_EXTRA_LABELS.get(pname, pname.replace("_", " ").capitalize())
+		match p["type"]:
+			TYPE_BOOL:
+				_extra_fields_cache.append([pname, label, "bool", []])
+			TYPE_INT:
+				if p["hint"] == PROPERTY_HINT_ENUM:
+					var opts: Array = []
+					for item in String(p["hint_string"]).split(","):
+						opts.append(item.split(":")[0].strip_edges())
+					if pname.ends_with("effect"):
+						opts = Array(EFFECT_NAMES)
+					_extra_fields_cache.append([pname, label, "enum", opts])
+				else:
+					_extra_fields_cache.append([pname, label, "int", [0, 100000, 1]])
+			TYPE_FLOAT:
+				_extra_fields_cache.append([pname, label, "float", [0.0, 100000.0, 0.05]])
+			TYPE_OBJECT:
+				if p["hint_string"] == "PackedScene":
+					_extra_fields_cache.append([pname, label, "scene", []])
+	return _extra_fields_cache
+
+
+# todos os campos de unidade (básicos + habilidades) -- usado pra salvar edição
+func all_unit_fields() -> Array:
+	return UNIT_FIELDS + unit_extra_fields()
+
 
 var custom_cards: Array[CardData] = []
 var custom_bases: Array[BaseData] = []
@@ -215,14 +385,23 @@ static func set_prop(obj: Object, prop: String, value):
 static func snapshot(obj: Object, fields: Array) -> Dictionary:
 	var d = {}
 	for f in fields:
-		d[f[0]] = obj.get(f[0])
+		var v = obj.get(f[0])
+		if f[2] == "scene":
+			v = "res:" + (v.resource_path if v is Resource else "")
+		d[f[0]] = v
 	return d
 
 
 static func apply_snapshot(obj: Object, data: Dictionary, fields: Array):
 	for f in fields:
-		if data.has(f[0]):
-			set_prop(obj, f[0], data[f[0]])
+		if !data.has(f[0]):
+			continue
+		var v = data[f[0]]
+		if f[2] == "scene":
+			var path = String(v).trim_prefix("res:")
+			obj.set(f[0], load(path) if path != "" and ResourceLoader.exists(path) else null)
+		else:
+			set_prop(obj, f[0], v)
 
 
 func is_custom(res: Resource) -> bool:
@@ -260,7 +439,7 @@ func _register_card(card: CardData):
 func make_blank_card(is_spell: bool) -> Dictionary:
 	var card = CardData.new()
 	card.card_name = "Nova carta"
-	card.cost = 3
+	card.cost = 30
 	card.role = CardData.CardRole.VERSATIL
 	card.danger_level = 3
 	card.description = ""
@@ -389,7 +568,7 @@ func _save_card_override(pack: Dictionary, image_changed: bool):
 	var entry: Dictionary = _overrides["cards"].get(path, {})
 	entry["card"] = snapshot(card, CARD_FIELDS)
 	if pack["stats"] != null:
-		entry["unit"] = snapshot(pack["stats"], UNIT_FIELDS)
+		entry["unit"] = snapshot(pack["stats"], all_unit_fields())
 	if pack["spell"] != null:
 		entry["spell"] = snapshot(pack["spell"], SPELL_FIELDS)
 	if image_changed:
@@ -410,7 +589,7 @@ func restore_original_card(card: CardData):
 		apply_snapshot(card, o["card"], CARD_FIELDS)
 		var stats = DeckBuilder.get_unit_stats(card)
 		if stats != null and o.has("unit"):
-			apply_snapshot(stats, o["unit"], UNIT_FIELDS)
+			apply_snapshot(stats, o["unit"], all_unit_fields())
 		if card.spell_data != null and o.has("spell"):
 			apply_snapshot(card.spell_data, o["spell"], SPELL_FIELDS)
 		if o.has("icon"):
@@ -430,7 +609,7 @@ func remember_original_card(card: CardData):
 	var o = {"card": snapshot(card, CARD_FIELDS), "icon": card.icon}
 	var stats = DeckBuilder.get_unit_stats(card)
 	if stats != null:
-		o["unit"] = snapshot(stats, UNIT_FIELDS)
+		o["unit"] = snapshot(stats, all_unit_fields())
 	if card.spell_data != null:
 		o["spell"] = snapshot(card.spell_data, SPELL_FIELDS)
 	_originals[path] = o
@@ -574,7 +753,7 @@ func _load_overrides():
 		apply_snapshot(card, entry.get("card", {}), CARD_FIELDS)
 		var stats = DeckBuilder.get_unit_stats(card)
 		if stats != null and entry.has("unit"):
-			apply_snapshot(stats, entry["unit"], UNIT_FIELDS)
+			apply_snapshot(stats, entry["unit"], all_unit_fields())
 			if stats.is_ranged and stats.projectile_texture == null:
 				stats.projectile_texture = default_projectile
 		if card.spell_data != null and entry.has("spell"):

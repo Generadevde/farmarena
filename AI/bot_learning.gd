@@ -167,7 +167,7 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 				known_paths.append(card.resource_path)
 		data["known_card_paths"] = known_paths
 		profile.known_cards = _load_deck(known_paths)
-		profile.deck = []  # força remontar com o estilo novo logo abaixo
+		profile.deck.clear()  # força remontar com o estilo novo logo abaixo (lista tipada: clear, não = [])
 		data.erase("favorite_card_path")
 		known_changed = true
 

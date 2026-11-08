@@ -41,6 +41,7 @@ func _ready():
 	add_child(bg)
 
 	var margin = MarginContainer.new()
+	_main_ui = margin
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, 14)
@@ -100,6 +101,21 @@ func _notification(what):
 
 
 var _open_editor: Node = null
+var _main_ui: Control
+
+
+# o desenho abre como uma TELA SEPARADA: esconde o criador inteiro enquanto
+# desenha (antes um ficava por cima do outro e não dava pra desenhar)
+func _open_pixel_editor(img: Image, title: String, on_done: Callable):
+	_main_ui.visible = false
+	var ed = PixelEditor.open(self, img, title)
+	_open_editor = ed
+	ed.finished.connect(on_done)
+	ed.tree_exited.connect(func():
+		if is_instance_valid(_main_ui):
+			_main_ui.visible = true
+		_open_editor = null
+	)
 
 
 func _on_back():
@@ -217,11 +233,11 @@ func _build_card_list():
 	gen_opts.add_child(role)
 	var cost_names = ["Custo aleatório"]
 	for c in range(1, 11):
-		cost_names.append("Custo %d" % c)
+		cost_names.append("Custo %d" % (c * 10))
 	var cost = _option(cost_names, _gen_cost, func(i): _gen_cost = i)
 	gen_opts.add_child(cost)
 	gen.add_child(_button("🎲 Gerar carta", func():
-		var pack = CardGenerator.generate_card(_gen_kind, _gen_role, _gen_cost)
+		var pack = CardGenerator.generate_card(_gen_kind, _gen_role, _gen_cost * 10)
 		_open_card_form(pack)
 		_say("Carta gerada! Ajusta o que quiser e aperta Salvar.")
 	))
@@ -288,6 +304,10 @@ func _open_card_form(pack: Dictionary):
 		_section("Unidade")
 		for f in CustomContent.UNIT_FIELDS:
 			_field(_work["stats"], f)
+		_section("Habilidades e efeitos (todas)")
+		_field_box.add_child(_label("Liga a habilidade e ajusta os números logo abaixo dela.", 14))
+		for f in CustomContent.unit_extra_fields():
+			_field(_work["stats"], f)
 
 	_body.add_child(_power_hint())
 	_form_buttons(_save_card, CustomContent.is_custom(card), CustomContent.has_override(card),
@@ -310,7 +330,8 @@ func _save_card():
 	var card: CardData = _orig["card"]
 	CustomContent.apply_snapshot(card, CustomContent.snapshot(_work["card"], CustomContent.CARD_FIELDS), CustomContent.CARD_FIELDS)
 	if _orig["stats"] != null and _work["stats"] != null:
-		CustomContent.apply_snapshot(_orig["stats"], CustomContent.snapshot(_work["stats"], CustomContent.UNIT_FIELDS), CustomContent.UNIT_FIELDS)
+		var uf = CustomContent.all_unit_fields()
+		CustomContent.apply_snapshot(_orig["stats"], CustomContent.snapshot(_work["stats"], uf), uf)
 	if _orig["spell"] != null and _work["spell"] != null:
 		CustomContent.apply_snapshot(_orig["spell"], CustomContent.snapshot(_work["spell"], CustomContent.SPELL_FIELDS), CustomContent.SPELL_FIELDS)
 	_orig["image"] = _work["image"]
@@ -522,9 +543,7 @@ func _build_art_block(art_size: Vector2i, title: String, show_size: Vector2):
 	row.add_child(col)
 	col.add_child(_label(title + " (%dx%d)" % [art_size.x, art_size.y], 16))
 	col.add_child(_button("🎨 Desenhar", func():
-		var ed = PixelEditor.open(self, _work["image"], title)
-		_open_editor = ed
-		ed.finished.connect(func(img: Image):
+		_open_pixel_editor(_work["image"], title, func(img: Image):
 			if !is_instance_valid(_art_rect) or _work.is_empty():
 				return
 			_work["image"] = img
@@ -582,7 +601,7 @@ func _field(obj: Object, f: Array):
 	var kind: String = f[2]
 	var opts: Array = f[3]
 	var value = obj.get(prop)
-	if value == null and kind != "text" and kind != "multiline":
+	if value == null and kind != "text" and kind != "multiline" and kind != "scene":
 		return  # propriedade não existe nesse tipo de recurso
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
@@ -624,6 +643,17 @@ func _field(obj: Object, f: Array):
 		"enum":
 			row.add_child(_field_label(f[1]))
 			row.add_child(_option(opts, int(value), func(i): obj.set(prop, i)))
+		"scene":
+			# escolhe a unidade entre as cartas de unidade do jogo
+			row.add_child(_field_label(f[1]))
+			var scenes: Array = [null]
+			var names: Array = ["(nenhuma)"]
+			for c in CardDatabase.all_cards:
+				if c != null and c.unit_scene != null and !scenes.has(c.unit_scene):
+					scenes.append(c.unit_scene)
+					names.append(c.card_name)
+			var sel = max(scenes.find(value), 0)
+			row.add_child(_option(names, sel, func(i): obj.set(prop, scenes[i])))
 		"int", "float":
 			row.add_child(_field_label(f[1]))
 			row.add_child(_stepper(value, opts[0], opts[1], opts[2], func(v):

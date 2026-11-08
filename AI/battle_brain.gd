@@ -18,8 +18,9 @@ class_name BattleBrain
 
 static var debug_log := false  # ligado só pelo teste automático do GitHub (ci/)
 
-const MIN_THREAT_PRESSURE = 0.8      # abaixo disso não é ameaça, é unidade perdida
-const SERIOUS_THREAT_PRESSURE = 4.0  # "ataque de verdade" -- vale gastar pesado
+# pressão é medida na escala de custo do jogo (0-100)
+const MIN_THREAT_PRESSURE = 8.0      # abaixo disso não é ameaça, é unidade perdida
+const SERIOUS_THREAT_PRESSURE = 40.0  # "ataque de verdade" -- vale gastar pesado
 const SPELL_VALUE_RATIO = 0.9        # feitiço só sai se gerar >= 90% do próprio custo em valor
 const OFFENSIVE_SPELL_VALUE_RATIO = 1.15  # sem ameaça, exige mais (não é urgente)
 
@@ -133,7 +134,7 @@ static func evaluate_spell_at(tree: SceneTree, spell: SpellData, pos: Vector2, c
 				var max_hp = body.max_hp if "max_hp" in body else 1000
 				var hp = body.hp if "hp" in body else max_hp
 				# vale MUITO se finaliza; senão vale pouco
-				value += 50.0 if base_dmg >= hp else base_dmg / 60.0
+				value += 500.0 if base_dmg >= hp else base_dmg / 6.0
 			continue
 		if !is_unit(body):
 			continue
@@ -229,7 +230,7 @@ static func choose_defense(tree: SceneTree, my_team, affordable: Array, hand: Ar
 				if card.spell_data != null:
 					var sup = best_spell_target(tree, card.spell_data, my_team)
 					if sup["value"] >= card.cost * SPELL_VALUE_RATIO:
-						score = sup["value"] - card.cost * 0.5
+						score = (sup["value"] - card.cost * 0.5) / 10.0
 						pos = sup["pos"]
 					else:
 						continue
@@ -242,7 +243,7 @@ static func choose_defense(tree: SceneTree, my_team, affordable: Array, hand: Ar
 				v = max(v, v2)
 				if v < card.cost * SPELL_VALUE_RATIO:
 					continue
-				score = v * 1.3 - card.cost * 0.4
+				score = (v * 1.3 - card.cost * 0.4) / 10.0
 		else:
 			if !_card_threat_fit(card, threats):
 				continue
@@ -258,8 +259,8 @@ static func choose_defense(tree: SceneTree, my_team, affordable: Array, hand: Ar
 				score += 1.0  # puxa a ameaça pra longe da base
 			# custo coerente com o tamanho do ataque: nem mandar a carta
 			# mais cara contra 1 enxamezinho, nem mandar 1 elixir contra tanque
-			var ideal_cost = clamp(threats["pressure"] * 0.9, 1.5, 8.0)
-			score -= abs(card.cost - ideal_cost) * 0.45
+			var ideal_cost = clamp(threats["pressure"] * 0.9, 15.0, 80.0)
+			score -= abs(card.cost - ideal_cost) * 0.045
 			if serious:
 				score += DeckBuilder.get_unit_stats(card).hp / 400.0 if stats != null else 0.0
 			pos = defensive_position(card, stats, primary, my_team, tree, spawn_area, battle)
