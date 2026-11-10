@@ -9,6 +9,7 @@ var ai_draw_queue: Array = []  # cartas do bot que ainda não estão na mão
 var selected_hand_index: int = -1
 var preview_units: Array = []
 var preview_offsets: Array = []  # desvio de cada preview, calculado uma vez só (evita o tremor)
+var range_preview: SpellAreaPreview = null  # círculo de alcance da unidade/defesa que está sendo posicionada
 var spell_preview: SpellAreaPreview = null  # círculo de área, só existe enquanto um feitiço está selecionado
 var player_cards_played_this_match: Array[CardData] = []  # pro BotLearning e SeasonStats
 var match_action_log: Array = []  # cada item: {time, side, card_path, x, y} -- pro replay de verdade
@@ -493,7 +494,10 @@ func _install_base_data_on(group_name: String, base_data: BaseData, level: int =
 func _show_opponent_name():
 	if ai_profile == null:
 		return
-	_opp_label().text = ai_profile.profile_name
+	_opp_label().text = "%s   🏆 %d\n%s" % [ai_profile.profile_name, ArenaManager.get_trophies(ai_profile.profile_name), Cla.clan_of(ai_profile.profile_name)]
+	if MatchSetup.friendly:
+		_opp_label().text += "  ·  AMISTOSO"
+	_opp_label().add_theme_font_override("font", ThemeDB.fallback_font)
 	_opp_label().add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
 	_opp_label().add_theme_font_size_override("font_size", 20)
 	_opp_label().add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
@@ -737,7 +741,7 @@ func _end_match(team):
 
 	# 2v2 é amistoso: dá ouro/XP/missão normalmente, mas NÃO mexe em troféu
 	# nem no aprendizado dos bots (seria injusto com eles -- era 2 contra 2)
-	if ai_profile != null and !_is_2v2 and !MatchSetup.tournament:
+	if ai_profile != null and !_is_2v2 and !MatchSetup.tournament and !MatchSetup.friendly:
 		BotLearning.record_result(ai_profile.profile_name, !player_won, player_cards_played_this_match, true)
 
 		if player_won:
@@ -852,7 +856,11 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 
 	# 2.0: nível do jogador, baú de colheita, sequência e Mascate
 	var level_before = Progresso.player_level()
-	var prog = Progresso.on_battle_finished(player_won and !is_draw, ai_profile != null and !_is_2v2 and !MatchSetup.tournament, xp_gained)
+	var prog = Progresso.on_battle_finished(player_won and !is_draw, ai_profile != null and !_is_2v2 and !MatchSetup.tournament and !MatchSetup.friendly, xp_gained)
+	for power_text in prog.get("poderes", []):
+		vbox.add_child(_build_reward_row("⚡ Poder", power_text, Color(0.8, 0.9, 1.0)))
+	if MatchSetup.friendly:
+		vbox.add_child(_build_reward_row("🤝 Amistoso", "não vale troféu nem baú", Color(0.8, 0.8, 0.8)))
 	if MatchSetup.tournament:
 		var t_text = Progresso.tournament_result(player_won and !is_draw)
 		vbox.add_child(_build_reward_row("🏟 Torneio", t_text, Color(1, 0.85, 0.3)))
@@ -982,6 +990,8 @@ func _process(delta):
 
 	if spell_preview != null:
 		spell_preview.global_position = get_global_mouse_position()
+	if range_preview != null:
+		range_preview.global_position = get_global_mouse_position()
 
 	if preview_units.is_empty():
 		return
@@ -1925,6 +1935,9 @@ func try_confirm_placement_at(click_pos: Vector2) -> bool:
 		p.queue_free()
 	preview_units.clear()
 	preview_offsets.clear()
+	if range_preview != null:
+		range_preview.queue_free()
+		range_preview = null
 	if spell_preview != null:
 		spell_preview.queue_free()
 		spell_preview = null
@@ -1953,13 +1966,37 @@ func select_card(card_data: CardData, hand_index: int = -1):
 		spell_preview.queue_free()
 		spell_preview = null
 
+	if range_preview != null:
+		range_preview.queue_free()
+		range_preview = null
+
 	if card_data.is_spell():
 		spell_preview = SpellAreaPreview.new()
 		spell_preview.radius = card_data.spell_data.radius if card_data.spell_data != null else 80.0
+		if card_data.spell_data != null and (card_data.spell_data.affects_allies or !card_data.spell_data.affects_enemies):
+			spell_preview.color = Color(0.4, 1.0, 0.5)  # feitiço de aliado = verde
 		add_child(spell_preview)
 		return
 
 	var first = card_data.unit_scene.instantiate()
+	# círculo de alcance: até onde a defesa/atirador acerta (ou até onde cura)
+	if first.stats != null:
+		var reach = 0.0
+		var ring_color = Color(1.0, 0.85, 0.3)
+		if first.stats.is_ranged and first.stats.damage > 0:
+			reach = first.stats.attack_range + 14.0
+		elif first.stats.can_heal_allies:
+			reach = first.stats.heal_aura_radius
+			ring_color = Color(0.4, 1.0, 0.5)
+		elif first.stats.forces_aggro:
+			reach = first.stats.taunt_radius
+			ring_color = Color(1.0, 0.5, 0.5)
+		if reach > 0.0:
+			range_preview = SpellAreaPreview.new()
+			range_preview.radius = reach
+			range_preview.color = ring_color
+			range_preview.fill = 0.08
+			add_child(range_preview)
 	var count = 1
 	if first.stats != null:
 		count = first.stats.unit_count

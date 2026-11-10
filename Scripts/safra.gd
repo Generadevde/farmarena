@@ -34,7 +34,7 @@ func _ready():
 
 
 static func current_period() -> int:
-	return int(Time.get_unix_time_from_system() / 86400.0 / PERIOD_DAYS)
+	return SafraTempo.current_period()
 
 
 func days_to_next() -> float:

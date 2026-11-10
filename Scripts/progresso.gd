@@ -71,7 +71,7 @@ func _blank() -> Dictionary:
 		"owned": {}, "copies": {}, "uses": {}, "xp": 0,
 		"chests": [], "shop": {}, "road": [], "decks": [], "active_deck": 0,
 		"streak": 0, "best_streak": 0, "mascate": {}, "pending": [],
-		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {},
+		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {},
 	}
 
 
@@ -362,7 +362,14 @@ func chest_remaining(index: int) -> float:
 	var total = float(CHESTS[int(ch["tipo"])]["tempo"])
 	if float(ch["inicio"]) <= 0.0:
 		return total
-	return maxf(0.0, total - (Time.get_unix_time_from_system() - float(ch["inicio"])) - float(ch["pulado"]))
+	var now = Time.get_unix_time_from_system()
+	# poder "Relógio": o tempo em que ele esteve ligado conta em dobro/triplo
+	var boost: Dictionary = d["ativos"].get("relogio", {})
+	var extra = 0.0
+	if !boost.is_empty():
+		var overlap = minf(now, float(boost["ate"])) - maxf(float(ch["inicio"]), float(boost["inicio"]))
+		extra = maxf(0.0, overlap) * (float(boost["mult"]) - 1.0)
+	return maxf(0.0, total - (now - float(ch["inicio"])) - extra - float(ch["pulado"]))
 
 
 func chest_ready(index: int) -> bool:
@@ -452,7 +459,14 @@ func pop_pending() -> Array:
 # ================================================================ fim de partida
 ## chamado pela batalha. Devolve um resumo pro placar: {"bau": tipo ou -1, "mascate": bool, "sequencia": n}
 func on_battle_finished(won: bool, ranked: bool, xp_gain: int) -> Dictionary:
-	var summary = {"bau": -1, "sem_espaco": false, "mascate": false, "sequencia": 0}
+	var summary = {"bau": -1, "sem_espaco": false, "mascate": false, "sequencia": 0, "poderes": []}
+	if power_battles("xp2") > 0:
+		xp_gain *= 2
+		_spend_battle("xp2")
+		summary["poderes"].append("XP em dobro")
+	if power_battles("ouro2") > 0:
+		_spend_battle("ouro2")
+		summary["poderes"].append("Ouro em dobro")
 	add_xp(xp_gain)
 	# trabalho na roça adianta o baú
 	var idx = unlocking_index()
@@ -462,9 +476,13 @@ func on_battle_finished(won: bool, ranked: bool, xp_gain: int) -> Dictionary:
 		d["streak"] = int(d["streak"]) + 1 if won else 0
 		d["best_streak"] = maxi(int(d["best_streak"]), int(d["streak"]))
 	summary["sequencia"] = int(d["streak"])
-	if won and !MatchSetup.tournament:
+	if won and !MatchSetup.tournament and !MatchSetup.friendly:
 		if has_free_slot():
 			var type = roll_win_chest_type()
+			if power_battles("sorte") > 0:
+				type = mini(type + 1, 3)
+				_spend_battle("sorte")
+				summary["poderes"].append("Ferradura: baú melhor")
 			d["chests"].append({"tipo": type, "inicio": 0.0, "pulado": 0.0})
 			summary["bau"] = type
 		else:
@@ -472,6 +490,7 @@ func on_battle_finished(won: bool, ranked: bool, xp_gain: int) -> Dictionary:
 			var consolation = 15 + 5 * ArenaManager.get_player_arena()
 			PlayerProfile.add_coins(consolation)
 	Safra.on_battle(won)
+	Cla.on_battle(won)
 	if randf() < 0.22 and !mascate_active():
 		_spawn_mascate()
 		summary["mascate"] = true
@@ -823,6 +842,8 @@ func tournament_result(won: bool) -> String:
 		var prize = TOURNAMENT_PRIZES[clampi(r, 0, 2)]
 		PlayerProfile.add_coins(int(prize["ouro"]))
 		_push({"tipo": "bau", "bau": int(prize["bau"]), "itens": [{"tipo": "ouro", "ouro": int(prize["ouro"])}] + roll_chest(int(prize["bau"]))})
+		if randf() < [0.15, 0.35, 1.0][clampi(r, 0, 2)]:
+			grant_power()  # poder raro: campeão sempre ganha um
 		if r >= 2:
 			t["ativo"] = false
 			t["tacas"] = tournament_cups() + 1
@@ -837,3 +858,77 @@ func tournament_result(won: bool) -> String:
 	t["ultimo"] = text
 	_commit()
 	return text
+
+
+# ================================================================ PODERES (raros: torneio e topo da colheita do clã)
+const POWERS = {
+	"relogio2": {"nome": "Relógio Adiantado", "desc": "Baús abrem 2x mais rápido por 30 minutos.", "cor": "#70c8f0"},
+	"relogio3": {"nome": "Relógio Maluco", "desc": "Baús abrem 3x mais rápido por 15 minutos.", "cor": "#b080ff"},
+	"ouro2": {"nome": "Bolso Furado ao Contrário", "desc": "Ouro em dobro nas próximas 5 partidas.", "cor": "#ffd23c"},
+	"xp2": {"nome": "Café Forte", "desc": "XP em dobro nas próximas 5 partidas.", "cor": "#c08050"},
+	"sorte": {"nome": "Ferradura da Sorte", "desc": "Os baús das próximas 3 vitórias vêm um nível melhor.", "cor": "#a0e080"},
+	"chave": {"nome": "Chave Mestra", "desc": "Abre na hora um baú que está esperando.", "cor": "#ff9060"},
+}
+const POWER_WEIGHTS = {"relogio2": 25, "relogio3": 12, "ouro2": 22, "xp2": 18, "sorte": 13, "chave": 10}
+
+
+func power_count(id: String) -> int:
+	return int(d["poderes"].get(id, 0))
+
+
+func power_battles(id: String) -> int:
+	return int(d["ativos"].get(id, 0)) if !(d["ativos"].get(id, 0) is Dictionary) else 0
+
+
+func _spend_battle(id: String):
+	d["ativos"][id] = maxi(0, power_battles(id) - 1)
+
+
+func clock_boost_left() -> float:
+	var b: Dictionary = d["ativos"].get("relogio", {})
+	return maxf(0.0, float(b.get("ate", 0.0)) - Time.get_unix_time_from_system()) if !b.is_empty() else 0.0
+
+
+func clock_boost_mult() -> int:
+	return int(d["ativos"].get("relogio", {}).get("mult", 1)) if clock_boost_left() > 0 else 1
+
+
+## dá um poder (sorteado se id == ""). Devolve o id.
+func grant_power(id: String = "", announce: bool = true) -> String:
+	if id == "":
+		var ids = POWER_WEIGHTS.keys()
+		id = ids[_weighted(ids.map(func(k): return POWER_WEIGHTS[k]))]
+	d["poderes"][id] = power_count(id) + 1
+	if announce:
+		_push({"tipo": "poder", "id": id})
+	save()
+	return id
+
+
+## usa um poder do estoque. Devolve "" se deu certo, ou o motivo de não poder.
+func use_power(id: String) -> String:
+	if power_count(id) <= 0:
+		return "Você não tem esse poder."
+	var now = Time.get_unix_time_from_system()
+	match id:
+		"relogio2", "relogio3":
+			if clock_boost_left() > 0:
+				return "Já tem um relógio ligado."
+			# congela o que já passou e liga o novo
+			d["ativos"]["relogio"] = {"inicio": now, "ate": now + (1800.0 if id == "relogio2" else 900.0), "mult": 2 if id == "relogio2" else 3}
+		"ouro2", "xp2":
+			d["ativos"][id] = power_battles(id) + 5
+		"sorte":
+			d["ativos"][id] = power_battles(id) + 3
+		"chave":
+			var idx = unlocking_index()
+			if idx == -1 and !d["chests"].is_empty():
+				idx = 0
+			if idx == -1 or chest_ready(idx):
+				return "Nenhum baú esperando pra abrir."
+			if float(d["chests"][idx]["inicio"]) <= 0.0:
+				d["chests"][idx]["inicio"] = now
+			d["chests"][idx]["pulado"] = 999999.0
+	d["poderes"][id] = power_count(id) - 1
+	_commit()
+	return ""

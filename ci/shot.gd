@@ -50,7 +50,12 @@ func _ready():
 	var hub = load("res://Scenes/hub.tscn").instantiate()
 	add_child(hub)
 	await get_tree().create_timer(0.6).timeout
-	for tab in 5:
+	Cla.join(Cla.NAMES[0])
+	Cla.tick()
+	Progresso.grant_power("relogio2", false)
+	Progresso.grant_power("ouro2", false)
+	Progresso.use_power("ouro2")
+	for tab in 6:
 		hub._go_tab(tab)
 		await get_tree().create_timer(0.5).timeout
 		await _shot("hub_%d" % tab)
@@ -73,6 +78,16 @@ func _ready():
 	hub._end_drag(drop_at)
 	print("SHOT arrasto: pato ninja entrou no baralho? ", Progresso.deck_paths(0).has(Catalogo.card("pato_ninja").resource_path), " alvos=", hub._drop_targets.size())
 	await get_tree().create_timer(0.2).timeout
+	hub._show_ranking()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("ranking")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._show_bot(BotSimulator.roster_names[3])
+	await get_tree().create_timer(0.4).timeout
+	await _shot("bot")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._show_registro()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("registro")
@@ -114,8 +129,10 @@ func _ready():
 	for p in plays:
 		var c: CardData = Catalogo.card(p[0])
 		battle.spawn_unit(c.unit_scene, p[1], p[2], c)
+	battle.select_card(Catalogo.card("canhao_pipoca"), 0)
 	await get_tree().create_timer(1.2).timeout
 	await _shot("batalha_1")
+	battle.select_card(Catalogo.card("geada"), 0)
 	battle.cast_spell(Catalogo.card("lamacal").spell_data, mid + Vector2(-60, -40), GameManager.Team.PLAYER)
 	battle.cast_spell(Catalogo.card("moda_de_viola").spell_data, mid + Vector2(-60, 110), GameManager.Team.PLAYER)
 	await get_tree().create_timer(2.5).timeout

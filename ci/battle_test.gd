@@ -179,6 +179,20 @@ func _art_sheet():
 	SeasonManager.force_new_season()
 	var reg = Registro.entries()
 	print("RESULTADO registro: temporadas guardadas=", reg.size(), " participantes=", reg[0]["ranking"].size() if reg.size() > 0 else 0, " você=", reg[0]["jogador"] if reg.size() > 0 else {}, " | temporada agora=", SeasonManager.season_number)
+	Cla.join(Cla.NAMES[2])
+	Cla._d()["prox_bot"] = 0.0
+	Cla.tick()
+	var req_ok = Cla.request(Catalogo.card("pintaiada"))
+	Cla._d()["pedido"]["t"] = Cla._now() - 400.0
+	Cla.tick()
+	var don = Cla.donate(0) if !Cla.bot_requests().is_empty() else {}
+	Progresso.add_chest(2)
+	Progresso.grant_power("chave", false)
+	var key_msg = Progresso.use_power("chave")
+	Progresso.grant_power("relogio3", false)
+	print("RESULTADO clã: membros=", Cla.members(Cla.mine()).size(), " pediu? ", req_ok, " recebidas=", Cla.current_request().get("got", 0), " doação=", don,
+		" pontos=", Cla.harvest_points(), " clãs=", Cla.ranking().size(), " | poderes: chave->'", key_msg, "' baú pronto? ", Progresso.chest_ready(Progresso.chests().size() - 1),
+		" relógio->'", Progresso.use_power("relogio3"), "' mult=", Progresso.clock_boost_mult())
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:

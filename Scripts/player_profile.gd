@@ -445,6 +445,8 @@ func get_deck_total_level_points() -> int:
 func add_match_result(won: bool, cards_played: Array = []) -> Dictionary:
 	var reward = ArenaManager.get_match_reward(arena_index, won)
 	award_battle_xp(reward["xp"], cards_played)
+	if Progresso.power_battles("ouro2") > 0:
+		reward["gold"] = int(reward["gold"]) * 2  # poder "ouro em dobro"
 	add_coins(reward["gold"])
 	return reward
 

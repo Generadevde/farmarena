@@ -222,6 +222,9 @@ func _spawn_fx():
 	if is_inside_tree():
 		Fx.ring(get_parent(), position, 18.0 * _visual_scale, Color(1, 1, 1, 0.9), 0.25)
 		Sfx.play("nasce", 0.2, -3.0)
+		# defesa recém-colocada mostra por um instante até onde alcança
+		if stats.unit_type == UnitData.UnitType.BUILDING and stats.is_ranged and stats.damage > 0:
+			Fx.zone(get_parent(), position, stats.attack_range + 14.0, Color(1.0, 0.85, 0.3), 2.0)
 		# falinha de entrada (só às vezes, e só de carta do baralho -- filhote não fala)
 		if card_data != null and !CustomContent.is_spawn_only(card_data) and randf() < 0.22:
 			var lines: Array = SPAWN_LINES.get(card_data.get_nation_name(), ["Eita!"])

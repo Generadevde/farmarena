@@ -3,12 +3,11 @@ extends Control
 ## pro lado):   Feira · Cartas · BATALHA · Troféus · Sítio
 ## Tudo é montado por código em cima do tema rural (ThemeBuilder).
 
-const STATS_HUB_SCENE = "res://ranking/stats_hub.tscn"
 const JOURNAL_SCENE = "res://ranking/journal_menu.tscn"
 const CREATOR_SCENE = "res://creator/creator_menu.tscn"
 const PROFILE_SCENE = "res://Scenes/profile_setup.tscn"
 
-const TABS = [["🛒", "Feira"], ["🃏", "Cartas"], ["⚔", "Batalha"], ["🏆", "Troféus"], ["🏡", "Sítio"]]
+const TABS = [["🛒", "Feira"], ["🃏", "Cartas"], ["⚔", "Batalha"], ["🏆", "Troféus"], ["🛡", "Clã"], ["🏡", "Sítio"]]
 const TOP_H = 92.0
 const BAR_H = 104.0
 
@@ -123,7 +122,7 @@ func _build_shell():
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.size_flags_stretch_ratio = 1.35 if i == 2 else 1.0
 		b.custom_minimum_size.y = BAR_H - 16
-		b.add_theme_font_size_override("font_size", 19)
+		b.add_theme_font_size_override("font_size", 17)
 		b.pressed.connect(_go_tab.bind(i))
 		tabs.add_child(b)
 		_tab_buttons.append(b)
@@ -167,7 +166,7 @@ func _go_tab(i: int):
 func _style_tabs():
 	for i in _tab_buttons.size():
 		_tab_buttons[i].modulate = Color(1, 1, 1) if i == _tab else Color(0.72, 0.68, 0.62)
-		_tab_buttons[i].add_theme_font_size_override("font_size", 22 if i == _tab else 18)
+		_tab_buttons[i].add_theme_font_size_override("font_size", 20 if i == _tab else 16)
 
 
 # arrastar pro lado troca de aba
@@ -199,9 +198,15 @@ func _process(delta):
 			if is_instance_valid(pair[0]):
 				pair[0].text = pair[1].call()
 		_check_chest_ready()
+	_clan_timer += delta
+	if _clan_timer >= 5.0:
+		_clan_timer = 0.0
+		if Cla.tick():
+			_queue_refresh()
 
 
 var _ready_state := ""
+var _clan_timer := 0.0
 
 
 func _check_chest_ready():
@@ -233,7 +238,8 @@ func _rebuild_all():
 	_build_cartas(_clear(_pages[1]))
 	_build_batalha(_clear(_pages[2]))
 	_build_trofeus(_clear(_pages[3]))
-	_build_sitio(_clear(_pages[4]))
+	_build_cla(_clear(_pages[4]))
+	_build_sitio(_clear(_pages[5]))
 	_refresh_dots()
 
 
@@ -268,7 +274,13 @@ func _refresh_dots():
 			mission_ready = true
 	_dots[2].visible = chest_ready or mission_ready
 	_dots[3].visible = Progresso.road_claimable() > 0
-	_dots[4].visible = Safra.mission_ready()
+	var clan_alert = false
+	if Cla.mine() != "":
+		for tier in 3:
+			if Cla.harvest_claimable(tier):
+				clan_alert = true
+	_dots[4].visible = clan_alert
+	_dots[5].visible = Safra.mission_ready()
 
 
 # ================================================================ ajudantes de interface
@@ -405,7 +417,7 @@ func _build_batalha(box: Node):
 	for m in PlayerProfile.daily_missions:
 		if !m["claimed"] and m["progress"] >= m["target"]:
 			pending += 1
-	var bm = _button("📊 Ranking", _goto.bind(STATS_HUB_SCENE))
+	var bm = _button("📊 Ranking", _show_ranking)
 	bm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(bm)
 
@@ -417,6 +429,8 @@ func _build_batalha(box: Node):
 	chest_panel.add_child(crow)
 	for i in Progresso.CHEST_SLOTS:
 		crow.add_child(_chest_slot(i))
+
+	_build_powers(box)
 
 	# missões do dia (direto na tela)
 	PlayerProfile._check_and_reset_daily_missions()
@@ -1109,7 +1123,7 @@ func _build_trofeus(box: Node):
 	var nl = _label(next_text, 17, ThemeBuilder.COLOR_STAT_LABEL)
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(nl)
-	box.add_child(_button("📊 Ranking e estatísticas", _goto.bind(STATS_HUB_SCENE), 18))
+	box.add_child(_button("📊 Ranking de jogadores", _show_ranking, 18))
 
 	var last_arena = 1
 	var shown_locked = 0
@@ -1211,7 +1225,9 @@ func _build_sitio(box: Node):
 		v2.tapped.connect(_show_card_popup)
 		g2.add_child(v2)
 
-	box.add_child(_button("📊 Ranking, temporada e estatísticas", _goto.bind(STATS_HUB_SCENE)))
+	box.add_child(_button("📊 Ranking de jogadores", _show_ranking))
+	box.add_child(_button("📈 Estatísticas das cartas", _show_card_stats))
+	box.add_child(_button("🎬 Replays salvos", _show_replays))
 	box.add_child(_button("📜 Registro das temporadas (você e os bots)", _show_registro))
 	box.add_child(_button("📰 Jornal da Roça", _goto.bind(JOURNAL_SCENE)))
 	box.add_child(_button("🎨 Criador (cartas, torres, arenas)", _goto.bind(CREATOR_SCENE)))
@@ -1221,6 +1237,360 @@ func _build_sitio(box: Node):
 	box.add_child(safra_b)
 	box.add_child(_button("👤 Trocar de perfil", _goto.bind(PROFILE_SCENE)))
 	box.add_child(_button("Sair do jogo", get_tree().quit))
+
+
+# ================================================================ poderes
+func _build_powers(box: Node):
+	var owned: Array = []
+	for id in Progresso.POWERS:
+		if Progresso.power_count(id) > 0:
+			owned.append(id)
+	var active: Array = []
+	if Progresso.clock_boost_left() > 0:
+		active.append("relogio")
+	for id in ["ouro2", "xp2", "sorte"]:
+		if Progresso.power_battles(id) > 0:
+			active.append(id)
+	if owned.is_empty() and active.is_empty():
+		return
+	var p = _panel(box)
+	p.add_child(_label("⚡ Poderes (raros: vêm do torneio e da colheita do clã)", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	for id in active:
+		var l = _label("", 16, Color(0.6, 1, 0.7))
+		if id == "relogio":
+			_live(l, func(): return "● Baús %dx mais rápidos por mais %s" % [Progresso.clock_boost_mult(), _clock(Progresso.clock_boost_left())])
+		else:
+			l.text = "● %s: restam %d %s" % [Progresso.POWERS[id]["nome"], Progresso.power_battles(id), "vitórias" if id == "sorte" else "partidas"]
+		p.add_child(l)
+	for id in owned:
+		var def = Progresso.POWERS[id]
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		p.add_child(row)
+		var txt = _wrap("%s x%d\n%s" % [def["nome"], Progresso.power_count(id), def["desc"]], 15, Color.html(def["cor"]).lightened(0.3))
+		row.add_child(txt)
+		var b = _button("USAR", _use_power.bind(id), 18)
+		b.custom_minimum_size.x = 120
+		row.add_child(b)
+
+
+func _use_power(id: String):
+	var problem = Progresso.use_power(id)
+	if problem != "":
+		_toast(problem)
+	else:
+		Sfx.play("nivel")
+		_toast("%s ligado!" % Progresso.POWERS[id]["nome"])
+
+
+# ================================================================ ABA: CLÃ
+func _build_cla(box: Node):
+	if Cla.mine() == "":
+		box.add_child(_title("🛡 Clãs"))
+		box.add_child(_wrap("Entre num clã pra pedir e doar cartas, jogar amistosos com os colegas e encher a colheita do clã (baús e um poder raro no topo). Dá pra sair e trocar quando quiser.", 16))
+		var pos = 1
+		for e in Cla.ranking():
+			var row = HBoxContainer.new()
+			row.add_theme_constant_override("separation", 10)
+			box.add_child(row)
+			var l = _label("%dº  %s\n🏆 %d  ·  %d membros" % [pos, e[0], e[1], e[2]], 17)
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(l)
+			row.add_child(_button("Entrar", _join_clan.bind(str(e[0])), 18))
+			pos += 1
+		return
+	Cla.tick()
+	var clan = Cla.mine()
+	var rank = Cla.ranking()
+	var place = 1
+	for i in rank.size():
+		if rank[i][0] == clan:
+			place = i + 1
+	box.add_child(_title("🛡 %s" % clan))
+	var sub = _label("%dº no ranking de clãs  ·  🏆 %d  ·  suas doações: %d" % [place, Cla.score(clan), int(Cla._d()["doacoes"])], 16, ThemeBuilder.COLOR_STAT_LABEL)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(sub)
+
+	# colheita do clã
+	var hp = _panel(box)
+	var pts = Cla.harvest_points()
+	hp.add_child(_label("🌾 Colheita do clã  ·  %d pontos  ·  zera em %.1f dia(s)" % [pts, Safra.days_to_next()], 16, ThemeBuilder.COLOR_STAT_LABEL))
+	var bar = ProgressBar.new()
+	bar.max_value = Cla.HARVEST_TIERS[2]
+	bar.value = mini(pts, Cla.HARVEST_TIERS[2])
+	bar.show_percentage = false
+	bar.custom_minimum_size.y = 22
+	hp.add_child(bar)
+	var trow = HBoxContainer.new()
+	trow.add_theme_constant_override("separation", 8)
+	hp.add_child(trow)
+	var prize_names = ["Saco de Milho", "Caixote da Feira", "Baú + PODER"]
+	for tier in 3:
+		var tb = _button("%d pts\n%s" % [Cla.HARVEST_TIERS[tier], prize_names[tier]], _claim_harvest.bind(tier), 15)
+		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		if Cla.harvest_claimed(tier):
+			tb.text = "✔ pego"
+			tb.disabled = true
+		elif Cla.harvest_claimable(tier):
+			tb.modulate = Color(1, 1, 0.6)
+		else:
+			tb.disabled = true
+		trow.add_child(tb)
+	hp.add_child(_wrap("Vitória dá 15 pontos, partida 5, doação 2. Os colegas também pontuam.", 14, ThemeBuilder.COLOR_STAT_LABEL))
+
+	# pedir cartas
+	var rp = _panel(box)
+	rp.add_child(_label("🙏 Pedir cartas", 17, ThemeBuilder.COLOR_STAT_LABEL))
+	var req = Cla.current_request()
+	if !req.is_empty():
+		var rc = Catalogo.find_card(str(req["path"]))
+		if rc != null:
+			var rrow = HBoxContainer.new()
+			rrow.add_theme_constant_override("separation", 12)
+			rp.add_child(rrow)
+			var rv = CardView.make(rc, 96)
+			rv.tapped.connect(_show_card_popup)
+			rrow.add_child(rv)
+			var done = int(req["got"]) >= int(req["cap"])
+			rrow.add_child(_wrap("%s\nRecebidas: %d de %d%s" % [rc.card_name, int(req["got"]), int(req["cap"]), "  ✔ completo" if done else "\nOs colegas doam aos poucos, e mais rápido se você jogar."], 16))
+	if Cla.can_request():
+		rp.add_child(_button("Escolher carta pra pedir", _show_request_picker, 18))
+	else:
+		var wl = _label("", 15)
+		_live(wl, func(): return "Novo pedido em " + _clock(Cla.request_wait()))
+		rp.add_child(wl)
+
+	# doar
+	var dp = _panel(box)
+	dp.add_child(_label("🎁 Pedidos dos colegas (doar dá ouro, XP e pontos)", 17, ThemeBuilder.COLOR_STAT_LABEL))
+	var reqs = Cla.bot_requests()
+	if reqs.is_empty():
+		dp.add_child(_label("Ninguém pedindo nada agora. Já já aparece.", 15))
+	for i in reqs.size():
+		var r = reqs[i]
+		var dc = Catalogo.find_card(str(r["path"]))
+		if dc == null:
+			continue
+		var drow = HBoxContainer.new()
+		drow.add_theme_constant_override("separation", 10)
+		dp.add_child(drow)
+		var dv = CardView.make(dc, 84)
+		dv.show_level = false
+		dv.tapped.connect(_show_card_popup)
+		drow.add_child(dv)
+		drow.add_child(_wrap("%s pede %s\nfaltam %d  ·  você tem %d sobrando" % [str(r["quem"]), dc.card_name, int(r["falta"]), Progresso.copies(dc)], 15))
+		var rar = Catalogo.rarity_of(dc)
+		var db = _button("Doar 1\n+💰%d" % Cla.DONATE_GOLD[rar], _donate.bind(i), 15)
+		db.custom_minimum_size.x = 120
+		db.disabled = Progresso.copies(dc) < 1
+		drow.add_child(db)
+
+	# mural
+	var cp = _panel(box)
+	cp.add_child(_label("💬 Mural do clã", 17, ThemeBuilder.COLOR_STAT_LABEL))
+	var chat: Array = Cla._d()["chat"]
+	for line in chat.slice(maxi(0, chat.size() - 7)):
+		cp.add_child(_wrap(str(line), 15))
+
+	# membros
+	var mp = _panel(box)
+	var list = Cla.members(clan)
+	mp.add_child(_label("👥 Membros (%d)  ·  toque num colega pra ver o baralho ou jogar amistoso" % list.size(), 15, ThemeBuilder.COLOR_STAT_LABEL))
+	for i in list.size():
+		var who = str(list[i])
+		var is_me = who == PlayerProfile.player_name
+		var mb = _button("%s%s   ·   🏆 %d   ·   doou %d" % ["👑 " if i == 0 else "", who, ArenaManager.get_trophies(who), int(Cla._d()["doacoes"]) if is_me else Cla.fake_donations(who)], _show_bot.bind(who), 15)
+		mb.custom_minimum_size.y = 46
+		mb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		if is_me:
+			mb.modulate = Color(1, 1, 0.6)
+			mb.disabled = true
+		mp.add_child(mb)
+	box.add_child(_button("🏅 Ranking de clãs", _show_clan_ranking, 18))
+	box.add_child(_button("Sair do clã", _leave_clan, 16))
+
+
+func _join_clan(clan: String):
+	Cla.join(clan)
+	Sfx.play("nivel")
+
+
+func _leave_clan():
+	Cla.leave()
+
+
+func _claim_harvest(tier: int):
+	var loot = Cla.claim_harvest(tier)
+	if !loot.is_empty():
+		_show_loot("🌾 Colheita do clã", loot, Color(0.9, 0.8, 0.4))
+
+
+func _donate(i: int):
+	var result = Cla.donate(i)
+	if !result.is_empty():
+		Sfx.play("moeda")
+		_toast("Doado! +💰%d  +%d XP  +2 pontos pro clã" % [int(result["ouro"]), int(result["xp"])])
+
+
+func _show_request_picker():
+	var v = _popup(660, true)
+	v.add_child(_title("Pedir qual carta?"))
+	v.add_child(_wrap("Comum: até 12 cópias · Rara: até 4 · Épica: 1. Lendária não dá pra pedir.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var g = _grid(v, 4)
+	var cards = Progresso.owned_cards().filter(func(c): return Cla.REQUEST_CAP[Catalogo.rarity_of(c)] > 0 and Progresso.copies_needed(c) > 0)
+	cards.sort_custom(func(a, b): return Catalogo.rarity_of(a) < Catalogo.rarity_of(b) if Catalogo.rarity_of(a) != Catalogo.rarity_of(b) else a.cost < b.cost)
+	for c in cards:
+		var cv = CardView.make(c, 146)
+		cv.badge = "%d/%d" % [Progresso.copies(c), Progresso.copies_needed(c)]
+		cv.tapped.connect(_request_card.bind(v))
+		g.add_child(cv)
+	v.add_child(_button("Cancelar", _close.bind(v)))
+
+
+func _request_card(card: CardData, popup_box: Node):
+	if Cla.request(card):
+		_close(popup_box)
+		_toast("Pedido feito! Os colegas vão doando aos poucos.")
+
+
+func _show_clan_ranking():
+	var v = _popup(620, true)
+	v.add_child(_title("🏅 Ranking de clãs"))
+	var pos = 1
+	for e in Cla.ranking():
+		v.add_child(_label("%dº  %s   ·   🏆 %d   ·   %d membros" % [pos, e[0], e[1], e[2]], 17, Color(1, 1, 0.6) if e[0] == Cla.mine() else ThemeBuilder.COLOR_CREAM))
+		pos += 1
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+# ================================================================ ranking, perfil de bot, estatísticas, replays
+func _show_ranking():
+	var v = _popup(660, true)
+	v.add_child(_title("📊 Ranking"))
+	v.add_child(_label("Toque num nome pra ver o baralho dele.", 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var names: Array = []
+	for n in BotSimulator.roster_names:
+		if !names.has(n):
+			names.append(n)
+	names.append(PlayerProfile.player_name)
+	names.sort_custom(func(a, b): return ArenaManager.get_trophies(a) > ArenaManager.get_trophies(b))
+	for i in names.size():
+		var who = str(names[i])
+		var rec = Leaderboard.get_record(who)
+		var arena = ArenaManager.get_arena_info(ArenaManager.get_participant_arena(who))
+		var b = _button("%dº  %s   🏆 %d\n      %s %s  ·  %dV %dD  ·  %s" % [i + 1, who, ArenaManager.get_trophies(who), arena.get("emoji", ""), arena.get("name", ""), int(rec.get("wins", 0)), int(rec.get("losses", 0)), Cla.clan_of(who) if Cla.clan_of(who) != "" else "sem clã"], _show_bot.bind(who), 15)
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.custom_minimum_size.y = 62
+		if who == PlayerProfile.player_name:
+			b.modulate = Color(1, 1, 0.6)
+			b.disabled = true
+		v.add_child(b)
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _show_bot(who: String):
+	if who == PlayerProfile.player_name:
+		return
+	var prof: AIProfile = BotLearning.get_or_create_profile(who)
+	var v = _popup(640)
+	v.add_child(_title(who))
+	var arena = ArenaManager.get_arena_info(ArenaManager.get_participant_arena(who))
+	var rec = Leaderboard.get_record(who)
+	v.add_child(_label("🏆 %d  ·  %s %s  ·  %s" % [ArenaManager.get_trophies(who), arena.get("emoji", ""), arena.get("name", ""), Cla.clan_of(who)], 16))
+	v.add_child(_label("Estilo: %s  ·  nesta temporada: %dV %dD" % [prof.get_archetype_name(), int(rec.get("wins", 0)), int(rec.get("losses", 0))], 16, ThemeBuilder.COLOR_STAT_LABEL))
+	var g = _grid(v, 4)
+	for c in prof.deck:
+		if c == null:
+			continue
+		var cv = CardView.make(c, 140, true)
+		cv.level_override = prof.get_card_level(c)
+		cv.mastery_override = 0
+		cv.tapped.connect(_show_card_popup)
+		g.add_child(cv)
+	if prof.equipped_base != null:
+		v.add_child(_label("Torre: %s" % prof.equipped_base.base_name, 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var history = Registro.history_of(who)
+	if !history.is_empty():
+		v.add_child(_label("Última temporada: %dº lugar" % int(history[0][1]), 15, ThemeBuilder.COLOR_STAT_LABEL))
+	if Cla.mine() != "" and Cla.clan_of(who) == Cla.mine():
+		var fb = _button("🤝 Jogar amistoso", _friendly.bind(who), 22)
+		fb.modulate = Color(1.0, 0.92, 0.6)
+		v.add_child(fb)
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _friendly(who: String):
+	Cla.start_friendly(get_tree(), who)
+
+
+func _show_card_stats():
+	var v = _popup(680, true)
+	v.add_child(_title("📈 Cartas na temporada"))
+	v.add_child(_wrap("Contando todas as partidas (suas e dos bots): quantas vezes cada carta foi jogada e quanto ela vence.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var all = SeasonStats.get_all_card_stats().filter(func(e): return e["card"] != null)
+	if all.is_empty():
+		v.add_child(_label("Ainda sem partidas nesta temporada.", 16))
+	for section in [["🔥 Mais vitoriosas", func(a, b): return a["win_rate"] > b["win_rate"]], ["🧊 Menos vitoriosas", func(a, b): return a["win_rate"] < b["win_rate"]], ["📣 Mais jogadas", func(a, b): return a["times_played"] > b["times_played"]]]:
+		var list = all.filter(func(e): return e["wins"] + e["losses"] >= 3) if section[0] != "📣 Mais jogadas" else all.duplicate()
+		if list.is_empty():
+			continue
+		list.sort_custom(section[1])
+		v.add_child(_label(section[0], 18, ThemeBuilder.COLOR_GOLD))
+		var g = _grid(v, 4)
+		for e in list.slice(0, 4):
+			var cv = CardView.make(e["card"], 150)
+			cv.show_level = false
+			cv.mastery_override = 0
+			cv.badge = "%d%% · %dx" % [int(round(e["win_rate"] * 100)), int(e["times_played"])]
+			cv.tapped.connect(_show_card_popup)
+			g.add_child(cv)
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _load_replays() -> Array:
+	if !FileAccess.file_exists("user://replays.json"):
+		return []
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string("user://replays.json"))
+	return parsed if parsed is Array else []
+
+
+func _show_replays():
+	var v = _popup(640, true)
+	v.add_child(_title("🎬 Replays salvos"))
+	var replays = _load_replays()
+	if replays.is_empty():
+		v.add_child(_wrap("Nenhum replay ainda. No fim de uma partida, toque em \"Salvar Replay\".", 16))
+	for i in range(replays.size() - 1, -1, -1):
+		var r: Dictionary = replays[i]
+		var won = bool(r.get("player_won", false))
+		var p = _panel(v)
+		p.add_child(_label("%s  contra %s" % ["VITÓRIA" if won else "Derrota", str(r.get("bot_name", "?"))], 18, Color(0.6, 1, 0.6) if won else Color(1, 0.6, 0.55)))
+		p.add_child(_label(str(r.get("date", "")), 14, ThemeBuilder.COLOR_STAT_LABEL))
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		p.add_child(row)
+		var wb = _button("▶ Assistir", _watch_replay.bind(r), 18)
+		wb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(wb)
+		row.add_child(_button("🗑", _delete_replay.bind(i, v), 18))
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _watch_replay(r: Dictionary):
+	MatchSetup.clear_special()
+	MatchSetup.replay_data = r
+	get_tree().change_scene_to_file(MatchSetup.BATTLE_SCENE)
+
+
+func _delete_replay(index: int, popup_box: Node):
+	var replays = _load_replays()
+	if index >= 0 and index < replays.size():
+		replays.remove_at(index)
+		var f = FileAccess.open("user://replays.json", FileAccess.WRITE)
+		if f != null:
+			f.store_string(JSON.stringify(replays))
+	_close(popup_box)
+	_show_replays.call_deferred()
 
 
 # ================================================================ registro das temporadas
@@ -1403,6 +1773,8 @@ func _show_pending():
 				_show_loot("🎁 " + Progresso.CHESTS[int(r["bau"])]["nome"], r["itens"], Color.html(Progresso.CHESTS[int(r["bau"])]["cor"]))
 			"safra":
 				_show_loot("🌱 Safra nova! Amostra grátis", r["itens"], Color(0.5, 0.9, 0.4))
+			"poder":
+				_show_loot("⚡ PODER RARO!", [{"tipo": "poder", "id": str(r["id"])}], Color.html(Progresso.POWERS[str(r["id"])]["cor"]))
 			"maestria":
 				var c = Catalogo.find_card(str(r["path"]))
 				if c != null:
@@ -1425,7 +1797,22 @@ func _show_loot(title_text: String, loot: Array, color: Color):
 	var delay = 0.15
 	for item in loot:
 		var w: Control
-		if str(item.get("tipo", "")) == "ouro":
+		if str(item.get("tipo", "")) == "poder":
+			var pdef = Progresso.POWERS[str(item["id"])]
+			var pb = VBoxContainer.new()
+			pb.custom_minimum_size = Vector2(300, 150)
+			pb.alignment = BoxContainer.ALIGNMENT_CENTER
+			var bolt = _label("⚡", 54)
+			bolt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			pb.add_child(bolt)
+			var pn = _label(pdef["nome"], 20, Color.html(pdef["cor"]))
+			pn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			pb.add_child(pn)
+			var pd = _wrap(pdef["desc"], 14)
+			pd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			pb.add_child(pd)
+			w = pb
+		elif str(item.get("tipo", "")) == "ouro":
 			var b = VBoxContainer.new()
 			b.custom_minimum_size = Vector2(140, 150)
 			b.alignment = BoxContainer.ALIGNMENT_CENTER
