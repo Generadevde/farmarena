@@ -152,6 +152,9 @@ func _apply_effect(body):
 
 
 func _finish():
+	Fx.burst(get_parent(), position, Color(1, 0.95, 0.8), 4, 60.0, 2.5)
+	if is_aoe:
+		Fx.ring(get_parent(), position, aoe_radius, Color(1.0, 0.72, 0.3))
 	if splits:
 		_spawn_splits()
 	queue_free()

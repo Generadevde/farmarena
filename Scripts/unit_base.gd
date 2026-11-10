@@ -97,6 +97,7 @@ func _ready():
 			$Sprite2D.texture = sprite_override
 			$Sprite2D.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_apply_unit_scale()
+	_setup_visuals()
 
 	if !is_preview and stats.spawns_disguised:
 		_apply_disguise()
@@ -164,6 +165,79 @@ func _ready():
 			battle.add_storage_capacity(team, stats.storage_capacity_bonus)
 
 	_refresh_enemy_tower()
+
+
+# ============================================================
+# VISUAL 2.0 -- animação por código (balanço ao andar, bote ao atacar,
+# voador flutuando com sombra). Só mexe em posição/rotação do sprite:
+# a ESCALA fica intacta porque o tamanho do corpo é medido por ela.
+# ============================================================
+var _sprite_home := Vector2.ZERO
+var _anim_t := 0.0
+var _lunge := Vector2.ZERO
+var _visual_scale := 1.0
+var _is_air_visual := false
+
+
+func _setup_visuals():
+	var sprite: Sprite2D = $Sprite2D
+	_visual_scale = stats.unit_scale
+	_is_air_visual = stats.unit_type == UnitData.UnitType.AIR
+	_anim_t = randf() * 10.0
+	if stats.unit_type != UnitData.UnitType.BUILDING:
+		var shadow = Polygon2D.new()
+		var pts := PackedVector2Array()
+		for i in 12:
+			var a = TAU * i / 12.0
+			pts.append(Vector2(cos(a) * 10.0, sin(a) * 4.0) * _visual_scale)
+		shadow.polygon = pts
+		shadow.color = Color(0, 0, 0, 0.22)
+		shadow.position = Vector2(0, 14.0 * _visual_scale)
+		shadow.z_index = -1
+		shadow.name = "Sombra"
+		add_child(shadow)
+		move_child(shadow, 0)
+	if _is_air_visual:
+		sprite.position.y -= 16.0 * _visual_scale
+	_sprite_home = sprite.position
+	if !is_preview:
+		_spawn_fx.call_deferred()
+
+
+func _spawn_fx():
+	if is_inside_tree():
+		Fx.ring(get_parent(), position, 18.0 * _visual_scale, Color(1, 1, 1, 0.9), 0.25)
+
+
+func _process(delta):
+	var sprite: Sprite2D = $Sprite2D
+	var moving = velocity.length() > 4.0 and stats.unit_type != UnitData.UnitType.BUILDING
+	var pos = _sprite_home
+	var rot = 0.0
+	if _is_air_visual:
+		_anim_t += delta
+		pos.y += sin(_anim_t * 3.2) * 2.5 * _visual_scale
+		rot = sin(_anim_t * 1.6) * 0.05
+	elif moving:
+		_anim_t += delta * clampf(velocity.length() / 45.0, 0.6, 2.2)
+		pos.y -= absf(sin(_anim_t * 9.0)) * 2.2 * _visual_scale
+		rot = sin(_anim_t * 9.0) * 0.07
+	if moving and absf(velocity.x) > 6.0:
+		sprite.flip_h = velocity.x < 0
+	if _lunge.length_squared() > 0.05:
+		pos += _lunge
+		_lunge = _lunge.lerp(Vector2.ZERO, minf(1.0, delta * 11.0))
+	sprite.position = pos
+	sprite.rotation = rot
+
+
+func _attack_anim():
+	if target == null or !is_instance_valid(target) or !("global_position" in target):
+		return
+	var dir = (target.global_position - global_position).normalized()
+	if absf(dir.x) > 0.2:
+		$Sprite2D.flip_h = dir.x < 0
+	_lunge = dir * (-4.0 if stats.is_ranged else 9.0) * minf(_visual_scale, 1.6)
 
 
 func _apply_unit_scale():
@@ -803,6 +877,7 @@ func _get_effective_damage() -> int:
 
 func _perform_attack():
 	_reveal_disguise()
+	_attack_anim()
 
 	var dmg = _get_effective_damage()
 	var target_killed = false
@@ -1056,6 +1131,8 @@ func _apply_on_hit_to_area(center: Vector2, radius: float):
 
 
 func _deal_area_damage(center: Vector2, radius: float, damage: int):
+	if get_parent() != null:
+		Fx.ring(get_parent(), get_parent().to_local(center) if get_parent() is Node2D else center, radius, Color(1.0, 0.72, 0.3))
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body == self or !("team" in body) or body.team == team:
 			continue
@@ -1240,6 +1317,10 @@ func take_damage(amount, _is_shared_damage: bool = false):
 
 	current_hp = clamp(current_hp - amount, 0, stats.hp)
 	$ProgressBar.value = current_hp
+	if amount >= 15:
+		var hit_at = position + Vector2(0, -18.0 * _visual_scale)
+		Fx.number(get_parent(), hit_at, amount, Color(1, 0.93, 0.8) if team == GameManager.Team.ENEMY else Color(1, 0.55, 0.5))
+		Fx.burst(get_parent(), position, Color(1, 0.95, 0.85), 4, 70.0, 2.5)
 
 	if stats.is_linked and !_is_shared_damage and !linked_units.is_empty():
 		var shared_amount = amount * stats.link_share_percent
@@ -1264,8 +1345,11 @@ func take_damage(amount, _is_shared_damage: bool = false):
 
 
 func heal(amount):
+	var before = current_hp
 	current_hp = clamp(current_hp + amount, 0, stats.hp)
 	$ProgressBar.value = current_hp
+	if current_hp - before >= 8:
+		Fx.number(get_parent(), position + Vector2(0, -18.0 * _visual_scale), current_hp - before, Color(0.45, 1.0, 0.5))
 
 
 var _flash_active: bool = false
@@ -1645,6 +1729,9 @@ func _spawn_clone():
 
 func die():
 	died.emit(team, card_data)
+	Fx.puff(get_parent(), position, clampf(_visual_scale, 0.6, 2.2))
+	if card_data != null:
+		Fx.burst(get_parent(), position, SpriteForge.main_color(card_data.art_palette), 8, 110.0, 3.0)
 
 	if stats.explodes_on_death:
 		_deal_area_damage(global_position, stats.death_explosion_radius, stats.death_explosion_damage)

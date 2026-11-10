@@ -15,6 +15,7 @@ func _ready():
 		visual.texture = spell.ground_effect_texture
 		add_child(visual)
 
+	_cast_fx()
 	_summon_units()
 	_apply_tick()  # aplica imediatamente ao ser lançado
 
@@ -140,3 +141,28 @@ func _report_base_damage(body, amount: float):
 	var battle = get_tree().get_first_node_in_group("battle_scene")
 	if battle != null and battle.has_method("record_base_damage_by_card"):
 		battle.record_base_damage_by_card(source_card_path, amount, body.is_in_group("player_base"))
+
+
+# visual do feitiço: cor própria (fx_color) ou uma cor padrão pelo que ele faz
+func _cast_fx():
+	var parent = get_parent()
+	var col: Color = spell.fx_color
+	if col.a <= 0.0:
+		if spell.heal_amount > 0:
+			col = Color(0.4, 0.95, 0.5)
+		elif spell.status_effect == UnitData.OnHitEffect.FREEZE:
+			col = Color(0.6, 0.85, 1.0)
+		elif spell.damage > 0:
+			col = Color(1.0, 0.6, 0.25)
+		else:
+			col = Color(1, 1, 0.8)
+	col.a = 1.0
+	if spell.duration > 0:
+		Fx.zone(parent, position, spell.radius, col, spell.duration)
+	else:
+		Fx.ring(parent, position, spell.radius, col, 0.45)
+		if spell.damage > 0 and spell.radius <= 60.0:
+			Fx.bolt(parent, position, col)
+		Fx.burst(parent, position, col, 14, spell.radius * 2.2, 4.0)
+		if spell.status_effect == UnitData.OnHitEffect.FREEZE or spell.buff_duration > 0:
+			Fx.zone(parent, position, spell.radius, col, 0.8)

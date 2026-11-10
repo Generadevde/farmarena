@@ -57,6 +57,11 @@ func install_base_data(new_base_data: BaseData, level: int = 1):
 		$Sprite2D.texture = base_data.base_texture
 		if base_data.base_texture is ImageTexture:
 			$Sprite2D.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # arte do Criador, pixel nítido
+		if base_data.base_texture.get_size() == Vector2(48, 48):
+			$Sprite2D.scale = Vector2(1.6, 1.6)  # arte 2.0 (48x48)
+			$Sprite2D.position = Vector2(0, -8)
+		if team == GameManager.Team.ENEMY:
+			$Sprite2D.self_modulate = Color(1.0, 0.82, 0.82)  # torres inimigas levemente avermelhadas
 
 
 # multiplica a vida máxima (usado no 2v2, onde 2 bots atacam a mesma base)
@@ -303,6 +308,9 @@ func _apply_base_effect_to(body):
 
 func take_damage(amount):
 	hp = clamp(hp - amount, 0, max_hp)
+	if amount >= 15:
+		Fx.number(get_parent(), position + Vector2(0, -40), amount, Color(1, 0.8, 0.35))
+		_shake()
 
 	$ProgressBar.value = hp
 	_update_label()
@@ -325,6 +333,27 @@ func _update_label():
 # MORTE
 # ============================================================
 
+var _shaking := false
+
+
+func _shake():
+	if _shaking or !has_node("Sprite2D"):
+		return
+	_shaking = true
+	var sprite = $Sprite2D
+	var home = sprite.position
+	var tw = create_tween()
+	for i in 3:
+		tw.tween_property(sprite, "position", home + Vector2(randf_range(-3, 3), randf_range(-2, 2)), 0.03)
+	tw.tween_property(sprite, "position", home, 0.03)
+	tw.tween_callback(func(): _shaking = false)
+
+
 func die():
+	var parent = get_parent()
+	Fx.ring(parent, position, 90.0, Color(1.0, 0.75, 0.3), 0.6)
+	Fx.puff(parent, position, 3.0)
+	Fx.burst(parent, position, Color(0.75, 0.5, 0.3), 22, 200.0, 5.0)
+	Fx.text(parent, position + Vector2(0, -30), "TORRE CAIU!", Color(1, 0.85, 0.3), 1.6)
 	destroyed.emit(team)
 	queue_free()
