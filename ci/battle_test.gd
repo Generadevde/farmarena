@@ -416,6 +416,12 @@ func _freeze_test():
 	var moved_after = u.global_position.distance_to(p1)
 	# feitiço instantâneo de gelo com duração de efeito 4s
 	await get_tree().create_timer(1.5).timeout  # sai da imunidade
+	if !is_instance_valid(u):
+		print("TESTE congelar: a unidade de teste morreu antes da 2ª parte (torre inimiga) -- pulando o resto")
+		return
+	u.stats = u.stats.duplicate()
+	u.stats.hp = 99999
+	u.current_hp = 99999
 	var sp = SpellData.new()
 	sp.damage = 0
 	sp.radius = 60.0
