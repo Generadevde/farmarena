@@ -116,7 +116,7 @@ func _ready():
 	$ProgressBar.theme = ThemeBuilder.game_theme
 	$ProgressBar.custom_minimum_size = Vector2(40, 8)  # garante formato de barra alongada, não um quadrado pequeno
 	$LevelLabel.text = "Nv%d" % card_level
-	$LevelLabel.visible = card_level > 1  # nível 1 não polui a tela
+	$LevelLabel.visible = card_level > 1 and !MatchSetup.tournament  # nível 1 (e torneio, tudo igual) não polui a tela
 	$LevelLabel.add_theme_font_size_override("font_size", 11)
 	add_to_group("damageable")
 

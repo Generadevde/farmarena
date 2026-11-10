@@ -1,58 +1,32 @@
-# Farm Arena
+# Farm Arena 2.0
 
-Jogo estilo Clash Royale, offline, contra bots. Feito em Godot 4.7 (GDScript).
+Jogo de cartas e torres offline (estilo Clash Royale, tema roça), feito em Godot 4.7 para celular em pé.
 
-## 📱 Instalar no celular
+**Instalar no celular:** https://github.com/Generadevde/farmarena/releases/latest/download/farmarena.apk
+(cada alteração enviada para o GitHub gera um APK novo sozinho, em uns 5 minutos)
 
-Abra este link no celular e instale:
+## O que tem
 
-**https://github.com/Generadevde/farmarena/releases/latest/download/farmarena.apk**
+- **Batalha**: arena simétrica, 2 torres por lado, rio com 3 passagens. Derrube as duas torres. Recurso de 0 a 100, em dobro a partir de 1:59.
+- **53 cartas em 6 turmas** (Curral, Galinheiro, Brejo, Roçado, Peões, Coisa Estranha), incluindo cartas com unidades diferentes juntas.
+- **7 arenas**, uma por faixa de troféu, cada uma com cenário próprio.
+- **Menu em 5 abas** (toque embaixo ou arraste para o lado): Feira, Cartas, Batalha, Troféus, Sítio.
+- **Progressão**: baús de colheita (tempo curto, cada partida adianta 1 minuto), Feira diária, Mascate surpresa, Caminho dos Troféus, nível do jogador, cópias + ouro para subir carta, maestria visual pelo uso, 4 baralhos.
+- **Torneio da Roça**: mata-mata de 3 fases com cartas niveladas e uma regra especial sorteada.
+- **Safra**: a cada 3 dias o jogo cria 2 cartas novas e 1 missão, sozinho.
+- **Criador**: cartas, torres e arenas dentro do jogo, com editor de pixel 48x48 e montagem por peças.
+- **Bots** com baralho, turma preferida e aprendizado próprios; 2 contra 2; ranking e temporadas.
 
-- Cada vez que algo é enviado pro GitHub, um APK novo é gerado sozinho em uns 2 minutos, no mesmo link.
-- Pra atualizar, baixe e instale por cima. Seu progresso continua.
-- Na primeira vez, o Android pede pra permitir "instalar apps desconhecidos" pro navegador.
+## Onde mexer
 
-## Baixar e abrir no PC
+| O quê | Arquivo |
+|---|---|
+| Cartas, turmas e torres oficiais (tabelas) | `Scripts/catalogo.gd` |
+| Peças da arte (desenho) | `ci/tools/arte/pecas.py`, `objetos.py` → rodar `exportar.py` |
+| Cenários das arenas | `ci/tools/arte/arenas.py` |
+| Baús, Feira, troféus, torneio, maestria | `Scripts/progresso.gd` |
+| Menu | `Scripts/hub.gd` |
+| Safra e gerador de cartas | `Scripts/safra.gd`, `creator/card_generator.gd` |
+| Efeitos visuais | `Scripts/fx.gd` |
 
-```bash
-git clone https://github.com/Generadevde/farmarena.git
-```
-
-Abra a pasta no Godot 4.7. Na **primeira abertura**, o editor reimporta tudo e registra as classes novas (`BattleBrain`, `DeckBuilder`, `PixelEditor`...). Se aparecer erro de "classe não encontrada", feche e abra o projeto de novo.
-
-## Exportar pro celular (Moto G75)
-
-1. **Projeto → Exportar → Android** (o preset já está em `export_presets.cfg`).
-2. Se pedir, use **Projeto → Instalar Template de Build Android** (gera a pasta `android/`, que é ignorada pelo git).
-3. Exporte o `.apk` **fora** da pasta do projeto (por exemplo, em `~/Área de trabalho/Farm Arena/builds/`) pra ele não ir pro repositório.
-
-## O que tem de novo
-
-- **🛠 Criador** (menu principal), que funciona no celular:
-  - **Cartas:** crie unidades e feitiços, gere carta aleatória (balanceada pela média das suas cartas) e edite qualquer carta do jogo. Tem botão "↺ Original" pra desfazer a edição.
-  - **Bases:** crie e edite bases. A arte é 32x64.
-  - **Arenas:** nome, emoji, troféus, recompensas e fundo em pixel art. Dá pra criar arenas novas depois da 7.
-  - **Editor de pixel art:** lápis, borracha, balde, conta-gotas, espelho, contorno automático, desfazer/refazer e arte aleatória.
-  - Tudo fica salvo em `user://custom/` no aparelho. Os bots também passam a usar as cartas que você cria.
-- **👥 Batalha 2v2:** você e um bot aliado contra 2 bots. É amistosa: dá ouro e XP, mas não mexe em troféu.
-- **Recurso x2** a partir de 1:59 (antes era 1.5x a partir de 0:59).
-
-## Correções
-
-- As unidades se empurram de verdade (separação estilo Clash Royale), sem virar mistureba.
-- Os bots do ranking voltaram a jogar no celular: a simulação offline rodava antes de carregar o perfil. E ela não trava mais a tela.
-- IA de batalha:
-  - lê o campo todo;
-  - defende com uma carta que acerta o tipo de ameaça (aéreo/terrestre), posicionada entre a ameaça e a base;
-  - só lança feitiço quando vale a pena.
-- Decks dos bots variados: cada bot tem um estilo próprio (categorias, curva de custo, nação favorita).
-- Menus:
-  - botão voltar do Android;
-  - popup do bot fecha tocando fora;
-  - missões não empilham popup;
-  - carrosséis de carta e de base separados;
-  - aba de estatísticas de cartas aparecendo;
-  - botões maiores pra dedo;
-  - listas rolam arrastando.
-- A base estava numa camada de colisão errada.
-- Nomes de arquivo com "ç" corrigidos.
+Os testes automáticos (partidas sem tela e capturas de tela) rodam no GitHub Actions a cada envio.

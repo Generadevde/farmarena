@@ -30,3 +30,10 @@ Jogo só pro celular do João (Moto G75). Decisões fechadas em 10/nov/2026.
 8. **Autogerador Safra**, ligado ao Criador.
 9. **Criador** atualizado pro estilo novo (48x48, peças, nações novas).
 10. **Revisão geral e testes** no GitHub.
+
+
+## Situação (10/11/2026)
+
+Etapas 1 a 9 feitas e testadas no GitHub Actions. Extras pedidos no caminho: cartas com unidades diferentes, 7 arenas com cenário próprio, Torneio da Roça, clima maluco, falas das tropas.
+
+Ideias para depois: mais peças de arte, animação de ataque por arma, som nos efeitos, torneios com chave visual, mais regras especiais.

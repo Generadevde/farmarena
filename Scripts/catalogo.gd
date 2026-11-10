@@ -12,7 +12,7 @@ class_name Catalogo
 
 const UNIT_TEMPLATE = "res://Units/scenes/unit_base.tscn"
 const PATH_PREFIX = "res://c2/"
-const SPRITE_SCALE = 0.95  # só visual: o corpo (colisão/alcance) vem do CollisionShape, não do sprite
+const SPRITE_SCALE = 1.1  # só visual: o corpo (colisão/alcance) vem do CollisionShape, não do sprite
 
 const COMUM = 0
 const RARA = 1
