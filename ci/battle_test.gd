@@ -54,6 +54,10 @@ func _ready():
 		await _tornado_and_air_test()
 		get_tree().quit()
 		return
+	if mode == "efeitos":
+		await _effects_audit()
+		get_tree().quit()
+		return
 	if mode == "corpo":
 		await _melee_test()
 		get_tree().quit()
@@ -537,3 +541,89 @@ func _report():
 	print("RESULTADO unidades jogador=", mine, " bot=", theirs, " $bot=", GameManager.enemy_money,
 		" vida base jogador=", pb.hp if pb else -1, " vida base bot=", eb.hp if eb else -1,
 		" acoes bot=", battle.match_action_log.filter(func(a): return a["side"] != "player").size())
+
+
+# AUDITORIA: cada carta com efeito no golpe ataca uma vítima parada e a gente
+# confere se o efeito prometido realmente aconteceu
+func _effects_audit():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	var pb = get_tree().get_first_node_in_group("player_base")
+	var eb = get_tree().get_first_node_in_group("enemy_base")
+	for b in get_tree().get_nodes_in_group("enemy_base") + get_tree().get_nodes_in_group("player_base"):
+		b.max_hp = 9999999
+		b.hp = 9999999
+	var spot = pb.global_position.lerp(eb.global_position, 0.5) + Vector2(135, 60)
+	var ok: Array = []
+	var bad: Array = []
+	var victim_card: CardData = Catalogo.card("porco_cozinheiro")
+	for c in Catalogo.cards() + Catalogo.tokens():
+		var st = DeckBuilder.get_unit_stats(c)
+		if st == null or st.on_hit_effect == UnitData.OnHitEffect.NONE or st.damage <= 0:
+			continue
+		for old_u in get_tree().get_nodes_in_group("units"):
+			old_u.queue_free()
+		await get_tree().process_frame
+		battle.spawn_unit(victim_card.unit_scene, GameManager.Team.ENEMY, eb.global_position, victim_card)
+		await get_tree().process_frame
+		var victim = get_tree().get_nodes_in_group("units")[0]
+		victim.stats = victim.stats.duplicate()
+		victim.stats.hp = 99999
+		victim.current_hp = 99999
+		victim.stats.damage = 0
+		victim.stats.move_speed = 0.0
+		victim.global_position = spot + Vector2(0, -70 if st.is_ranged else -34)
+		battle.spawn_unit(c.unit_scene, GameManager.Team.PLAYER, pb.global_position, c)
+		await get_tree().process_frame
+		for u in get_tree().get_nodes_in_group("units"):
+			if u != victim:
+				u.global_position = spot + Vector2(randf_range(-8, 8), 0)
+		var start = victim.global_position
+		var seen = {"slow": false, "weak": false, "stun": false, "poison": false, "root": false, "confuse": false, "silence": false, "mark": false}
+		var max_toward = 0.0
+		var max_away = 0.0
+		for k in 30:
+			await get_tree().create_timer(0.2).timeout
+			if !is_instance_valid(victim):
+				break
+			var now = GameManager.game_time
+			seen["slow"] = seen["slow"] or victim.speed_multiplier < 0.99
+			seen["weak"] = seen["weak"] or victim.damage_multiplier < 0.99
+			seen["stun"] = seen["stun"] or victim._incapacitated_until > now
+			seen["poison"] = seen["poison"] or victim._poison_ticks_left > 0
+			seen["root"] = seen["root"] or victim._rooted_until > now
+			seen["confuse"] = seen["confuse"] or victim._confused_until > now
+			seen["silence"] = seen["silence"] or victim._silenced_until > now
+			seen["mark"] = seen["mark"] or victim._marked_until > now
+			var dy = victim.global_position.y - start.y  # + = veio pra perto do atacante (que está embaixo)
+			max_toward = max(max_toward, dy)
+			max_away = max(max_away, -dy)
+		var worked = false
+		match st.on_hit_effect:
+			UnitData.OnHitEffect.SLOW: worked = seen["slow"]
+			UnitData.OnHitEffect.WEAKNESS: worked = seen["weak"]
+			UnitData.OnHitEffect.FREEZE, UnitData.OnHitEffect.STUN, UnitData.OnHitEffect.SHOCK: worked = seen["stun"]
+			UnitData.OnHitEffect.POISON: worked = seen["poison"]
+			UnitData.OnHitEffect.ROOT: worked = seen["root"]
+			UnitData.OnHitEffect.CONFUSE: worked = seen["confuse"]
+			UnitData.OnHitEffect.SILENCE: worked = seen["silence"]
+			UnitData.OnHitEffect.MARK: worked = seen["mark"]
+			UnitData.OnHitEffect.PULL: worked = max_toward > 8.0
+			UnitData.OnHitEffect.KNOCKBACK: worked = max_away > 8.0
+		var line = "%s[%s%s]" % [c.card_name, CustomContent.EFFECT_NAMES[st.on_hit_effect], " puxou %dpx" % int(max_toward) if st.on_hit_effect == UnitData.OnHitEffect.PULL else (" empurrou %dpx" % int(max_away) if st.on_hit_effect == UnitData.OnHitEffect.KNOCKBACK else "")]
+		if worked:
+			ok.append(line)
+		else:
+			bad.append(line)
+	print("RESULTADO efeitos OK: ", ok)
+	print("RESULTADO efeitos QUE NÃO FUNCIONARAM: ", bad)
+	# Criador: criar uma torre nova
+	var bpack = CustomContent.make_blank_base()
+	bpack["base"].base_name = "Torre de Teste"
+	bpack["image"] = SpriteForge.make_image({"torre": "capela"}, {})
+	var made_base = CustomContent.save_base(bpack, true)
+	print("RESULTADO criador de torres: salva? ", made_base != null and made_base.resource_path.begins_with("user://"), " | na lista? ", BotSimulator.available_bases.has(made_base),
+		" | liberada? ", PlayerProfile.is_base_unlocked(made_base), " | torres oficiais=", Catalogo.bases().size())

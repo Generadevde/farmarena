@@ -79,6 +79,11 @@ func _ready():
 	hub._end_drag(drop_at)
 	print("SHOT arrasto: pato ninja entrou no baralho? ", Progresso.deck_paths(0).has(Catalogo.card("pato_ninja").resource_path), " alvos=", hub._drop_targets.size())
 	await get_tree().create_timer(0.2).timeout
+	hub._go_tab(1)
+	hub._set_cards_view(1)
+	await get_tree().create_timer(0.5).timeout
+	await _shot("torres")
+	hub._set_cards_view(0)
 	hub._show_ranking()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("ranking")

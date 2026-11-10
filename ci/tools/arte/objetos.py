@@ -585,12 +585,106 @@ def ico_garrafa():
     return fin(cv)
 
 
+def torre_forte():
+    """forte de toras (paliçada)"""
+    cv = Canvas()
+    for i, x in enumerate(range(7, 40, 5)):
+        top = 12 + (2 if i % 2 else 0)
+        cv.blob_rect(x, top, 5, 45 - top, "W", 1)
+        cv.rect(x + 1, top - 2, 3, 2, C("W", 0))
+        cv.put(x + 2, top - 3, C("W", 0))
+    cv.rect(7, 22, 34, 2, C("M", 2)); cv.rect(7, 36, 34, 2, C("M", 2))
+    cv.rect(19, 30, 10, 15, PUPIL)
+    cv.rect(20, 31, 8, 14, C("W", 2))
+    cv.rect(23, 2, 1, 10, C("W", 1)); cv.rect(24, 3, 7, 5, C("A", 1))
+    return fin(cv)
+
+
+def torre_armazem():
+    """armazém de sacas"""
+    cv = Canvas()
+    cv.blob_rect(7, 18, 34, 27, "K", 2)
+    _telhado(cv, 4, 44, 6, 18, "M")
+    for y in (24, 31, 38):
+        cv.rect(7, y, 34, 1, C("K", 2))
+    cv.rect(17, 28, 14, 17, C("W", 2))
+    for x, y in ((9, 38), (33, 38), (33, 32)):                 # sacas na porta
+        cv.blob_rect(x, y, 7, 6, "S", 2)
+        cv.put(x + 3, y + 2, C("S", 2))
+    cv.rect(21, 11, 6, 5, EYE_W); cv.rect(23, 12, 2, 3, C("A", 1))
+    return fin(cv)
+
+
+def torre_capela():
+    """capelinha do sino"""
+    cv = Canvas()
+    cv.blob_rect(12, 22, 24, 23, "K", 2)
+    _telhado(cv, 9, 39, 13, 22, "A")
+    cv.blob_rect(19, 4, 10, 12, "K", 1)                        # torre do sino
+    _telhado(cv, 17, 31, 0, 5, "A")
+    cv.rect(22, 8, 4, 6, PUPIL); cv.rect(23, 10, 2, 3, C("M", 0))
+    cv.rect(20, 32, 8, 13, C("W", 2)); cv.ellipse(24, 32, 4, 3, "W", shade=False)
+    for x in (14, 31):
+        cv.rect(x, 28, 3, 6, (120, 190, 240, 255)); cv.rect(x, 28, 3, 1, SHINE)
+    return fin(cv)
+
+
+def torre_colmeia():
+    """colmeia gigante"""
+    cv = Canvas()
+    for y, half in ((6, 7), (12, 11), (18, 14), (24, 16), (30, 16), (36, 15), (41, 13)):
+        cv.blob_rect(24 - half, y, half * 2, 6, "P", 2)
+        cv.rect(24 - half + 1, y + 5, half * 2 - 2, 1, C("P", 2))
+    cv.ellipse(24, 36, 5, 5.5, "M", shade=False)
+    for y in range(30, 43):
+        for x in range(18, 31):
+            if cv.get(x, y)[:3] == C("M", 1)[:3]:
+                cv.put(x, y, PUPIL)
+    for x, y in ((8, 14), (40, 10), (42, 26), (5, 30)):          # abelhas
+        cv.rect(x, y, 3, 2, C("P", 0)); cv.put(x + 1, y, PUPIL); cv.put(x + 1, y - 1, EYE_W)
+    return fin(cv)
+
+
+def torre_antena():
+    """torre de sinal do ET"""
+    cv = Canvas()
+    for x in (15, 31):
+        cv.line(x, 44, 24 + (x - 24) // 4, 14, C("M", 1))
+        cv.line(x + 1, 44, 25 + (x - 24) // 4, 14, C("M", 2))
+    for y in (22, 30, 38):
+        w = 4 + (y - 14) // 3
+        cv.rect(24 - w, y, w * 2 + 1, 1, C("M", 0))
+    cv.ellipse(24, 10, 9, 4.5, "M")
+    cv.ellipse(24, 7, 4.5, 4, "S")
+    cv.put(22, 5, SHINE)
+    for x in (17, 21, 27, 31):
+        cv.rect(x, 11, 2, 2, C("A", 0))
+    cv.rect(20, 40, 9, 5, C("M", 2))
+    return fin(cv)
+
+
+def torre_cocho():
+    """bebedouro/cocho de leite (economia)"""
+    cv = Canvas()
+    cv.blob_rect(12, 12, 24, 26, "M", 4)
+    for y in (18, 25, 32):
+        cv.rect(12, y, 24, 1, C("M", 2))
+    cv.ellipse(24, 12, 11.5, 3.5, "K", shade=False)
+    cv.rect(13, 38, 3, 7, C("W", 1)); cv.rect(32, 38, 3, 7, C("W", 1))
+    cv.rect(36, 26, 5, 2, C("M", 1)); cv.rect(40, 26, 2, 6, C("M", 2))   # torneira
+    cv.put(40, 33, EYE_W); cv.put(41, 35, EYE_W)
+    cv.rect(17, 21, 8, 7, EYE_W)
+    cv.rect(18, 22, 3, 2, PUPIL); cv.rect(21, 25, 3, 2, PUPIL)            # mancha de vaca
+    return fin(cv)
+
+
 OBJETOS = {
     "objeto": {"galinheiro": obj_galinheiro, "silo": obj_silo, "colmeia": obj_colmeia, "poco": obj_poco,
                "barril": obj_barril, "canhao_milho": obj_espantalho_torre, "fornalha": obj_fornalha,
                "tenda": obj_tenda, "ninho": obj_ninho, "ovni": obj_ovni, "trator": obj_trator, "feno": obj_monte_feno,
                "carroca": obj_carroca, "casinha": obj_casinha, "cerca_eletrica": obj_cerca_eletrica},
-    "torre": {"celeiro": torre_celeiro, "moinho": torre_moinho, "caixa_dagua": torre_caixa_dagua, "castelo_feno": torre_castelo_feno},
+    "torre": {"celeiro": torre_celeiro, "moinho": torre_moinho, "caixa_dagua": torre_caixa_dagua, "castelo_feno": torre_castelo_feno,
+              "forte": torre_forte, "armazem": torre_armazem, "capela": torre_capela, "colmeia": torre_colmeia, "antena": torre_antena, "cocho": torre_cocho},
     "icone": {"raio": ico_raio, "tornado": ico_tornado, "coracao": ico_coracao, "pimenta": ico_pimenta,
               "floco": ico_floco, "cogumelo": ico_cogumelo, "escudo": ico_escudo, "melancia": ico_melancia,
               "ovo": ico_ovo, "vaca_caindo": ico_vaca_caindo, "nota": ico_nota, "lama": ico_lama,

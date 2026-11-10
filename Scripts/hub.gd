@@ -564,8 +564,92 @@ func _start_2v2():
 
 
 # ================================================================ ABA: CARTAS
+var _cards_view := 0  # 0 = cartas, 1 = torres
+
+
+func _set_cards_view(v: int):
+	_cards_view = v
+	_cancel_placing()
+	_queue_refresh()
+
+
+func _build_torres(box: Node):
+	var equipped = PlayerProfile.get_equipped_base()
+	box.add_child(_wrap("Sua torre vale pras DUAS torres do seu lado. Cada tipo muda o jeito de jogar. As novas liberam conforme você sobe de arena.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var list: Array = BotSimulator.available_bases.filter(func(b): return b != null)
+	list.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena)
+	for b in list:
+		var unlocked = PlayerProfile.is_base_unlocked(b)
+		var p = _panel(box)
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 14)
+		p.add_child(row)
+		var tr = TextureRect.new()
+		tr.texture = b.icon
+		tr.custom_minimum_size = Vector2(144, 144)
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		tr.modulate = Color(1, 1, 1) if unlocked else Color(0.25, 0.25, 0.25)
+		row.add_child(tr)
+		var side = VBoxContainer.new()
+		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(side)
+		side.add_child(_label(b.base_name + ("   ✔ EM USO" if b == equipped else ""), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
+		side.add_child(_label(_base_summary(b), 15, Color(0.8, 0.95, 1.0)))
+		for t in b.pros:
+			side.add_child(_wrap("✔ " + t, 15, Color(0.6, 1.0, 0.6)))
+		for t in b.cons:
+			side.add_child(_wrap("✖ " + t, 15, Color(1.0, 0.62, 0.55)))
+		if b.description != "":
+			p.add_child(_wrap("“%s”" % b.description, 15, Color(0.95, 0.9, 0.78)))
+		if !unlocked:
+			p.add_child(_label("🔒 Libera na Arena %d (%s)" % [b.unlock_arena, ArenaManager.get_arena_info(b.unlock_arena).get("name", "")], 16, Color(1, 0.85, 0.5)))
+		elif b != equipped:
+			p.add_child(_button("Usar esta torre", _equip_base_direct.bind(b), 19))
+	box.add_child(_button("🎨 Criar minha própria torre (Criador)", _goto.bind(CREATOR_SCENE), 18))
+
+
+func _base_summary(b: BaseData) -> String:
+	var hp = int(round(b.base_hp * ArenaBuilder.TOWER_HP_FRACTION))
+	var txt = "❤ %d cada" % hp
+	match b.base_type:
+		BaseData.BaseType.CANNON:
+			txt += "  ·  ⚔ %d a cada %.1fs  ·  alcance %d%s" % [b.attack_damage, b.attack_speed, int(b.attack_range), "  ·  em área" if b.is_aoe else ""]
+		BaseData.BaseType.PRODUCTION:
+			txt += "  ·  recurso +%d%% mais rápido" % int(round(b.production_speed_boost * 100))
+		BaseData.BaseType.HEAL:
+			txt += "  ·  cura %d por segundo em volta" % int(b.heal_amount / maxf(b.heal_interval, 0.1))
+		BaseData.BaseType.CAPACITY:
+			txt += "  ·  guarda +%d de recurso" % b.capacity_bonus
+		BaseData.BaseType.AURA:
+			txt += "  ·  aura: %s (raio %d)" % [CustomContent.EFFECT_NAMES[b.effect], int(b.aura_radius)]
+		_:
+			txt += "  ·  só resistência"
+	return txt
+
+
+func _equip_base_direct(b: BaseData):
+	PlayerProfile.set_equipped_base(b)
+	Sfx.play("carta")
+	_queue_refresh()
+
+
 func _build_cartas(box: Node):
 	_drop_targets.clear()
+	var switch = HBoxContainer.new()
+	switch.add_theme_constant_override("separation", 8)
+	box.add_child(switch)
+	var names = ["🃏 Cartas", "🏰 Torres"]
+	for i in 2:
+		var sb = _button(names[i], _set_cards_view.bind(i), 22)
+		sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sb.custom_minimum_size.y = 64
+		sb.modulate = Color(1, 1, 1) if i == _cards_view else Color(0.6, 0.58, 0.54)
+		switch.add_child(sb)
+	if _cards_view == 1:
+		_build_place_bar()
+		_build_torres(box)
+		return
 	# baralhos
 	var deck_panel = _panel(box)
 	var head = HBoxContainer.new()
@@ -652,25 +736,6 @@ func _build_cartas(box: Node):
 			mg.add_child(_collection_entry(c, true, "Arena %d" % c.unlock_arena if is_locked else "nos baús", Color(1, 0.9, 0.5), is_locked))
 	_build_place_bar()
 
-	# torres
-	box.add_child(_title("Sua torre"))
-	var tg = _grid(box, 4)
-	var equipped = PlayerProfile.get_equipped_base()
-	for b in BotSimulator.available_bases:
-		if b == null:
-			continue
-		var unlocked = PlayerProfile.is_base_unlocked(b)
-		var tb = Button.new()
-		tb.custom_minimum_size = Vector2(160, 190)
-		tb.icon = b.icon
-		tb.expand_icon = true
-		tb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tb.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		tb.text = b.base_name + ("\n✔ em uso" if b == equipped else ("" if unlocked else "\n🔒 Arena %d" % b.unlock_arena))
-		tb.add_theme_font_size_override("font_size", 14)
-		tb.modulate = Color(1, 1, 1) if unlocked else Color(0.5, 0.5, 0.5)
-		tb.pressed.connect(_show_base_popup.bind(b))
-		tg.add_child(tb)
 
 
 ## uma carta da coleção: grande, com os dados dentro dela

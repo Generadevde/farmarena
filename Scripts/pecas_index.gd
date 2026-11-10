@@ -14,7 +14,7 @@ const PECAS = {
 	"arma": {"forcado": 61, "machado": 62, "marreta": 63, "foice": 64, "enxada": 65, "frigideira": 66, "porrete": 67, "estilingue": 68, "viola": 69, "motosserra": 70, "lampiao": 71, "escudo": 72, "vara": 73, "berrante": 74, "garrafa": 75, "rastelo": 76, "espingarda": 77, "regador": 78},
 	"costas": {"rabo_galo": 79, "capa": 80, "foguete": 81, "asas_inseto": 82, "cesto": 83, "morcego": 84},
 	"objeto": {"galinheiro": 85, "silo": 86, "colmeia": 87, "poco": 88, "barril": 89, "canhao_milho": 90, "fornalha": 91, "tenda": 92, "ninho": 93, "ovni": 94, "trator": 95, "feno": 96, "carroca": 97, "casinha": 98, "cerca_eletrica": 99},
-	"torre": {"celeiro": 100, "moinho": 101, "caixa_dagua": 102, "castelo_feno": 103},
-	"icone": {"raio": 104, "tornado": 105, "coracao": 106, "pimenta": 107, "floco": 108, "cogumelo": 109, "escudo": 110, "melancia": 111, "ovo": 112, "vaca_caindo": 113, "nota": 114, "lama": 115, "laco": 116, "espelho": 117, "moeda": 118, "ferradura": 119, "garrafa": 120},
-	"proj": {"ovo": 121, "milho": 122, "pedra": 123, "flecha": 124, "fogo": 125, "gota": 126, "nota": 127, "raio": 128, "espinho": 129, "estrume": 130},
+	"torre": {"celeiro": 100, "moinho": 101, "caixa_dagua": 102, "castelo_feno": 103, "forte": 104, "armazem": 105, "capela": 106, "colmeia": 107, "antena": 108, "cocho": 109},
+	"icone": {"raio": 110, "tornado": 111, "coracao": 112, "pimenta": 113, "floco": 114, "cogumelo": 115, "escudo": 116, "melancia": 117, "ovo": 118, "vaca_caindo": 119, "nota": 120, "lama": 121, "laco": 122, "espelho": 123, "moeda": 124, "ferradura": 125, "garrafa": 126},
+	"proj": {"ovo": 127, "milho": 128, "pedra": 129, "flecha": 130, "fogo": 131, "gota": 132, "nota": 133, "raio": 134, "espinho": 135, "estrume": 136},
 }

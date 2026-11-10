@@ -44,7 +44,14 @@ func _ready():
 		add_child(sprite)
 
 
+var origin := Vector2.ZERO
+var _origin_set := false
+
+
 func _physics_process(delta):
+	if !_origin_set:
+		_origin_set = true
+		origin = global_position  # o atirador coloca o projétil em cima dele antes do 1º quadro
 	var dir = _locked_direction
 
 	if is_instance_valid(target) and (_hit_targets.is_empty() or chains):
@@ -147,7 +154,7 @@ func _apply_effect(body):
 			on_hit_effect_duration,
 			on_hit_effect_tick_interval,
 			knockback_distance,
-			global_position
+			origin  # de onde o tiro saiu: puxão traz pra perto do atirador, empurrão joga pra longe dele
 		)
 
 
