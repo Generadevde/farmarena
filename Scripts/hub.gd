@@ -961,6 +961,9 @@ func _show_card_popup(card: CardData):
 	var stats_text = _stats_text(card, mult)
 	if stats_text != "":
 		v.add_child(_wrap(stats_text, 17))
+	var target_line = _target_text(card)
+	if target_line != "":
+		v.add_child(_wrap(target_line, 17, Color(1.0, 0.85, 0.55)))
 	var skills = Catalogo.abilities(card)
 	v.add_child(_wrap("Habilidades (%d): %s" % [skills.size(), ", ".join(skills)] if !skills.is_empty() else "Sem habilidade especial: carta Normal.", 16, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
 	for p in card.pros:
@@ -998,6 +1001,26 @@ func _show_card_popup(card: CardData):
 	else:
 		v.add_child(_wrap("Você ainda não tem esta carta. Ela aparece nos baús e na Feira a partir da Arena %d." % maxi(1, card.unlock_arena), 16, Color(1, 0.85, 0.5)))
 	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+## frase clara de QUEM a carta ataca
+func _target_text(card: CardData) -> String:
+	if card.is_spell():
+		var sp = card.spell_data
+		return "🎯 Afeta: seus aliados" if (sp.affects_allies or !sp.affects_enemies) else "🎯 Afeta: inimigos na área (tropas, construções e torres)"
+	var st = DeckBuilder.get_unit_stats(card)
+	if st == null:
+		return ""
+	if st.damage <= 0:
+		return "🎯 Não ataca ninguém"
+	match st.target_type:
+		UnitData.TargetType.BUILDING:
+			return "🎯 Ataca: SÓ torres e construções. Ignora as tropas e vai direto."
+		UnitData.TargetType.ALL:
+			return "🎯 Ataca: tudo — tropas no chão, voadores, construções e torres. Briga com quem aparecer na frente."
+		UnitData.TargetType.AIR:
+			return "🎯 Ataca: só voadores"
+	return "🎯 Ataca: tropas no chão, construções e torres. Briga com quem aparecer na frente. Não acerta voador."
 
 
 func _stats_text(card: CardData, mult: float) -> String:

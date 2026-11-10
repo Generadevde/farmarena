@@ -215,7 +215,7 @@ func _stat_values() -> Dictionary:
 	var st: UnitData = DeckBuilder.get_unit_stats(card)
 	if st == null:
 		return {}
-	var target = ["Chão", "Ar", "Chão+Ar", "Torres"][clampi(st.target_type, 0, 3)]
+	var target = ["Chão", "Só ar", "Chão+Ar", "Só torres"][clampi(st.target_type, 0, 3)]
 	if st.damage <= 0:
 		target = "Não ataca"
 	var hp_text = str(int(round(st.hp * mult)))
@@ -262,7 +262,7 @@ func _draw_stats(art_box: Rect2, foot: Rect2, u: float):
 		mfs -= 1
 	var mw = font.get_string_size(mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs).x
 	var mx = foot.position.x + left_w + 3 * u + (room - mw) * 0.5
-	draw_string(font, Vector2(mx, base_y + mfs * 0.36), mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs, Color("#9fe0ff") if mid.begins_with("Voa") else Color("#c8f0a0"))
+	draw_string(font, Vector2(mx, base_y + mfs * 0.36), mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs, Color("#ffb060") if mid.contains("Só torres") else (Color("#9fe0ff") if mid.begins_with("Voa") else Color("#c8f0a0")))
 
 
 func _chip(corner: Vector2, val: Array, fs: int, h: float, u: float, right_side: bool):
