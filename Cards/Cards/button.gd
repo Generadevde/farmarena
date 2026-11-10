@@ -32,7 +32,7 @@ func _ready():
 	add_theme_stylebox_override("focus", no_margin_style)
 
 	# 2.0: a carta inteira é desenhada pelo CardView (moldura, custo, nível, maestria)
-	_view = CardView.make(null, 178)
+	_view = CardView.make(null, 178, true)
 	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_view.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_view)

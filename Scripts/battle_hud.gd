@@ -91,7 +91,7 @@ func _ready():
 		var b = HAND_BUTTON.instantiate()
 		b.name = names[i]
 		b.hand_index = i
-		b.custom_minimum_size = Vector2(CARD_W, CARD_W * 1.34)
+		b.custom_minimum_size = Vector2(CARD_W, CARD_W * 1.34 + CardView.FOOT * CARD_W / 132.0)
 		row.add_child(b)
 
 	var res_row = HBoxContainer.new()

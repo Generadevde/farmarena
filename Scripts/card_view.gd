@@ -12,6 +12,7 @@ var show_level := true
 var badge := ""              # texto pequeno no rodapé ("x12", "NOVA!", "Arena 3")
 var badge_color := Color(1, 0.9, 0.5)
 var selected := false
+var show_stats := false
 var mastery_override := -1   # -1 = usa a do jogador
 var level_override := -1
 var _t := 0.0
@@ -19,10 +20,15 @@ var _press_pos := Vector2.ZERO
 var _pressing := false
 
 
-static func make(c: CardData, w: float = 132.0) -> CardView:
+const FOOT = 24.0  # altura da faixa de dados no rodapé (em unidades da carta)
+
+## with_stats: mostra os dados básicos DENTRO da carta -- vida e ataque nos
+## cantos da arte; alcance, tipo de alvo e velocidade nos cantos de baixo
+static func make(c: CardData, w: float = 132.0, with_stats: bool = false) -> CardView:
 	var v = CardView.new()
 	v.card = c
-	v.custom_minimum_size = Vector2(w, w * 1.34)
+	v.show_stats = with_stats
+	v.custom_minimum_size = Vector2(w, w * 1.34 + (FOOT * w / 132.0 if with_stats else 0.0))
 	v.mouse_filter = Control.MOUSE_FILTER_STOP
 	return v
 
@@ -92,7 +98,8 @@ func _draw():
 		draw_texture_rect(card.icon, art_rect, false, Color(0.12, 0.12, 0.12, 0.9) if locked else Color.WHITE)
 	# nome
 	var font = ThemeDB.fallback_font
-	var name_rect = Rect2(inner.position.x + 2 * u, art_box.end.y + 2 * u, inner.size.x - 4 * u, inner.end.y - art_box.end.y - 4 * u)
+	var foot_h = FOOT * u if show_stats else 0.0
+	var name_rect = Rect2(inner.position.x + 2 * u, art_box.end.y + 2 * u, inner.size.x - 4 * u, inner.end.y - art_box.end.y - 4 * u - foot_h)
 	draw_rect(name_rect, Color("#f3e6c8") if !locked else Color(0.6, 0.58, 0.54))
 	var fs = int(15 * u)
 	var label = card.card_name if !locked else "???"
@@ -124,9 +131,11 @@ func _draw():
 	if badge != "":
 		var bfs = int(13 * u)
 		var bw = font.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bfs).x + 10 * u
-		var br = Rect2((w - 3 * u - bw) * 0.5, art_box.end.y - 18 * u, bw, 18 * u)
+		var br = Rect2((w - 3 * u - bw) * 0.5, art_box.end.y - (40 if show_stats else 18) * u, bw, 18 * u)
 		draw_rect(br, Color(0.1, 0.06, 0.05, 0.88))
 		draw_string(font, br.position + Vector2(5 * u, 13.5 * u), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bfs, badge_color)
+	if show_stats and !locked:
+		_draw_stats(art_box, Rect2(inner.position.x + 2 * u, name_rect.end.y + 1 * u, inner.size.x - 4 * u, foot_h - 2 * u), u)
 	# MAESTRIA: borda extra + cantoneiras + brilho andando (ouro/diamante)
 	if mastery > 0:
 		var mc: Color = Progresso.MASTERY_COLORS[mastery]
@@ -160,3 +169,122 @@ static func _perimeter_point(r: Rect2, dist: float) -> Vector2:
 		return Vector2(r.end.x - dist, r.end.y)
 	dist -= r.size.x
 	return Vector2(r.position.x, r.end.y - dist)
+
+
+# ================================================================ dados dentro da carta
+enum Ico { HEART, SWORD, RANGE, SPEED, AREA, CLOCK, PLUS, SHIELD }
+
+
+func _stat_values() -> Dictionary:
+	## {tl: [ícone, texto], tr: [...], bl: [...], br: [...], mid: texto do alvo}
+	var lv = level_override if level_override > 0 else PlayerProfile.get_card_level(card)
+	var mult = PlayerProfile.compute_stat_multiplier(lv)
+	if card.is_spell():
+		var sp: SpellData = card.spell_data
+		var main = [Ico.SWORD, str(int(round(sp.damage * mult)))]
+		if sp.damage <= 0:
+			if sp.heal_amount > 0:
+				main = [Ico.PLUS, str(int(sp.heal_amount))]
+			elif sp.shield_amount > 0:
+				main = [Ico.SHIELD, str(sp.shield_amount)]
+			elif sp.summon_count > 0:
+				main = [Ico.PLUS, "x%d" % sp.summon_count]
+			else:
+				main = [Ico.SWORD, "-"]
+		var lasting = maxf(sp.duration, maxf(sp.buff_duration, sp.status_effect_duration))
+		return {"left": main, "right": [Ico.AREA, str(int(sp.radius))], "bl": [Ico.CLOCK, "%.0fs" % lasting if lasting > 0 else "já"],
+			"mid": "Aliados" if (sp.affects_allies or !sp.affects_enemies) else "Inimigos", "br": []}
+	var st: UnitData = DeckBuilder.get_unit_stats(card)
+	if st == null:
+		return {}
+	var target = ["Chão", "Ar", "Chão+Ar", "Torres"][clampi(st.target_type, 0, 3)]
+	if st.damage <= 0:
+		target = "Não ataca"
+	var hp_text = str(int(round(st.hp * mult)))
+	if st.unit_count > 1:
+		hp_text += " x%d" % st.unit_count
+	return {
+		"left": [Ico.HEART, hp_text],
+		"right": [Ico.SWORD, str(int(round(st.damage * mult))) if st.damage > 0 else "-"],
+		"bl": [Ico.RANGE, str(int(st.attack_range)) if st.is_ranged else "perto"],
+		"br": [Ico.SPEED, str(int(st.move_speed)) if st.move_speed > 0 else "fixo"],
+		"mid": ("Voa · " if st.unit_type == UnitData.UnitType.AIR else "") + target,
+	}
+
+
+func _draw_stats(art_box: Rect2, foot: Rect2, u: float):
+	var vals = _stat_values()
+	if vals.is_empty():
+		return
+	var font = ThemeDB.fallback_font
+	# vida (canto esquerdo da arte) e ataque (canto direito)
+	var chip_h = 19 * u
+	var fs = int(14 * u)
+	_chip(Vector2(art_box.position.x, art_box.end.y - chip_h), vals["left"], fs, chip_h, u, false)
+	_chip(Vector2(art_box.end.x, art_box.end.y - chip_h), vals["right"], fs, chip_h, u, true)
+	# rodapé: alcance | alvo | velocidade
+	draw_rect(foot, Color("#2a1a22"))
+	var ffs = int(13 * u)
+	var base_y = foot.position.y + foot.size.y * 0.5
+	var left_w = 0.0
+	if !vals["bl"].is_empty():
+		_icon(vals["bl"][0], Vector2(foot.position.x + 9 * u, base_y), 6 * u)
+		draw_string(font, Vector2(foot.position.x + 18 * u, base_y + ffs * 0.36), vals["bl"][1], HORIZONTAL_ALIGNMENT_LEFT, -1, ffs, Color("#ffe9b8"))
+		left_w = 18 * u + font.get_string_size(vals["bl"][1], HORIZONTAL_ALIGNMENT_LEFT, -1, ffs).x
+	var right_w = 0.0
+	if !vals["br"].is_empty():
+		var tw = font.get_string_size(vals["br"][1], HORIZONTAL_ALIGNMENT_LEFT, -1, ffs).x
+		draw_string(font, Vector2(foot.end.x - tw - 3 * u, base_y + ffs * 0.36), vals["br"][1], HORIZONTAL_ALIGNMENT_LEFT, -1, ffs, Color("#ffe9b8"))
+		_icon(vals["br"][0], Vector2(foot.end.x - tw - 12 * u, base_y), 6 * u)
+		right_w = tw + 20 * u
+	var mid: String = vals["mid"]
+	var room = foot.size.x - left_w - right_w - 6 * u
+	var mfs = int(12 * u)
+	while mfs > 7 and font.get_string_size(mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs).x > room:
+		mfs -= 1
+	var mw = font.get_string_size(mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs).x
+	var mx = foot.position.x + left_w + 3 * u + (room - mw) * 0.5
+	draw_string(font, Vector2(mx, base_y + mfs * 0.36), mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs, Color("#9fe0ff") if mid.begins_with("Voa") else Color("#c8f0a0"))
+
+
+func _chip(corner: Vector2, val: Array, fs: int, h: float, u: float, right_side: bool):
+	var font = ThemeDB.fallback_font
+	var tw = font.get_string_size(val[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var w = tw + 22 * u
+	var r = Rect2(corner.x - (w if right_side else 0.0), corner.y, w, h)
+	draw_rect(r, Color(0.1, 0.06, 0.07, 0.9))
+	_icon(val[0], r.position + Vector2(10 * u, h * 0.5), 6.5 * u)
+	draw_string(font, r.position + Vector2(19 * u, h * 0.5 + fs * 0.36), val[1], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+
+
+## ícones desenhados (não dependem de emoji do aparelho)
+func _icon(kind: int, c: Vector2, r: float):
+	match kind:
+		Ico.HEART:
+			var red = Color("#ff5a5a")
+			draw_circle(c + Vector2(-r * 0.45, -r * 0.25), r * 0.55, red)
+			draw_circle(c + Vector2(r * 0.45, -r * 0.25), r * 0.55, red)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-r, 0), c + Vector2(r, 0), c + Vector2(0, r)]), red)
+		Ico.SWORD:
+			draw_line(c + Vector2(-r * 0.8, r * 0.8), c + Vector2(r * 0.8, -r * 0.8), Color("#e8eef4"), maxf(2.0, r * 0.45))
+			draw_line(c + Vector2(-r * 0.75, 0.05 * r), c + Vector2(-0.05 * r, r * 0.75), Color("#ffb050"), maxf(2.0, r * 0.4))
+		Ico.RANGE:
+			draw_arc(c, r * 0.95, 0, TAU, 16, Color("#ffd060"), maxf(1.5, r * 0.25))
+			draw_circle(c, r * 0.35, Color("#ff6a50"))
+		Ico.SPEED:
+			var col = Color("#7fe0ff")
+			for dx in [-r * 0.55, r * 0.25]:
+				draw_polyline(PackedVector2Array([c + Vector2(dx - r * 0.3, -r * 0.7), c + Vector2(dx + r * 0.4, 0), c + Vector2(dx - r * 0.3, r * 0.7)]), col, maxf(1.5, r * 0.3))
+		Ico.AREA:
+			draw_circle(c, r * 0.95, Color(1, 0.6, 0.3, 0.45))
+			draw_arc(c, r * 0.95, 0, TAU, 16, Color("#ffb060"), maxf(1.5, r * 0.25))
+		Ico.CLOCK:
+			draw_arc(c, r * 0.95, 0, TAU, 16, Color("#e8eef4"), maxf(1.5, r * 0.25))
+			draw_line(c, c + Vector2(0, -r * 0.6), Color("#e8eef4"), maxf(1.5, r * 0.25))
+			draw_line(c, c + Vector2(r * 0.45, 0), Color("#e8eef4"), maxf(1.5, r * 0.25))
+		Ico.PLUS:
+			var g = Color("#6af08a")
+			draw_rect(Rect2(c - Vector2(r * 0.25, r * 0.9), Vector2(r * 0.5, r * 1.8)), g)
+			draw_rect(Rect2(c - Vector2(r * 0.9, r * 0.25), Vector2(r * 1.8, r * 0.5)), g)
+		Ico.SHIELD:
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.8, -r * 0.8), c + Vector2(r * 0.8, -r * 0.8), c + Vector2(r * 0.8, 0.1 * r), c + Vector2(0, r), c + Vector2(-r * 0.8, 0.1 * r)]), Color("#80c0ff"))

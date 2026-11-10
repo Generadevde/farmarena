@@ -374,7 +374,7 @@ func _build_batalha(box: Node):
 		head.add_child(b)
 	var g = _grid(deck_panel, 4)
 	for c in Progresso.deck_cards(Progresso.active_deck()):
-		var v = CardView.make(c, 150)
+		var v = CardView.make(c, 160, true)
 		v.tapped.connect(_show_card_popup)
 		g.add_child(v)
 
@@ -564,11 +564,11 @@ func _build_cartas(box: Node):
 	var g = _grid(deck_panel, 4)
 	var deck = Progresso.deck_cards(_deck_slot)
 	for i in deck.size():
-		var v = CardView.make(deck[i], 150)
+		var v = CardView.make(deck[i], 160, true)
 		v.set_selected(_pending_card != null or _pending_index == i)
 		v.tapped.connect(_on_deck_slot_tapped.bind(i))
 		g.add_child(v)
-	var hint = "Toque numa carta da coleção pra escolher e depois no lugar do baralho onde ela entra. (Ou o contrário: lugar primeiro, carta depois.)"
+	var hint = "Toque numa carta da coleção pra escolher e depois no lugar do baralho onde ela entra."
 	if _pending_card != null:
 		hint = "👉 Toque na posição do baralho onde %s vai entrar." % _pending_card.card_name
 	elif _pending_index != -1:
@@ -608,7 +608,7 @@ func _build_cartas(box: Node):
 	missing.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena if a.unlock_arena != b.unlock_arena else a.cost < b.cost)
 
 	box.add_child(_title("Coleção  %d/%d" % [owned.size(), owned.size() + missing.size()]))
-	var og = _grid(box, 2)
+	var og = _grid(box, 3)
 	for c in owned:
 		var badge = ""
 		var badge_col = Color(1, 0.9, 0.5)
@@ -621,7 +621,7 @@ func _build_cartas(box: Node):
 		og.add_child(_collection_entry(c, false, badge, badge_col))
 	if !missing.is_empty():
 		box.add_child(_title("Ainda não encontradas"))
-		var mg = _grid(box, 2)
+		var mg = _grid(box, 3)
 		var arena_now = ArenaManager.get_player_arena()
 		for c in missing:
 			var is_locked = c.unlock_arena > arena_now
@@ -649,13 +649,14 @@ func _build_cartas(box: Node):
 		tg.add_child(tb)
 
 
-## uma carta da coleção: a carta grande + os dados dela do lado
+## uma carta da coleção: grande, com os dados dentro dela
 func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Color, hide_art: bool = false) -> Control:
-	var row = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	var v = CardView.make(c, 150)
+	var v = CardView.make(c, 214, true)
 	v.locked = hide_art
 	v.show_level = !missing
+	if badge == "" and !missing:
+		var need = Progresso.copies_needed(c)
+		badge = "%d/%d" % [Progresso.copies(c), need] if need > 0 else "MÁX"
 	v.badge = badge
 	v.badge_color = badge_col
 	v.set_selected(_pending_card == c)
@@ -663,51 +664,7 @@ func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Col
 		v.tapped.connect(_show_card_popup)
 	else:
 		v.tapped.connect(_on_collection_tapped)
-	row.add_child(v)
-	var side = VBoxContainer.new()
-	side.custom_minimum_size.x = 150
-	side.add_theme_constant_override("separation", 2)
-	row.add_child(side)
-	var f = ThemeDB.fallback_font
-	var head = Label.new()
-	head.text = "%s · %s" % [CardData.role_name(c.role), Catalogo.RARITY_NAMES[Catalogo.rarity_of(c)]]
-	head.add_theme_font_override("font", f)
-	head.add_theme_font_size_override("font_size", 14)
-	head.add_theme_color_override("font_color", Catalogo.rarity_color(c))
-	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	side.add_child(head)
-	if !hide_art:
-		var mult = PlayerProfile.compute_stat_multiplier(Progresso.level(c)) if !missing else 1.0
-		var lines: Array = _stats_text(c, mult).split("  ·  ")
-		var body = Label.new()
-		body.text = "\n".join(lines.slice(0, 6))
-		body.add_theme_font_override("font", f)
-		body.add_theme_font_size_override("font_size", 15)
-		body.add_theme_color_override("font_color", ThemeBuilder.COLOR_CREAM)
-		side.add_child(body)
-	if !missing:
-		var need = Progresso.copies_needed(c)
-		var cp = Label.new()
-		cp.text = "Cópias %d/%d" % [Progresso.copies(c), need] if need > 0 else "Nível máximo"
-		cp.add_theme_font_override("font", f)
-		cp.add_theme_font_size_override("font_size", 14)
-		cp.add_theme_color_override("font_color", Color(0.5, 1, 0.6) if Progresso.can_upgrade(c) else ThemeBuilder.COLOR_STAT_LABEL)
-		side.add_child(cp)
-		var m = Progresso.mastery(c)
-		if m > 0:
-			var ml = Label.new()
-			ml.text = "Maestria " + Progresso.MASTERY_NAMES[m]
-			ml.add_theme_font_override("font", f)
-			ml.add_theme_font_size_override("font_size", 14)
-			ml.add_theme_color_override("font_color", Progresso.MASTERY_COLORS[m])
-			side.add_child(ml)
-	var info = _button("ver mais", _show_card_popup.bind(c), 14)
-	info.custom_minimum_size.y = 40
-	info.size_flags_vertical = Control.SIZE_SHRINK_END | Control.SIZE_EXPAND
-	side.add_child(info)
-	var frame = PanelContainer.new()  # fundo escuro: os dados ficam legíveis em cima do gramado
-	frame.add_child(row)
-	return frame
+	return v
 
 
 var _place_bar: Control
@@ -735,6 +692,9 @@ func _build_place_bar():
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	l.clip_text = true
 	head.add_child(l)
+	var more = _button("ver detalhes", _show_card_popup.bind(_pending_card), 15)
+	more.custom_minimum_size.y = 44
+	head.add_child(more)
 	var cancel = _button("✖", _cancel_placing_and_refresh, 18)
 	cancel.custom_minimum_size = Vector2(60, 44)
 	head.add_child(cancel)
@@ -791,11 +751,11 @@ func _on_collection_tapped(card: CardData):
 		_queue_refresh()
 		return
 	# toque = escolher com o dedo (toque de novo desmarca)
-	if _pending_card == card or Progresso.deck_paths(_deck_slot).has(card.resource_path):
-		var was = _pending_card
+	if _pending_card == card:
 		_cancel_placing()
-		if was == null:
-			_toast("%s já está neste baralho." % card.card_name)
+	elif Progresso.deck_paths(_deck_slot).has(card.resource_path):
+		_cancel_placing()
+		_show_card_popup(card)  # já está no baralho: só mostra os detalhes
 	else:
 		_pending_card = card
 	_queue_refresh()
@@ -848,7 +808,7 @@ func _show_card_popup(card: CardData):
 	var head = HBoxContainer.new()
 	head.add_theme_constant_override("separation", 14)
 	v.add_child(head)
-	var cv = CardView.make(card, 200)
+	var cv = CardView.make(card, 220, true)
 	cv.locked = false
 	cv.show_level = owned
 	head.add_child(cv)
