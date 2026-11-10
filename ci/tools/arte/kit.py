@@ -59,9 +59,15 @@ def ramp_from(base_hex, warm=True):
     return [light, (int(r * 255), int(g * 255), int(b * 255)), dark]
 
 
+# cores usadas quando a paleta da carta não define o grupo
+DEFAULT_PALETTE = {"P": "#d8c8a8", "S": "#7a5a3a", "A": "#c8483c", "K": "#e8b088", "M": "#a0a8b4", "W": "#7a5030"}
+
+
 def recolor(img, palette):
     """troca as cores-modelo pela paleta {slot: hex}"""
-    ramps = {k: ramp_from(v) for k, v in palette.items()}
+    full = dict(DEFAULT_PALETTE)
+    full.update(palette)
+    ramps = {k: ramp_from(v) for k, v in full.items()}
     out = img.copy()
     px = out.load()
     for y in range(out.height):

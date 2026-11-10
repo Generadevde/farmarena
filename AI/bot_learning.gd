@@ -20,7 +20,7 @@ const ARCHETYPE_SWITCH_CHANCE = 0.3  # nem toda vez que bate o streak troca -- a
 # --- progressão do bot em si (separado do nível de cada carta) ---
 # quantas cartas ele já conhece de cara, antes de evoluir -- um pouco mais
 # que o tamanho do deck, pra já ter alguma escolha desde o início
-const DECK_STYLE_VERSION = 2  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
+const DECK_STYLE_VERSION = 3  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
 const BONUS_KNOWN_CARDS = 4  # cartas extras de começo, puxadas pelo estilo de cada bot
 const STARTING_KNOWN_CARDS = 9  # exatamente o tamanho do deck -- um "starter" de verdade, sem sobrar variedade extra logo de cara. Era 9 antes
 

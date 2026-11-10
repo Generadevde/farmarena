@@ -4,7 +4,11 @@ extends Node
 # desse autoload, todo arquivo .tres de NationData que você criar. Mesmo
 # padrão do CardDatabase.all_cards (preenchimento manual sobrevive à
 # exportação pro Android; escaneamento de pasta em tempo de execução não)
-@export var all_nations: Array[NationData] = []
+var all_nations: Array[NationData] = []
+
+
+func _init():
+	all_nations.assign(Catalogo.nations())
 
 
 func get_nation_data(nation_name: String) -> NationData:

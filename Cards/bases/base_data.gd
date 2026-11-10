@@ -40,6 +40,8 @@ func get_nation_name() -> String:
 ## Desbloqueio continua controlado por predecessor_bases, esse número é só
 ## visual/organização (ordem na grade + selinho "Tier X")
 @export var tier: int = 1
+## 2.0 -- arena do Caminho dos Troféus que libera essa torre (0 = inicial)
+@export var unlock_arena: int = 0
 
 ## Vida total dessa base -- cada tipo pode ter um valor bem diferente (ex:
 ## uma base Canhão pode ter menos vida que uma base de Vida, como

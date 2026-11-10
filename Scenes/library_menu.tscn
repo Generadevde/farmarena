@@ -2,8 +2,6 @@
 
 [ext_resource type="Script" uid="uid://clobqsgv2ahuj" path="res://Scripts/library_menu.gd" id="1_xlvyd"]
 [ext_resource type="Script" uid="uid://dpirx56yxnfd0" path="res://Cards/bases/base_data.gd" id="2_80isb"]
-[ext_resource type="Resource" uid="uid://b532pklrjt1ql" path="res://Cards/bases/base1teste.tres" id="3_ucqdm"]
-[ext_resource type="Resource" uid="uid://b01o3smrd4euf" path="res://Cards/bases/base2teste.tres" id="4_1ugpi"]
 [ext_resource type="Script" uid="uid://diedqa6hlko1e" path="res://Scripts/deck_slot_button.gd" id="5_ucqdm"]
 
 [node name="library_menu" type="Control" unique_id=417907043]
@@ -15,7 +13,6 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_xlvyd")
 collection_columns = 4
-available_bases = Array[ExtResource("2_80isb")]([ExtResource("3_ucqdm"), ExtResource("4_1ugpi")])
 
 [node name="BackButton" type="Button" parent="." unique_id=1776826423]
 layout_mode = 1

@@ -6,7 +6,11 @@ extends Node
 
 # bases que os bots podem escolher, de acordo com o nível deles e a
 # categoria preferida -- mesmos .tres que aparecem na tela de escolher base
-@export var available_bases: Array[BaseData] = []
+var available_bases: Array[BaseData] = []  # torres oficiais (Catalogo) + criadas no Criador
+
+
+func _init():
+	available_bases.assign(Catalogo.bases())
 
 const SIMULATION_INTERVAL_SECONDS = 120.0  # a cada 2 minutos de jogo aberto -- valor normal de produção
 const MAX_CATCHUP_TICKS = 25                # teto pra não explodir se ficar dias sumido -- era 10, usuário achou baixo demais

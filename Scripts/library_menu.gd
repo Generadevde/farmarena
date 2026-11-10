@@ -54,7 +54,7 @@ func _ready():
 	add_to_group("library_menu")
 	# inclui as bases criadas no Criador (e qualquer outra que os bots usem)
 	var merged: Array[BaseData] = []
-	for b in available_bases:
+	for b in BotSimulator.available_bases:
 		merged.append(b)
 	for b in CustomContent.custom_bases:
 		if !merged.has(b):

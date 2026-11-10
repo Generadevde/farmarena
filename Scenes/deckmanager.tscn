@@ -1,15 +1,6 @@
 [gd_scene format=3 uid="uid://5e2vaedeasgo"]
 
 [ext_resource type="Script" uid="uid://c7722q0tnyvve" path="res://Scripts/deck_manager.gd" id="1_e6084"]
-[ext_resource type="Script" uid="uid://46ws3cp5xyn7" path="res://Cards/Data/CardData.gd" id="2_8x4yr"]
-[ext_resource type="Resource" uid="uid://du5cyp47cnrl6" path="res://Cards/Data/cactus.tres" id="3_42bnw"]
-[ext_resource type="Resource" uid="uid://brx7083lmgi16" path="res://Cards/Data/snake.tres" id="3_fghil"]
-[ext_resource type="Resource" uid="uid://cjv4ltek16fve" path="res://Cards/Data/warrior_cow.tres" id="4_gmxn4"]
-[ext_resource type="Resource" uid="uid://b5tngjvgv7i22" path="res://Cards/Data/chickencard.tres" id="5_hlnha"]
-[ext_resource type="Resource" uid="uid://coagwlgx0ernj" path="res://Cards/Data/estrela_cadente.tres" id="7_7li1s"]
-[ext_resource type="Resource" uid="uid://blwqs3jfoy6qs" path="res://Cards/Data/estilingueboy.tres" id="7_jkjel"]
-[ext_resource type="Resource" uid="uid://ceklmxvjd2j60" path="res://Cards/Data/desert_scorpion.tres" id="8_m53fl"]
 
 [node name="Deckmanager" type="Node" unique_id=1631083285]
 script = ExtResource("1_e6084")
-full_deck = Array[ExtResource("2_8x4yr")]([ExtResource("3_42bnw"), ExtResource("4_gmxn4"), ExtResource("7_jkjel"), ExtResource("5_hlnha"), ExtResource("8_m53fl"), ExtResource("3_fghil"), ExtResource("7_7li1s")])

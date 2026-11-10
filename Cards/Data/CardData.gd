@@ -6,6 +6,15 @@ class_name CardData
 @export var icon: Texture2D
 @export var description: String
 
+## 2.0 -- raridade (0 comum, 1 rara, 2 épica, 3 lendária): muda a chance no
+## baú, o preço na Feira e quantas cópias precisa pra subir de nível
+@export var rarity: int = 0
+## 2.0 -- arena do Caminho dos Troféus em que a carta começa a aparecer (0 = inicial)
+@export var unlock_arena: int = 0
+## 2.0 -- arte montada por peças (SpriteForge): receita + paleta
+@export var art_recipe: Dictionary = {}
+@export var art_palette: Dictionary = {}
+
 ## Pontos fortes de jogar essa carta -- lista curta, tipo bullet point
 @export var pros: Array[String] = []
 ## Pontos fracos/cuidados ao jogar essa carta -- lista curta, tipo bullet point

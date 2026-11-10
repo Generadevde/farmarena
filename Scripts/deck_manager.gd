@@ -5,13 +5,15 @@ signal deck_changed
 
 # as 7 cartas de fábrica (configura no Inspector) -- só usadas enquanto o
 # perfil ativo ainda não tiver escolhido/salvado um deck próprio
-@export var full_deck: Array[CardData] = []
+var full_deck: Array[CardData] = []
 
 var draw_queue: Array[CardData] = []  # as 4 cartas que ainda não estão na mão
 var hand: Array[CardData] = [null, null, null]
 
 
 func _ready():
+	if full_deck.is_empty():
+		full_deck.assign(Catalogo.starter_deck())
 	start_deck()
 	_warn_if_duplicate_cards()
 	PlayerProfile.profile_changed.connect(_load_deck_for_active_profile)
@@ -27,8 +29,9 @@ func _load_deck_for_active_profile():
 
 	var loaded_deck: Array[CardData] = []
 	for path in saved_paths:
-		if ResourceLoader.exists(path):
-			loaded_deck.append(load(path))
+		var saved_card = Catalogo.find_card(path)
+		if saved_card != null:
+			loaded_deck.append(saved_card)
 
 	if loaded_deck.size() != full_deck.size():
 		return  # deck salvo veio incompleto/corrompido -- não arrisca, mantém o de fábrica

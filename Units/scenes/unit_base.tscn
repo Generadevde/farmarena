@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://dymo4e2xrinn4"]
 
 [ext_resource type="Script" uid="uid://clmg621e8515" path="res://Scripts/unit_base.gd" id="1_2vsbj"]
-[ext_resource type="Texture2D" uid="uid://h7lsqknywy3j" path="res://Resources/Assets/Units/chicken.png" id="1_yagyl"]
 [ext_resource type="Theme" uid="uid://drdqesd4a8gol" path="res://Units/Data/theme_heatlh_bar.tres" id="4_kgawp"]
 
 [sub_resource type="CapsuleShape2D" id="CapsuleShape2D_kgawp"]
@@ -47,7 +46,6 @@ script = ExtResource("1_2vsbj")
 shape = SubResource("CapsuleShape2D_kgawp")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("1_yagyl")
 
 [node name="ProgressBar" type="ProgressBar" parent="."]
 custom_minimum_size = Vector2(32, 2)

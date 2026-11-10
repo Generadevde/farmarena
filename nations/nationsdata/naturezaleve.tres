@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="NationData" format=3 uid="uid://cit7fjerkjq72"]
-
-[ext_resource type="Script" uid="uid://bdul44o48vex8" path="res://nations/nation_data.gd" id="1_i8evr"]
-
-[resource]
-script = ExtResource("1_i8evr")
-nation_name = "Natureza Leve"
-color = Color(0, 0.27337584, 0, 1)
-metadata/_custom_type_script = "uid://bdul44o48vex8"

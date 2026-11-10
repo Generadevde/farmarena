@@ -8,3 +8,4 @@
 *.aab
 *.pck
 export_credentials.cfg
+__pycache__/

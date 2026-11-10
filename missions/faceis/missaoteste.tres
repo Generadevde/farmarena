@@ -1,7 +1,0 @@
-[gd_resource type="Resource" script_class="MissionData" format=3 uid="uid://cbmnulgjea3"]
-
-[ext_resource type="Script" uid="uid://cd51243126hfy" path="res://missions/mission_data.gd" id="1_6aic6"]
-
-[resource]
-script = ExtResource("1_6aic6")
-metadata/_custom_type_script = "uid://cd51243126hfy"

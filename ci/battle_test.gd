@@ -77,9 +77,9 @@ func _push_test():
 		var st = DeckBuilder.get_unit_stats(c)
 		if st == null:
 			continue
-		if c.card_name.to_lower().contains("cow"):
+		if c.card_name == "Vaca Brava":
 			cow_card = c
-		if c.card_name.to_lower() == "chicken":
+		if c.card_name == "Pintaiada":
 			chick_card = c
 	print("TESTE empurrão: vaca=", cow_card.card_name, " galinha=", chick_card.card_name)
 	var eb = get_tree().get_first_node_in_group("enemy_base")
@@ -113,14 +113,34 @@ func _push_test():
 
 # folha com 24 artes geradas (6x4), ampliadas 4x, pra conferir o estilo
 func _art_sheet():
-	var sheet = Image.create_empty(6 * 136, 4 * 136, false, Image.FORMAT_RGBA8)
-	sheet.fill(Color("4f7f2f"))
-	for i in 24:
-		var img = CardGenerator.generate_styled_sprite(1000 + i * 7)
-		img.resize(128, 128, Image.INTERPOLATE_NEAREST)
-		sheet.blend_rect(img, Rect2i(0, 0, 128, 128), Vector2i((i % 6) * 136 + 4, (i / 6) * 136 + 4))
+	var all: Array = Catalogo.cards() + Catalogo.tokens()
+	var cols = 8
+	var cell = 104
+	var rows = int(ceil((all.size() + Catalogo.bases().size()) / float(cols)))
+	var sheet = Image.create_empty(cols * cell, rows * cell, false, Image.FORMAT_RGBA8)
+	sheet.fill(Color("5f9648"))
+	var i = 0
+	for c in all:
+		var img: Image = c.icon.get_image()
+		img.resize(96, 96, Image.INTERPOLATE_NEAREST)
+		sheet.blend_rect(img, Rect2i(0, 0, 96, 96), Vector2i((i % cols) * cell + 4, (i / cols) * cell + 4))
+		i += 1
+	for b in Catalogo.bases():
+		var img2: Image = b.icon.get_image()
+		img2.resize(96, 96, Image.INTERPOLATE_NEAREST)
+		sheet.blend_rect(img2, Rect2i(0, 0, 96, 96), Vector2i((i % cols) * cell + 4, (i / cols) * cell + 4))
+		i += 1
 	sheet.save_png("user://arte_gerada.png")
 	print("TESTE arte salva em ", ProjectSettings.globalize_path("user://arte_gerada.png"))
+	var p = "res://c2/vaca_brava.tres"
+	print("RESULTADO catálogo: cartas=", Catalogo.cards().size(), " fichas=", Catalogo.tokens().size(), " torres=", Catalogo.bases().size(),
+		" | exists(virtual)=", ResourceLoader.exists(p), " load igual=", load(p) == Catalogo.card("vaca_brava"),
+		" | baralho inicial=", DeckManager.full_deck.map(func(c): return c.card_name))
+	var sem_stats: Array = []
+	for c in all:
+		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:
+			sem_stats.append(c.card_name)
+	print("RESULTADO catálogo: unidades sem stats=", sem_stats)
 
 
 func _towers_test():
@@ -202,7 +222,7 @@ func _tornado_and_air_test():
 			u.queue_free()
 		await get_tree().process_frame
 	# --- tornado
-	var chick = _find_card(func(c): return c.card_name == "Chicken")
+	var chick = _find_card(func(c): return c.card_name == "Peão do Forcado")
 	var center = pb.global_position.lerp(eb.global_position, 0.5)
 	for i in 6:
 		battle.spawn_unit(chick.unit_scene, GameManager.Team.ENEMY, center, chick)
@@ -293,7 +313,7 @@ func _freeze_test():
 	print("TESTE nações no Criador: ", CustomContent.all_nations().map(func(n): return n.nation_name if n else "null"))
 	var card: CardData = null
 	for c in CardDatabase.all_cards:
-		if c != null and c.card_name == "Chicken":
+		if c != null and c.card_name == "Peão do Forcado":
 			card = c
 	var pb = get_tree().get_first_node_in_group("player_base")
 	var eb = get_tree().get_first_node_in_group("enemy_base")
@@ -326,7 +346,7 @@ func _freeze_test():
 	# filhote herda o nível: Abelha Rainha nível 5 invoca operária nível 5
 	var queen: CardData = null
 	for c in CardDatabase.all_cards:
-		if c != null and c.card_name.contains("Rainha"):
+		if c != null and c.card_name == "Galinheiro":
 			queen = c
 	if queen != null:
 		var qs = DeckBuilder.get_unit_stats(queen)
@@ -372,7 +392,7 @@ func _melee_test():
 		await get_tree().process_frame
 		for u in get_tree().get_nodes_in_group("units"):
 			u.global_position = eb.global_position.lerp(pb.global_position, 0.12) + Vector2(randf_range(-20, 20), 0)
-		var watch = c.card_name.contains("Cascalho") or c.card_name.contains("Bandido")
+		var watch = false
 		if watch:
 			for k in 18:
 				await get_tree().create_timer(0.5).timeout
