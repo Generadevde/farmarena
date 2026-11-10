@@ -218,6 +218,78 @@ func _art_sheet():
 		by_rarity[Catalogo.rarity_of(rc)].append(rc.card_name)
 	for ri in 5:
 		print("RESULTADO raridade ", Catalogo.RARITY_NAMES[ri], " (", by_rarity[ri].size(), "): ", by_rarity[ri])
+	# AUDITORIA DO GERADOR (mesmo da Safra): 400 cartas, cada uma conferida
+	var problems: Dictionary = {}
+	var rar_count = [0, 0, 0, 0, 0]
+	var ratios: Array = []
+	var kinds = {"unidade": 0, "feitiço": 0, "construção": 0, "voadora": 0}
+	CardGenerator.fixed_power = 15.0
+	for seed_n in 400:
+		var gen = CardGenerator.generate_def(50000 + seed_n * 37)
+		var gd: Dictionary = gen["def"]
+		var gcard: CardData = Catalogo.build_card(gd, "", gen["stats"], gen["spell"])
+		var bad: Array = []
+		if str(gd["nome"]).strip_edges().length() < 3:
+			bad.append("nome vazio")
+		if int(gd["custo"]) < 10 or int(gd["custo"]) > 70 or int(gd["custo"]) % 5 != 0:
+			bad.append("custo fora da escala")
+		for cat in gd["receita"]:
+			if !SpriteForge.has_piece(cat, str(gd["receita"][cat])):
+				bad.append("peça de arte inexistente")
+		var img: Image = gcard.icon.get_image()
+		var solid = 0
+		for yy in range(0, 48, 3):
+			for xx in range(0, 48, 3):
+				if img.get_pixel(xx, yy).a > 0.5:
+					solid += 1
+		if solid < 20:
+			bad.append("arte quase vazia")
+		if gen["spell"] != null:
+			kinds["feitiço"] += 1
+			var gs: SpellData = gen["spell"]
+			if gs.damage <= 0 and gs.heal_amount <= 0 and gs.shield_amount <= 0 and gs.rage_damage_mult <= 1.0 and gs.status_effect == UnitData.OnHitEffect.NONE:
+				bad.append("feitiço que não faz nada")
+			if gs.radius < 30 or gs.radius > 140:
+				bad.append("área do feitiço estranha")
+		else:
+			var gst: UnitData = gen["stats"]
+			var is_b = gst.unit_type == UnitData.UnitType.BUILDING
+			kinds["construção" if is_b else ("voadora" if gst.unit_type == UnitData.UnitType.AIR else "unidade")] += 1
+			if gst.hp <= 0:
+				bad.append("sem vida")
+			if gst.damage <= 0 and !gst.can_heal_allies and !gst.spawns_units:
+				bad.append("não bate nem ajuda")
+			if gst.is_ranged and gst.projectile_texture == null:
+				bad.append("atirador sem projétil")
+			if gst.is_ranged and gst.detection_range < gst.attack_range:
+				bad.append("enxerga menos do que alcança")
+			if !gst.is_ranged and gst.attack_range > 30:
+				bad.append("corpo a corpo com alcance de tiro")
+			if is_b and (gst.move_speed > 0 or gst.duration <= 0):
+				bad.append("construção que anda ou não some")
+			if !is_b and gst.move_speed <= 0:
+				bad.append("tropa que não anda")
+			if gst.unit_type == UnitData.UnitType.AIR and !gst.is_ranged and gst.target_type == UnitData.TargetType.GROUND and false:
+				bad.append("")
+			if gst.attack_speed <= 0.2 and gst.damage > 0:
+				bad.append("ataque rápido demais")
+			if !is_b:
+				var ratio = CardGenerator._raw_power(gst) / max(int(gd["custo"]), 1)
+				ratios.append(ratio)
+				if ratio < 6.0 or ratio > 26.0:
+					bad.append("força fora da faixa (%.0f por custo)" % ratio)
+		rar_count[Catalogo.rarity_of(gcard)] += 1
+		for b in bad:
+			if !problems.has(b):
+				problems[b] = []
+			problems[b].append("%s[%d]" % [gd["nome"], int(gd["custo"])])
+	CardGenerator.fixed_power = 0.0
+	ratios.sort()
+	print("RESULTADO gerador: 400 cartas -> ", kinds, " | raridades [normal..mística]=", rar_count, " | força/custo min=", snapped(ratios[0], 0.1), " mediana=", snapped(ratios[ratios.size() / 2], 0.1), " max=", snapped(ratios[-1], 0.1), " (oficiais: mediana ", snapped(CardGenerator.power_per_cost(), 0.1), ")")
+	var prob_txt: Array = []
+	for k in problems:
+		prob_txt.append("%s: %d (ex: %s)" % [k, problems[k].size(), ", ".join(problems[k].slice(0, 3))])
+	print("RESULTADO gerador problemas: ", prob_txt)
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:
