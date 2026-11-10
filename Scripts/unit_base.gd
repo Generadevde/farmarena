@@ -234,7 +234,10 @@ func _spawn_fx():
 
 func _process(delta):
 	var sprite: Sprite2D = $Sprite2D
-	var moving = velocity.length() > 4.0 and stats.unit_type != UnitData.UnitType.BUILDING
+	var moving = _really_moving and velocity.length() > 4.0 and stats.unit_type != UnitData.UnitType.BUILDING
+	# dá pra VER o estado: intocável/furtiva fica transparente; sólida quando dá pra bater nela
+	var ghostly = (stats.immune_while_moving and _really_moving) or (stats.can_stealth and !_has_attacked_before)
+	sprite.self_modulate.a = lerpf(sprite.self_modulate.a, 0.4 if ghostly else 1.0, minf(1.0, delta * 10.0))
 	var pos = _sprite_home
 	var rot = 0.0
 	if _is_air_visual:
@@ -270,9 +273,25 @@ func _apply_unit_scale():
 	$CollisionShape2D.scale *= stats.unit_scale
 
 
+# "andando de verdade" = a posição mudou neste quadro. NÃO dá pra usar a
+# velocidade: quando a unidade para pra atacar, a velocidade antiga fica
+# guardada -- era por isso que a Assombração ficava imune pra sempre.
+var _prev_pos := Vector2.ZERO
+var _really_moving := false
+var _still_frames := 0
+
+
 func _physics_process(delta):
 	if is_preview:
 		return
+	if global_position.distance_squared_to(_prev_pos) > 0.02:
+		_really_moving = true
+		_still_frames = 0
+	else:
+		_still_frames += 1
+		if _still_frames >= 3:  # 3 quadros parada = parou mesmo (não é só um tranco)
+			_really_moving = false
+	_prev_pos = global_position
 
 	_process_poison(delta)
 	_update_status_modulate()
@@ -1240,7 +1259,9 @@ func _is_valid_enemy(body) -> bool:
 
 	# invisibilidade: só é um alvo válido se eu estiver perto o bastante
 	# pra "revelar" ela
-	if "stats" in body and body.stats != null and body.stats.can_stealth:
+	# ... e só ATÉ ela dar o primeiro golpe: depois que atacou, apareceu pra todo mundo
+	# (antes continuava invisível pra sempre pra quem estava longe, tipo atirador)
+	if "stats" in body and body.stats != null and body.stats.can_stealth and !body._has_attacked_before:
 		var dist = global_position.distance_to(body.global_position)
 		if dist > body.stats.stealth_reveal_range:
 			return false
@@ -1323,7 +1344,7 @@ func take_damage(amount, _is_shared_damage: bool = false):
 		return
 
 	# imune enquanto se movendo -- só fica vulnerável de verdade parada
-	if stats.immune_while_moving and velocity.length() > 1.0:
+	if stats.immune_while_moving and _really_moving:
 		return
 
 	if amount > 0:

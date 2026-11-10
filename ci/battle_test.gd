@@ -820,6 +820,13 @@ func _abilities_audit():
 	guard.stats.move_speed = 0.0
 	await get_tree().create_timer(0.3).timeout
 	_check("furtivo", !guard._is_valid_enemy(pato), "inimigo a 110px enxerga? %s" % str(guard._is_valid_enemy(pato)))
+	# ... de perto enxerga, e depois do primeiro golpe todo mundo enxerga
+	pato.global_position = guard.global_position + Vector2(0, 30)
+	var near_sees = guard._is_valid_enemy(pato)
+	await get_tree().create_timer(4.0).timeout
+	var far_guard = (await _put("molecada", E, mid + Vector2(0, -230)))[0]
+	var seen_after = is_instance_valid(pato) and far_guard._is_valid_enemy(pato)
+	_check("furtivo aparece de perto e depois de atacar", near_sees and (seen_after or !is_instance_valid(pato)), "de perto? %s | de longe depois do golpe? %s" % [str(near_sees), str(seen_after) if is_instance_valid(pato) else "já morreu"])
 
 	# fúria de entrada do Galo Rei
 	await _wipe()
@@ -930,6 +937,26 @@ func _abilities_audit():
 	var moving = g.velocity.length() > 1.0
 	g.take_damage(50)
 	_check("imune andando", moving and g.current_hp == ghp, "andando? %s vida %d -> %d" % [str(moving), int(ghp), int(g.current_hp)])
+	# ... e o contrário: parada atacando, tem que APANHAR (era aqui o defeito: ficava imortal)
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -36))
+	ghosts = await _put("assombracao", P, mid)
+	await get_tree().create_timer(3.0).timeout
+	var stopped = ghosts.filter(func(x): return is_instance_valid(x) and !x._really_moving)
+	var hurt_ok = false
+	if !stopped.is_empty():
+		var hp_b = stopped[0].current_hp
+		stopped[0].take_damage(30)
+		hurt_ok = stopped[0].current_hp < hp_b
+	_check("assombração apanha quando para pra atacar", hurt_ok, "%d de %d paradas atacando; levou dano? %s" % [stopped.size(), ghosts.size(), str(hurt_ok)])
+	# e morre de verdade pra uma tropa comum
+	await _wipe()
+	ghosts = await _put("assombracao", P, mid)
+	for n in 2:
+		await _put("peao_forcado", E, mid + Vector2(-20 + n * 40, -50))
+	await get_tree().create_timer(12.0).timeout
+	var alive_ghosts = ghosts.filter(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion()).size()
+	_check("assombração morre em combate", alive_ghosts < 4, "%d de 4 vivas depois de 12s contra 2 peões" % alive_ghosts)
 
 	# robô: onda de choque ao entrar
 	await _wipe()
@@ -979,6 +1006,11 @@ func _abilities_audit():
 	boi.take_damage(999999)
 	await get_tree().process_frame
 	_check("ressuscita uma vez", is_instance_valid(boi) and !boi.is_queued_for_deletion() and boi.current_hp > 0, "vida depois: %d" % (int(boi.current_hp) if is_instance_valid(boi) else -1))
+	await get_tree().create_timer(1.5).timeout
+	if is_instance_valid(boi):
+		boi.take_damage(999999)
+	await get_tree().create_timer(0.3).timeout
+	_check("na segunda morte, morre", !is_instance_valid(boi) or boi.is_queued_for_deletion(), "ainda em campo? %s" % str(is_instance_valid(boi) and !boi.is_queued_for_deletion()))
 
 	# caramelo: dano sobe no mesmo alvo
 	await _wipe()
@@ -1089,6 +1121,30 @@ func _abilities_audit():
 		await _put("cavalo_coiceiro", P, tower_pos + Vector2(0, 160 + n * 20))
 	await get_tree().create_timer(8.0).timeout
 	_check("torre não sai do lugar com investida", e_tower.global_position.distance_to(tower_pos) < 0.5, "moveu %.1fpx" % e_tower.global_position.distance_to(tower_pos))
+	var immortal: Array = []
+	for c in Catalogo.cards() + Catalogo.tokens():
+		if c.is_spell():
+			continue
+		await _wipe()
+		var squad = await _put(c.resource_path.get_file().get_basename(), P, mid)
+		if squad.is_empty():
+			continue
+		var subject = squad[0]
+		var foes2: Array = []
+		for n in 3:  # 3 atiradores inimigos que acertam chão e ar
+			var shooter = (await _put("molecada", E, mid + Vector2(-40 + n * 40, -95)))[0]
+			foes2.append(shooter)
+		var full = 0.0
+		for x in squad:
+			full += x.current_hp
+		await get_tree().create_timer(7.0).timeout
+		var left = 0.0
+		for x in squad:
+			if is_instance_valid(x) and !x.is_queued_for_deletion():
+				left += x.current_hp
+		if left >= full:
+			immortal.append(c.card_name)
+	_check("nenhuma carta é imortal (7s sob tiro de 9 moleques)", immortal.is_empty(), "sem perder vida: %s" % str(immortal))
 	print("RESULTADO habilidades OK (", _aud_ok.size(), "): ", _aud_ok)
 	print("RESULTADO habilidades COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
 
