@@ -135,6 +135,8 @@ func _gui_input(event):
 
 
 func _start_hold_timer():
+	return  # 2.0: os dados já aparecem na própria carta; segurar não abre mais o quadro de informação
+	@warning_ignore("unreachable_code")
 	if _hold_timer == null:
 		_hold_timer = Timer.new()
 		_hold_timer.wait_time = HOLD_THRESHOLD

@@ -127,6 +127,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			st.push_weight = rng.randf_range(2.5, 4.0)
 			st.unit_scale = 1.3
 			st.attack_speed = 1.6
+			st.target_type = UnitData.TargetType.BUILDING  # tanque vai direto pra torre
 		CardData.CardRole.PUNICAO:
 			hp_share = 0.35
 			st.move_speed = rng.randf_range(50.0, 65.0)
