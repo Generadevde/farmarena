@@ -592,7 +592,7 @@ func _build_cartas(box: Node):
 		v.tapped.connect(_on_deck_slot_tapped.bind(i))
 		g.add_child(v)
 		_drop_targets.append([v, i])
-	var hint = "Toque numa carta e depois no lugar do baralho. Ou SEGURE o dedo na carta e arraste até o lugar."
+	var hint = "Toque numa carta pra ver a descrição e usar no baralho. Ou SEGURE o dedo nela e arraste direto pro lugar."
 	if _pending_card != null:
 		hint = "👉 Toque na posição do baralho onde %s vai entrar." % _pending_card.card_name
 	elif _pending_index != -1:
@@ -824,15 +824,9 @@ func _on_collection_tapped(card: CardData):
 		_cancel_placing()
 		_queue_refresh()
 		return
-	# toque = escolher com o dedo (toque de novo desmarca)
-	if _pending_card == card:
-		_cancel_placing()
-	elif Progresso.deck_paths(_deck_slot).has(card.resource_path):
-		_cancel_placing()
-		_show_card_popup(card)  # já está no baralho: só mostra os detalhes
-	else:
-		_pending_card = card
-	_queue_refresh()
+	# toque = abre a descrição (lá tem o botão "Usar no baralho"); pra ir direto, segure e arraste
+	_cancel_placing()
+	_show_card_popup(card)
 
 
 # ---------------------------------------------------------------- popup de carta
@@ -931,7 +925,9 @@ func _show_card_popup(card: CardData):
 			mtext += "  (próxima borda com %d)" % mp[1]
 		v.add_child(_wrap(mtext, 15, Progresso.MASTERY_COLORS[m] if m > 0 else ThemeBuilder.COLOR_STAT_LABEL))
 		if !Progresso.deck_paths(_deck_slot).has(card.resource_path):
-			v.add_child(_button("Colocar no Baralho %d" % (_deck_slot + 1), _begin_place.bind(card, v)))
+			var use_b = _button("➕ Usar no Baralho %d" % (_deck_slot + 1), _begin_place.bind(card, v), 22)
+			use_b.modulate = Color(1.0, 0.92, 0.6)
+			v.add_child(use_b)
 	else:
 		v.add_child(_wrap("Você ainda não tem esta carta. Ela aparece nos baús e na Feira a partir da Arena %d." % maxi(1, card.unlock_arena), 16, Color(1, 0.85, 0.5)))
 	v.add_child(_button("Fechar", _close.bind(v)))

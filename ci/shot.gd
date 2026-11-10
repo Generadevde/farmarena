@@ -65,7 +65,8 @@ func _ready():
 	await _shot("carta")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
-	hub._on_collection_tapped(Catalogo.card("cavalo_coiceiro"))
+	hub._pending_card = Catalogo.card("cavalo_coiceiro")
+	hub._queue_refresh()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("escolher")
 	hub._cancel_placing_and_refresh()
