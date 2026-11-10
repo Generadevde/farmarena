@@ -457,6 +457,15 @@ func pop_pending() -> Array:
 	return out
 
 
+## tira só UM aviso da fila (o menu mostra um de cada vez)
+func pop_one_pending() -> Dictionary:
+	if d["pending"].is_empty():
+		return {}
+	var r: Dictionary = d["pending"].pop_front()
+	save()
+	return r
+
+
 # ================================================================ fim de partida
 ## chamado pela batalha. Devolve um resumo pro placar: {"bau": tipo ou -1, "mascate": bool, "sequencia": n}
 func on_battle_finished(won: bool, ranked: bool, xp_gain: int) -> Dictionary:
@@ -915,7 +924,14 @@ func use_power(id: String) -> String:
 		"relogio2", "relogio3":
 			if clock_boost_left() > 0:
 				return "Já tem um relógio ligado."
-			# congela o que já passou e liga o novo
+			# guarda no baú o que o relógio ANTIGO já tinha adiantado -- senão,
+			# ao ligar um novo, o baú que ainda estava abrindo "voltava no tempo"
+			var old: Dictionary = d["ativos"].get("relogio", {})
+			if !old.is_empty():
+				for ch in d["chests"]:
+					if float(ch["inicio"]) > 0.0:
+						var ov = minf(now, float(old["ate"])) - maxf(float(ch["inicio"]), float(old["inicio"]))
+						ch["pulado"] = float(ch["pulado"]) + maxf(0.0, ov) * (float(old["mult"]) - 1.0)
 			d["ativos"]["relogio"] = {"inicio": now, "ate": now + (1800.0 if id == "relogio2" else 900.0), "mult": 2 if id == "relogio2" else 3}
 		"ouro2", "xp2":
 			d["ativos"][id] = power_battles(id) + 5

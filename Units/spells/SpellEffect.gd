@@ -3,6 +3,8 @@ class_name SpellEffect
 
 var spell: SpellData
 var caster_team
+var power: float = 1.0  # multiplicador do nível da carta (dano/cura/escudo/invocados)
+var level: int = 1
 var source_card_path: String = ""  # pra reportar dano na base por carta, igual unit.gd/projectile.gd já fazem
 
 var _tick_timer: float = 0.0
@@ -65,7 +67,7 @@ func _apply_effect(body):
 	var on_ally = "team" in body and body.team == caster_team
 	var harms = !on_ally or spell.affects_allies  # dano/efeito ruim só em quem o feitiço afeta
 	if spell.damage > 0 and harms and body.has_method("take_damage"):
-		var dmg = spell.damage
+		var dmg = spell.damage * power
 
 		# feitiço batendo direto na base causa só uma fração do dano original
 		# (configurável por feitiço em SpellData.base_damage_multiplier) --
@@ -79,7 +81,7 @@ func _apply_effect(body):
 		body.take_damage(dmg)
 
 	if spell.heal_amount > 0 and (on_ally or spell.affects_enemies) and body.has_method("heal"):
-		body.heal(spell.heal_amount)
+		body.heal(spell.heal_amount * power)
 
 	# reforços (só em aliado de verdade)
 	var is_ally = "team" in body and body.team == caster_team
@@ -90,7 +92,7 @@ func _apply_effect(body):
 		if spell.rage_damage_mult > 1.0 or spell.rage_speed_mult > 1.0 or spell.rage_attack_speed_mult > 1.0:
 			body.apply_rage(spell.rage_damage_mult, spell.rage_speed_mult, spell.rage_attack_speed_mult, buff_time)
 		if spell.shield_amount > 0:
-			body.apply_spell_shield(spell.shield_amount, buff_time)
+			body.apply_spell_shield(int(round(spell.shield_amount * power)), buff_time)
 		if spell.cleanses:
 			body.cleanse()
 
@@ -124,6 +126,12 @@ func _summon_units():
 	for i in spell.summon_count:
 		var u = spell.summon_scene.instantiate()
 		u.team = caster_team
+		if "card_level" in u:
+			u.card_level = level
+		if power != 1.0 and "stats" in u and u.stats != null:
+			u.stats = u.stats.duplicate()
+			u.stats.hp = round(u.stats.hp * power)
+			u.stats.damage = round(u.stats.damage * power)
 		var offset = Vector2.ZERO if spell.summon_count == 1 else Vector2.RIGHT.rotated(TAU * i / spell.summon_count) * min(spell.radius * 0.5, 28.0)
 		if battle != null:
 			battle.add_child(u)

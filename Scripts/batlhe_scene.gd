@@ -2125,6 +2125,19 @@ func cast_spell(spell_data: SpellData, position: Vector2, caster_team, source_ca
 	effect.spell = spell_data
 	effect.caster_team = caster_team
 	effect.source_card_path = source_card_path
+	# nível da carta também vale pra feitiço (antes subir de nível um
+	# feitiço não mudava NADA na batalha)
+	var sp_card: CardData = Catalogo.find_card(source_card_path) if source_card_path != "" else null
+	var sp_level = 1
+	if MatchSetup.tournament:
+		sp_level = MatchSetup.TOURNAMENT_LEVEL
+	elif sp_card != null:
+		if caster_team == GameManager.Team.PLAYER:
+			sp_level = PlayerProfile.get_card_level(sp_card)
+		elif ai_profile != null:
+			sp_level = ai_profile.get_card_level(sp_card)
+	effect.level = sp_level
+	effect.power = PlayerProfile.compute_stat_multiplier(sp_level)
 	# posiciona ANTES de entrar na cena: o SpellEffect aplica o efeito já no
 	# _ready -- antes ele "explodia" na posição (0,0) e só depois era movido,
 	# então feitiço instantâneo (raio, gelo...) não acertava onde você mirou

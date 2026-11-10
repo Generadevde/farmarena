@@ -1030,11 +1030,11 @@ func _stats_text(card: CardData, mult: float) -> String:
 		if sp.damage > 0:
 			parts.append("Dano %d" % int(round(sp.damage * mult)))
 		if sp.heal_amount > 0:
-			parts.append("Cura %d" % int(sp.heal_amount))
+			parts.append("Cura %d" % int(round(sp.heal_amount * mult)))
 		if sp.duration > 0:
 			parts.append("Dura %.0fs" % sp.duration)
 		if sp.shield_amount > 0:
-			parts.append("Escudo %d" % sp.shield_amount)
+			parts.append("Escudo %d" % int(round(sp.shield_amount * mult)))
 		if sp.summon_count > 0:
 			parts.append("Invoca %d" % sp.summon_count)
 		return "  ·  ".join(parts)
@@ -1850,21 +1850,29 @@ func _claim_mission(id: String, popup_box):
 func _show_pending():
 	if !get_tree().get_nodes_in_group("hub_popup").is_empty():
 		return
-	var list = Progresso.pop_pending()
-	for r in list:
+	# um aviso de cada vez: o próximo aparece quando esse fechar
+	while true:
+		var r = Progresso.pop_one_pending()
+		if r.is_empty():
+			return
 		match str(r.get("tipo", "")):
-			"nivel":
-				_show_loot("⬆ NÍVEL %d!" % int(r["nivel"]), [{"tipo": "ouro", "ouro": int(r["ouro"])}], Color(0.5, 1, 0.6))
-			"bau":
-				_show_loot("🎁 " + Progresso.CHESTS[int(r["bau"])]["nome"], r["itens"], Color.html(Progresso.CHESTS[int(r["bau"])]["cor"]))
-			"safra":
-				_show_loot("🌱 Safra nova! Amostra grátis", r["itens"], Color(0.5, 0.9, 0.4))
-			"poder":
-				_show_loot("⚡ PODER RARO!", [{"tipo": "poder", "id": str(r["id"])}], Color.html(Progresso.POWERS[str(r["id"])]["cor"]))
-			"maestria":
-				var c = Catalogo.find_card(str(r["path"]))
-				if c != null:
-					_show_loot("✨ Maestria %s!" % Progresso.MASTERY_NAMES[int(r["nivel"])], [{"tipo": "carta", "path": c.resource_path, "qtd": 0, "nova": false, "ouro": 0}], Progresso.MASTERY_COLORS[int(r["nivel"])])
+				"nivel":
+					_show_loot("⬆ NÍVEL %d!" % int(r["nivel"]), [{"tipo": "ouro", "ouro": int(r["ouro"])}], Color(0.5, 1, 0.6))
+					return
+				"bau":
+					_show_loot("🎁 " + Progresso.CHESTS[int(r["bau"])]["nome"], r["itens"], Color.html(Progresso.CHESTS[int(r["bau"])]["cor"]))
+					return
+				"safra":
+					_show_loot("🌱 Safra nova! Amostra grátis", r["itens"], Color(0.5, 0.9, 0.4))
+					return
+				"poder":
+					_show_loot("⚡ PODER RARO!", [{"tipo": "poder", "id": str(r["id"])}], Color.html(Progresso.POWERS[str(r["id"])]["cor"]))
+					return
+				"maestria":
+					var c = Catalogo.find_card(str(r["path"]))
+					if c != null:
+						_show_loot("✨ Maestria %s!" % Progresso.MASTERY_NAMES[int(r["nivel"])], [{"tipo": "carta", "path": c.resource_path, "qtd": 0, "nova": false, "ouro": 0}], Progresso.MASTERY_COLORS[int(r["nivel"])])
+						return
 
 
 func _show_loot(title_text: String, loot: Array, color: Color):

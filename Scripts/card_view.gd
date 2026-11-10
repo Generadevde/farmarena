@@ -202,9 +202,9 @@ func _stat_values() -> Dictionary:
 		var main = [Ico.SWORD, str(int(round(sp.damage * mult)))]
 		if sp.damage <= 0:
 			if sp.heal_amount > 0:
-				main = [Ico.PLUS, str(int(sp.heal_amount))]
+				main = [Ico.PLUS, str(int(round(sp.heal_amount * mult)))]
 			elif sp.shield_amount > 0:
-				main = [Ico.SHIELD, str(sp.shield_amount)]
+				main = [Ico.SHIELD, str(int(round(sp.shield_amount * mult)))]
 			elif sp.summon_count > 0:
 				main = [Ico.PLUS, "x%d" % sp.summon_count]
 			else:
