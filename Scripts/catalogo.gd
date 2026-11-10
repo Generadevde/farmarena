@@ -261,6 +261,40 @@ const CARTAS = [
 		"receita": {"icone": "escudo"}, "paleta": {"M": "#a8b4c0", "A": "#3c6cb8"},
 		"f": {"radius": 90.0, "damage": 0, "affects_enemies": false, "affects_allies": true, "shield_amount": 260, "buff_duration": 8.0, "fx_color": "#80c0ff"}},
 
+	# ============================== CARTAS DE TURMA MISTA (unidades diferentes juntas)
+	{"id": "moleque", "nome": "Moleque", "turma": "Peões", "custo": 10, "papel": "VERSATIL", "raridade": COMUM, "ficha": true,
+		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "humano", "chapeu": "bandana", "arma": "estilingue"}, "paleta": {"S": "#e8c040", "A": "#c84838", "K": "#d89868", "W": "#6a4428", "M": "#888890"},
+		"proj": "pedra",
+		"u": {"hp": 170, "damage": 50, "attack_speed": 1.2, "move_speed": 55.0, "unit_scale": 0.8, "is_ranged": true, "attack_range": 125.0, "target_type": "ALL"}},
+	{"id": "berranteiro", "nome": "Berranteiro", "turma": "Peões", "custo": 15, "papel": "CONTROLE", "raridade": COMUM, "ficha": true,
+		"receita": {"pernas": "bota", "corpo": "poncho", "bracos": "humanos", "cabeca": "velho", "chapeu": "cowboy"}, "paleta": {"P": "#a87848", "A": "#58a050", "K": "#d8a078", "W": "#5a4028"},
+		"proj": "nota",
+		"u": {"hp": 420, "damage": 45, "attack_speed": 1.5, "move_speed": 45.0, "is_ranged": true, "attack_range": 120.0, "target_type": "ALL", "on_hit_effect": "SLOW", "on_hit_effect_strength": 0.55, "on_hit_effect_duration": 2.0}},
+	{"id": "comitiva", "nome": "Comitiva", "turma": "Peões", "custo": 60, "papel": "VERSATIL", "raridade": EPICA, "arena": 4, "perigo": 8,
+		"desc": "O cozinheiro vai na frente apanhando. A molecada vai atrás atirando pedra. Trabalho em equipe.",
+		"pros": ["Tanque + 2 atiradores numa carta só", "Avanço completo"], "cons": ["Cara", "Dano em área pega todos"],
+		"receita": {"pernas": "patinha", "corpo": "redondo", "bracos": "patas", "cabeca": "porco", "chapeu": "cowboy", "arma": "frigideira"}, "paleta": {"P": "#e89098", "K": "#f8c0c0", "M": "#5a606c", "W": "#6a4428", "A": "#c84838"},
+		"junto": [["moleque", 2]],
+		"u": {"hp": 1400, "damage": 110, "attack_speed": 1.8, "move_speed": 40.0, "unit_scale": 1.35, "push_weight": 3.0, "on_hit_effect": "STUN", "on_hit_effect_duration": 0.4}},
+	{"id": "vaca_e_cria", "nome": "Vaca e Cria", "turma": "Curral", "custo": 55, "papel": "TANQUE", "raridade": RARA, "arena": 3, "perigo": 7,
+		"desc": "Mexeu com os bezerros, mexeu com a mãe. Mexeu com a mãe, bom... boa sorte.",
+		"pros": ["Tanque com 2 bezerros de investida", "Difícil de parar com uma carta só"], "cons": ["Lenta"],
+		"receita": {"pernas": "casco", "corpo": "redondo", "bracos": "patas", "cabeca": "vaca", "chapeu": "flor"}, "paleta": P_VACA,
+		"junto": [["bezerro", 2]],
+		"u": {"hp": 1900, "damage": 100, "attack_speed": 2.0, "move_speed": 32.0, "unit_scale": 1.45, "push_weight": 3.6}},
+	{"id": "galo_e_cia", "nome": "Galo e Cia", "turma": "Galinheiro", "custo": 45, "papel": "ENXAME", "raridade": EPICA, "arena": 5, "perigo": 7,
+		"desc": "O galo manda. Os quatro pintinhos obedecem. Mais ou menos.",
+		"pros": ["Galo forte + 4 pintinhos", "Cerca e bate"], "cons": ["Pintinhos morrem fácil"],
+		"receita": {"pernas": "ave", "corpo": "penas", "bracos": "asas", "cabeca": "galinha", "chapeu": "penacho", "costas": "rabo_galo"}, "paleta": {"P": "#c85830", "A": "#e8a020", "K": "#f0c040", "M": "#8890a0"},
+		"junto": [["pintinho", 4]],
+		"u": {"hp": 820, "damage": 160, "attack_speed": 1.4, "move_speed": 58.0, "unit_scale": 1.15, "push_weight": 1.6}},
+	{"id": "dupla_caipira", "nome": "Dupla Caipira", "turma": "Peões", "custo": 50, "papel": "SUPORTE", "raridade": EPICA, "arena": 5, "perigo": 6,
+		"desc": "Um toca viola e cura. O outro toca berrante e deixa o inimigo lerdo. Sucesso nas rádios.",
+		"pros": ["Cura aliados + deixa inimigos lentos", "Os dois atacam de longe"], "cons": ["Dano baixo", "Frágeis"],
+		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "humano", "chapeu": "cowboy", "arma": "viola"}, "paleta": {"S": "#e8e0d0", "A": "#8a5a34", "K": "#e8b088", "W": "#b07038"},
+		"proj": "nota", "junto": [["berranteiro", 1]],
+		"u": {"hp": 520, "damage": 35, "attack_speed": 1.2, "move_speed": 45.0, "is_ranged": true, "attack_range": 120.0, "target_type": "ALL", "can_heal_allies": true, "heal_aura_amount": 30, "heal_aura_radius": 100.0, "heal_aura_interval": 1.0}},
+
 	# ============================== COISA ESTRANHA
 	{"id": "assombracao", "nome": "Assombração", "turma": "Coisa Estranha", "custo": 20, "papel": "ENXAME", "raridade": RARA, "arena": 2, "perigo": 4,
 		"desc": "Quatro almas penadas do antigo dono do sítio. Só dá pra bater quando param.",
@@ -495,6 +529,9 @@ static func link_children(card: CardData, def: Dictionary, by_id: Dictionary):
 		if def.has("invoca") and by_id.has(def["invoca"]):
 			card.spell_data.summon_scene = by_id[def["invoca"]].unit_scene
 		return
+	for pair in def.get("junto", []):
+		if by_id.has(pair[0]):
+			card.companions.append({"scene": by_id[pair[0]].unit_scene, "count": int(pair[1])})
 	var stats: UnitData = unit_stats(card)
 	if stats == null:
 		return

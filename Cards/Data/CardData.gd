@@ -14,6 +14,9 @@ class_name CardData
 ## 2.0 -- arte montada por peças (SpriteForge): receita + paleta
 @export var art_recipe: Dictionary = {}
 @export var art_palette: Dictionary = {}
+## 2.0 -- acompanhantes: unidades DIFERENTES que nascem junto com a principal.
+## Cada item: {"scene": PackedScene, "count": int}
+var companions: Array = []
 
 ## Pontos fortes de jogar essa carta -- lista curta, tipo bullet point
 @export var pros: Array[String] = []

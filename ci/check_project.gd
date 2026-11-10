@@ -20,7 +20,7 @@ func _ready():
 			print("CHECK FALHOU (não compila): ", path)
 	print("CHECK RESULTADO: %d arquivo(s) verificados, %d com problema" % [files.size(), _failed.size()])
 	# abre as telas principais de verdade, uma por uma
-	for scene in ["res://creator/creator_menu.tscn", "res://Scenes/main_menu.tscn", "res://Scenes/library_menu.tscn"]:
+	for scene in ["res://creator/creator_menu.tscn", "res://Scenes/hub.tscn", "res://ranking/stats_hub.tscn", "res://Scenes/profile_setup.tscn"]:
 		var packed: PackedScene = load(scene)
 		if packed == null:
 			print("CHECK FALHOU (cena): ", scene)

@@ -1,7 +1,7 @@
 extends Control
 
 # ajusta esse caminho pro local real da sua cena de menu principal
-const MAIN_MENU_SCENE = "res://Scenes/main_menu.tscn"
+const MAIN_MENU_SCENE = "res://Scenes/hub.tscn"
 
 # guarda o perfil da tela de "continuar", pra o botão Voltar saber pra onde ir
 var _last_profile_for_back: Dictionary = {}

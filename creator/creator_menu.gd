@@ -6,7 +6,7 @@ extends Control
 # Cartas/bases ORIGINAIS podem ser editadas: a edição é guardada à parte e
 # dá pra "Restaurar original" a qualquer momento.
 
-const MAIN_MENU_SCENE = "res://Scenes/main_menu.tscn"
+const MAIN_MENU_SCENE = "res://Scenes/hub.tscn"
 const FONT = 18
 
 var _tab: int = 0  # 0 cartas, 1 bases, 2 arenas

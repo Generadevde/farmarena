@@ -136,6 +136,22 @@ func _art_sheet():
 	print("RESULTADO catálogo: cartas=", Catalogo.cards().size(), " fichas=", Catalogo.tokens().size(), " torres=", Catalogo.bases().size(),
 		" | exists(virtual)=", ResourceLoader.exists(p), " load igual=", load(p) == Catalogo.card("vaca_brava"),
 		" | baralho inicial=", DeckManager.full_deck.map(func(c): return c.card_name))
+	# progressão: baú, compra, subir de nível, baralhos
+	var before_owned = Progresso.owned_cards().size()
+	var loot = Progresso.roll_chest(3)
+	PlayerProfile.add_coins(5000)
+	var c0: CardData = Catalogo.card("peao_forcado")
+	Progresso.give_card(c0, 50)
+	var up_ok = Progresso.upgrade(c0)
+	var shop_offers = Progresso.shop()["ofertas"].size()
+	var deck_ok = Progresso.set_deck_card(1, 0, Catalogo.card("raio"))
+	Progresso.add_xp(500)
+	for i in 12:
+		Progresso.record_use(c0)
+	print("RESULTADO progresso: baú lendário deu ", loot.size(), " itens | cartas ", before_owned, " -> ", Progresso.owned_cards().size(),
+		" | subiu nível? ", up_ok, " (nv ", Progresso.level(c0), ") | ofertas feira=", shop_offers, " | troca no baralho 2? ", deck_ok,
+		" | nível jogador=", Progresso.player_level(), " | maestria peão=", Progresso.mastery(c0), " | marcos=", Progresso.road_milestones().size(),
+		" | pendentes=", Progresso.d["pending"].size())
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:

@@ -245,7 +245,7 @@ func get_card_level(card: CardData) -> int:
 # cartas com custo 0 já vêm liberadas desde o início, sem precisar de
 # nenhuma ação -- só as com nation_xp_cost > 0 dependem de desbloqueio manual
 func is_card_unlocked(card: CardData) -> bool:
-	return card.nation_xp_cost <= 0 or card.resource_path in unlocked_cards
+	return Progresso.is_owned(card)  # 2.0: carta liberada = carta que você já achou (baú, Feira, troféus)
 
 
 # true quando o jogador já tem XP suficiente (nação + livre PODEM SOMAR pra
@@ -334,6 +334,7 @@ func record_card_usage(card: CardData):
 	var path = card.resource_path
 	card_usage[path] = card_usage.get(path, 0) + 1
 	save_profile()
+	Progresso.record_use(card)  # maestria + mais jogadas da temporada
 
 
 func get_card_usage(card: CardData) -> int:
@@ -522,7 +523,11 @@ func record_recent_opponent(bot_name: String):
 # jogada, não pela composição do deck inteiro), 16% sempre vira XP livre.
 # Carta coringa jogada (sem nação própria) também tem sua fatia revertida
 # pra livre, já que não existe "nação coringa" pra receber XP
-func award_battle_xp(total_xp: int, cards_played: Array):
+func award_battle_xp(total_xp: int, _cards_played: Array):
+	# 2.0: o XP da partida vai pro NÍVEL DO JOGADOR (Progresso.on_battle_finished)
+	return
+	@warning_ignore("unreachable_code")
+	var cards_played = _cards_played
 	var nation_pool = int(round(total_xp * 0.84))
 	var pure_free = total_xp - nation_pool
 
@@ -784,10 +789,8 @@ func claim_mission_reward(mission_id: String) -> bool:
 		match mission["reward_type"]:
 			MissionData.RewardType.COINS:
 				add_coins(mission["reward_amount"])
-			MissionData.RewardType.FREE_XP:
-				free_xp += mission["reward_amount"]
-			MissionData.RewardType.NATION_XP:
-				nation_xp[mission["reward_nation"]] = get_nation_xp(mission["reward_nation"]) + mission["reward_amount"]
+			_:
+				Progresso.add_xp(int(mission["reward_amount"]))  # 2.0: XP de missão sobe o nível do jogador
 
 		mission["claimed"] = true
 		profile_changed.emit()
@@ -819,7 +822,7 @@ func get_equipped_base() -> BaseData:
 
 
 func is_base_unlocked(base_data: BaseData) -> bool:
-	return base_data.nation_xp_cost <= 0 or base_data.resource_path in unlocked_bases
+	return Progresso.is_base_unlocked(base_data) or CustomContent.is_custom(base_data)  # 2.0: torre libera pela arena
 
 
 # mesma regra de can_unlock_card -- nação + livre PODEM SOMAR pra cobrir o

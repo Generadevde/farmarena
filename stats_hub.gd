@@ -1,6 +1,6 @@
 extends Control
 
-const MAIN_MENU_SCENE = "res://Scenes/main_menu.tscn"
+const MAIN_MENU_SCENE = "res://Scenes/hub.tscn"
 const RANKING_SCENE = "res://ranking/leaderboard_menu.tscn"
 const CARD_STATS_SCENE = "res://ranking/season_stats_menu.tscn"
 const BATTLE_SCENE = "res://Scenes/batlhe_scene.tscn"

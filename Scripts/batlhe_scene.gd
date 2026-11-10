@@ -85,7 +85,7 @@ func _get_formation_offset(i: int, count: int, unit_radius: float = 14.0, format
 	return Vector2(offset_x, offset_y)
 
 # ajusta esse caminho pro local real da sua cena de menu principal
-const MAIN_MENU_SCENE = "res://Scenes/main_menu.tscn"
+const MAIN_MENU_SCENE = "res://Scenes/hub.tscn"
 
 var match_over = false  # evita processar o fim da partida duas vezes
 var _is_nemesis_match: bool = false  # true se esse bot entrou "afiado" por rixa -- usado só pra saber se adiciona o 🔥 no nome, depois de _show_opponent_name() (que senão sobrescreveria)
@@ -803,6 +803,19 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 		title.text = "EMPATE"
 	else:
 		title.text = "VITÓRIA!" if player_won else "DERROTA..."
+	var remaining_mine = _alive_towers(GameManager.Team.PLAYER) if has_method("_alive_towers") else 1
+	var jokes: Array
+	if is_draw:
+		jokes = ["Ninguém arredou o pé.", "Empate é quando os dois perdem tempo."]
+	elif player_won:
+		jokes = ["Passou o trator!", "Vitória suada, mas é vitória.", "Hoje tem churrasco.", "Nem a vaca viu de onde veio."] if remaining_mine >= 2 else ["Ufa. Foi por um fio de cabelo de bode.", "Ganhou, mas o celeiro ficou torto."]
+	else:
+		jokes = ["Voltou pro sítio de mãos vazias.", "A cerca não aguentou.", "Dia de cão. De vaca. De tudo.", "Amanhã a gente planta de novo."]
+	var joke = Label.new()
+	joke.text = jokes[randi() % jokes.size()]
+	joke.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	joke.add_theme_font_size_override("font_size", 16)
+	joke.modulate = Color(1, 1, 1, 0.8)
 	title.add_theme_font_size_override("font_size", 40)
 	title.add_theme_color_override(
 		"font_color",
@@ -810,6 +823,7 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 	)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
+	vbox.add_child(joke)
 	vbox.add_child(HSeparator.new())
 
 	vbox.add_child(_build_reward_row("💰 Ouro", "+%d" % coins_gained, ThemeBuilder.COLOR_GOLD))
@@ -826,6 +840,21 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 	var trophy_text = "+%d" % trophies_gained if trophies_gained >= 0 else str(trophies_gained)
 	var trophy_color = Color(0.5, 0.85, 0.5) if trophies_gained >= 0 else Color(0.85, 0.45, 0.45)
 	vbox.add_child(_build_reward_row("🏆 Troféus", trophy_text, trophy_color))
+
+	# 2.0: nível do jogador, baú de colheita, sequência e Mascate
+	var level_before = Progresso.player_level()
+	var prog = Progresso.on_battle_finished(player_won and !is_draw, ai_profile != null and !_is_2v2, xp_gained)
+	if Progresso.player_level() > level_before:
+		vbox.add_child(_build_reward_row("⬆ Subiu de nível!", "Nível %d" % Progresso.player_level(), Color(0.5, 1.0, 0.6)))
+	if int(prog["bau"]) >= 0:
+		var chest_def = Progresso.CHESTS[int(prog["bau"])]
+		vbox.add_child(_build_reward_row("🎁 Ganhou", chest_def["nome"], Color.html(chest_def["cor"])))
+	elif prog["sem_espaco"]:
+		vbox.add_child(_build_reward_row("🎁 Baús cheios", "abra um pra ganhar outro", Color(0.8, 0.8, 0.8)))
+	if int(prog["sequencia"]) >= 2:
+		vbox.add_child(_build_reward_row("🔥 Sequência", "%d vitórias%s" % [int(prog["sequencia"]), " (baú melhor!)" if int(prog["sequencia"]) >= 3 else ""], Color(1, 0.6, 0.25)))
+	if prog["mascate"]:
+		vbox.add_child(_build_reward_row("🧳 O Mascate apareceu!", "corre na Feira (5 min)", Color(0.9, 0.7, 1.0)))
 
 	vbox.add_child(HSeparator.new())
 
@@ -1119,7 +1148,28 @@ func _show_bot_emote(emoji: String):
 	tween.tween_callback(label.queue_free)
 
 
+var _spawning_companions := false
+
+
+# carta com unidades diferentes juntas: os acompanhantes nascem logo atrás
+func _spawn_companions(team, spawn_position, card_data: CardData, level_profile: AIProfile):
+	_spawning_companions = true
+	var total = 0
+	for comp in card_data.companions:
+		total += int(comp.get("count", 1))
+	var back = 30.0 if team == GameManager.Team.PLAYER else -30.0
+	var k = 0
+	for comp in card_data.companions:
+		for j in int(comp.get("count", 1)):
+			var off = Vector2((k - (total - 1) * 0.5) * 24.0, back)
+			spawn_unit(comp["scene"], team, spawn_position + off, card_data, level_profile)
+			k += 1
+	_spawning_companions = false
+
+
 func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, level_profile: AIProfile = null):
+	if card_data != null and !card_data.companions.is_empty() and !_spawning_companions:
+		_spawn_companions(team, spawn_position, card_data, level_profile)
 	# instancia a primeira unidade só pra descobrir quantas essa carta deve spawnar
 	var first_unit = unit_scene.instantiate()
 	var count = 1

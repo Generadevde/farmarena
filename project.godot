@@ -48,6 +48,7 @@ NationDatabase="*uid://66ydh2255m1c"
 UpdateDatabase="*uid://cje8dje601g28"
 CardDatabase="*uid://bd8hogbekh1f4"
 CustomContent="*res://creator/custom_content.gd"
+Progresso="*res://Scripts/progresso.gd"
 
 [display]
 
