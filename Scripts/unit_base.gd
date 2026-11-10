@@ -183,6 +183,7 @@ func _physics_process(delta):
 	_update_status_modulate()
 
 	_process_forced_move(delta)
+	_process_spell_shield()
 
 	# a recarga do ataque conta SEMPRE (antes só contava enquanto estava no
 	# alcance -- se o alvo se mexia um pouco, a recarga congelava e o golpe
@@ -541,7 +542,7 @@ func _process_combat(delta):
 
 
 func _get_move_speed() -> float:
-	var speed = stats.move_speed * speed_multiplier
+	var speed = stats.move_speed * speed_multiplier * _rage_mult(_rage_speed)
 	if _dash_time_remaining > 0:
 		speed *= stats.dash_speed_multiplier
 	if _formation_speed_cap >= 0.0:
@@ -733,7 +734,7 @@ func _try_attack(_delta):
 	if attack_cooldown <= 0:
 		if is_instance_valid(target):
 			_perform_attack()
-		attack_cooldown = stats.attack_speed * _attack_speed_ramp_multiplier
+		attack_cooldown = stats.attack_speed * _attack_speed_ramp_multiplier / _rage_mult(_rage_attack_speed)
 
 
 func _perform_continuous_attack(delta):
@@ -746,7 +747,7 @@ func _perform_continuous_attack(delta):
 
 
 func _get_effective_damage() -> int:
-	var dmg = float(stats.damage) * damage_multiplier
+	var dmg = float(stats.damage) * damage_multiplier * _rage_mult(_rage_damage)
 
 	if stats.first_attack_bonus and !_has_attacked_before:
 		dmg *= stats.first_attack_multiplier
@@ -908,27 +909,77 @@ func _steal_resource_from(base_body):
 		GameManager.player_money += stolen
 
 
-func _perform_spin_attack(dmg):
+# alcance do golpe em ÁREA (360° / cone), medido da MINHA borda: usa o raio
+# da área se tiver, senão o alcance do ataque + uma folga -- antes media do
+# centro com o alcance de corpo a corpo (15) e não pegava ninguém
+func _melee_area_reach() -> float:
+	return max(stats.aoe_radius, max(stats.attack_range, MELEE_MIN_REACH) + 18.0)
+
+
+# inimigos que esse golpe consegue acertar (respeita aéreo/terrestre,
+# invisível, invulnerável ao nascer) -- o alvo atual sempre entra
+func _area_hit_list(cone_dir: Vector2 = Vector2.ZERO, cone_angle: float = 360.0) -> Array:
+	var reach = _melee_area_reach()
+	var hits: Array = []
 	for body in get_tree().get_nodes_in_group("damageable"):
-		if body == self or !("team" in body) or body.team == team:
+		if body == self or !("team" in body) or body.team == team or !_is_valid_enemy(body):
 			continue
-		if body.global_position.distance_to(global_position) <= stats.attack_range:
-			body.take_damage(dmg)
-			_apply_on_hit_effect_to(body)
+		if body != target and _gap_to(body) > reach:
+			continue
+		if cone_angle < 360.0 and body != target:
+			var to_body = body.global_position - global_position
+			if rad_to_deg(abs(cone_dir.angle_to(to_body.normalized()))) > cone_angle * 0.5:
+				continue
+		hits.append(body)
+	return hits
+
+
+func _hit_body(body, dmg):
+	var was_alive = "current_hp" in body and body.current_hp > 0
+	body.take_damage(dmg)
+	_report_base_damage(body, dmg)
+	_apply_on_hit_effect_to(body)
+	if was_alive and "current_hp" in body and body.current_hp <= 0:
+		_on_killed(body)
+
+
+func _on_killed(body):
+	if stats.heals_on_kill:
+		heal(stats.heal_on_kill_amount)
+	if stats.converts_kills_to_gold:
+		_grant_gold(stats.gold_per_kill)
+
+
+func _perform_spin_attack(dmg):
+	for body in _area_hit_list():
+		_hit_body(body, dmg)
+	_show_swing_fx(360.0, Vector2.RIGHT)
 
 
 func _perform_cone_attack(dmg):
 	var forward = (target.global_position - global_position).normalized()
-	for body in get_tree().get_nodes_in_group("damageable"):
-		if body == self or !("team" in body) or body.team == team:
-			continue
-		var to_body = body.global_position - global_position
-		if to_body.length() > stats.aoe_radius:
-			continue
-		var angle = rad_to_deg(abs(forward.angle_to(to_body.normalized())))
-		if angle <= stats.cone_angle_degrees * 0.5:
-			body.take_damage(dmg)
-			_apply_on_hit_effect_to(body)
+	var angle = stats.cone_angle_degrees if stats.cone_angle_degrees > 0 else 90.0
+	for body in _area_hit_list(forward, angle):
+		_hit_body(body, dmg)
+	_show_swing_fx(angle, forward)
+
+
+# rastro rápido do golpe (arco ou círculo) -- só visual
+func _show_swing_fx(angle_deg: float, forward: Vector2):
+	var fx = Line2D.new()
+	fx.width = 3.0
+	fx.default_color = Color(1, 1, 0.85, 0.85)
+	var reach = _get_own_target_radius() + _melee_area_reach() * 0.7
+	var steps = 14
+	var start = forward.angle() - deg_to_rad(angle_deg) * 0.5
+	for i in steps + 1:
+		var a = start + deg_to_rad(angle_deg) * float(i) / steps
+		fx.add_point(Vector2.RIGHT.rotated(a) * reach)
+	fx.z_index = 20
+	add_child(fx)
+	var tw = fx.create_tween()
+	tw.tween_property(fx, "modulate:a", 0.0, 0.25)
+	tw.tween_callback(fx.queue_free)
 
 
 func _perform_attack_with_one_extra(dmg):
@@ -1227,7 +1278,9 @@ func _get_status_base_color() -> Color:
 	if _frozen_until > GameManager.game_time:
 		return Color(0.45, 0.75, 1.0)  # azul-gelo -- congelada
 	if _is_incapacitated():
-		return Color(0.75, 0.9, 1.0)  # esbranquiçado/pálido -- atordoada (STUN)
+		return Color(0.75, 0.9, 1.0)
+	if _rage_until > GameManager.game_time:
+		return Color(1.0, 0.62, 0.55)  # avermelhada -- em fúria  # esbranquiçado/pálido -- atordoada (STUN)
 	if speed_multiplier < 1.0:
 		return Color(0.6, 0.85, 1.0)  # azulado -- lenta (SLOW/FREEZE)
 	if _poison_ticks_left > 0:
@@ -1268,6 +1321,67 @@ func _is_rooted() -> bool:
 
 func _is_silenced() -> bool:
 	return _silenced_until > GameManager.game_time
+
+
+# ---------- REFORÇOS (feitiços de ajuda) ----------
+# FÚRIA: mais dano, mais velocidade e ataque mais rápido por um tempo
+var _rage_until: float = -1.0
+var _rage_damage: float = 1.0
+var _rage_speed: float = 1.0
+var _rage_attack_speed: float = 1.0
+var _spell_shield: int = 0
+var _spell_shield_until: float = -1.0
+
+
+func _rage_mult(v: float) -> float:
+	return v if _rage_until > GameManager.game_time else 1.0
+
+
+func apply_rage(damage_mult: float, speed_mult: float, attack_speed_mult: float, duration: float):
+	var now = GameManager.game_time
+	if _rage_until <= now:
+		_rage_damage = 1.0
+		_rage_speed = 1.0
+		_rage_attack_speed = 1.0
+	_rage_damage = max(_rage_damage, damage_mult)
+	_rage_speed = max(_rage_speed, speed_mult)
+	_rage_attack_speed = max(_rage_attack_speed, attack_speed_mult)
+	_rage_until = max(_rage_until, now + duration)
+
+
+# ESCUDO de feitiço: absorve dano até acabar ou até o tempo passar
+func apply_spell_shield(amount: int, duration: float):
+	var now = GameManager.game_time
+	if _spell_shield_until <= now:
+		_spell_shield = 0
+	var add = max(amount - _spell_shield, 0)  # reaplicar não empilha infinito
+	_spell_shield += add
+	current_shield += add
+	_spell_shield_until = max(_spell_shield_until, now + duration)
+
+
+func _process_spell_shield():
+	if _spell_shield > 0 and _spell_shield_until <= GameManager.game_time:
+		current_shield = max(current_shield - _spell_shield, 0)
+		_spell_shield = 0
+
+
+# PURIFICAR: tira todo efeito ruim (lentidão, fraqueza, atordoar, congelar,
+# veneno, raiz, confusão, silêncio, marca)
+func cleanse():
+	if speed_multiplier < 1.0:
+		speed_multiplier = 1.0
+	if damage_multiplier < 1.0:
+		damage_multiplier = 1.0
+	var now = GameManager.game_time
+	_incapacitated_until = now
+	_rooted_until = now
+	_confused_until = now
+	_silenced_until = now
+	_marked_until = now
+	if _frozen_until > now:
+		_frozen_until = now  # mantém a imunidade curta depois
+	_poison_ticks_left = 0
 
 
 func apply_silence(duration: float):

@@ -185,6 +185,57 @@ func _tornado_and_air_test():
 			last[i] = v.global_position
 		samples.append(int(avg / victims.size()))
 	print("RESULTADO tornado: distância média do centro ao longo do tempo ", samples, " | maior salto em 0,25s=", int(max_jump), "px")
+	for u in get_tree().get_nodes_in_group("units"):
+		u.queue_free()
+	await get_tree().process_frame
+	# --- 360° e cone: 1 atacante cercado por 4 inimigos parados
+	for mode_name in ["360", "cone"]:
+		battle.spawn_unit(chick.unit_scene, GameManager.Team.PLAYER, center, chick)
+		await get_tree().process_frame
+		var hero = get_tree().get_nodes_in_group("units")[-1]
+		hero.stats = hero.stats.duplicate()
+		hero.stats.damage = 10
+		hero.stats.attack_speed = 0.5
+		hero.stats.spin_attack = mode_name == "360"
+		hero.stats.frontal_cone_attack = mode_name == "cone"
+		hero.stats.cone_angle_degrees = 100.0
+		hero.stats.aoe_radius = 0.0
+		hero.global_position = center
+		var ring: Array = []
+		for i in 4:
+			battle.spawn_unit(chick.unit_scene, GameManager.Team.ENEMY, center, chick)
+			await get_tree().process_frame
+			var e = get_tree().get_nodes_in_group("units")[-1]
+			e.stats = e.stats.duplicate()
+			e.stats.damage = 0
+			e.apply_incapacitate(30.0)
+			e.global_position = center + Vector2.RIGHT.rotated(i * TAU / 4.0) * 24.0
+			ring.append(e)
+		hero.apply_incapacitate(0.0)
+		await get_tree().create_timer(3.0).timeout
+		var hit = ring.filter(func(e): return !is_instance_valid(e) or e.current_hp < e.stats.hp).size()
+		print("RESULTADO ataque ", mode_name, ": acertou ", hit, " de 4 em volta (360 esperado 4, cone esperado 1-2)")
+		for u in get_tree().get_nodes_in_group("units"):
+			u.queue_free()
+		await get_tree().process_frame
+	# --- fúria + escudo + purificar
+	battle.spawn_unit(chick.unit_scene, GameManager.Team.PLAYER, center, chick)
+	await get_tree().process_frame
+	var ally = get_tree().get_nodes_in_group("units")[-1]
+	ally.apply_on_hit_effect(UnitData.OnHitEffect.SLOW, 0.3, 10.0, 1.0, 0.0, Vector2.ZERO)
+	var speed_before = ally._get_move_speed()
+	var buff = SpellData.new()
+	buff.radius = 60.0
+	buff.affects_enemies = false
+	buff.rage_damage_mult = 1.4
+	buff.rage_speed_mult = 1.35
+	buff.rage_attack_speed_mult = 1.35
+	buff.shield_amount = 200
+	buff.cleanses = true
+	battle.cast_spell(buff, ally.global_position, GameManager.Team.PLAYER)
+	await get_tree().process_frame
+	print("RESULTADO reforço: velocidade lenta=", int(speed_before), " -> depois=", int(ally._get_move_speed()),
+		" | dano x", snapped(ally._rage_mult(ally._rage_damage), 0.01), " | escudo=", ally.current_shield)
 
 
 func _freeze_test():

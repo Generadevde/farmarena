@@ -113,8 +113,20 @@ static func spell_total_damage(spell: SpellData) -> float:
 
 
 # feitiço de "ajuda" (cura, fúria) -- deve cair em ALIADO lutando
+static func has_ally_buff(spell: SpellData) -> bool:
+	return spell.rage_damage_mult > 1.0 or spell.rage_speed_mult > 1.0 or spell.rage_attack_speed_mult > 1.0 \
+		or spell.shield_amount > 0 or spell.cleanses
+
+
+static func is_summon_spell(spell: SpellData) -> bool:
+	return spell.summon_scene != null and spell.summon_count > 0
+
+
 static func is_support_spell(spell: SpellData) -> bool:
-	return spell.affects_allies and !spell.affects_enemies
+	if is_summon_spell(spell):
+		return false
+	var hurts_enemy = spell.affects_enemies and (spell.damage > 0 or spell.status_effect != UnitData.OnHitEffect.NONE)
+	return (spell.affects_allies or has_ally_buff(spell)) and !hurts_enemy
 
 
 # valor (em "custo de carta") que o feitiço gera se cair em `pos`
@@ -139,8 +151,10 @@ static func evaluate_spell_at(tree: SceneTree, spell: SpellData, pos: Vector2, c
 		if !is_unit(body):
 			continue
 		var uv = unit_value(body)
-		if ally and spell.affects_allies:
+		if ally and (spell.affects_allies or has_ally_buff(spell)):
 			var fighting = body.target != null and is_instance_valid(body.target)
+			if has_ally_buff(spell):
+				value += uv * (0.7 if fighting else 0.15)
 			if spell.heal_amount > 0:
 				var missing = 1.0 - clamp(float(body.current_hp) / max(body.stats.hp, 1), 0.0, 1.0)
 				value += uv * missing * (1.0 if fighting else 0.3)

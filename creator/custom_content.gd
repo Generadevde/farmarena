@@ -217,6 +217,15 @@ const SPELL_FIELDS = [
 	["affects_enemies", "Afeta inimigos", "bool", []],
 	["affects_allies", "Afeta aliados", "bool", []],
 	["base_damage_multiplier", "Dano na base (fração)", "float", [0.0, 2.0, 0.02]],
+	["knockback_distance", "Força do empurrão/puxão (tornado)", "float", [0.0, 200.0, 2.0]],
+	["rage_damage_mult", "Fúria: dano dos aliados (1 = nada, 1.4 = +40%)", "float", [1.0, 3.0, 0.05]],
+	["rage_speed_mult", "Fúria: velocidade dos aliados", "float", [1.0, 3.0, 0.05]],
+	["rage_attack_speed_mult", "Fúria: rapidez de ataque dos aliados", "float", [1.0, 3.0, 0.05]],
+	["shield_amount", "Escudo nos aliados (absorve dano)", "int", [0, 3000, 10]],
+	["cleanses", "Purificar (tira efeitos ruins dos aliados)", "bool", []],
+	["buff_duration", "Duração da fúria/escudo (s) — 0 = automático", "float", [0.0, 30.0, 0.5]],
+	["summon_scene", "Invoca a unidade", "scene", []],
+	["summon_count", "Quantas invoca", "int", [0, 20, 1]],
 ]
 
 const BASE_FIELDS = [

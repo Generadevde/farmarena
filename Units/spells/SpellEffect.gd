@@ -15,6 +15,7 @@ func _ready():
 		visual.texture = spell.ground_effect_texture
 		add_child(visual)
 
+	_summon_units()
 	_apply_tick()  # aplica imediatamente ao ser lançado
 
 	if spell.duration <= 0:
@@ -44,7 +45,8 @@ func _apply_tick():
 			continue
 
 		var is_ally = body.team == caster_team
-		if is_ally and not spell.affects_allies:
+		# reforço (fúria/escudo/purificar) sempre vale em aliado
+		if is_ally and not spell.affects_allies and not _has_ally_buff():
 			continue
 		if not is_ally and not spell.affects_enemies:
 			continue
@@ -53,8 +55,15 @@ func _apply_tick():
 			_apply_effect(body)
 
 
+func _has_ally_buff() -> bool:
+	return spell.rage_damage_mult > 1.0 or spell.rage_speed_mult > 1.0 or spell.rage_attack_speed_mult > 1.0 \
+		or spell.shield_amount > 0 or spell.cleanses
+
+
 func _apply_effect(body):
-	if spell.damage > 0 and body.has_method("take_damage"):
+	var on_ally = "team" in body and body.team == caster_team
+	var harms = !on_ally or spell.affects_allies  # dano/efeito ruim só em quem o feitiço afeta
+	if spell.damage > 0 and harms and body.has_method("take_damage"):
 		var dmg = spell.damage
 
 		# feitiço batendo direto na base causa só uma fração do dano original
@@ -68,10 +77,23 @@ func _apply_effect(body):
 
 		body.take_damage(dmg)
 
-	if spell.heal_amount > 0 and body.has_method("heal"):
+	if spell.heal_amount > 0 and (on_ally or spell.affects_enemies) and body.has_method("heal"):
 		body.heal(spell.heal_amount)
 
-	if spell.status_effect == UnitData.OnHitEffect.NONE:
+	# reforços (só em aliado de verdade)
+	var is_ally = "team" in body and body.team == caster_team
+	if is_ally and body.has_method("apply_rage"):
+		var buff_time = spell.buff_duration
+		if buff_time <= 0:
+			buff_time = spell.tick_interval * 1.5 if spell.duration > 0 else 6.0
+		if spell.rage_damage_mult > 1.0 or spell.rage_speed_mult > 1.0 or spell.rage_attack_speed_mult > 1.0:
+			body.apply_rage(spell.rage_damage_mult, spell.rage_speed_mult, spell.rage_attack_speed_mult, buff_time)
+		if spell.shield_amount > 0:
+			body.apply_spell_shield(spell.shield_amount, buff_time)
+		if spell.cleanses:
+			body.cleanse()
+
+	if spell.status_effect == UnitData.OnHitEffect.NONE or !harms:
 		return
 	if !body.has_method("apply_on_hit_effect"):
 		return
@@ -91,6 +113,22 @@ func _apply_effect(body):
 		spell.knockback_distance,
 		global_position
 	)
+
+
+# INVOCAÇÃO: nasce(m) unidade(s) no lugar do feitiço, pro time de quem lançou
+func _summon_units():
+	if spell.summon_scene == null or spell.summon_count <= 0:
+		return
+	var battle = get_tree().get_first_node_in_group("battle_scene")
+	for i in spell.summon_count:
+		var u = spell.summon_scene.instantiate()
+		u.team = caster_team
+		var offset = Vector2.ZERO if spell.summon_count == 1 else Vector2.RIGHT.rotated(TAU * i / spell.summon_count) * min(spell.radius * 0.5, 28.0)
+		if battle != null:
+			battle.add_child(u)
+		else:
+			get_parent().add_child(u)
+		u.global_position = global_position + offset
 
 
 # mesma ideia de unit.gd/projectile.gd -- avisa a cena de batalha pra

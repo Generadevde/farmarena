@@ -1437,7 +1437,10 @@ func _on_timer_timeout():
 		return
 
 	var target_pos: Vector2 = Vector2.INF
-	if chosen.is_spell():
+	if chosen.is_spell() and chosen.spell_data != null and BattleBrain.is_summon_spell(chosen.spell_data):
+		# feitiço de invocação: joga como se fosse tropa, na frente do campo dele
+		target_pos = BattleBrain.offensive_position(chosen, null, GameManager.Team.ENEMY, get_tree(), spawn_enemy_area, self, _ai_lane_x)
+	elif chosen.is_spell():
 		# feitiço só sai se gerar valor de verdade -- senão tenta outra carta
 		target_pos = BattleBrain.proactive_spell_target(get_tree(), chosen, GameManager.Team.ENEMY)
 		if target_pos == Vector2.INF:

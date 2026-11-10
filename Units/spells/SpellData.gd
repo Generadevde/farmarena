@@ -41,3 +41,26 @@ class_name SpellData
 
 # textura opcional do círculo/efeito visual no chão, enquanto o feitiço dura
 @export var ground_effect_texture: Texture2D
+
+@export_group("Reforço nos aliados")
+## FÚRIA: multiplica o dano dos aliados atingidos (1 = sem fúria, 1.4 = +40%)
+@export var rage_damage_mult: float = 1.0
+## FÚRIA: multiplica a velocidade de andar (1.35 = +35%)
+@export var rage_speed_mult: float = 1.0
+## FÚRIA: ataca mais rápido (1.35 = 35% mais golpes)
+@export var rage_attack_speed_mult: float = 1.0
+## ESCUDO temporário que absorve dano em cada aliado atingido
+@export var shield_amount: int = 0
+## PURIFICAR: tira todo efeito ruim dos aliados atingidos
+@export var cleanses: bool = false
+## quanto tempo a fúria/escudo dura em quem foi atingido (0 = automático)
+@export var buff_duration: float = 0.0
+
+@export_group("Invocação")
+## unidade que nasce no lugar onde o feitiço caiu (time de quem lançou)
+@export var summon_scene: PackedScene
+@export var summon_count: int = 0
+
+@export_group("Visual")
+## cor do efeito no chão/partículas (o jogo escolhe uma se ficar transparente)
+@export var fx_color: Color = Color(0, 0, 0, 0)
