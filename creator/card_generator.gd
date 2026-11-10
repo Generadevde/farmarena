@@ -17,7 +17,7 @@ const SUFFIXES = ["da Lama", "do Brejo", "de Ferro", "Turbo", "Supremo", "Mutant
 const SPELL_NAMES = ["Chuva de", "Tempestade de", "Nuvem de", "Explosão de", "Estouro de", "Praga de", "Granizo de", "Festa de"]
 const SPELL_THINGS = ["Milho", "Esterco", "Pimenta", "Ovo", "Abelha", "Feno", "Rapadura", "Lama", "Raio", "Gafanhoto", "Fogos"]
 
-const DEFAULT_POWER_PER_COST = 95.0
+const DEFAULT_POWER_PER_COST = 21.0  # na escala de custo 0-100 (as oficiais ficam em torno de 21 de força por ponto de custo)
 
 
 # "força" crua igual à estimativa do BotSimulator (hp*0.3 + dps*3) * quantidade

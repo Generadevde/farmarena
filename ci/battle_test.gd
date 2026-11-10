@@ -158,6 +158,12 @@ func _art_sheet():
 		" | pendentes=", Progresso.d["pending"].size())
 	print("RESULTADO safra: períodos=", Safra.periods.size(), " cartas=", Safra.all_cards().map(func(c): return "%s[%s,%d,%s]" % [c.card_name, c.get_nation_name(), c.cost, CardData.role_name(c.role)]),
 		" | no banco? ", CardDatabase.all_cards.has(Safra.all_cards()[0]))
+	var safra_stats: Array = []
+	for sc in Safra.all_cards():
+		var sst = DeckBuilder.get_unit_stats(sc)
+		if sst != null:
+			safra_stats.append("%s custo %d: vida %d x%d, dano %d a cada %.1fs" % [sc.card_name, sc.cost, sst.hp, sst.unit_count, sst.damage, sst.attack_speed])
+	print("RESULTADO safra força: ", safra_stats, " | força/custo das oficiais (mediana)=", snapped(CardGenerator.power_per_cost(), 0.1))
 	Safra.sync_profile()
 	print("RESULTADO safra: amostra entregue? ", Progresso.is_owned(Safra.current_cards()[0]), " | missão=", Safra.mission_text())
 	# Criador: gerar + salvar carta nova, e editar uma oficial

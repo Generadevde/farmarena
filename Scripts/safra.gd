@@ -58,7 +58,7 @@ func _save():
 func _build_period(p: int):
 	var list: Array = []
 	var used_turmas: Array = []
-	CardGenerator.fixed_power = 100.0  # força fixa: carta de safra antiga não muda quando o jogo ganha carta nova
+	CardGenerator.fixed_power = 21.0  # força fixa: carta de safra antiga não muda quando o jogo ganha carta nova
 	for n in 2:
 		var rng = RandomNumberGenerator.new()
 		rng.seed = hash("safra_%d_%d" % [p, n])
