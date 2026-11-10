@@ -160,6 +160,16 @@ func _art_sheet():
 		" | no banco? ", CardDatabase.all_cards.has(Safra.all_cards()[0]))
 	Safra.sync_profile()
 	print("RESULTADO safra: amostra entregue? ", Progresso.is_owned(Safra.current_cards()[0]), " | missão=", Safra.mission_text())
+	# Criador: gerar + salvar carta nova, e editar uma oficial
+	var pack = CardGenerator.generate_card(1, CardData.CardRole.TANQUE, 40)
+	var made: CardData = CustomContent.save_card(pack, true)
+	var edit = CustomContent.open_card_for_edit(Catalogo.card("peao_forcado"))
+	var hp_before = edit["stats"].hp
+	edit["stats"].hp = hp_before + 111
+	CustomContent.save_card(edit, false)
+	print("RESULTADO criador: carta gerada '", made.card_name, "' salva? ", made.resource_path.begins_with("user://"), " no banco? ", CardDatabase.all_cards.has(made),
+		" stats ok? ", DeckBuilder.get_unit_stats(made) != null, " | editar oficial: vida ", hp_before, " -> ", Catalogo.unit_stats(Catalogo.card("peao_forcado")).hp,
+		" | torneio: entrou? ", Progresso.enter_tournament(), " oponentes=", Progresso.tournament().get("oponentes", []), " regra=", MatchSetup.RULE_NAMES[int(Progresso.tournament().get("regra", 0))])
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:

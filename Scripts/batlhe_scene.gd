@@ -248,6 +248,8 @@ func _ready():
 	# arena 2.0: campo simétrico, 2 torres por lado, caminhos, câmera
 	ArenaBuilder.build(self)
 	BattleHud.install(self)  # HUD 2.0 preso na tela (mão, recurso, relógio, adversário)
+	if MatchSetup.rule > 0 or MatchSetup.tournament:
+		_announce_rule.call_deferred()
 
 	_setup_hud_anchors()
 
@@ -1161,6 +1163,12 @@ func _show_bot_emote(emoji: String):
 	tween.tween_property(label, "position:y", label.position.y - 30, 1.8)
 	tween.parallel().tween_property(label, "modulate:a", 0.0, 1.8)
 	tween.tween_callback(label.queue_free)
+
+
+func _announce_rule():
+	var title = ("🏟 TORNEIO · " if MatchSetup.tournament else "🌪 CLIMA MALUCO · ") + MatchSetup.RULE_NAMES[MatchSetup.rule]
+	Fx.text(self, to_local(ArenaBuilder.CENTER) + Vector2(0, -20), title, Color(1, 0.85, 1.0), 3.5)
+	Fx.text(self, to_local(ArenaBuilder.CENTER) + Vector2(0, 40), MatchSetup.RULE_TEXT[MatchSetup.rule], Color(1, 1, 1), 3.5)
 
 
 var _spawning_companions := false

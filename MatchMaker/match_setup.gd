@@ -80,6 +80,9 @@ func start_tournament_match(tree: SceneTree, bot_name: String, rule_id: int, are
 
 func start_1v1(tree: SceneTree):
 	clear_special()
+	# "clima maluco": de vez em quando a partida normal vem com uma regra doida
+	if randf() < 0.15:
+		rule = 1 + randi() % (RULE_NAMES.size() - 1)
 	mode = MODE_1V1
 	next_ai_profile = choose_opponent()
 	tree.change_scene_to_file(BATTLE_SCENE)

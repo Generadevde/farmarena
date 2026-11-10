@@ -206,9 +206,25 @@ func _setup_visuals():
 		_spawn_fx.call_deferred()
 
 
+const SPAWN_LINES = {
+	"Curral": ["Muuu!", "Sai da frente!", "Ô boi!"], "Galinheiro": ["Có có!", "Piu!", "Cocoricó!"], "Brejo": ["Croac.", "Tô de boa.", "Blub."],
+	"Roçado": ["Tá na hora da colheita!", "Uai!", "Pipoca!"], "Peões": ["Ô trem bão!", "Bão?", "Simbora!", "Eita!"], "Coisa Estranha": ["Bip bop.", "Buuu!", "Zzzt!", "Viemos em paz."],
+}
+const DEATH_LINES = ["Uai...", "Avisa a mãe.", "Fui!", "Ai.", "Nem doeu.", "Volto já."]
+
+
+func _say(text: String):
+	if is_inside_tree():
+		Fx.text(get_parent(), position + Vector2(0, -30.0 * _visual_scale), text, Color(1, 1, 0.92), 1.1)
+
+
 func _spawn_fx():
 	if is_inside_tree():
 		Fx.ring(get_parent(), position, 18.0 * _visual_scale, Color(1, 1, 1, 0.9), 0.25)
+		# falinha de entrada (só às vezes, e só de carta do baralho -- filhote não fala)
+		if card_data != null and !CustomContent.is_spawn_only(card_data) and randf() < 0.22:
+			var lines: Array = SPAWN_LINES.get(card_data.get_nation_name(), ["Eita!"])
+			_say(lines[randi() % lines.size()])
 
 
 func _process(delta):
@@ -1732,6 +1748,8 @@ func _spawn_clone():
 func die():
 	died.emit(team, card_data)
 	Fx.puff(get_parent(), position, clampf(_visual_scale, 0.6, 2.2))
+	if _visual_scale >= 1.0 and randf() < 0.12:
+		_say(DEATH_LINES[randi() % DEATH_LINES.size()])
 	if card_data != null:
 		Fx.burst(get_parent(), position, SpriteForge.main_color(card_data.art_palette), 8, 110.0, 3.0)
 
