@@ -162,7 +162,13 @@ func get_arena_ranking(arena_index: int) -> Array:
 # calcula o troféu ganho/perdido (variável, pela diferença de troféu entre
 # os dois) e já aplica nos dois lados -- chama isso em vez de
 # Leaderboard.record_match() direto, toda vez que o resultado for de arena
-func record_match_points(winner_name: String, loser_name: String):
+## simulated = partida de bot contra bot (simulação). Nela o perdedor perde
+## quase o mesmo que o vencedor ganha -- senão o elenco inteiro subia ~12
+## troféus a cada 2 minutos e disparava na frente do jogador.
+const SIMULATED_LOSS_RATIO = 0.85
+
+
+func record_match_points(winner_name: String, loser_name: String, simulated: bool = false):
 	var winner_trophies = get_trophies(winner_name)
 	var loser_trophies = get_trophies(loser_name)
 
@@ -172,6 +178,8 @@ func record_match_points(winner_name: String, loser_name: String):
 
 	var win_points = lerp(WIN_MIN, WIN_MAX, t)
 	var loss_points = lerp(LOSS_MIN, LOSS_MAX, t)
+	if simulated:
+		loss_points = win_points * SIMULATED_LOSS_RATIO
 
 	trophies[winner_name] = get_trophies(winner_name) + int(round(win_points))
 	trophies[loser_name] = max(get_trophies(loser_name) - int(round(loss_points)), 0)

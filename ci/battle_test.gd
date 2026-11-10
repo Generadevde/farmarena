@@ -54,6 +54,14 @@ func _ready():
 		await _tornado_and_air_test()
 		get_tree().quit()
 		return
+	if mode == "habilidades":
+		await _abilities_audit()
+		get_tree().quit()
+		return
+	if mode == "simulacao":
+		await _simulation_audit()
+		get_tree().quit()
+		return
 	if mode == "efeitos":
 		await _effects_audit()
 		get_tree().quit()
@@ -627,3 +635,401 @@ func _effects_audit():
 	var made_base = CustomContent.save_base(bpack, true)
 	print("RESULTADO criador de torres: salva? ", made_base != null and made_base.resource_path.begins_with("user://"), " | na lista? ", BotSimulator.available_bases.has(made_base),
 		" | liberada? ", PlayerProfile.is_base_unlocked(made_base), " | torres oficiais=", Catalogo.bases().size())
+
+
+# ================================================================ AUDITORIA DE HABILIDADES E FEITIÇOS
+var _aud_ok: Array = []
+var _aud_bad: Array = []
+
+
+func _check(name: String, passed: bool, detail: String = ""):
+	if passed:
+		_aud_ok.append(name + ("(" + detail + ")" if detail != "" else ""))
+	else:
+		_aud_bad.append(name + "(" + detail + ")")
+
+
+func _wipe():
+	for u in get_tree().get_nodes_in_group("units"):
+		u.queue_free()
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+
+func _put(id: String, team, pos: Vector2) -> Array:
+	var before = get_tree().get_nodes_in_group("units")
+	var c: CardData = Catalogo.card(id)
+	var anchor = get_tree().get_first_node_in_group("player_base" if team == GameManager.Team.PLAYER else "enemy_base")
+	battle.spawn_unit(c.unit_scene, team, anchor.global_position, c)
+	await get_tree().process_frame
+	var out: Array = []
+	for u in get_tree().get_nodes_in_group("units"):
+		if !before.has(u):
+			out.append(u)
+	for i in out.size():
+		out[i].global_position = pos + Vector2((i - (out.size() - 1) * 0.5) * 16.0, 0)
+	return out
+
+
+func _dummy(team, pos: Vector2, hp: int = 99999):
+	var list = await _put("porco_cozinheiro", team, pos)
+	var d = list[0]
+	d.stats = d.stats.duplicate()
+	d.stats.hp = hp
+	d.current_hp = hp
+	d.stats.damage = 0
+	d.stats.move_speed = 0.0
+	d.stats.on_hit_effect = UnitData.OnHitEffect.NONE
+	return d
+
+
+func _first_hit(victim, seconds: float) -> float:
+	var hp0 = victim.current_hp
+	var t = 0.0
+	while t < seconds:
+		await get_tree().create_timer(0.1).timeout
+		t += 0.1
+		if !is_instance_valid(victim):
+			return 99999.0
+		if victim.current_hp < hp0:
+			return hp0 - victim.current_hp
+	return 0.0
+
+
+func _abilities_audit():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	battle.get_node("ProductionTimer").stop()
+	var P = GameManager.Team.PLAYER
+	var E = GameManager.Team.ENEMY
+	var pb = get_tree().get_first_node_in_group("player_base")
+	for b in get_tree().get_nodes_in_group("enemy_base") + get_tree().get_nodes_in_group("player_base"):
+		b.max_hp = 9999999
+		b.hp = 9999999
+	var mid = ArenaBuilder.CENTER + Vector2(135, 150)  # no caminho da direita, lado do jogador
+
+	# investida (bezerro corre e bate em dobro)
+	await _wipe()
+	var d = await _dummy(E, mid + Vector2(0, -60))
+	await _put("bezerro", P, mid + Vector2(0, 150))
+	var hit = await _first_hit(d, 8.0)
+	_check("investida", hit >= 100, "1º golpe %d, normal 55" % int(hit))
+
+	# primeira mordida do jacaré (dobro)
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -40))
+	await _put("jacare_acude", P, mid)
+	hit = await _first_hit(d, 6.0)
+	_check("primeiro golpe em dobro", hit >= 400, "%d, normal 210" % int(hit))
+
+	# furtivo: inimigo não enxerga o Pato Ninja de longe
+	await _wipe()
+	var pato = (await _put("pato_ninja", P, mid))[0]
+	var guard = (await _put("peao_forcado", E, mid + Vector2(0, -110)))[0]
+	guard.stats = guard.stats.duplicate()
+	guard.stats.move_speed = 0.0
+	await get_tree().create_timer(0.3).timeout
+	_check("furtivo", !guard._is_valid_enemy(pato), "inimigo a 110px enxerga? %s" % str(guard._is_valid_enemy(pato)))
+
+	# fúria de entrada do Galo Rei
+	await _wipe()
+	var galo = (await _put("galo_rei", P, mid + Vector2(0, 100)))[0]
+	await get_tree().create_timer(1.0).timeout
+	_check("fúria ao entrar", galo._get_move_speed() > galo.stats.move_speed * 1.2, "velocidade %d, normal %d" % [int(galo._get_move_speed()), int(galo.stats.move_speed)])
+
+	# roubo de vida (mosquito)
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -30))
+	var mosq = (await _put("mosquitada", P, mid))
+	for m in mosq:
+		m.current_hp = 5
+	await get_tree().create_timer(4.0).timeout
+	var healed = mosq.filter(func(m): return is_instance_valid(m) and m.current_hp > 5).size()
+	_check("roubo de vida", healed > 0, "%d de %d se curaram" % [healed, mosq.size()])
+
+	# provocar: inimigo prefere a Capivara Zen mesmo com outro alvo mais perto
+	await _wipe()
+	var capi = (await _put("capivara_zen", P, mid + Vector2(40, 0)))[0]
+	var bait = (await _put("peao_forcado", P, mid + Vector2(-20, -20)))[0]
+	var foe = (await _put("peao_forcado", E, mid + Vector2(-20, -60)))[0]
+	await get_tree().create_timer(1.2).timeout
+	_check("provocar", is_instance_valid(foe) and foe.target == capi, "alvo do inimigo: %s" % ("capivara" if foe.target == capi else ("peão isca" if foe.target == bait else "outro")))
+
+	# redução de dano (Tatu 35%) e regeneração (Capivara)
+	await _wipe()
+	var tatu = (await _put("tatu_bola", P, mid))[0]
+	await get_tree().create_timer(0.8).timeout
+	var hp0 = tatu.current_hp
+	tatu.take_damage(100)
+	_check("redução de dano", abs((hp0 - tatu.current_hp) - 65) <= 1, "100 de dano tirou %d" % int(hp0 - tatu.current_hp))
+	capi = (await _put("capivara_zen", P, mid + Vector2(60, 60)))[0]
+	capi.current_hp = 500
+	await get_tree().create_timer(4.0).timeout
+	_check("regeneração", capi.current_hp > 500, "500 -> %d em 4s" % int(capi.current_hp))
+
+	# capivaras ligadas dividem o dano
+	await _wipe()
+	var caps = await _put("capivarada", P, mid)
+	await get_tree().create_timer(0.8).timeout
+	caps[0].take_damage(300)
+	var shared = caps.slice(1).filter(func(c): return c.current_hp < c.stats.hp).size()
+	_check("dano dividido", shared > 0, "%d das outras 3 sentiram" % shared)
+
+	# Sapo Rei vira sapinhos
+	await _wipe()
+	var rei = (await _put("sapo_rei", P, mid))[0]
+	await get_tree().create_timer(0.6).timeout
+	rei.take_damage(999999)
+	await get_tree().create_timer(0.3).timeout
+	var frogs = get_tree().get_nodes_in_group("units").filter(func(u): return is_instance_valid(u) and !u.is_queued_for_deletion()).size()
+	_check("filhotes ao morrer", frogs == 4, "%d sapinhos" % frogs)
+
+	# abóbora explode
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -50))
+	var abo = await _put("aboborinha", P, mid + Vector2(0, 40))
+	await get_tree().create_timer(5.0).timeout
+	_check("kamikaze explode", 99999 - d.current_hp >= 200 and !is_instance_valid(abo[0]), "tirou %d, abóbora sumiu? %s" % [int(99999 - d.current_hp), str(!is_instance_valid(abo[0]))])
+
+	# milho: tiro se divide
+	await _wipe()
+	var ds: Array = []
+	for off in [Vector2(0, -90), Vector2(-45, -110), Vector2(45, -110)]:
+		ds.append(await _dummy(E, mid + off))
+	await _put("milho_pipoqueiro", P, mid + Vector2(0, 20))
+	await get_tree().create_timer(5.0).timeout
+	var hit_n = ds.filter(func(x): return x.current_hp < 99999).size()
+	_check("tiro que se divide", hit_n >= 2, "%d de 3 atingidos" % hit_n)
+
+	# cacto: espinho atravessa
+	await _wipe()
+	ds = []
+	for off in [Vector2(0, -70), Vector2(0, -105), Vector2(0, -140)]:
+		ds.append(await _dummy(E, mid + off))
+	await _put("cacto_pistoleiro", P, mid + Vector2(0, 40))
+	await get_tree().create_timer(5.0).timeout
+	hit_n = ds.filter(func(x): return x.current_hp < 99999).size()
+	_check("tiro que atravessa", hit_n >= 2, "%d de 3 atingidos" % hit_n)
+
+	# ovelha cura aliado
+	await _wipe()
+	var hurt = (await _put("vaca_brava", P, mid + Vector2(30, 0)))[0]
+	hurt.current_hp = 300
+	await _put("ovelha_violeira", P, mid)
+	await get_tree().create_timer(3.5).timeout
+	_check("cura em volta", hurt.current_hp > 300, "300 -> %d" % int(hurt.current_hp))
+
+	# construções que invocam
+	await _wipe()
+	await _put("galinheiro", P, mid + Vector2(-60, 0))
+	await _put("colmeia", P, mid + Vector2(0, 40))
+	await _put("fornalha", P, mid + Vector2(60, 0))
+	await get_tree().create_timer(10.5).timeout
+	var kinds: Dictionary = {}
+	for u in get_tree().get_nodes_in_group("units"):
+		if u.stats.unit_type != UnitData.UnitType.BUILDING:
+			kinds[u.stats.hp] = int(kinds.get(u.stats.hp, 0)) + 1
+	_check("construções invocam", kinds.size() >= 3, "tipos de filhote em 10s: %d %s" % [kinds.size(), str(kinds.values())])
+
+	# assombração: intocável andando
+	await _wipe()
+	var ghosts = await _put("assombracao", P, mid + Vector2(0, 150))
+	await get_tree().create_timer(1.5).timeout
+	var g = ghosts[0]
+	var ghp = g.current_hp
+	var moving = g.velocity.length() > 1.0
+	g.take_damage(50)
+	_check("imune andando", moving and g.current_hp == ghp, "andando? %s vida %d -> %d" % [str(moving), int(ghp), int(g.current_hp)])
+
+	# robô: onda de choque ao entrar
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(40, 0))
+	var cr: CardData = Catalogo.card("robo_balde")
+	var robot = cr.unit_scene.instantiate()
+	robot.team = P
+	robot.card_data = cr
+	robot.position = battle.to_local(mid)
+	battle.add_child(robot)
+	await get_tree().create_timer(0.3).timeout
+	_check("onda de choque ao entrar", 99999 - d.current_hp >= 150, "tirou %d" % int(99999 - d.current_hp))
+
+	# lenhador acelera
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -40))
+	var lumber = (await _put("lenhador", P, mid))[0]
+	await get_tree().create_timer(9.0).timeout
+	_check("ataque acelera", lumber._attack_speed_ramp_multiplier < 0.95, "multiplicador %.2f" % lumber._attack_speed_ramp_multiplier)
+
+	# jegue gera recurso
+	await _wipe()
+	GameManager.player_money = 0
+	await _put("jegue_cargueiro", P, mid)
+	await get_tree().create_timer(6.0).timeout
+	_check("gera recurso", GameManager.player_money >= 2, "+%d em 6s" % int(GameManager.player_money))
+
+	# tatu devolve dano
+	await _wipe()
+	tatu = (await _put("tatu_bola", P, mid))[0]
+	var hitter = (await _put("peao_forcado", E, mid + Vector2(0, -34)))[0]
+	await get_tree().create_timer(4.0).timeout
+	_check("devolve dano", is_instance_valid(hitter) and hitter.current_hp < hitter.stats.hp - 90, "atacante perdeu %d (os golpes do tatu dão 45)" % int(hitter.stats.hp - hitter.current_hp) if is_instance_valid(hitter) else "atacante morreu")
+
+	# urubu executa
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -40), 1000)
+	d.current_hp = 300
+	await _put("urubu", P, mid)
+	hit = await _first_hit(d, 6.0)
+	_check("executar (dobro em quem está morrendo)", hit >= 160, "%d, normal 85" % int(hit))
+
+	# boi da cara preta levanta
+	await _wipe()
+	var boi = (await _put("caveira_boi", P, mid))[0]
+	await get_tree().create_timer(0.6).timeout
+	boi.take_damage(999999)
+	await get_tree().process_frame
+	_check("ressuscita uma vez", is_instance_valid(boi) and !boi.is_queued_for_deletion() and boi.current_hp > 0, "vida depois: %d" % (int(boi.current_hp) if is_instance_valid(boi) else -1))
+
+	# caramelo: dano sobe no mesmo alvo
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -34))
+	await _put("caramelo", P, mid)
+	var first = await _first_hit(d, 5.0)
+	await get_tree().create_timer(4.0).timeout
+	var last_hp = d.current_hp
+	var later = await _first_hit(d, 3.0)
+	_check("dano crescente no mesmo alvo", later > first, "1º golpe %d, depois %d" % [int(first), int(later)])
+
+	# cartas com acompanhantes
+	var counts: Array = []
+	var comp_ok = true
+	for pair in [["comitiva", 3], ["vaca_e_cria", 3], ["galo_e_cia", 5], ["dupla_caipira", 2], ["bezerrada", 3], ["pintaiada", 6]]:
+		await _wipe()
+		var got = (await _put(pair[0], P, mid)).size()
+		counts.append("%s=%d" % [pair[0], got])
+		if got != pair[1]:
+			comp_ok = false
+	_check("quantidade de unidades por carta", comp_ok, ", ".join(counts))
+
+	# FEITIÇOS: cada um tem que fazer alguma coisa de verdade
+	for c in Catalogo.cards():
+		if !c.is_spell():
+			continue
+		await _wipe()
+		var foes: Array = []
+		for off in [Vector2(-25, -10), Vector2(25, -10), Vector2(0, 25)]:
+			foes.append(await _dummy(E, mid + off))
+		var ally = (await _put("vaca_brava", P, mid + Vector2(0, 5)))[0]
+		ally.current_hp = 400
+		var units_before = get_tree().get_nodes_in_group("units").size()
+		var start_pos: Array = foes.map(func(f): return f.global_position)
+		battle.cast_spell(c.spell_data, mid, P, c.resource_path)
+		var st = {"dano": 0.0, "cura": 0.0, "escudo": 0, "furia": false, "status": false, "moveu": 0.0, "invocou": 0}
+		for k in 12:
+			await get_tree().create_timer(0.25).timeout
+			var now = GameManager.game_time
+			for i in foes.size():
+				var f = foes[i]
+				if !is_instance_valid(f):
+					continue
+				st["dano"] = max(st["dano"], 99999 - f.current_hp)
+				st["status"] = st["status"] or f.speed_multiplier < 0.99 or f._incapacitated_until > now or f._marked_until > now or f._poison_ticks_left > 0
+				st["moveu"] = max(st["moveu"], f.global_position.distance_to(start_pos[i]))
+			if is_instance_valid(ally):
+				st["cura"] = max(st["cura"], ally.current_hp - 400)
+				st["escudo"] = max(st["escudo"], ally.current_shield)
+				st["furia"] = st["furia"] or ally._get_move_speed() > ally.stats.move_speed * 1.1
+			st["invocou"] = max(st["invocou"], get_tree().get_nodes_in_group("units").size() - units_before)
+		var sp: SpellData = c.spell_data
+		var good = true
+		var why: Array = []
+		if sp.damage > 0:
+			good = good and st["dano"] > 0
+			why.append("dano %d" % int(st["dano"]))
+		if sp.heal_amount > 0:
+			good = good and st["cura"] > 0
+			why.append("cura %d" % int(st["cura"]))
+		if sp.shield_amount > 0:
+			good = good and st["escudo"] > 0
+			why.append("escudo %d" % int(st["escudo"]))
+		if sp.rage_speed_mult > 1.0:
+			good = good and st["furia"]
+			why.append("fúria %s" % str(st["furia"]))
+		if sp.summon_count > 0:
+			good = good and st["invocou"] >= sp.summon_count
+			why.append("invocou %d" % st["invocou"])
+		if sp.status_effect in [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.FREEZE, UnitData.OnHitEffect.STUN, UnitData.OnHitEffect.MARK, UnitData.OnHitEffect.POISON]:
+			good = good and st["status"]
+			why.append("efeito %s" % str(st["status"]))
+		if sp.status_effect in [UnitData.OnHitEffect.PULL, UnitData.OnHitEffect.KNOCKBACK]:
+			good = good and st["moveu"] > 8.0
+			why.append("moveu %dpx" % int(st["moveu"]))
+		_check("feitiço " + c.card_name, good, ", ".join(why))
+
+	# TORRES: aura, cura
+	await _wipe()
+	var tower = get_tree().get_nodes_in_group("player_base")[0]
+	for base in Catalogo.bases():
+		if base.base_type != BaseData.BaseType.AURA and base.base_type != BaseData.BaseType.HEAL and base.base_type != BaseData.BaseType.CANNON:
+			continue
+		await _wipe()
+		tower.install_base_data(base, 1)
+		tower.max_hp = 9999999
+		tower.hp = 9999999
+		var near_foe = await _dummy(E, tower.global_position + Vector2(0, -75))
+		var near_ally = (await _put("vaca_brava", P, tower.global_position + Vector2(50, -40)))[0]
+		near_ally.current_hp = 400
+		var saw = false
+		for k in 16:
+			await get_tree().create_timer(0.25).timeout
+			var now2 = GameManager.game_time
+			match base.base_type:
+				BaseData.BaseType.AURA:
+					saw = saw or near_foe.speed_multiplier < 0.99 or near_foe._poison_ticks_left > 0 or near_foe._incapacitated_until > now2
+				BaseData.BaseType.HEAL:
+					saw = saw or near_ally.current_hp > 400
+				BaseData.BaseType.CANNON:
+					saw = saw or near_foe.current_hp < 99999
+		_check("torre " + base.base_name, saw)
+
+	print("RESULTADO habilidades OK (", _aud_ok.size(), "): ", _aud_ok)
+	print("RESULTADO habilidades COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
+
+
+# ================================================================ SIMULAÇÃO DOS BOTS: sobem troféu? em que ritmo?
+func _trophy_summary() -> Array:
+	var vals: Array = []
+	var seen: Dictionary = {}
+	for n in BotSimulator.roster_names:
+		if !seen.has(n):
+			seen[n] = true
+			vals.append(ArenaManager.get_trophies(n))
+	vals.sort()
+	var total = 0
+	for v in vals:
+		total += v
+	return [vals.size(), int(total / max(vals.size(), 1)), vals[vals.size() / 2], vals[0], vals[-1]]
+
+
+func _simulation_audit():
+	battle.queue_free()
+	Engine.time_scale = 1.0
+	BotSimulator._load_extra_bots()
+	BotSimulator._profile_ready = true
+	print("RESULTADO simulação: intervalo=", BotSimulator.SIMULATION_INTERVAL_SECONDS, "s | partidas por rodada=", BotSimulator._get_matches_per_tick(),
+		" | fora do jogo vale ", snapped(BotSimulator.OFFLINE_SIMULATION_FACTOR, 0.01), "x, no máximo ", BotSimulator.MAX_CATCHUP_TICKS, " rodadas por volta")
+	print("RESULTADO simulação início [bots, média, mediana, menor, maior]: ", _trophy_summary())
+	var t0 = Time.get_ticks_msec()
+	for round_n in 60:
+		await BotSimulator._run_simulation_tick()
+		if round_n == 29:
+			print("RESULTADO simulação após 30 rodadas (1h de jogo aberto): ", _trophy_summary())
+	var ms = Time.get_ticks_msec() - t0
+	print("RESULTADO simulação após 60 rodadas (2h de jogo aberto): ", _trophy_summary(), " | tempo por rodada=", ms / 60, "ms")
+	var top: Array = BotSimulator.roster_names.duplicate()
+	top.sort_custom(func(a, b): return ArenaManager.get_trophies(a) > ArenaManager.get_trophies(b))
+	print("RESULTADO simulação top 5: ", top.slice(0, 5).map(func(n): return "%s %d" % [n, ArenaManager.get_trophies(n)]),
+		" | arenas: ", range(1, 8).map(func(a): return top.filter(func(n): return ArenaManager.get_participant_arena(n) == a).size()))

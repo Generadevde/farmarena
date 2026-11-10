@@ -249,7 +249,7 @@ func simulate_match(bot_a_name: String, bot_b_name: String):
 
 	var winner_name = bot_a_name if a_won else bot_b_name
 	var loser_name = bot_b_name if a_won else bot_a_name
-	ArenaManager.record_match_points(winner_name, loser_name)
+	ArenaManager.record_match_points(winner_name, loser_name, true)
 
 	if a_won:
 		SeasonStats.record_match_result(profile_a.deck, profile_b.deck)
