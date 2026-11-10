@@ -88,26 +88,26 @@ func _draw():
 	draw_rect(art_box, turma_col.darkened(0.25))
 	draw_rect(Rect2(art_box.position, Vector2(art_box.size.x, art_box.size.y * 0.5)), turma_col.darkened(0.08))
 	if card.icon != null:
-		var art_rect = Rect2(art_box.position + art_box.size * 0.04, art_box.size * 0.92)
+		var art_rect = Rect2(art_box.position, art_box.size)
 		draw_texture_rect(card.icon, art_rect, false, Color(0.12, 0.12, 0.12, 0.9) if locked else Color.WHITE)
 	# nome
 	var font = ThemeDB.fallback_font
 	var name_rect = Rect2(inner.position.x + 2 * u, art_box.end.y + 2 * u, inner.size.x - 4 * u, inner.end.y - art_box.end.y - 4 * u)
 	draw_rect(name_rect, Color("#f3e6c8") if !locked else Color(0.6, 0.58, 0.54))
-	var fs = int(12 * u)
+	var fs = int(15 * u)
 	var label = card.card_name if !locked else "???"
-	while fs > 7 and font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > name_rect.size.x - 4:
+	while fs > 9 and font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > name_rect.size.x - 4:
 		fs -= 1
 	if font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > name_rect.size.x - 4:
 		draw_multiline_string(font, name_rect.position + Vector2(2, fs), label, HORIZONTAL_ALIGNMENT_CENTER, name_rect.size.x - 4, fs, 2, Color("#3a2414"))
 	else:
 		draw_string(font, name_rect.position + Vector2(0, name_rect.size.y * 0.5 + fs * 0.36), label, HORIZONTAL_ALIGNMENT_CENTER, name_rect.size.x, fs, Color("#3a2414"))
 	# custo (gota no canto)
-	var cc = Vector2(13, 13) * u
-	draw_circle(cc, 14 * u, Color("#2a1a22"))
-	draw_circle(cc, 12 * u, Color("#58b8f0") if !locked else Color(0.45, 0.45, 0.45))
+	var cc = Vector2(15, 15) * u
+	draw_circle(cc, 17 * u, Color("#2a1a22"))
+	draw_circle(cc, 15 * u, Color("#58b8f0") if !locked else Color(0.45, 0.45, 0.45))
 	var cost = str(card.cost)
-	var cfs = int(14 * u)
+	var cfs = int(18 * u)
 	var cw = font.get_string_size(cost, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x
 	draw_string_outline(font, cc + Vector2(-cw * 0.5, cfs * 0.36), cost, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs, 3, Color("#12324a"))
 	draw_string(font, cc + Vector2(-cw * 0.5, cfs * 0.36), cost, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs, Color.WHITE)
@@ -115,18 +115,18 @@ func _draw():
 	if show_level and !locked:
 		var lv = level_override if level_override > 0 else PlayerProfile.get_card_level(card)
 		var txt = "Nv %d" % lv
-		var lfs = int(11 * u)
+		var lfs = int(13 * u)
 		var lw = font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, lfs).x + 8 * u
-		var lr = Rect2(w - 6 * u - lw, 5 * u, lw, 15 * u)
+		var lr = Rect2(w - 6 * u - lw, 5 * u, lw, 18 * u)
 		draw_rect(lr, Color("#2a1a22"))
-		draw_string(font, lr.position + Vector2(4 * u, 11.5 * u), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, Color("#ffe08a"))
+		draw_string(font, lr.position + Vector2(4 * u, 13.5 * u), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, lfs, Color("#ffe08a"))
 	# selo
 	if badge != "":
-		var bfs = int(11 * u)
+		var bfs = int(13 * u)
 		var bw = font.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bfs).x + 10 * u
-		var br = Rect2((w - 3 * u - bw) * 0.5, art_box.end.y - 15 * u, bw, 15 * u)
+		var br = Rect2((w - 3 * u - bw) * 0.5, art_box.end.y - 18 * u, bw, 18 * u)
 		draw_rect(br, Color(0.1, 0.06, 0.05, 0.88))
-		draw_string(font, br.position + Vector2(5 * u, 11.5 * u), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bfs, badge_color)
+		draw_string(font, br.position + Vector2(5 * u, 13.5 * u), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bfs, badge_color)
 	# MAESTRIA: borda extra + cantoneiras + brilho andando (ouro/diamante)
 	if mastery > 0:
 		var mc: Color = Progresso.MASTERY_COLORS[mastery]

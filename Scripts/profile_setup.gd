@@ -1,201 +1,171 @@
 extends Control
+## Tela de entrada 2.0: logo, "continuar como", lista de perfis, criar/excluir.
+## Montada por código no mesmo estilo do menu novo.
 
-# ajusta esse caminho pro local real da sua cena de menu principal
 const MAIN_MENU_SCENE = "res://Scenes/hub.tscn"
 
-# guarda o perfil da tela de "continuar", pra o botão Voltar saber pra onde ir
-var _last_profile_for_back: Dictionary = {}
+var _box: VBoxContainer
 
 
 func _ready():
+	set_anchors_preset(Control.PRESET_FULL_RECT)
 	theme = ThemeBuilder.game_theme
 	MusicPlayer.play_menu_music()
+	for c in get_children():
+		c.queue_free()  # tira os nós da tela antiga
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(center)
+	var col = VBoxContainer.new()
+	col.add_theme_constant_override("separation", 18)
+	col.custom_minimum_size.x = 600
+	center.add_child(col)
+
+	var title = Label.new()
+	title.text = "FARM ARENA"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 72)
+	title.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	title.add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
+	title.add_theme_constant_override("outline_size", 14)
+	col.add_child(title)
+	var parade = HBoxContainer.new()
+	parade.alignment = BoxContainer.ALIGNMENT_CENTER
+	parade.add_theme_constant_override("separation", 6)
+	col.add_child(parade)
+	for id in ["vaca_brava", "galo_rei", "sapo_rei", "espantalho", "peao_forcado", "et_abdutor"]:
+		var c = Catalogo.card(id)
+		if c == null:
+			continue
+		var tr = TextureRect.new()
+		tr.texture = c.icon
+		tr.custom_minimum_size = Vector2(92, 92)
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		parade.add_child(tr)
+
+	var panel = PanelContainer.new()
+	col.add_child(panel)
+	_box = VBoxContainer.new()
+	_box.add_theme_constant_override("separation", 12)
+	panel.add_child(_box)
 
 	var profiles = PlayerProfile.list_profiles()
-
 	if profiles.is_empty():
-		# ninguém nunca jogou nesse aparelho -- pula direto pra criação
 		_show_creation_form()
 		return
-
 	var last_id = PlayerProfile.get_last_active_profile_id()
-	var last_profile = null
 	for p in profiles:
 		if p["id"] == last_id:
-			last_profile = p
-
-	if last_profile != null:
-		_show_continue_screen(last_profile)
-	else:
-		_show_profile_list(profiles)
+			_show_continue_screen(p)
+			return
+	_show_profile_list()
 
 
-# tela rápida: "Continuar como Fulano?" -- caminho mais comum, sem fricção
+func _clear():
+	for c in _box.get_children():
+		_box.remove_child(c)
+		c.queue_free()
+
+
+func _label(text: String, font_size: int = 22) -> Label:
+	var l = Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_size_override("font_size", font_size)
+	_box.add_child(l)
+	return l
+
+
+func _button(text: String, cb: Callable, font_size: int = 24, parent: Node = null) -> Button:
+	var b = Button.new()
+	b.text = text
+	b.custom_minimum_size.y = 72
+	b.add_theme_font_size_override("font_size", font_size)
+	b.pressed.connect(cb)
+	(parent if parent != null else _box).add_child(b)
+	return b
+
+
 func _show_continue_screen(profile: Dictionary):
-	_last_profile_for_back = profile
-	_hide_everything()
-	$ContinueLabel.text = "Continuar como %s?" % profile["name"]
-	$ContinueLabel.visible = true
-	$VBoxContainer/ContinueButton.visible = true
-	$VBoxContainer/SwitchProfileButton.visible = true
-
-	# desconecta a conexão anterior -- antes, cada vez que voltava pra essa
-	# tela (botão Voltar) o pressed ganhava MAIS uma conexão, e um toque
-	# carregava o perfil 2, 3 vezes seguidas
-	for c in $VBoxContainer/ContinueButton.pressed.get_connections():
-		$VBoxContainer/ContinueButton.pressed.disconnect(c["callable"])
-	$VBoxContainer/ContinueButton.pressed.connect(func():
-		PlayerProfile.load_profile_by_id(profile["id"])
-		_finish_entering_profile()
-	)
+	_clear()
+	_label("Bem-vindo de volta,", 20)
+	_label(str(profile["name"]), 40).add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	var go = _button("▶  JOGAR", _enter.bind(int(profile["id"])), 34)
+	go.custom_minimum_size.y = 110
+	go.modulate = Color(1.0, 0.92, 0.6)
+	_button("👤 Trocar de perfil", _show_profile_list, 20)
 
 
-# lista de todos os perfis -- pra escolher outro, criar mais um, ou excluir
-func _show_profile_list(profiles: Array):
+func _show_profile_list():
+	var profiles = PlayerProfile.list_profiles()
 	if profiles.is_empty():
-		# excluiu o último que restava -- volta pro formulário de criação
 		_show_creation_form()
 		return
-
-	_hide_everything()
-	$ProfileList.visible = true
-	$NewProfileButton.visible = true
-	$VBoxContainer/BackButton.visible = !_last_profile_for_back.is_empty()
-
-	for child in $ProfileList.get_children():
-		child.queue_free()
-
+	_clear()
+	_label("Quem vai jogar?", 26)
 	for profile in profiles:
 		var row = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
-		$ProfileList.add_child(row)
-
-		var captured_profile = profile  # cópia local, elimina qualquer dúvida de qual perfil o botão aponta
-
-		var select_button = Button.new()
-		select_button.text = captured_profile["name"]
-		select_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		select_button.pressed.connect(func():
-			PlayerProfile.load_profile_by_id(captured_profile["id"])
-			_finish_entering_profile()
-		)
-		row.add_child(select_button)
-
-		var delete_button = Button.new()
-		delete_button.text = "Excluir"
-		delete_button.pressed.connect(func():
-			print("DEBUG Excluir clicado: id=", captured_profile["id"], " nome=", captured_profile["name"])
-			_confirm_delete_profile(captured_profile)
-		)
-		row.add_child(delete_button)
+		_box.add_child(row)
+		var b = _button(str(profile["name"]), _enter.bind(int(profile["id"])), 24, row)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var del = _button("🗑", _confirm_delete.bind(profile), 22, row)
+		del.custom_minimum_size.x = 80
+	_button("➕ Criar novo perfil", _show_creation_form, 20)
 
 
-# popup de confirmação -- só exclui de verdade se a pessoa apertar "Excluir"
-# na segunda tela, nunca direto no primeiro toque
-func _confirm_delete_profile(profile: Dictionary):
-	var overlay = CanvasLayer.new()
-	overlay.layer = 100
-	add_child(overlay)
-
-	var bg = ColorRect.new()
-	bg.color = Color(0, 0, 0, 0.75)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_STOP
-	overlay.add_child(bg)
-
-	var center = CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(center)
-
-	var panel = PanelContainer.new()
-	center.add_child(panel)
-
-	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
-	panel.add_child(vbox)
-
-	var label = Label.new()
-	label.text = "Excluir o perfil de %s?\nIsso não pode ser desfeito." % profile["name"]
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(label)
-
-	var button_row = HBoxContainer.new()
-	button_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	button_row.add_theme_constant_override("separation", 12)
-	vbox.add_child(button_row)
-
-	var cancel_button = Button.new()
-	cancel_button.text = "Cancelar"
-	cancel_button.pressed.connect(func(): overlay.queue_free())
-	button_row.add_child(cancel_button)
-
-	var confirm_button = Button.new()
-	confirm_button.text = "Excluir"
-	confirm_button.pressed.connect(func():
-		print("DEBUG confirmando exclusão: id=", profile["id"], " nome=", profile["name"])
-		PlayerProfile.delete_profile(profile["id"])
-		print("DEBUG lista após excluir tem ", PlayerProfile.list_profiles().size(), " perfil(is)")
-		# se era o perfil pro qual o botão "Voltar" levaria, esquece --
-		# senão o Voltar tentaria continuar num perfil que não existe mais
-		if _last_profile_for_back.get("id", -1) == profile["id"]:
-			_last_profile_for_back = {}
-		overlay.queue_free()
-		_show_profile_list(PlayerProfile.list_profiles())
-	)
-	button_row.add_child(confirm_button)
+func _confirm_delete(profile: Dictionary):
+	_clear()
+	_label("Excluir o perfil de %s?" % str(profile["name"]), 26)
+	_label("Some tudo: cartas, troféus, baús. Não dá pra desfazer.", 18)
+	_button("Sim, excluir", _delete.bind(int(profile["id"])), 22).modulate = Color(1.0, 0.6, 0.55)
+	_button("Cancelar", _show_profile_list, 22)
 
 
-# formulário de nome, pra criar um perfil novo (o primeiro, ou mais um extra)
+func _delete(id: int):
+	PlayerProfile.delete_profile(id)
+	_show_profile_list()
+
+
 func _show_creation_form():
-	_hide_everything()
-	$NameInput.visible = true
-	$NameInput.text = ""
-	$CreateButton.visible = true
-	$CreateButton.disabled = false
+	_clear()
+	_label("Bem-vindo ao Farm Arena!", 28)
+	_label("Como você quer ser chamado na roça?", 19)
+	var input = LineEdit.new()
+	input.placeholder_text = "Digite seu nome"
+	input.max_length = 16
+	input.custom_minimum_size.y = 72
+	input.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	input.add_theme_font_size_override("font_size", 28)
+	_box.add_child(input)
+	var create = _button("Criar e jogar", _create.bind(input), 28)
+	create.custom_minimum_size.y = 90
+	input.text_submitted.connect(func(_t): _create(input))
+	if !PlayerProfile.list_profiles().is_empty():
+		_button("Voltar", _show_profile_list, 20)
 
 
-func _hide_everything():
-	$ContinueLabel.visible = false
-	$VBoxContainer/ContinueButton.visible = false
-	$VBoxContainer/SwitchProfileButton.visible = false
-	$ProfileList.visible = false
-	$NewProfileButton.visible = false
-	$VBoxContainer/BackButton.visible = false
-	$NameInput.visible = false
-	$CreateButton.visible = false
+var _creating := false
 
 
-func _on_switch_profile_button_pressed():
-	_show_profile_list(PlayerProfile.list_profiles())
-
-
-func _on_back_button_pressed():
-	if _last_profile_for_back.is_empty():
+func _create(input: LineEdit):
+	var typed = input.text.strip_edges()
+	if typed == "" or _creating:
 		return
-	_show_continue_screen(_last_profile_for_back)
+	_creating = true
+	PlayerProfile.create_new_profile(typed)
+	_finish_entering_profile()
 
 
-func _on_new_profile_button_pressed():
-	_show_creation_form()
-
-
-func _on_create_button_pressed():
-	if $CreateButton.disabled:
-		return  # já processando esse clique, ignora repetição/duplo toque
-	var typed_name = $NameInput.text.strip_edges()
-	if typed_name == "":
-		return  # não deixa criar com nome vazio
-	$CreateButton.disabled = true
-	PlayerProfile.create_new_profile(typed_name)
+func _enter(id: int):
+	PlayerProfile.load_profile_by_id(id)
 	_finish_entering_profile()
 
 
 # carrega TUDO que depende do perfil ativo, na ordem certa, e só DEPOIS roda
-# a simulação de "tempo que o jogo ficou fechado" dos bots -- antes ela rodava
-# no _ready do BotSimulator, ANTES de qualquer perfil existir, gravando no
-# perfil errado (e o load logo depois apagava). Era por isso que no celular
-# (app fecha/abre toda hora) o ranking parecia parado
+# a simulação de "tempo que o jogo ficou fechado" dos bots
 func _finish_entering_profile():
 	PlayerBehaviorProfiler.load_for_active_profile()
 	Leaderboard.load_for_active_profile()

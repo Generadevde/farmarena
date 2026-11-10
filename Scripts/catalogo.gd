@@ -519,6 +519,7 @@ static func build_card(def: Dictionary, path: String = "", stats_override: UnitD
 		_apply_fields(stats, def.get("u", {}))
 		stats.role = card.role
 		if stats.is_ranged:
+			stats.detection_range = maxf(stats.detection_range, stats.attack_range + 20.0)
 			stats.projectile_texture = SpriteForge.projectile(def.get("proj", "pedra"), card.art_palette)
 		card.unit_scene = build_unit_scene(stats, card.icon)
 	if path != "":

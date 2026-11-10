@@ -346,8 +346,14 @@ func _configure_detection_area():
 	col.shape = col.shape.duplicate()
 
 	var sight = stats.detection_range if stats.detection_range > 0 else stats.attack_range
+	# quem atira precisa ENXERGAR pelo menos até onde alcança (+ folga do corpo
+	# do alvo) -- senão a construção de longo alcance ficava parada sem atirar
+	if stats.is_ranged:
+		sight = max(sight, stats.attack_range + 40.0)
 	var contact_floor = _get_own_target_radius() * 2.0 + 40.0
-	col.shape.radius = max(sight, contact_floor)
+	# a área de detecção tem escala própria na cena; compensa pra o raio valer em unidades de mundo
+	var area_scale = max(min($Area2D.scale.x, $Area2D.scale.y), 0.01)
+	col.shape.radius = max(sight, contact_floor) / area_scale
 
 	# a detecção precisa "ver" TODO MUNDO (os dois times, terrestre e
 	# aéreo, e construção) -- quem realmente decide se um corpo é um alvo

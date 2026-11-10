@@ -372,10 +372,9 @@ func _build_batalha(box: Node):
 		b.custom_minimum_size = Vector2(52, 44)
 		b.modulate = Color(1, 1, 1) if i == Progresso.active_deck() else Color(0.65, 0.62, 0.58)
 		head.add_child(b)
-	var g = _grid(deck_panel, 7)
-	g.add_theme_constant_override("h_separation", 4)
+	var g = _grid(deck_panel, 4)
 	for c in Progresso.deck_cards(Progresso.active_deck()):
-		var v = CardView.make(c, 88)
+		var v = CardView.make(c, 150)
 		v.tapped.connect(_show_card_popup)
 		g.add_child(v)
 
@@ -562,15 +561,14 @@ func _build_cartas(box: Node):
 	info.add_child(il)
 	if !is_active:
 		info.add_child(_button("Usar este", _pick_active_deck.bind(_deck_slot), 16))
-	var g = _grid(deck_panel, 7)
-	g.add_theme_constant_override("h_separation", 4)
+	var g = _grid(deck_panel, 4)
 	var deck = Progresso.deck_cards(_deck_slot)
 	for i in deck.size():
-		var v = CardView.make(deck[i], 88)
+		var v = CardView.make(deck[i], 150)
 		v.set_selected(_pending_card != null or _pending_index == i)
 		v.tapped.connect(_on_deck_slot_tapped.bind(i))
 		g.add_child(v)
-	var hint = "Toque numa carta do baralho pra trocar, ou numa carta da coleção pra ver/usar."
+	var hint = "Toque numa carta da coleção pra escolher e depois no lugar do baralho onde ela entra. (Ou o contrário: lugar primeiro, carta depois.)"
 	if _pending_card != null:
 		hint = "👉 Toque na posição do baralho onde %s vai entrar." % _pending_card.card_name
 	elif _pending_index != -1:
@@ -610,32 +608,25 @@ func _build_cartas(box: Node):
 	missing.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena if a.unlock_arena != b.unlock_arena else a.cost < b.cost)
 
 	box.add_child(_title("Coleção  %d/%d" % [owned.size(), owned.size() + missing.size()]))
-	var og = _grid(box, 5)
+	var og = _grid(box, 2)
 	for c in owned:
-		var v = CardView.make(c, 128)
+		var badge = ""
+		var badge_col = Color(1, 0.9, 0.5)
 		if Progresso.is_new(c):
-			v.badge = "NOVA!"
-			v.badge_color = Color(0.5, 1, 0.6)
+			badge = "NOVA!"
+			badge_col = Color(0.5, 1, 0.6)
 		elif Progresso.can_upgrade(c):
-			v.badge = "⬆ SUBIR"
-			v.badge_color = Color(0.5, 1, 0.6)
-		elif Progresso.copies_needed(c) > 0:
-			v.badge = "%d/%d" % [Progresso.copies(c), Progresso.copies_needed(c)]
-		else:
-			v.badge = "MÁX"
-		v.tapped.connect(_on_collection_tapped)
-		og.add_child(v)
+			badge = "⬆ SUBIR"
+			badge_col = Color(0.5, 1, 0.6)
+		og.add_child(_collection_entry(c, false, badge, badge_col))
 	if !missing.is_empty():
 		box.add_child(_title("Ainda não encontradas"))
-		var mg = _grid(box, 5)
+		var mg = _grid(box, 2)
 		var arena_now = ArenaManager.get_player_arena()
 		for c in missing:
-			var v = CardView.make(c, 128)
-			v.locked = c.unlock_arena > arena_now
-			v.show_level = false
-			v.badge = "Arena %d" % c.unlock_arena if v.locked else "nos baús"
-			v.tapped.connect(_show_card_popup)
-			mg.add_child(v)
+			var is_locked = c.unlock_arena > arena_now
+			mg.add_child(_collection_entry(c, true, "Arena %d" % c.unlock_arena if is_locked else "nos baús", Color(1, 0.9, 0.5), is_locked))
+	_build_place_bar()
 
 	# torres
 	box.add_child(_title("Sua torre"))
@@ -658,6 +649,105 @@ func _build_cartas(box: Node):
 		tg.add_child(tb)
 
 
+## uma carta da coleção: a carta grande + os dados dela do lado
+func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Color, hide_art: bool = false) -> Control:
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var v = CardView.make(c, 150)
+	v.locked = hide_art
+	v.show_level = !missing
+	v.badge = badge
+	v.badge_color = badge_col
+	v.set_selected(_pending_card == c)
+	if missing:
+		v.tapped.connect(_show_card_popup)
+	else:
+		v.tapped.connect(_on_collection_tapped)
+	row.add_child(v)
+	var side = VBoxContainer.new()
+	side.custom_minimum_size.x = 172
+	side.add_theme_constant_override("separation", 2)
+	row.add_child(side)
+	var f = ThemeDB.fallback_font
+	var head = Label.new()
+	head.text = "%s · %s" % [CardData.role_name(c.role), Catalogo.RARITY_NAMES[Catalogo.rarity_of(c)]]
+	head.add_theme_font_override("font", f)
+	head.add_theme_font_size_override("font_size", 14)
+	head.add_theme_color_override("font_color", Catalogo.rarity_color(c))
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	side.add_child(head)
+	if !hide_art:
+		var mult = PlayerProfile.compute_stat_multiplier(Progresso.level(c)) if !missing else 1.0
+		var lines: Array = _stats_text(c, mult).split("  ·  ")
+		var body = Label.new()
+		body.text = "\n".join(lines.slice(0, 6))
+		body.add_theme_font_override("font", f)
+		body.add_theme_font_size_override("font_size", 15)
+		body.add_theme_color_override("font_color", ThemeBuilder.COLOR_CREAM)
+		side.add_child(body)
+	if !missing:
+		var need = Progresso.copies_needed(c)
+		var cp = Label.new()
+		cp.text = "Cópias %d/%d" % [Progresso.copies(c), need] if need > 0 else "Nível máximo"
+		cp.add_theme_font_override("font", f)
+		cp.add_theme_font_size_override("font_size", 14)
+		cp.add_theme_color_override("font_color", Color(0.5, 1, 0.6) if Progresso.can_upgrade(c) else ThemeBuilder.COLOR_STAT_LABEL)
+		side.add_child(cp)
+		var m = Progresso.mastery(c)
+		if m > 0:
+			var ml = Label.new()
+			ml.text = "Maestria " + Progresso.MASTERY_NAMES[m]
+			ml.add_theme_font_override("font", f)
+			ml.add_theme_font_size_override("font_size", 14)
+			ml.add_theme_color_override("font_color", Progresso.MASTERY_COLORS[m])
+			side.add_child(ml)
+	var info = _button("ver mais", _show_card_popup.bind(c), 14)
+	info.custom_minimum_size.y = 40
+	info.size_flags_vertical = Control.SIZE_SHRINK_END | Control.SIZE_EXPAND
+	side.add_child(info)
+	return row
+
+
+var _place_bar: Control
+
+
+## faixa que aparece embaixo quando uma carta está escolhida: mostra o
+## baralho ali mesmo, pra tocar no lugar sem precisar rolar a tela pra cima
+func _build_place_bar():
+	if is_instance_valid(_place_bar):
+		_place_bar.queue_free()
+	_place_bar = null
+	if _pending_card == null:
+		return
+	var p = PanelContainer.new()
+	p.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	p.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	p.offset_bottom = -BAR_H
+	add_child(p)
+	_place_bar = p
+	var v = VBoxContainer.new()
+	p.add_child(v)
+	var head = HBoxContainer.new()
+	v.add_child(head)
+	var l = _label("👉 %s entra no lugar de qual? (Baralho %d)" % [_pending_card.card_name, _deck_slot + 1], 17, Color(1, 0.9, 0.6))
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.clip_text = true
+	head.add_child(l)
+	var cancel = _button("✖", _cancel_placing_and_refresh, 18)
+	cancel.custom_minimum_size = Vector2(60, 44)
+	head.add_child(cancel)
+	var row = HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 4)
+	v.add_child(row)
+	var deck = Progresso.deck_cards(_deck_slot)
+	for i in deck.size():
+		var cv = CardView.make(deck[i], 92)
+		cv.show_level = false
+		cv.tapped.connect(_on_deck_slot_tapped.bind(i))
+		row.add_child(cv)
+
+
 func _view_deck(i: int):
 	_deck_slot = i
 	_cancel_placing()
@@ -672,6 +762,9 @@ func _set_filter(turma: String):
 func _cancel_placing():
 	_pending_card = null
 	_pending_index = -1
+	if is_instance_valid(_place_bar):
+		_place_bar.queue_free()
+	_place_bar = null
 
 
 func _cancel_placing_and_refresh():
@@ -695,11 +788,19 @@ func _on_collection_tapped(card: CardData):
 		_cancel_placing()
 		_queue_refresh()
 		return
-	_show_card_popup(card)
+	# toque = escolher com o dedo (toque de novo desmarca)
+	if _pending_card == card or Progresso.deck_paths(_deck_slot).has(card.resource_path):
+		var was = _pending_card
+		_cancel_placing()
+		if was == null:
+			_toast("%s já está neste baralho." % card.card_name)
+	else:
+		_pending_card = card
+	_queue_refresh()
 
 
 # ---------------------------------------------------------------- popup de carta
-func _popup(min_width: float = 600.0) -> VBoxContainer:
+func _popup(min_width: float = 600.0, tall: bool = false) -> VBoxContainer:
 	var overlay = CanvasLayer.new()
 	overlay.layer = 50
 	overlay.add_to_group("hub_popup")
@@ -717,7 +818,15 @@ func _popup(min_width: float = 600.0) -> VBoxContainer:
 	center.add_child(panel)
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
-	panel.add_child(v)
+	if tall:
+		var sc = ScrollContainer.new()
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		sc.custom_minimum_size = Vector2(min_width - 20, minf(1150.0, get_viewport_rect().size.y - 260.0))
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sc.add_child(v)
+		panel.add_child(sc)
+	else:
+		panel.add_child(v)
 	v.set_meta("overlay", overlay)
 	return v
 
@@ -1081,6 +1190,7 @@ func _build_sitio(box: Node):
 		g2.add_child(v2)
 
 	box.add_child(_button("📊 Ranking, temporada e estatísticas", _goto.bind(STATS_HUB_SCENE)))
+	box.add_child(_button("📜 Registro das temporadas (você e os bots)", _show_registro))
 	box.add_child(_button("📰 Jornal da Roça", _goto.bind(JOURNAL_SCENE)))
 	box.add_child(_button("🎨 Criador (cartas, torres, arenas)", _goto.bind(CREATOR_SCENE)))
 	var safra_b = _button("🌱 Safra (cartas novas a cada 3 dias)" + ("  --  PRÊMIO!" if Safra.mission_ready() else ""), _show_safra)
@@ -1089,6 +1199,75 @@ func _build_sitio(box: Node):
 	box.add_child(safra_b)
 	box.add_child(_button("👤 Trocar de perfil", _goto.bind(PROFILE_SCENE)))
 	box.add_child(_button("Sair do jogo", get_tree().quit))
+
+
+# ================================================================ registro das temporadas
+func _show_registro():
+	var v = _popup(660, true)
+	v.add_child(_title("📜 Registro das temporadas"))
+	var now = Registro.snapshot()
+	var p = _panel(v)
+	p.add_child(_label("Temporada %d (em andamento · faltam %.0f dias)" % [SeasonManager.season_number, SeasonManager.get_days_remaining()], 18, ThemeBuilder.COLOR_GOLD))
+	_registro_summary(p, now)
+	p.add_child(_button("Ver tabela", _show_registro_table.bind(now), 16))
+	var fame = Registro.hall_of_fame()
+	if !fame.is_empty():
+		var fp = _panel(v)
+		fp.add_child(_label("🏅 Hall da fama (títulos de temporada)", 17, ThemeBuilder.COLOR_STAT_LABEL))
+		for e in fame.slice(0, 5):
+			fp.add_child(_label("%s  ·  %d título(s)" % [e[0], e[1]], 17, Color(1, 1, 0.7) if e[0] == PlayerProfile.player_name else ThemeBuilder.COLOR_CREAM))
+	var history: Array = Registro.entries().duplicate()
+	history.reverse()
+	if history.is_empty():
+		v.add_child(_wrap("Quando a temporada atual terminar, ela fica guardada aqui: quem foi campeão, a sua colocação, vitórias e derrotas de todo mundo e as cartas que você mais usou.", 16))
+	for e in history:
+		var hp = _panel(v)
+		hp.add_child(_label("Temporada %d  ·  terminou em %s" % [int(e["temporada"]), str(e["fim"])], 18, ThemeBuilder.COLOR_GOLD))
+		_registro_summary(hp, e)
+		hp.add_child(_button("Ver tabela completa", _show_registro_table.bind(e), 16))
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _registro_summary(parent: Node, e: Dictionary):
+	var rank: Array = e["ranking"]
+	var medals = ["🥇", "🥈", "🥉"]
+	var podium: Array = []
+	for i in mini(3, rank.size()):
+		podium.append("%s %s (%d)" % [medals[i], str(rank[i][0]), int(rank[i][1])])
+	parent.add_child(_wrap("   ".join(podium), 16))
+	var me: Dictionary = e["jogador"]
+	parent.add_child(_wrap("Você: %dº lugar · %d pontos · %d vitórias / %d derrotas · 🏆 %d · nível %d" % [int(me["pos"]), int(me["pontos"]), int(me["v"]), int(me["d"]), int(me["trofeus"]), int(me["nivel"])], 16, Color(1, 1, 0.75)))
+	var cards: Array = me.get("cartas", [])
+	if !cards.is_empty():
+		parent.add_child(_wrap("Mais jogadas: " + ", ".join(cards.map(func(c): return "%s (%dx)" % [str(c[0]), int(c[1])])), 15, ThemeBuilder.COLOR_STAT_LABEL))
+
+
+func _show_registro_table(e: Dictionary):
+	var v = _popup(660, true)
+	v.add_child(_title("Temporada %d" % int(e["temporada"])))
+	v.add_child(_label("Toque num nome pra ver o histórico dele.", 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var rank: Array = e["ranking"]
+	for i in rank.size():
+		var r = rank[i]
+		var b = _button("%dº  %s   ·   %d pts   ·   %dV %dD   ·   🏆 %d" % [i + 1, str(r[0]), int(r[1]), int(r[2]), int(r[3]), int(r[4])], _show_registro_of.bind(str(r[0])), 15)
+		b.custom_minimum_size.y = 44
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		if str(r[0]) == PlayerProfile.player_name:
+			b.modulate = Color(1, 1, 0.6)
+		v.add_child(b)
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _show_registro_of(who: String):
+	var v = _popup(620, true)
+	v.add_child(_title(who))
+	v.add_child(_label("🏆 %d troféus agora  ·  %s" % [ArenaManager.get_trophies(who), ArenaManager.get_arena_info(ArenaManager.get_participant_arena(who)).get("name", "")], 16))
+	var lines = Registro.history_of(who)
+	if lines.is_empty():
+		v.add_child(_wrap("Ainda sem temporadas terminadas no registro.", 16))
+	for l in lines:
+		v.add_child(_label("Temporada %d:  %dº lugar · %d pts · %dV %dD" % [l[0], l[1], l[2], l[3], l[4]], 16, Color(1, 1, 0.7) if l[1] == 1 else ThemeBuilder.COLOR_CREAM))
+	v.add_child(_button("Fechar", _close.bind(v)))
 
 
 func _goto(scene: String):

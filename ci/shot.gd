@@ -39,6 +39,14 @@ func _ready():
 	Progresso.give_card(Catalogo.card("peao_forcado"), 30)
 	Progresso.pop_pending()
 
+	var prof = load("res://Scenes/profile_setup.tscn").instantiate()
+	add_child(prof)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("perfil")
+	prof.queue_free()
+	await get_tree().process_frame
+	SeasonManager.load_for_active_profile()
+	SeasonManager.force_new_season()
 	var hub = load("res://Scenes/hub.tscn").instantiate()
 	add_child(hub)
 	await get_tree().create_timer(0.6).timeout
@@ -50,6 +58,15 @@ func _ready():
 	hub._show_card_popup(Catalogo.card("vaca_brava"))
 	await get_tree().create_timer(0.4).timeout
 	await _shot("carta")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._on_collection_tapped(Catalogo.card("cavalo_coiceiro"))
+	await get_tree().create_timer(0.4).timeout
+	await _shot("escolher")
+	hub._cancel_placing_and_refresh()
+	hub._show_registro()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("registro")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
 	Progresso.enter_tournament()

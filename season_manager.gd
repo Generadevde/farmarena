@@ -45,6 +45,7 @@ func _start_new_season():
 	# não mexe mais em arena aqui -- ela sobe/desce sozinha, em tempo real,
 	# junto com cada partida (ver ArenaManager). A temporada agora só reseta
 	# o placar informativo da semana (Leaderboard.season_points)
+	Registro.close_season()  # guarda a tabela final (você e os bots) antes de zerar
 	Leaderboard.reset()
 	SeasonStats.reset()
 	season_number += 1

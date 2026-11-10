@@ -8,7 +8,7 @@ class_name BattleHud
 ## procura por nome.
 
 const HAND_BUTTON = preload("res://Scenes/button.tscn")
-const CARD_W = 150.0
+const CARD_W = 178.0
 
 var _money_label: Label
 var _bar: ProgressBar
@@ -70,7 +70,7 @@ func _ready():
 	bottom.add_child(v)
 	var row = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 10)
 	v.add_child(row)
 
 	var next_box = VBoxContainer.new()
@@ -81,7 +81,7 @@ func _ready():
 	nl.add_theme_font_size_override("font_size", 14)
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	next_box.add_child(nl)
-	_next_view = CardView.make(null, 84)
+	_next_view = CardView.make(null, 100)
 	_next_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_next_view.show_level = false
 	next_box.add_child(_next_view)

@@ -170,6 +170,9 @@ func _art_sheet():
 	print("RESULTADO criador: carta gerada '", made.card_name, "' salva? ", made.resource_path.begins_with("user://"), " no banco? ", CardDatabase.all_cards.has(made),
 		" stats ok? ", DeckBuilder.get_unit_stats(made) != null, " | editar oficial: vida ", hp_before, " -> ", Catalogo.unit_stats(Catalogo.card("peao_forcado")).hp,
 		" | torneio: entrou? ", Progresso.enter_tournament(), " oponentes=", Progresso.tournament().get("oponentes", []), " regra=", MatchSetup.RULE_NAMES[int(Progresso.tournament().get("regra", 0))])
+	SeasonManager.force_new_season()
+	var reg = Registro.entries()
+	print("RESULTADO registro: temporadas guardadas=", reg.size(), " participantes=", reg[0]["ranking"].size() if reg.size() > 0 else 0, " você=", reg[0]["jogador"] if reg.size() > 0 else {}, " | temporada agora=", SeasonManager.season_number)
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:
@@ -394,6 +397,28 @@ func _freeze_test():
 		print("RESULTADO filhote: nível=", child.card_level, " vida=", child.stats.hp, " (base ", base_hp, ", esperado x", PlayerProfile.compute_stat_multiplier(5), ")")
 	print("RESULTADO congelar: andou congelada=", snapped(moved_frozen, 0.1), "px (esperado ~0) | travada=", frozen_flag,
 		" | depois andou ", snapped(moved_after, 0.1), "px (esperado >0, imunidade)")
+	# construção de longo alcance: tem que atirar num inimigo parado a ~160 de distância
+	for old_u in get_tree().get_nodes_in_group("units"):
+		old_u.queue_free()
+	await get_tree().process_frame
+	var cannon_card: CardData = Catalogo.card("canhao_pipoca")
+	var cow_card2: CardData = Catalogo.card("capivara_zen")
+	battle.spawn_unit(cannon_card.unit_scene, GameManager.Team.PLAYER, pb.global_position + Vector2(60, -90), cannon_card)
+	battle.spawn_unit(cow_card2.unit_scene, GameManager.Team.ENEMY, eb.global_position, cow_card2)
+	await get_tree().process_frame
+	var cannon = null
+	var victim = null
+	for uu in get_tree().get_nodes_in_group("units"):
+		if uu.team == GameManager.Team.PLAYER:
+			cannon = uu
+		else:
+			victim = uu
+	victim.global_position = cannon.global_position + Vector2(0, -165)
+	victim.apply_incapacitate(30.0)
+	var hp0 = victim.current_hp
+	await get_tree().create_timer(5.0).timeout
+	print("RESULTADO canhão: alvo a ", int(victim.global_position.distance_to(cannon.global_position)), "px (alcance ", int(cannon.stats.attack_range), ") perdeu ", hp0 - victim.current_hp, " de vida em 5s (esperado > 0)")
+
 
 
 # cada unidade corpo a corpo do jogo, sozinha, na frente da base inimiga:
