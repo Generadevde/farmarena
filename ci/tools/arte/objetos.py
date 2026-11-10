@@ -520,15 +520,81 @@ def proj_bosta():
     cv = _p(); cv.ellipse(8, 10, 5, 3, "W"); cv.ellipse(8, 7, 3.5, 2.5, "W"); cv.ellipse(8, 4, 2, 2, "W"); return fin(cv)
 
 
+def obj_carroca():
+    cv = Canvas()
+    cv.blob_rect(8, 18, 30, 14, "W", 2)
+    for x in range(12, 37, 5):
+        cv.rect(x, 19, 1, 12, C("W", 2))
+    cv.ellipse(24, 16, 12, 5, "K")                       # carga de feno
+    cv.rect(38, 26, 8, 2, C("W", 1))                     # varal
+    for cx in (15, 32):
+        cv.ellipse(cx, 36, 7, 7, "M")
+        cv.ellipse(cx, 36, 3, 3, "W", shade=False)
+        cv.put(cx, 36, C("M", 0))
+    return fin(cv)
+
+
+def obj_casinha():
+    """a casinha do fundo do quintal"""
+    cv = Canvas()
+    _tabuas(cv, 14, 14, 20, 30)
+    _telhado(cv, 11, 37, 6, 14)
+    cv.rect(19, 22, 10, 22, C("W", 2))
+    cv.rect(19, 22, 10, 1, C("W", 0)); cv.rect(19, 22, 1, 22, C("W", 0))
+    for dx, dy in ((0, -1), (-1, 0), (0, 0), (1, 0), (0, 1)):   # meia-lua
+        cv.put(24 + dx, 27 + dy, PUPIL)
+    cv.put(25, 27, C("W", 2))
+    cv.rect(27, 33, 1, 2, C("K", 0))
+    return fin(cv)
+
+
+def obj_cerca_eletrica():
+    cv = Canvas()
+    for x in (10, 36):
+        cv.blob_rect(x, 14, 4, 30, "W", 1)
+        cv.rect(x - 1, 12, 6, 3, C("M", 1))
+    for y in (20, 28, 36):
+        cv.rect(13, y, 24, 1, C("M", 0))
+    for x, y in ((18, 18), (27, 26), (22, 34), (31, 19)):       # faíscas
+        cv.put(x, y, (255, 240, 120, 255)); cv.put(x + 1, y - 1, (255, 240, 120, 255)); cv.put(x - 1, y + 1, SHINE)
+    return fin(cv)
+
+
+def ico_ferradura():
+    """sorte"""
+    import math
+    cv = Canvas()
+    for a in range(-30, 211, 4):
+        x = 24 + math.cos(math.radians(a)) * 13
+        y = 22 - math.sin(math.radians(a)) * 13
+        cv.ellipse(x, y, 3.2, 3.2, "M")
+    for a in range(0, 181, 30):
+        cv.put(int(24 + math.cos(math.radians(a)) * 13), int(22 - math.sin(math.radians(a)) * 13), PUPIL)
+    cv.rect(9, 30, 7, 5, C("M", 2)); cv.rect(32, 30, 7, 5, C("M", 2))
+    return fin(cv)
+
+
+def ico_garrafa():
+    cv = Canvas()
+    cv.blob_rect(15, 18, 18, 26, "S", 3)
+    cv.blob_rect(20, 6, 8, 13, "S", 2)
+    cv.rect(20, 3, 8, 4, C("W", 1))
+    cv.rect(17, 24, 14, 12, EYE_W)
+    cv.rect(21, 27, 6, 6, C("A", 1))
+    cv.rect(17, 20, 2, 8, SHINE)
+    return fin(cv)
+
+
 OBJETOS = {
     "objeto": {"galinheiro": obj_galinheiro, "silo": obj_silo, "colmeia": obj_colmeia, "poco": obj_poco,
                "barril": obj_barril, "canhao_milho": obj_espantalho_torre, "fornalha": obj_fornalha,
-               "tenda": obj_tenda, "ninho": obj_ninho, "ovni": obj_ovni, "trator": obj_trator, "feno": obj_monte_feno},
+               "tenda": obj_tenda, "ninho": obj_ninho, "ovni": obj_ovni, "trator": obj_trator, "feno": obj_monte_feno,
+               "carroca": obj_carroca, "casinha": obj_casinha, "cerca_eletrica": obj_cerca_eletrica},
     "torre": {"celeiro": torre_celeiro, "moinho": torre_moinho, "caixa_dagua": torre_caixa_dagua, "castelo_feno": torre_castelo_feno},
     "icone": {"raio": ico_raio, "tornado": ico_tornado, "coracao": ico_coracao, "pimenta": ico_pimenta,
               "floco": ico_floco, "cogumelo": ico_cogumelo, "escudo": ico_escudo, "melancia": ico_melancia,
               "ovo": ico_ovo, "vaca_caindo": ico_vaca_caindo, "nota": ico_nota, "lama": ico_lama,
-              "laco": ico_rede, "espelho": ico_espelho, "moeda": ico_moeda},
+              "laco": ico_rede, "espelho": ico_espelho, "moeda": ico_moeda, "ferradura": ico_ferradura, "garrafa": ico_garrafa},
     "proj": {"ovo": proj_ovo, "milho": proj_milho, "pedra": proj_pedra, "flecha": proj_flecha, "fogo": proj_fogo,
              "gota": proj_gota, "nota": proj_nota, "raio": proj_raio, "espinho": proj_espinho, "estrume": proj_bosta},
 }

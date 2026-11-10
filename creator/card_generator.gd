@@ -653,35 +653,38 @@ static func generate_arena_background(w: int, h: int, seed_value: int) -> Image:
 # mesmo SpriteForge das cartas oficiais. Usado pelo Criador ("Gerar") e pela
 # Safra (cartas automáticas a cada 3 dias).
 const TURMA_THEMES = {
-	"Curral": {"cabeca": ["vaca", "boi", "cavalo", "ovelha", "bode"], "pernas": ["casco"], "corpo": ["redondo", "la", "armadura", "poncho"], "bracos": ["patas"],
+	"Curral": {"cabeca": ["vaca", "boi", "cavalo", "ovelha", "bode", "burro"], "pernas": ["casco"], "corpo": ["redondo", "la", "armadura", "poncho", "colete"], "bracos": ["patas"],
 		"cores": ["#f2ede0", "#8a5a3c", "#c89060", "#4a4048", "#d8c0a0", "#b87848"], "proj": "estrume"},
-	"Galinheiro": {"cabeca": ["galinha", "pato", "coruja"], "pernas": ["ave"], "corpo": ["penas"], "bracos": ["asas"],
+	"Galinheiro": {"cabeca": ["galinha", "pato", "coruja", "urubu"], "pernas": ["ave"], "corpo": ["penas"], "bracos": ["asas"],
 		"cores": ["#f4f0e4", "#f8dc50", "#b84828", "#8a6848", "#f0e8a0", "#506078"], "proj": "ovo"},
-	"Brejo": {"cabeca": ["sapo", "capivara", "gato"], "pernas": ["patinha"], "corpo": ["redondo", "poncho"], "bracos": ["patas"],
+	"Brejo": {"cabeca": ["sapo", "capivara", "gato", "jacare", "tatu"], "pernas": ["patinha"], "corpo": ["redondo", "poncho"], "bracos": ["patas"],
 		"cores": ["#68b848", "#a87848", "#3c8848", "#58a0a0", "#8a6038", "#90c060"], "proj": "gota"},
-	"Roçado": {"cabeca": ["milho", "abobora", "cebola", "espantalho"], "pernas": ["bota", "fantasma"], "corpo": ["macacao", "poncho", "saco"], "bracos": ["humanos"],
+	"Roçado": {"cabeca": ["milho", "abobora", "cebola", "espantalho", "tomate", "cacto"], "pernas": ["bota", "fantasma"], "corpo": ["macacao", "poncho", "saco"], "bracos": ["humanos"],
 		"cores": ["#f4d040", "#f08828", "#c880c0", "#c8a860", "#e05050", "#90c040"], "proj": "milho"},
-	"Peões": {"cabeca": ["humano", "velho", "porco"], "pernas": ["bota"], "corpo": ["macacao", "poncho", "armadura"], "bracos": ["humanos"],
+	"Peões": {"cabeca": ["humano", "velho", "porco", "cachorro"], "pernas": ["bota"], "corpo": ["macacao", "poncho", "armadura", "colete", "terno"], "bracos": ["humanos"],
 		"cores": ["#c84838", "#58a050", "#e8c040", "#3c6cb8", "#b83830", "#e8e0d0"], "proj": "pedra"},
-	"Coisa Estranha": {"cabeca": ["et", "balde", "abelha", "espantalho", "gato"], "pernas": ["rodas", "fantasma", "inseto", "bota"], "corpo": ["armadura", "listrado", "redondo"], "bracos": ["humanos", "patas"],
+	"Coisa Estranha": {"cabeca": ["et", "balde", "abelha", "espantalho", "gato", "caveira"], "pernas": ["rodas", "fantasma", "inseto", "bota"], "corpo": ["armadura", "listrado", "redondo"], "bracos": ["humanos", "patas"],
 		"cores": ["#78c878", "#98a0ac", "#f4c830", "#d8e8f0", "#9a5cd0", "#50c0e0"], "proj": "raio"},
 }
 const HEAD_NAMES = {"vaca": "Vaca", "boi": "Boi", "cavalo": "Cavalo", "ovelha": "Ovelha", "bode": "Bode", "galinha": "Galinha", "pato": "Pato", "coruja": "Coruja",
 	"sapo": "Sapo", "capivara": "Capivara", "gato": "Gato", "milho": "Milho", "abobora": "Abóbora", "cebola": "Cebola", "espantalho": "Espantalho",
-	"humano": "Peão", "velho": "Vovô", "porco": "Porco", "et": "ET", "balde": "Robô", "abelha": "Abelha"}
-const HEAD_FEMININE = ["vaca", "ovelha", "galinha", "coruja", "capivara", "abobora", "cebola", "abelha"]
+	"humano": "Peão", "velho": "Vovô", "porco": "Porco", "et": "ET", "balde": "Robô", "abelha": "Abelha",
+	"cachorro": "Caramelo", "burro": "Jegue", "tatu": "Tatu", "jacare": "Jacaré", "urubu": "Urubu", "tomate": "Tomate", "cacto": "Cacto", "caveira": "Caveira"}
+const HEAD_FEMININE = ["vaca", "ovelha", "galinha", "coruja", "capivara", "abobora", "cebola", "abelha", "caveira"]
 const WEAPON_TITLES = {"forcado": ["do Forcado", "do Forcado"], "machado": ["Lenhador", "Lenhadora"], "marreta": ["Marreteiro", "Marreteira"], "foice": ["Ceifador", "Ceifadora"],
 	"enxada": ["da Enxada", "da Enxada"], "frigideira": ["Cozinheiro", "Cozinheira"], "porrete": ["Brigão", "Brigona"], "motosserra": ["da Motosserra", "da Motosserra"],
-	"estilingue": ["Atirador", "Atiradora"], "lampiao": ["do Lampião", "do Lampião"], "viola": ["Violeiro", "Violeira"], "escudo": ["Blindado", "Blindada"]}
+	"estilingue": ["Atirador", "Atiradora"], "lampiao": ["do Lampião", "do Lampião"], "viola": ["Violeiro", "Violeira"], "escudo": ["Blindado", "Blindada"],
+	"rastelo": ["do Rastelo", "do Rastelo"], "regador": ["Jardineiro", "Jardineira"], "vara": ["Pescador", "Pescadora"], "berrante": ["Berranteiro", "Berranteira"],
+	"garrafa": ["Cachaceiro", "Cachaceira"], "espingarda": ["Caçador", "Caçadora"]}
 const ROLE_TITLES = {0: ["em Bando", "em Bando"], 1: ["Parrudo", "Parruda"], 2: ["Nervoso", "Nervosa"], 3: ["Manhoso", "Manhosa"], 4: ["Vingativo", "Vingativa"], 5: ["Curandeiro", "Curandeira"],
 	6: ["Arrombador", "Arrombadora"], 7: ["de Guarda", "de Guarda"], 8: ["Voador", "Voadora"], 9: ["Ligeiro", "Ligeira"], 10: ["Parideiro", "Parideira"], 11: ["de Longe", "de Longe"]}
 const FUNNY_SUFFIXES = ["do Brejo", "de Ferro", "Turbo", "3000", "Mutante", "Ninja", "da Madrugada", "Atômico", "de Domingo", "Sem Freio", "do Além", "Premium", "Raiz", "Gourmet", "Caipira", "do Zap"]
-const MELEE_WEAPONS = ["forcado", "machado", "marreta", "foice", "enxada", "frigideira", "porrete", "motosserra"]
-const RANGED_WEAPONS = ["estilingue", "lampiao", "viola"]
-const WEAPON_PROJ = {"estilingue": "pedra", "lampiao": "fogo", "viola": "nota"}
-const HATS = ["palha", "cowboy", "balde", "bandana", "coroa", "cozinheiro", "flor", "penacho"]
-const BUILDINGS = ["galinheiro", "silo", "colmeia", "poco", "barril", "canhao_milho", "fornalha", "tenda", "ninho", "feno"]
-const BUILDING_NAMES = {"galinheiro": "Galinheiro", "silo": "Silo", "colmeia": "Colmeia", "poco": "Poço", "barril": "Barril", "canhao_milho": "Canhão", "fornalha": "Forno", "tenda": "Barraca", "ninho": "Ninho", "feno": "Monte de Feno"}
+const MELEE_WEAPONS = ["forcado", "machado", "marreta", "foice", "enxada", "frigideira", "porrete", "motosserra", "rastelo", "regador"]
+const RANGED_WEAPONS = ["estilingue", "lampiao", "viola", "vara", "berrante", "garrafa", "espingarda"]
+const WEAPON_PROJ = {"estilingue": "pedra", "lampiao": "fogo", "viola": "nota", "vara": "espinho", "berrante": "nota", "garrafa": "gota", "espingarda": "pedra"}
+const HATS = ["palha", "cowboy", "balde", "bandana", "coroa", "cozinheiro", "flor", "penacho", "bone", "cartola", "chifres", "melancia"]
+const BUILDINGS = ["galinheiro", "silo", "colmeia", "poco", "barril", "canhao_milho", "fornalha", "tenda", "ninho", "feno", "carroca", "casinha", "cerca_eletrica"]
+const BUILDING_NAMES = {"galinheiro": "Galinheiro", "silo": "Silo", "colmeia": "Colmeia", "poco": "Poço", "barril": "Barril", "canhao_milho": "Canhão", "fornalha": "Forno", "tenda": "Barraca", "ninho": "Ninho", "feno": "Monte de Feno", "carroca": "Carroça", "casinha": "Casinha", "cerca_eletrica": "Cerca Elétrica"}
 const BUILDING_SUFFIX = ["Nervoso", "Blindado", "Assombrado", "Turbinado", "da Discórdia", "Atômico", "do Vizinho", "Encantado"]
 const ACCENTS = ["#c8483c", "#3c6cb8", "#e8a020", "#8048a0", "#40a060", "#e06080", "#30303c", "#50c0e0"]
 
@@ -759,7 +762,7 @@ static func design_card(rng: RandomNumberGenerator, turma: String, role: int, st
 		if recipe["bracos"] != "asas":
 			recipe["costas"] = _pick_of(rng, ["asas_inseto", "foguete"])
 	elif rng.randf() < 0.15:
-		recipe["costas"] = _pick_of(rng, ["capa", "rabo_galo"])
+		recipe["costas"] = _pick_of(rng, ["capa", "rabo_galo", "cesto", "morcego"])
 	if head in ["humano", "velho"]:
 		palette["K"] = _pick_of(rng, ["#e8b088", "#d89868", "#c08058", "#f0c8a0"])
 	elif head in ["galinha", "pato", "coruja"]:

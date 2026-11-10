@@ -172,6 +172,14 @@ func _style_tabs():
 
 # arrastar pro lado troca de aba
 func _input(event):
+	if _drag_card != null:
+		if event is InputEventMouseMotion:
+			_move_ghost(event.position)
+			get_viewport().set_input_as_handled()
+		elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and !event.pressed:
+			_end_drag(event.position)
+			get_viewport().set_input_as_handled()
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_swipe_start = event.position
@@ -543,6 +551,7 @@ func _start_2v2():
 
 # ================================================================ ABA: CARTAS
 func _build_cartas(box: Node):
+	_drop_targets.clear()
 	# baralhos
 	var deck_panel = _panel(box)
 	var head = HBoxContainer.new()
@@ -568,7 +577,8 @@ func _build_cartas(box: Node):
 		v.set_selected(_pending_card != null or _pending_index == i)
 		v.tapped.connect(_on_deck_slot_tapped.bind(i))
 		g.add_child(v)
-	var hint = "Toque numa carta da coleção pra escolher e depois no lugar do baralho onde ela entra."
+		_drop_targets.append([v, i])
+	var hint = "Toque numa carta e depois no lugar do baralho. Ou SEGURE o dedo na carta e arraste até o lugar."
 	if _pending_card != null:
 		hint = "👉 Toque na posição do baralho onde %s vai entrar." % _pending_card.card_name
 	elif _pending_index != -1:
@@ -664,7 +674,56 @@ func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Col
 		v.tapped.connect(_show_card_popup)
 	else:
 		v.tapped.connect(_on_collection_tapped)
+		v.held.connect(_begin_drag)
 	return v
+
+
+# ---------------------------------------------------------------- arrastar: segura o dedo na carta e leva até o baralho
+var _drag_card: CardData = null
+var _drag_ghost: CardView
+var _drop_targets: Array = []  # [Control, posição no baralho]
+
+
+func _begin_drag(card: CardData):
+	if card == null or Progresso.deck_paths(_deck_slot).has(card.resource_path):
+		return
+	Sfx.play("carta")
+	Input.vibrate_handheld(25)
+	_drag_card = card
+	_swiping = false
+	_pending_card = card
+	_pending_index = -1
+	_drag_ghost = CardView.make(card, 150, true)
+	_drag_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_drag_ghost.z_index = 200
+	_drag_ghost.modulate = Color(1, 1, 1, 0.9)
+	_drag_ghost.size = _drag_ghost.custom_minimum_size
+	add_child(_drag_ghost)
+	_move_ghost(get_viewport().get_mouse_position())
+	_queue_refresh()  # mostra a faixa do baralho embaixo pra soltar
+
+
+func _move_ghost(pos: Vector2):
+	if is_instance_valid(_drag_ghost):
+		_drag_ghost.position = pos - Vector2(_drag_ghost.size.x * 0.5, _drag_ghost.size.y + 30.0)
+	for t in _drop_targets:
+		if is_instance_valid(t[0]):
+			t[0].modulate = Color(1.3, 1.3, 0.8) if t[0].get_global_rect().has_point(pos) else Color(1, 1, 1)
+
+
+func _end_drag(pos: Vector2):
+	var card = _drag_card
+	_drag_card = null
+	if is_instance_valid(_drag_ghost):
+		_drag_ghost.queue_free()
+	for t in _drop_targets:
+		if is_instance_valid(t[0]) and t[0].get_global_rect().has_point(pos):
+			if Progresso.set_deck_card(_deck_slot, int(t[1]), card):
+				Sfx.play("moeda")
+			_cancel_placing()
+			_queue_refresh()
+			return
+	# soltou fora: a carta continua escolhida, dá pra tocar no lugar
 
 
 var _place_bar: Control
@@ -708,6 +767,7 @@ func _build_place_bar():
 		cv.show_level = false
 		cv.tapped.connect(_on_deck_slot_tapped.bind(i))
 		row.add_child(cv)
+		_drop_targets.append([cv, i])
 
 
 func _view_deck(i: int):
@@ -1350,6 +1410,7 @@ func _show_pending():
 
 
 func _show_loot(title_text: String, loot: Array, color: Color):
+	Sfx.play("nivel" if title_text.contains("NÍVEL") or title_text.contains("Maestria") else "bau", 0.0, 2.0)
 	var v = _popup(640)
 	var t = _title(title_text)
 	t.add_theme_color_override("font_color", color.lightened(0.2))
@@ -1392,6 +1453,7 @@ func _show_loot(title_text: String, loot: Array, color: Color):
 		g.add_child(w)
 		var tw = w.create_tween()
 		tw.tween_interval(delay)
+		tw.tween_callback(Sfx.play.bind("carta" if str(item.get("tipo", "")) != "ouro" else "moeda", 0.1, 0.0))
 		tw.tween_property(w, "modulate:a", 1.0, 0.18)
 		delay += 0.14
 	v.add_child(_button("Boa!", _close_loot.bind(v), 22))

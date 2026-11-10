@@ -31,6 +31,7 @@ const FORMATION_JITTER = 8.0    # o quanto de bagunça aleatória em cima da gra
 # pisca a barra de recurso em vermelho por um instante -- feedback claro de
 # "sem dinheiro ainda" em vez de o clique simplesmente não fazer nada
 func _flash_insufficient_funds():
+	Sfx.play("erro")
 	var bar = _resource_bar
 	if bar == null:
 		return
@@ -810,6 +811,7 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 		title.text = "EMPATE"
 	else:
 		title.text = "VITÓRIA!" if player_won else "DERROTA..."
+	Sfx.play("vitoria" if (player_won and !is_draw) else "derrota", 0.0, 2.0)
 	var remaining_mine = _alive_towers(GameManager.Team.PLAYER).size()
 	var jokes: Array
 	if is_draw:
@@ -1193,6 +1195,7 @@ func _process_cow_rain(delta: float):
 	cast_spell(sp, pos, GameManager.Team.PLAYER)
 	cast_spell(sp, pos, GameManager.Team.ENEMY)
 	Fx.text(self, to_local(pos) + Vector2(0, -40), "MUUU!", Color(1, 0.9, 0.5), 1.2)
+	Sfx.play("vaca", 0.1, 2.0)
 
 
 # carta com unidades diferentes juntas: os acompanhantes nascem logo atrás

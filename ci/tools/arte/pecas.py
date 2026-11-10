@@ -857,3 +857,292 @@ def montar(receita, paleta):
         peca = PECAS[cat][nome]()
         cv.paste(peca)
     return recolor(cv.img, paleta)
+
+
+# ================================================================ PEÇAS NOVAS (lote 2)
+def cab_cachorro():
+    """vira-lata caramelo"""
+    cv = _cabeca_base(rx=10, ry=9.5)
+    for side in (-1, 1):                              # orelhas caídas
+        cv.blob_rect(24 + side * 11 - 2, 8, 5, 11, "S", 2)
+    cv.ellipse(24, 21, 6, 4.5, "K")                   # focinho
+    cv.rect(22, 19, 4, 3, PUPIL)                      # nariz
+    cv.rect(23, 24, 3, 3, C("A", 0))                  # língua
+    cv.ellipse(19, 13, 4, 3.5, "S", shade=False)      # mancha no olho
+    _olhos(cv, 13, 5, 3)
+    return fin(cv)
+
+
+def cab_burro():
+    cv = new()
+    cv.ellipse(24, 14, 8.5, 9, "P")
+    cv.blob_rect(18, 16, 13, 12, "P", 3)
+    cv.blob_rect(18, 22, 13, 6, "K", 2)
+    cv.rect(20, 24, 2, 2, PUPIL); cv.rect(27, 24, 2, 2, PUPIL)
+    for side in (-1, 1):                              # orelhonas
+        cv.blob_rect(24 + side * 8 - 2, 0, 4, 11, "P", 2)
+        cv.rect(24 + side * 8 - 1, 2, 2, 7, C("K", 1))
+    cv.rect(21, 26, 7, 1, EYE_W)                      # dentão
+    _olhos(cv, 12, 5, 3, sono=True)
+    return fin(cv)
+
+
+def cab_tatu():
+    cv = _cabeca_base(slot="M", rx=10.5, ry=9)
+    for y in (11, 15):                                # placas
+        for x in range(14, 35):
+            if cv.get(x, y)[3]:
+                cv.put(x, y, C("M", 2))
+    cv.blob_rect(19, 17, 11, 9, "K", 3)               # focinho comprido
+    cv.rect(23, 24, 3, 2, PUPIL)
+    for side in (-1, 1):
+        cv.blob_rect(24 + side * 8 - 1, 3, 3, 6, "K", 1)
+    _olhos(cv, 13, 6, 2)
+    return fin(cv)
+
+
+def cab_jacare():
+    cv = new()
+    cv.blob_rect(13, 9, 23, 11, "P", 3)
+    cv.blob_rect(15, 17, 19, 11, "P", 3)              # bocarra
+    cv.rect(15, 23, 19, 1, PUPIL)
+    for x in range(16, 34, 3):                        # dentes
+        cv.put(x, 22, EYE_W); cv.put(x + 1, 24, EYE_W)
+    cv.rect(18, 18, 2, 2, C("P", 2)); cv.rect(29, 18, 2, 2, C("P", 2))
+    for side in (-1, 1):                              # olhos saltados
+        cv.ellipse(24 + side * 7, 9, 4, 4, "P")
+        cx = 24 + side * 7
+        cv.rect(cx - 1, 7, 3, 3, (250, 220, 90, 255)); cv.rect(cx, 7, 1, 3, PUPIL)
+    for x in (17, 21, 26, 30):
+        cv.put(x, 12, C("P", 2))
+    return fin(cv)
+
+
+def cab_urubu():
+    cv = _cabeca_base(slot="K", rx=8.5, ry=8.5, cy=15)   # cabeça pelada
+    cv.blob_rect(21, 18, 7, 8, "M", 2)                   # bicão curvo
+    cv.rect(22, 25, 4, 2, C("M", 2))
+    for x in range(13, 36):                              # gola de penas
+        cv.rect(x, 24 + (x % 2), 1, 4, C("P", 1 if x < 28 else 2))
+    cv.put(20, 9, C("K", 2)); cv.put(27, 8, C("K", 2))
+    _olhos(cv, 13, 4, 2, bravo=False)
+    cv.rect(18, 11, 4, 1, OUT); cv.rect(26, 11, 4, 1, OUT)
+    return fin(cv)
+
+
+def cab_tomate():
+    cv = _cabeca_base(slot="A", rx=11, ry=10, cy=18)
+    for dx in (-5, -2, 1, 4):                            # folhinhas
+        cv.rect(24 + dx, 6, 2, 3, C("S", 1))
+    cv.rect(20, 8, 9, 2, C("S", 0))
+    cv.rect(23, 3, 2, 4, C("S", 2))
+    cv.rect(15, 13, 3, 4, SHINE)
+    _olhos(cv, 15, 5, 3, bravo=False)
+    cv.rect(18, 13, 4, 1, OUT); cv.rect(27, 13, 4, 1, OUT)
+    cv.rect(21, 23, 7, 1, OUT); cv.put(20, 22, OUT); cv.put(28, 22, OUT)
+    return fin(cv)
+
+
+def cab_cacto():
+    cv = new()
+    cv.blob_rect(16, 4, 17, 23, "S", 6)
+    for x in (20, 24, 28):
+        for y in range(6, 26):
+            if cv.get(x, y)[3]:
+                cv.put(x, y, C("S", 2))
+    for x, y in ((15, 9), (33, 12), (15, 18), (33, 21), (22, 3), (27, 3)):   # espinhos
+        cv.put(x, y, EYE_W)
+    cv.rect(26, 1, 4, 3, C("A", 0)); cv.put(27, 2, C("K", 0))               # florzinha
+    _olhos(cv, 13, 4, 3)
+    cv.rect(22, 20, 5, 1, OUT)
+    return fin(cv)
+
+
+def cab_caveira():
+    """caveira de boi (assombração do pasto)"""
+    cv = new()
+    cv.ellipse(24, 13, 9.5, 8.5, "M")
+    cv.blob_rect(19, 16, 11, 12, "M", 2)
+    for side in (-1, 1):
+        bx = 24 + side * 9
+        cv.rect(bx - 1, 8, 3, 3, C("M", 1))
+        cv.rect(bx + side * 2 - 1, 5, 3, 4, C("M", 0))
+        cv.rect(bx + side * 4 - 1, 2, 2, 4, C("M", 0))
+        cv.ellipse(24 + side * 4.5, 13, 3, 3.5, "W", shade=False)
+        for y in range(9, 18):
+            for x in range(24 + side * 5 - 4, 24 + side * 5 + 4):
+                if cv.get(x, y)[:3] == C("W", 1)[:3]:
+                    cv.put(x, y, PUPIL)
+        cv.put(24 + side * 4, 13, (255, 90, 60, 255))    # brasa no olho
+    cv.rect(22, 22, 2, 3, PUPIL); cv.rect(25, 22, 2, 3, PUPIL)
+    for x in range(20, 29, 2):
+        cv.put(x, 27, PUPIL)
+    return fin(cv)
+
+
+def corpo_colete():
+    """gibão de couro do vaqueiro"""
+    cv = new()
+    cv.ellipse(24, 33, 9, 8.5, "S")
+    cv.blob_rect(15, 26, 7, 15, "W", 2)
+    cv.blob_rect(27, 26, 7, 15, "W", 2)
+    for y in range(28, 40, 3):
+        cv.put(21, y, C("K", 0)); cv.put(27, y, C("K", 0))
+    cv.rect(16, 36, 17, 2, C("W", 2))                    # cinto
+    cv.rect(23, 36, 3, 2, C("M", 0))
+    return fin(cv)
+
+
+def corpo_terno():
+    """terno de domingo (prefeito, coronel)"""
+    cv = new()
+    cv.ellipse(24, 33, 9, 8.5, "A")
+    for i in range(8):                                   # lapela
+        cv.rect(24 - 4 + i // 2, 25 + i, 1, 1, C("A", 2)); cv.rect(24 + 4 - i // 2, 25 + i, 1, 1, C("A", 2))
+    cv.rect(23, 25, 3, 8, EYE_W)                          # camisa
+    cv.rect(24, 26, 1, 7, C("P", 1))                      # gravata
+    cv.put(24, 36, C("K", 0)); cv.put(24, 39, C("K", 0))
+    return fin(cv)
+
+
+def chap_bone():
+    cv = new()
+    cv.ellipse(24, 7, 10.5, 5, "A")
+    cv.rect(13, 8, 22, 2, C("A", 2))
+    cv.blob_rect(26, 8, 14, 3, "A", 1)                    # aba pro lado
+    cv.rect(22, 4, 5, 3, EYE_W)
+    return fin(cv)
+
+
+def chap_cartola():
+    cv = new()
+    cv.blob_rect(17, 0, 15, 9, "M", 1)
+    for y in range(0, 9):
+        for x in range(17, 32):
+            if cv.get(x, y)[3]:
+                cv.put(x, y, (40, 36, 48, 255) if x < 28 else (26, 22, 32, 255))
+    cv.rect(17, 6, 15, 2, C("A", 1))
+    cv.rect(12, 9, 25, 2, (40, 36, 48, 255))
+    return fin(cv)
+
+
+def chap_chifres():
+    """capacete de chifre (viking do sertão)"""
+    cv = new()
+    cv.ellipse(24, 8, 10.5, 4.5, "M")
+    cv.rect(14, 9, 21, 2, C("M", 2))
+    for side in (-1, 1):
+        bx = 24 + side * 11
+        cv.rect(bx - 1, 5, 3, 4, EYE_W)
+        cv.rect(bx + side * 2 - 1, 2, 3, 4, EYE_W)
+        cv.rect(bx + side * 3 - 1, 0, 2, 3, (220, 215, 200, 255))
+    return fin(cv)
+
+
+def chap_melancia():
+    """capacete de casca de melancia"""
+    cv = new()
+    cv.ellipse(24, 8, 11.5, 6, "S")
+    for x in (17, 22, 27, 32):
+        for y in range(2, 13):
+            if cv.get(x, y)[3]:
+                cv.put(x, y, C("S", 2))
+    cv.rect(13, 10, 23, 2, C("A", 0))
+    return fin(cv)
+
+
+def arma_vara():
+    """vara de pescar"""
+    cv = new()
+    cv.line(38, 44, 40, 8, C("W", 1)); cv.line(39, 44, 41, 8, C("W", 0))
+    cv.line(41, 8, 45, 4, C("W", 1))
+    cv.line(45, 4, 45, 18, EYE_W)
+    cv.rect(44, 18, 3, 2, C("M", 0)); cv.put(44, 20, C("M", 0)); cv.put(45, 21, C("M", 0))
+    cv.rect(44, 12, 3, 3, C("A", 1))                      # boia
+    return fin(cv)
+
+
+def arma_berrante():
+    cv = new()
+    pts = [(37, 38), (38, 33), (39, 28), (41, 23), (43, 19), (44, 15)]
+    for i, (x, y) in enumerate(pts):
+        r = 1.5 + i * 0.7
+        cv.ellipse(x, y, r, r, "K")
+    cv.ellipse(44, 12, 5.5, 3, "M")
+    cv.ellipse(44, 12, 3.5, 1.5, "W", shade=False)
+    cv.rect(36, 39, 3, 3, C("M", 0))
+    return fin(cv)
+
+
+def arma_garrafa():
+    """garrafa de pinga (arremesso)"""
+    cv = new()
+    cv.blob_rect(35, 22, 8, 16, "S", 2)
+    cv.rect(37, 14, 4, 8, C("S", 1))
+    cv.rect(37, 12, 4, 3, C("W", 1))                       # rolha
+    cv.rect(36, 27, 6, 6, EYE_W)
+    cv.rect(38, 29, 2, 2, C("A", 1))
+    cv.rect(36, 23, 1, 4, SHINE)
+    return fin(cv)
+
+
+def arma_rastelo():
+    cv = new()
+    cv.rect(38, 14, 2, 30, C("W", 1)); cv.rect(38, 14, 1, 30, C("W", 0))
+    cv.rect(31, 10, 16, 3, C("M", 1))
+    for x in range(31, 47, 3):
+        cv.rect(x, 4, 2, 7, C("M", 0))
+    return fin(cv)
+
+
+def arma_espingarda():
+    """espingarda de rolha"""
+    cv = new()
+    cv.blob_rect(36, 26, 6, 12, "W", 2)                    # coronha
+    cv.rect(37, 6, 3, 21, C("M", 1)); cv.rect(37, 6, 1, 21, C("M", 0))
+    cv.rect(36, 22, 5, 3, C("M", 2))
+    cv.rect(37, 2, 3, 4, C("W", 0))                        # rolha
+    cv.line(40, 4, 44, 10, EYE_W)                          # barbante
+    return fin(cv)
+
+
+def arma_regador():
+    cv = new()
+    cv.blob_rect(33, 24, 11, 12, "M", 2)
+    cv.line(44, 27, 47, 20, C("M", 1)); cv.line(44, 28, 47, 21, C("M", 2))
+    cv.rect(45, 17, 3, 4, C("M", 0))
+    cv.rect(35, 20, 7, 2, C("M", 2)); cv.put(35, 22, C("M", 2)); cv.put(41, 22, C("M", 2))
+    for x, y in ((46, 14), (44, 12), (47, 11)):
+        cv.put(x, y, (120, 190, 240, 255))
+    return fin(cv)
+
+
+def costas_cesto():
+    """cesto de colheita nas costas"""
+    cv = new()
+    cv.blob_rect(6, 24, 10, 14, "K", 2)
+    for y in range(26, 37, 3):
+        cv.rect(6, y, 10, 1, C("K", 2))
+    for cx, col in ((8, "A"), (12, "S"), (10, "A")):
+        cv.ellipse(cx, 22 if cx != 10 else 20, 2.5, 2.5, col)
+    return fin(cv)
+
+
+def costas_asas_morcego():
+    cv = new()
+    for side in (-1, 1):
+        for i in range(12):
+            x = 24 + side * (10 + i)
+            top = 22 - i // 2 + (i // 4)
+            h = 12 - abs(i - 6) + (2 if i % 4 == 0 else 0)
+            cv.rect(x, top, 1, h, C("M", 2 if i % 4 == 0 else 1))
+    return fin(cv)
+
+
+PECAS["cabeca"].update({"cachorro": cab_cachorro, "burro": cab_burro, "tatu": cab_tatu, "jacare": cab_jacare, "urubu": cab_urubu,
+                        "tomate": cab_tomate, "cacto": cab_cacto, "caveira": cab_caveira})
+PECAS["corpo"].update({"colete": corpo_colete, "terno": corpo_terno})
+PECAS["chapeu"].update({"bone": chap_bone, "cartola": chap_cartola, "chifres": chap_chifres, "melancia": chap_melancia})
+PECAS["arma"].update({"vara": arma_vara, "berrante": arma_berrante, "garrafa": arma_garrafa, "rastelo": arma_rastelo,
+                      "espingarda": arma_espingarda, "regador": arma_regador})
+PECAS["costas"].update({"cesto": costas_cesto, "morcego": costas_asas_morcego})

@@ -5,6 +5,11 @@ class_name CardView
 ## carta, mais ela brilha: bronze -> prata -> ouro -> diamante).
 
 signal tapped(card)
+signal held(card)  # dedo parado em cima da carta por um instante -> começa a arrastar
+
+const HOLD_TIME = 0.32
+var _press_id := 0
+var _held_fired := false
 
 var card: CardData
 var locked := false          # ainda não encontrada
@@ -63,11 +68,24 @@ func _gui_input(event):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			_pressing = true
+			_held_fired = false
 			_press_pos = event.global_position
+			_press_id += 1
+			if held.get_connections().size() > 0:
+				_wait_hold(_press_id)
 		elif _pressing:
 			_pressing = false
-			if event.global_position.distance_to(_press_pos) < 18.0:
+			if !_held_fired and event.global_position.distance_to(_press_pos) < 18.0:
 				tapped.emit(card)
+	elif event is InputEventMouseMotion and _pressing and event.global_position.distance_to(_press_pos) > 14.0:
+		_press_id += 1  # mexeu o dedo antes do tempo: é rolagem, não arrasto
+
+
+func _wait_hold(id: int):
+	await get_tree().create_timer(HOLD_TIME).timeout
+	if is_inside_tree() and _pressing and id == _press_id:
+		_held_fired = true
+		held.emit(card)
 
 
 func _draw():

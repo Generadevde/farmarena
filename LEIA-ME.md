@@ -8,7 +8,7 @@ Jogo de cartas e torres offline (estilo Clash Royale, tema roça), feito em Godo
 ## O que tem
 
 - **Batalha**: arena simétrica, 2 torres por lado, rio com 3 passagens. Derrube as duas torres. Recurso de 0 a 100, em dobro a partir de 1:59.
-- **49 cartas em 6 turmas** (Curral, Galinheiro, Brejo, Roçado, Peões, Coisa Estranha), incluindo cartas com unidades diferentes juntas.
+- **57 cartas em 6 turmas** (Curral, Galinheiro, Brejo, Roçado, Peões, Coisa Estranha), incluindo cartas com unidades diferentes juntas.
 - **7 arenas**, uma por faixa de troféu, cada uma com cenário próprio.
 - **Menu em 5 abas** (toque embaixo ou arraste para o lado): Feira, Cartas, Batalha, Troféus, Sítio.
 - **Progressão**: baús de colheita (tempo curto, cada partida adianta 1 minuto), Feira diária, Mascate surpresa, Caminho dos Troféus, nível do jogador, cópias + ouro para subir carta, maestria visual pelo uso, 4 baralhos.

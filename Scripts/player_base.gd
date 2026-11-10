@@ -310,6 +310,7 @@ func take_damage(amount):
 	hp = clamp(hp - amount, 0, max_hp)
 	if amount >= 15:
 		Fx.number(get_parent(), position + Vector2(0, -40), amount, Color(1, 0.8, 0.35))
+		Sfx.play("torre_dano", 0.1, -2.0)
 		_shake()
 
 	$ProgressBar.value = hp
@@ -355,5 +356,6 @@ func die():
 	Fx.puff(parent, position, 3.0)
 	Fx.burst(parent, position, Color(0.75, 0.5, 0.3), 22, 200.0, 5.0)
 	Fx.text(parent, position + Vector2(0, -30), "TORRE CAIU!", Color(1, 0.85, 0.3), 1.6)
+	Sfx.play("torre_cai", 0.0, 3.0)
 	destroyed.emit(team)
 	queue_free()

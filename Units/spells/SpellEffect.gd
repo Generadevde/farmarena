@@ -157,6 +157,20 @@ func _cast_fx():
 		else:
 			col = Color(1, 1, 0.8)
 	col.a = 1.0
+	if spell.heal_amount > 0:
+		Sfx.play("cura")
+	elif spell.status_effect == UnitData.OnHitEffect.FREEZE:
+		Sfx.play("gelo")
+	elif spell.rage_damage_mult > 1.0 or spell.shield_amount > 0:
+		Sfx.play("furia")
+	elif spell.status_effect == UnitData.OnHitEffect.SLOW or spell.status_effect == UnitData.OnHitEffect.PULL:
+		Sfx.play("lama")
+	elif spell.damage > 0 and spell.radius <= 60.0:
+		Sfx.play("raio")
+	elif spell.damage > 0:
+		Sfx.play("explosao")
+	else:
+		Sfx.play("carta")
 	if spell.duration > 0:
 		Fx.zone(parent, position, spell.radius, col, spell.duration)
 	else:

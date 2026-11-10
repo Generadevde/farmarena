@@ -64,6 +64,15 @@ func _ready():
 	await get_tree().create_timer(0.4).timeout
 	await _shot("escolher")
 	hub._cancel_placing_and_refresh()
+	await get_tree().create_timer(0.2).timeout
+	hub._begin_drag(Catalogo.card("pato_ninja"))
+	await get_tree().create_timer(0.3).timeout
+	var drop_at = hub._drop_targets[-1][0].get_global_rect().get_center() if !hub._drop_targets.is_empty() else Vector2.ZERO
+	hub._move_ghost(drop_at)
+	await _shot("arrastar")
+	hub._end_drag(drop_at)
+	print("SHOT arrasto: pato ninja entrou no baralho? ", Progresso.deck_paths(0).has(Catalogo.card("pato_ninja").resource_path), " alvos=", hub._drop_targets.size())
+	await get_tree().create_timer(0.2).timeout
 	hub._show_registro()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("registro")

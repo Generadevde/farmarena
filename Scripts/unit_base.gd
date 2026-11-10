@@ -221,6 +221,7 @@ func _say(text: String):
 func _spawn_fx():
 	if is_inside_tree():
 		Fx.ring(get_parent(), position, 18.0 * _visual_scale, Color(1, 1, 1, 0.9), 0.25)
+		Sfx.play("nasce", 0.2, -3.0)
 		# falinha de entrada (só às vezes, e só de carta do baralho -- filhote não fala)
 		if card_data != null and !CustomContent.is_spawn_only(card_data) and randf() < 0.22:
 			var lines: Array = SPAWN_LINES.get(card_data.get_nation_name(), ["Eita!"])
@@ -915,6 +916,7 @@ func _perform_attack():
 		_charge_distance_accumulated = 0.0  # sempre reseta -- carregado ou não, precisa andar de novo pra carregar o próximo
 
 	if stats.is_ranged:
+		Sfx.play("tiro", 0.2, -4.0)
 		var proj = Projectile.new()
 		proj.target = target
 		proj.damage = dmg
@@ -1157,6 +1159,7 @@ func _apply_on_hit_to_area(center: Vector2, radius: float):
 func _deal_area_damage(center: Vector2, radius: float, damage: int):
 	if get_parent() != null:
 		Fx.ring(get_parent(), get_parent().to_local(center) if get_parent() is Node2D else center, radius, Color(1.0, 0.72, 0.3))
+		Sfx.play("explosao", 0.15, -2.0)
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body == self or !("team" in body) or body.team == team:
 			continue
@@ -1345,6 +1348,7 @@ func take_damage(amount, _is_shared_damage: bool = false):
 		var hit_at = position + Vector2(0, -18.0 * _visual_scale)
 		Fx.number(get_parent(), hit_at, amount, Color(1, 0.93, 0.8) if team == GameManager.Team.ENEMY else Color(1, 0.55, 0.5))
 		Fx.burst(get_parent(), position, Color(1, 0.95, 0.85), 4, 70.0, 2.5)
+		Sfx.play("golpe" if amount < 150 else "golpe2", 0.15, -3.0 if amount < 60 else 0.0)
 
 	if stats.is_linked and !_is_shared_damage and !linked_units.is_empty():
 		var shared_amount = amount * stats.link_share_percent
@@ -1754,6 +1758,7 @@ func _spawn_clone():
 func die():
 	died.emit(team, card_data)
 	Fx.puff(get_parent(), position, clampf(_visual_scale, 0.6, 2.2))
+	Sfx.play("morte", 0.2)
 	if _visual_scale >= 1.0 and randf() < 0.12:
 		_say(DEATH_LINES[randi() % DEATH_LINES.size()])
 	if card_data != null:
