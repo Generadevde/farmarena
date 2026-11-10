@@ -92,6 +92,7 @@ static func style_for_bot(bot_name: String, archetype: int, preferred_role: int)
 		"curve": curve,
 		"spells_wanted": 1 + rng.randi() % 2,
 		"favorite_nation": fav_nation,
+		"arena_cap": ArenaManager.get_participant_arena(bot_name),
 		"seed": rng.randi(),
 	}
 
@@ -147,10 +148,19 @@ static func score_card(card: CardData, style: Dictionary, chosen: Array) -> floa
 	return s
 
 
+# 2.0: bot só usa carta que já "existe" na arena dele (igual o jogador) --
+# se sobrar pouca carta, libera tudo pra não ficar sem baralho
+static func _arena_gate(known_cards: Array, style: Dictionary) -> Array:
+	var cap = int(style.get("arena_cap", 99))
+	var out = known_cards.filter(func(c): return c != null and c.unlock_arena <= cap)
+	return out if out.size() >= 7 else known_cards
+
+
 static func build_deck(known_cards: Array, style: Dictionary, deck_size: int) -> Array[CardData]:
 	var rng = RandomNumberGenerator.new()
 	rng.randomize()
 
+	known_cards = _arena_gate(known_cards, style)
 	var pool: Array[CardData] = []
 	var seen: Dictionary = {}
 	for card in known_cards:
@@ -207,6 +217,7 @@ static func pick_replacement(current_deck: Array, known_cards: Array, style: Dic
 		if card != null:
 			current_ids[card.resource_path] = true
 
+	known_cards = _arena_gate(known_cards, style)
 	var candidates: Array = []
 	var weights: Array = []
 	var total = 0.0

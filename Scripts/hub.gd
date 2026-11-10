@@ -549,9 +549,9 @@ func _build_cartas(box: Node):
 		var arena_now = ArenaManager.get_player_arena()
 		for c in missing:
 			var v = CardView.make(c, 128)
-			v.locked = c.unlock_arena > arena_now - 1
+			v.locked = c.unlock_arena > arena_now
 			v.show_level = false
-			v.badge = "Arena %d" % (c.unlock_arena + 1) if v.locked else "nos baús"
+			v.badge = "Arena %d" % c.unlock_arena if v.locked else "nos baús"
 			v.tapped.connect(_show_card_popup)
 			mg.add_child(v)
 
@@ -569,7 +569,7 @@ func _build_cartas(box: Node):
 		tb.expand_icon = true
 		tb.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		tb.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		tb.text = b.base_name + ("\n✔ em uso" if b == equipped else ("" if unlocked else "\n🔒 Arena %d" % (b.unlock_arena + 1)))
+		tb.text = b.base_name + ("\n✔ em uso" if b == equipped else ("" if unlocked else "\n🔒 Arena %d" % b.unlock_arena))
 		tb.add_theme_font_size_override("font_size", 14)
 		tb.modulate = Color(1, 1, 1) if unlocked else Color(0.5, 0.5, 0.5)
 		tb.pressed.connect(_show_base_popup.bind(b))
@@ -706,7 +706,7 @@ func _show_card_popup(card: CardData):
 		if !Progresso.deck_paths(_deck_slot).has(card.resource_path):
 			v.add_child(_button("Colocar no Baralho %d" % (_deck_slot + 1), _begin_place.bind(card, v)))
 	else:
-		v.add_child(_wrap("Você ainda não tem esta carta. Ela aparece nos baús e na Feira a partir da Arena %d." % (card.unlock_arena + 1), 16, Color(1, 0.85, 0.5)))
+		v.add_child(_wrap("Você ainda não tem esta carta. Ela aparece nos baús e na Feira a partir da Arena %d." % maxi(1, card.unlock_arena), 16, Color(1, 0.85, 0.5)))
 	v.add_child(_button("Fechar", _close.bind(v)))
 
 
@@ -786,7 +786,7 @@ func _show_base_popup(b: BaseData):
 		if PlayerProfile.get_equipped_base() != b:
 			v.add_child(_button("Usar esta torre", _equip_base.bind(b, v)))
 	else:
-		v.add_child(_wrap("🔒 Libera quando você chegar na Arena %d." % (b.unlock_arena + 1), 16, Color(1, 0.85, 0.5)))
+		v.add_child(_wrap("🔒 Libera quando você chegar na Arena %d." % b.unlock_arena, 16, Color(1, 0.85, 0.5)))
 	v.add_child(_button("Fechar", _close.bind(v)))
 
 
@@ -900,6 +900,7 @@ func _build_trofeus(box: Node):
 
 	var last_arena = 1
 	var shown_locked = 0
+	_arena_divider(box, 1)
 	for m in Progresso.road_milestones():
 		var a = ArenaManager.get_arena_for_trophies(int(m["trofeus"]))
 		if a != last_arena:
@@ -928,8 +929,6 @@ func _build_trofeus(box: Node):
 			row.add_child(b)
 		else:
 			row.add_child(_label("🔒", 20))
-	if arena_i == 1 and last_arena == 1:
-		_arena_divider(box, 2)
 
 
 func _arena_divider(box: Node, arena_i: int):
@@ -938,7 +937,7 @@ func _arena_divider(box: Node, arena_i: int):
 	p.add_child(_title("%s %s  ·  %d troféus" % [info.get("emoji", ""), info.get("name", ""), int(info.get("trophy_threshold", 0))]))
 	var unlocks: Array = []
 	for c in CardDatabase.all_cards:
-		if c != null and c.unlock_arena == arena_i - 1 and !CustomContent.is_spawn_only(c):
+		if c != null and c.unlock_arena == arena_i and !CustomContent.is_spawn_only(c):
 			unlocks.append(c)
 	if unlocks.is_empty():
 		return
@@ -953,7 +952,7 @@ func _arena_divider(box: Node, arena_i: int):
 		v.tapped.connect(_show_card_popup)
 		g.add_child(v)
 	for b in BotSimulator.available_bases:
-		if b != null and b.unlock_arena == arena_i - 1 and arena_i > 1:
+		if b != null and b.unlock_arena == arena_i:
 			p.add_child(_label("🏰 Torre nova: %s" % b.base_name, 16, Color(0.7, 0.9, 1.0)))
 
 

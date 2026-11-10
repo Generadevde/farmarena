@@ -116,6 +116,10 @@ const ARENA_MIDDLE_SCENE_PATH = "res://arenas/middles/arena_%d_middle.tscn"
 # qualquer elemento em posição fixa fica "pra fora" da borda de baixo.
 # Cada find_child é opcional -- se algum nó não existir com esse nome
 # exato, só pula ele, sem quebrar o resto
+func _opp_label() -> Label:
+	return find_child("OpponentNameLabel", true, false)
+
+
 func _setup_hud_anchors():
 	# só o necessário funcionalmente -- posição/tamanho de cada elemento
 	# fica por conta do usuário, direto no editor
@@ -243,6 +247,7 @@ func _ready():
 
 	# arena 2.0: campo simétrico, 2 torres por lado, caminhos, câmera
 	ArenaBuilder.build(self)
+	BattleHud.install(self)  # HUD 2.0 preso na tela (mão, recurso, relógio, adversário)
 
 	_setup_hud_anchors()
 
@@ -306,7 +311,7 @@ func _ready():
 	_connect_base_signals()
 	_show_opponent_name()
 	if _is_nemesis_match:
-		$OpponentNameLabel.text += " 🔥"
+		_opp_label().text += " 🔥"
 	_apply_ai_decision_speed()
 
 	_is_2v2 = MatchSetup.mode == MatchSetup.MODE_2V2
@@ -485,11 +490,11 @@ func _install_base_data_on(group_name: String, base_data: BaseData, level: int =
 func _show_opponent_name():
 	if ai_profile == null:
 		return
-	$OpponentNameLabel.text = ai_profile.profile_name
-	$OpponentNameLabel.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
-	$OpponentNameLabel.add_theme_font_size_override("font_size", 20)
-	$OpponentNameLabel.add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
-	$OpponentNameLabel.add_theme_constant_override("outline_size", 4)
+	_opp_label().text = ai_profile.profile_name
+	_opp_label().add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	_opp_label().add_theme_font_size_override("font_size", 20)
+	_opp_label().add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
+	_opp_label().add_theme_constant_override("outline_size", 4)
 
 
 func _apply_ai_decision_speed():
@@ -803,7 +808,7 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 		title.text = "EMPATE"
 	else:
 		title.text = "VITÓRIA!" if player_won else "DERROTA..."
-	var remaining_mine = _alive_towers(GameManager.Team.PLAYER) if has_method("_alive_towers") else 1
+	var remaining_mine = _alive_towers(GameManager.Team.PLAYER).size()
 	var jokes: Array
 	if is_draw:
 		jokes = ["Ninguém arredou o pé.", "Empate é quando os dois perdem tempo."]

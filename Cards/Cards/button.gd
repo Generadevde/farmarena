@@ -2,6 +2,7 @@ extends Button
 
 @export var hand_index: int = 0  # 0, 1 ou 2 -- qual posição da mão esse botão representa
 var card: CardData
+var _view: CardView
 
 var _hold_timer: Timer = null
 var _info_popup: CanvasLayer = null
@@ -13,7 +14,7 @@ const DRAG_MOVE_THRESHOLD = 12.0  # pixels de movimento que já conta como "come
 
 
 func _ready():
-	clip_contents = true  # corta qualquer coisa que ultrapassa os limites do botão
+	clip_contents = false  # a carta selecionada sobe um pouco pra fora do botão
 	theme = ThemeBuilder.game_theme
 	add_to_group("hand_card_button")  # pra cena de batalha conseguir juntar todas numa fileira organizada
 
@@ -30,6 +31,15 @@ func _ready():
 	add_theme_stylebox_override("pressed", no_margin_style)
 	add_theme_stylebox_override("focus", no_margin_style)
 
+	# 2.0: a carta inteira é desenhada pelo CardView (moldura, custo, nível, maestria)
+	_view = CardView.make(null, 150)
+	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_view.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_view)
+	$Icon.visible = false
+	$Name.visible = false
+	$Cost.visible = false
+
 	$Icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	$Icon.stretch_mode = TextureRect.STRETCH_SCALE  # estica exato pra caber, sem cortar nem sobrar espaço -- pode distorcer um pouco, mas nunca perde detalhe da arte
 	$Icon.set_anchors_preset(Control.PRESET_FULL_RECT)  # preenche o botão inteiro, não importa o tamanho original dele na cena
@@ -45,7 +55,9 @@ func _refresh():
 	$Name.text = card.card_name
 	$Cost.text = str(card.cost)
 	$Icon.texture = card.icon
-	_refresh_level_label()
+	if _view != null:
+		_view.card = card
+		_view.queue_redraw()
 
 
 # cria (na primeira vez) e atualiza o texto de nível em cima do ícone --
@@ -67,10 +79,13 @@ func _process(delta):
 		return
 	disabled = GameManager.player_money < card.cost
 	var battle = get_tree().get_first_node_in_group("battle_scene")
-	if battle and battle.selected_card == card:
-		modulate = Color(1, 1, 0.7) # selecionada
-	else:
-		modulate = Color(1, 1, 1) # normal
+	var is_selected = battle and battle.selected_card == card
+	if _view != null:
+		# sem recurso = carta escura; selecionada = sobe e brilha
+		_view.modulate = Color(0.45, 0.45, 0.5) if disabled else Color(1, 1, 1)
+		_view.position.y = lerpf(_view.position.y, -18.0 if is_selected else 0.0, minf(1.0, delta * 14.0))
+		if _view.selected != is_selected:
+			_view.set_selected(is_selected)
 
 
 func _gui_input(event):
@@ -95,7 +110,7 @@ func _gui_input(event):
 					return
 				var battle = get_tree().get_first_node_in_group("battle_scene")
 				if battle:
-					battle.try_confirm_placement_at(get_global_mouse_position())
+					battle.try_confirm_placement_at(battle.get_global_mouse_position())
 					get_viewport().set_input_as_handled()
 			else:
 				# toque rápido, sem arrastar -- comportamento clássico:

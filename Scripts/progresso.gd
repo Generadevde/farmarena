@@ -143,7 +143,7 @@ func pool() -> Array:
 	var arena = ArenaManager.get_player_arena()
 	var out: Array = []
 	for c in CardDatabase.all_cards:
-		if c != null and !CustomContent.is_spawn_only(c) and c.unlock_arena <= arena - 1:
+		if c != null and !CustomContent.is_spawn_only(c) and c.unlock_arena <= arena:
 			out.append(c)
 	return out
 
@@ -656,7 +656,7 @@ func claim_road(trophies: int) -> Array:
 
 
 func is_base_unlocked(b: BaseData) -> bool:
-	return b != null and b.unlock_arena <= ArenaManager.get_player_arena() - 1
+	return b != null and b.unlock_arena <= ArenaManager.get_player_arena()
 
 
 # ================================================================ baralhos
