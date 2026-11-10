@@ -146,7 +146,7 @@ func _art_sheet():
 	var shop_offers = Progresso.shop()["ofertas"].size()
 	var deck_ok = Progresso.set_deck_card(1, 0, Catalogo.card("raio"))
 	Progresso.add_xp(500)
-	for i in 12:
+	for use_n in 12:
 		Progresso.record_use(c0)
 	print("RESULTADO progresso: baú lendário deu ", loot.size(), " itens | cartas ", before_owned, " -> ", Progresso.owned_cards().size(),
 		" | subiu nível? ", up_ok, " (nv ", Progresso.level(c0), ") | ofertas feira=", shop_offers, " | troca no baralho 2? ", deck_ok,

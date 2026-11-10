@@ -71,7 +71,7 @@ jobs:
         run: |
           for m in torres tornado congelar corpo empurrao 1v1 2v2; do
             echo "======== $m"
-            CI_MODE=$m timeout 400 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|IA |JOGADOR|RESULTADO|FILME|SCRIPT ERROR|ERROR|at: " | head -200 || true
+            CI_MODE=$m timeout 200 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|IA |JOGADOR|RESULTADO|FILME|SCRIPT ERROR|ERROR|at: " | head -200 || true
           done
 
       - name: Folha de artes geradas
