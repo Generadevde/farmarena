@@ -665,7 +665,7 @@ func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Col
 		v.tapped.connect(_on_collection_tapped)
 	row.add_child(v)
 	var side = VBoxContainer.new()
-	side.custom_minimum_size.x = 172
+	side.custom_minimum_size.x = 150
 	side.add_theme_constant_override("separation", 2)
 	row.add_child(side)
 	var f = ThemeDB.fallback_font
@@ -705,7 +705,9 @@ func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Col
 	info.custom_minimum_size.y = 40
 	info.size_flags_vertical = Control.SIZE_SHRINK_END | Control.SIZE_EXPAND
 	side.add_child(info)
-	return row
+	var frame = PanelContainer.new()  # fundo escuro: os dados ficam legíveis em cima do gramado
+	frame.add_child(row)
+	return frame
 
 
 var _place_bar: Control
