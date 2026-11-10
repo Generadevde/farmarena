@@ -163,9 +163,7 @@ func _ready():
 		if battle != null and battle.has_method("add_storage_capacity"):
 			battle.add_storage_capacity(team, stats.storage_capacity_bonus)
 
-	enemy_base = get_tree().get_first_node_in_group(
-		"enemy_base" if team == GameManager.Team.PLAYER else "player_base"
-	)
+	_refresh_enemy_tower()
 
 
 func _apply_unit_scale():
@@ -496,7 +494,25 @@ func _apply_soft_separation():
 
 # ---------- MOVIMENTO ----------
 
+# 2 torres por lado: anda pra torre inimiga MAIS PERTO (a da "sua" rota) e
+# troca sozinha quando ela cai
+func _refresh_enemy_tower():
+	var group = "enemy_base" if team == GameManager.Team.PLAYER else "player_base"
+	var best = null
+	var best_d = INF
+	for t in get_tree().get_nodes_in_group(group):
+		if !is_instance_valid(t) or t.is_queued_for_deletion() or ("hp" in t and t.hp <= 0):
+			continue
+		var d = global_position.distance_squared_to(t.global_position)
+		if d < best_d:
+			best_d = d
+			best = t
+	enemy_base = best
+
+
 func _move_towards_base():
+	if enemy_base == null or !is_instance_valid(enemy_base) or enemy_base.is_queued_for_deletion():
+		_refresh_enemy_tower()
 	if _is_rooted():
 		_set_nav_velocity(Vector2.ZERO)
 		return

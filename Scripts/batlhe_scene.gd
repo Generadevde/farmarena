@@ -147,7 +147,7 @@ func _apply_custom_arena_background():
 
 
 func _load_arena_middle_scenery():
-	_apply_custom_arena_background()
+	pass  # o fundo (inclusive o do Criador de Arenas) agora é posto pelo ArenaBuilder
 	var container = get_tree().get_first_node_in_group("arena_middle_container")
 	if container == null:
 		# cena ainda não tem o container reservado pro cenário trocável --
@@ -240,6 +240,9 @@ func _ready():
 	MusicPlayer.play_battle_music()
 
 	add_to_group("battle_scene")
+
+	# arena 2.0: campo simétrico, 2 torres por lado, caminhos, câmera
+	ArenaBuilder.build(self)
 
 	_setup_hud_anchors()
 
@@ -473,9 +476,10 @@ func _apply_initial_boost(production_timer: Timer, base_data: BaseData, is_playe
 
 
 func _install_base_data_on(group_name: String, base_data: BaseData, level: int = 1):
-	var base_node = get_tree().get_first_node_in_group(group_name)
-	if base_node != null:
+	# as DUAS torres do lado usam a base equipada; cada uma com uma fração da vida
+	for base_node in get_tree().get_nodes_in_group(group_name):
 		base_node.install_base_data(base_data, level)
+		base_node.scale_hp(ArenaBuilder.TOWER_HP_FRACTION)
 
 
 func _show_opponent_name():
@@ -545,15 +549,78 @@ func _record_action(side: String, card: CardData, position: Vector2):
 
 
 func _connect_base_signals():
-	var player_base = get_tree().get_first_node_in_group("player_base")
-	var enemy_base = get_tree().get_first_node_in_group("enemy_base")
+	for t in get_tree().get_nodes_in_group("player_base"):
+		t.destroyed.connect(_on_base_destroyed)
+		t.damaged.connect(_on_player_base_damaged)
+	for t in get_tree().get_nodes_in_group("enemy_base"):
+		t.destroyed.connect(_on_base_destroyed)
+		t.damaged.connect(_on_enemy_base_damaged)
 
-	if player_base != null:
-		player_base.destroyed.connect(_on_base_destroyed)
-		player_base.damaged.connect(_on_player_base_damaged)
-	if enemy_base != null:
-		enemy_base.destroyed.connect(_on_base_destroyed)
-		enemy_base.damaged.connect(_on_enemy_base_damaged)
+
+# ---------------------------------------------------------------- torres
+# 2 torres por lado: ganha quem derrubar AS DUAS. Se o tempo acabar, ganha
+# quem derrubou mais torres; empatou nisso, ganha quem tirou mais vida no
+# total (soma da vida que sobrou nas torres de cada um)
+var towers_destroyed = {GameManager.Team.PLAYER: 0, GameManager.Team.ENEMY: 0}
+
+
+func _alive_towers(team) -> Array:
+	var group = "player_base" if team == GameManager.Team.PLAYER else "enemy_base"
+	return get_tree().get_nodes_in_group(group).filter(func(t): return is_instance_valid(t) and !t.is_queued_for_deletion() and t.hp > 0)
+
+
+func _tower_health_fraction(team) -> float:
+	var group = "player_base" if team == GameManager.Team.PLAYER else "enemy_base"
+	var total = 0.0
+	for t in get_tree().get_nodes_in_group(group):
+		if is_instance_valid(t) and !t.is_queued_for_deletion() and t.max_hp > 0:
+			total += float(t.hp) / t.max_hp
+	return total / 2.0
+
+
+func _on_base_destroyed(team):
+	if match_over:
+		return
+	towers_destroyed[team] += 1
+	if _alive_towers(team).is_empty():
+		_end_match(team)
+		return
+	_show_tower_down_banner(team)
+
+
+func _show_tower_down_banner(team):
+	var l = Label.new()
+	l.text = "🏚 Torre do bot derrubada!" if team == GameManager.Team.ENEMY else "🏚 Sua torre caiu!"
+	l.add_theme_font_size_override("font_size", 30)
+	l.add_theme_color_override("font_color", Color(1, 0.9, 0.4) if team == GameManager.Team.ENEMY else Color(1, 0.5, 0.45))
+	l.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.05))
+	l.add_theme_constant_override("outline_size", 8)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.position = to_local(ArenaBuilder.CENTER) + Vector2(-220, -30)
+	l.custom_minimum_size = Vector2(440, 0)
+	l.z_index = 100
+	add_child(l)
+	var tw = create_tween()
+	tw.tween_property(l, "scale", Vector2(1.1, 1.1), 0.15)
+	tw.tween_property(l, "scale", Vector2.ONE, 0.15)
+	tw.tween_interval(1.4)
+	tw.tween_property(l, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(l.queue_free)
+
+
+# tempo acabou: decide pelas torres derrubadas e depois pela vida
+func _resolve_time_up():
+	var down_mine = towers_destroyed[GameManager.Team.PLAYER]
+	var down_bot = towers_destroyed[GameManager.Team.ENEMY]
+	if down_bot != down_mine:
+		_end_match(GameManager.Team.ENEMY if down_bot > down_mine else GameManager.Team.PLAYER)
+		return
+	var mine = _tower_health_fraction(GameManager.Team.PLAYER)
+	var bot = _tower_health_fraction(GameManager.Team.ENEMY)
+	if abs(mine - bot) < 0.01:
+		_end_match_as_draw()
+	else:
+		_end_match(GameManager.Team.ENEMY if bot < mine else GameManager.Team.PLAYER)
 
 
 # ativa o "modo vingança" por um tempo, se o bot tiver essa estratégia ligada
@@ -619,7 +686,8 @@ func _show_replay_ended_screen():
 	vbox.add_child(continue_button)
 
 
-func _on_base_destroyed(team):
+# fim de partida: `team` = lado que PERDEU
+func _end_match(team):
 	if match_over:
 		return
 	match_over = true
@@ -913,7 +981,7 @@ func _update_battle_timer(delta):
 				extra_ai.on_double_time()
 
 	if _battle_time_remaining <= 0.0:
-		_end_match_as_draw()
+		_resolve_time_up()
 
 
 # timer zerou sem ninguém destruir a base do outro -- empata a partida.
@@ -1319,7 +1387,10 @@ func _get_offensive_spell_target(caster_team) -> Vector2:
 	# se a base oposta estiver bem fraca, prioriza terminar o serviço --
 	# não 100% das vezes (senão fica óbvio/robótico demais), mas na maioria
 	var opposing_base_group = "player_base" if caster_team == GameManager.Team.ENEMY else "enemy_base"
-	var target_base = get_tree().get_first_node_in_group(opposing_base_group)
+	var target_base = null
+	for t in get_tree().get_nodes_in_group(opposing_base_group):
+		if target_base == null or t.hp < target_base.hp:
+			target_base = t  # a torre mais fraca
 	if target_base != null and "hp" in target_base and "max_hp" in target_base and target_base.max_hp > 0:
 		var hp_fraction = float(target_base.hp) / target_base.max_hp
 		if hp_fraction < 0.3 and randf() < 0.7:
@@ -1367,8 +1438,8 @@ func _has_threat_near_base(base_group: String, threat_team) -> bool:
 # (só diz "tem ameaça, sim/não"), essa dá a POSIÇÃO e a CATEGORIA de quem tá
 # atacando, pra IA conseguir escolher a carta certa e defender no lugar certo
 func _get_nearest_threat(base_group: String, threat_team, radius: float = THREAT_DETECTION_RADIUS) -> Node:
-	var base_node = get_tree().get_first_node_in_group(base_group)
-	if base_node == null:
+	var towers = get_tree().get_nodes_in_group(base_group)
+	if towers.is_empty():
 		return null
 
 	var closest = null
@@ -1377,10 +1448,11 @@ func _get_nearest_threat(base_group: String, threat_team, radius: float = THREAT
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if !("team" in body) or body.team != threat_team:
 			continue
-		var dist = body.global_position.distance_to(base_node.global_position)
-		if dist <= closest_dist:
-			closest_dist = dist
-			closest = body
+		for base_node in towers:
+			var dist = body.global_position.distance_to(base_node.global_position)
+			if dist <= closest_dist:
+				closest_dist = dist
+				closest = body
 
 	return closest
 
@@ -1658,7 +1730,8 @@ func _defensive_spawn_position(threat: Node) -> Vector2:
 # combate já em andamento). Sem base nem unidade nenhuma em campo (raro),
 # cai pra um ponto qualquer dentro da própria área do jogador
 func _choose_offensive_anywhere_position() -> Vector2:
-	var player_base = get_tree().get_first_node_in_group("player_base")
+	var towers = get_tree().get_nodes_in_group("player_base")
+	var player_base = towers[randi() % towers.size()] if !towers.is_empty() else null
 
 	if player_base != null and randf() < 0.7:
 		return player_base.global_position + Vector2(randf_range(-40, 40), randf_range(-40, 40))

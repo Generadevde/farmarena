@@ -44,8 +44,27 @@ static func unit_value(u) -> float:
 	return cost / count * (0.35 + 0.65 * hp_frac)
 
 
-static func get_base(tree: SceneTree, team) -> Node:
-	return tree.get_first_node_in_group("player_base" if team == GameManager.Team.PLAYER else "enemy_base")
+static func get_bases(tree: SceneTree, team) -> Array:
+	return tree.get_nodes_in_group("player_base" if team == GameManager.Team.PLAYER else "enemy_base").filter(
+		func(t): return is_instance_valid(t) and !t.is_queued_for_deletion())
+
+
+# torre do time mais perto de um ponto (ou a primeira, sem ponto)
+static func get_base(tree: SceneTree, team, near: Vector2 = Vector2.INF) -> Node:
+	var best = null
+	var best_d = INF
+	for t in get_bases(tree, team):
+		var d = 0.0 if near == Vector2.INF else near.distance_squared_to(t.global_position)
+		if best == null or d < best_d:
+			best = t
+			best_d = d
+	return best
+
+
+# centro da "linha de torres" do time (mesmo se uma já caiu)
+static func base_line(team) -> Vector2:
+	var y = ArenaBuilder.CENTER.y + (ArenaBuilder.TOWER_DY if team == GameManager.Team.PLAYER else -ArenaBuilder.TOWER_DY)
+	return Vector2(ArenaBuilder.CENTER.x, y)
 
 
 static func other_team(team):
@@ -57,16 +76,12 @@ static func other_team(team):
 # lê o campo: todo inimigo (do ponto de vista de `my_team`) que está na
 # metade de cá do mapa, ou que está mirando nossa base/nossas construções
 static func analyze_threats(tree: SceneTree, my_team) -> Dictionary:
-	var my_base = get_base(tree, my_team)
-	var their_base = get_base(tree, other_team(my_team))
 	var result = {"units": [], "pressure": 0.0, "primary": null, "has_air": false,
 		"has_ground": false, "center": Vector2.ZERO, "max_danger": 0}
-	if my_base == null:
+	if get_bases(tree, my_team).is_empty():
 		return result
-
-	var total_dist = 1.0
-	if their_base != null:
-		total_dist = max(my_base.global_position.distance_to(their_base.global_position), 1.0)
+	var my_line = base_line(my_team)
+	var total_dist = max(my_line.distance_to(base_line(other_team(my_team))), 1.0)
 
 	var weight_sum = 0.0
 	var closest_d = INF
@@ -76,8 +91,9 @@ static func analyze_threats(tree: SceneTree, my_team) -> Dictionary:
 		if u.stats.unit_type == UnitData.UnitType.BUILDING:
 			# construção inimiga só é ameaça se alcançar nossa área (raro) -- ignora
 			continue
-		var d_mine = u.global_position.distance_to(my_base.global_position)
-		var progress = 1.0 - clamp(d_mine / total_dist, 0.0, 1.0)  # 1 = colado na base
+		var near_tower = get_base(tree, my_team, u.global_position)
+		var d_mine = min(u.global_position.distance_to(near_tower.global_position), abs(u.global_position.y - my_line.y))
+		var progress = 1.0 - clamp(d_mine / total_dist, 0.0, 1.0)  # 1 = colado na torre
 		var targeting_us = u.target != null and is_instance_valid(u.target) and "team" in u.target and u.target.team == my_team
 		if progress < 0.45 and !targeting_us:
 			continue  # ainda do lado de lá do mapa
@@ -192,8 +208,7 @@ static func best_spell_target(tree: SceneTree, spell: SpellData, caster_team) ->
 		if n > 1:
 			candidates.append(sum / n)
 	if !want_allies and spell.affects_enemies and spell_total_damage(spell) > 0:
-		var eb = get_base(tree, other_team(caster_team))
-		if eb != null:
+		for eb in get_bases(tree, other_team(caster_team)):
 			candidates.append(eb.global_position)
 
 	var best = {"pos": Vector2.INF, "value": 0.0}
@@ -307,7 +322,7 @@ static func choose_defense(tree: SceneTree, my_team, affordable: Array, hand: Ar
 # (puxa a ameaça pro centro)
 static func defensive_position(card: CardData, stats: UnitData, threat: Node, my_team, tree: SceneTree,
 		spawn_area: CollisionShape2D, battle: Node) -> Vector2:
-	var my_base = get_base(tree, my_team)
+	var my_base = get_base(tree, my_team, threat.global_position if threat != null else Vector2.INF)
 	if my_base == null or threat == null:
 		return battle._random_point_in_area(spawn_area)
 	var t = 0.3
@@ -343,11 +358,9 @@ static func proactive_spell_target(tree: SceneTree, card: CardData, caster_team)
 static func offensive_position(card: CardData, stats: UnitData, my_team, tree: SceneTree,
 		spawn_area: CollisionShape2D, battle: Node, lane_x: float) -> Vector2:
 	var rect = spawn_area.shape.get_rect()
-	var my_base = get_base(tree, my_team)
-	var their_base = get_base(tree, other_team(my_team))
 	var p = battle._random_point_in_area(spawn_area)
-	if my_base == null or their_base == null:
-		return p
+	var my_line = base_line(my_team)
+	var their_line = base_line(other_team(my_team))
 	# fração 0 = colado na base, 1 = linha de frente da área
 	var front = 0.85
 	if stats != null:
@@ -358,7 +371,7 @@ static func offensive_position(card: CardData, stats: UnitData, my_team, tree: S
 		elif stats.unit_type == UnitData.UnitType.BUILDING:
 			return battle._get_building_placement(spawn_area, -1)
 	var global_rect_center = spawn_area.to_global(rect.position + rect.size / 2.0)
-	var toward_enemy = (their_base.global_position - my_base.global_position).normalized()
+	var toward_enemy = (their_line - my_line).normalized()
 	var depth = rect.size.y if abs(toward_enemy.y) > abs(toward_enemy.x) else rect.size.x
 	var pos = global_rect_center + toward_enemy * (front - 0.5) * depth * 0.9
 	pos.x = lerp(pos.x, lane_x, 0.75) + randf_range(-15, 15)

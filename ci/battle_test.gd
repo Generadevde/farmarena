@@ -46,6 +46,10 @@ func _ready():
 		await _freeze_test()
 		get_tree().quit()
 		return
+	if mode == "torres":
+		await _towers_test()
+		get_tree().quit()
+		return
 	if mode == "tornado":
 		await _tornado_and_air_test()
 		get_tree().quit()
@@ -117,6 +121,45 @@ func _art_sheet():
 		sheet.blend_rect(img, Rect2i(0, 0, 128, 128), Vector2i((i % 6) * 136 + 4, (i / 6) * 136 + 4))
 	sheet.save_png("user://arte_gerada.png")
 	print("TESTE arte salva em ", ProjectSettings.globalize_path("user://arte_gerada.png"))
+
+
+func _towers_test():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	var mine = get_tree().get_nodes_in_group("player_base")
+	var bots = get_tree().get_nodes_in_group("enemy_base")
+	var mp = mine.map(func(t): return t.global_position.round())
+	var bp = bots.map(func(t): return t.global_position.round())
+	var c = ArenaBuilder.CENTER
+	var mirror_ok = true
+	for p in mp:
+		var mirrored = Vector2(p.x, 2 * c.y - p.y)
+		if !bp.any(func(q): return q.distance_to(mirrored) < 2.0):
+			mirror_ok = false
+	print("RESULTADO torres: jogador=", mp, " bot=", bp, " | espelhadas? ", mirror_ok, " | vida cada=", mine.map(func(t): return t.max_hp))
+	# caminho de uma tropa do jogador até a torre inimiga da esquerda
+	var map_rid = battle.get_world_2d().navigation_map
+	var from = ArenaBuilder.tower_positions(GameManager.Team.PLAYER)[0] + Vector2(0, -60)
+	var to = ArenaBuilder.tower_positions(GameManager.Team.ENEMY)[0]
+	var path = NavigationServer2D.map_get_path(map_rid, from, to, true, 0b01)
+	var crosses_bridge = false
+	for pt in path:
+		if abs(pt.y - c.y) <= ArenaBuilder.RIVER_HALF + 1 and abs(abs(pt.x - c.x) - ArenaBuilder.BRIDGE_X) <= ArenaBuilder.BRIDGE_HALF + 1:
+			crosses_bridge = true
+	var reaches = !path.is_empty() and path[-1].distance_to(to) < 30.0
+	print("RESULTADO caminho: ", path.size(), " pontos, chega na torre? ", reaches, " | passa pela ponte? ", crosses_bridge)
+	# derruba uma torre do bot: partida continua; derruba a outra: acaba
+	bots[0].take_damage(999999)
+	await get_tree().process_frame
+	var after_one = battle.match_over
+	bots[1].take_damage(999999)
+	await get_tree().process_frame
+	print("RESULTADO vitória: acabou com 1 torre? ", after_one, " (esperado false) | acabou com 2? ", battle.match_over, " (esperado true)")
+	get_tree().paused = false
 
 
 func _find_card(fn: Callable) -> CardData:
