@@ -64,7 +64,7 @@ const CARTAS = [
 		"u": {"hp": 300, "damage": 55, "attack_speed": 1.5, "move_speed": 75.0, "unit_scale": 0.8, "unit_count": 3, "charge_attack": true, "charge_distance_needed": 120.0}},
 	{"id": "bezerro", "nome": "Bezerro", "turma": "Curral", "custo": 10, "papel": "ENXAME", "raridade": COMUM, "ficha": true,
 		"receita": {"pernas": "casco", "corpo": "redondo", "bracos": "patas", "cabeca": "vaca"}, "paleta": P_BEZERRO,
-		"u": {"hp": 300, "damage": 55, "attack_speed": 1.5, "move_speed": 75.0, "unit_scale": 0.8}},
+		"u": {"hp": 300, "damage": 55, "attack_speed": 1.5, "move_speed": 75.0, "unit_scale": 0.8, "charge_attack": true, "charge_distance_needed": 120.0}},
 	{"id": "cavalo_coiceiro", "nome": "Cavalo Coiceiro", "turma": "Curral", "custo": 35, "papel": "CONTRA_ATAQUE", "raridade": RARA, "arena": 1, "perigo": 5,
 		"desc": "Nunca fique atrás dele. Nem na frente. Nem do lado.",
 		"pros": ["Rápido", "Coice joga o inimigo longe"], "cons": ["Vida mediana"],
