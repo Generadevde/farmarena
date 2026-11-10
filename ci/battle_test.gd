@@ -113,7 +113,11 @@ func _push_test():
 
 # folha com 24 artes geradas (6x4), ampliadas 4x, pra conferir o estilo
 func _art_sheet():
-	var all: Array = Catalogo.cards() + Catalogo.tokens()
+	var all: Array = Catalogo.cards() + Catalogo.tokens() + Safra.all_cards()
+	for g in 22:
+		var gen = CardGenerator.generate_def(7000 + g * 13)
+		all.append(Catalogo.build_card(gen["def"], "", gen["stats"], gen["spell"]))
+		print("TESTE gerada: ", gen["def"]["nome"], " [", gen["def"]["turma"], "] custo ", gen["def"]["custo"])
 	var cols = 8
 	var cell = 104
 	var rows = int(ceil((all.size() + Catalogo.bases().size()) / float(cols)))
@@ -152,6 +156,10 @@ func _art_sheet():
 		" | subiu nível? ", up_ok, " (nv ", Progresso.level(c0), ") | ofertas feira=", shop_offers, " | troca no baralho 2? ", deck_ok,
 		" | nível jogador=", Progresso.player_level(), " | maestria peão=", Progresso.mastery(c0), " | marcos=", Progresso.road_milestones().size(),
 		" | pendentes=", Progresso.d["pending"].size())
+	print("RESULTADO safra: períodos=", Safra.periods.size(), " cartas=", Safra.all_cards().map(func(c): return "%s[%s,%d,%s]" % [c.card_name, c.get_nation_name(), c.cost, CardData.role_name(c.role)]),
+		" | no banco? ", CardDatabase.all_cards.has(Safra.all_cards()[0]))
+	Safra.sync_profile()
+	print("RESULTADO safra: amostra entregue? ", Progresso.is_owned(Safra.current_cards()[0]), " | missão=", Safra.mission_text())
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:

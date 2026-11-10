@@ -328,7 +328,7 @@ func _generate_random_deck(preferred_role: int, known_cards: Array[CardData], st
 func _learn_custom_cards(bot_name: String, data: Dictionary, profile: AIProfile, style: Dictionary, known_paths: Array) -> bool:
 	var seen: Array = data.get("seen_custom_cards", [])
 	var changed = false
-	for card in CustomContent.custom_cards:
+	for card in CustomContent.custom_cards + Safra.all_cards():  # criadas no Criador + colhidas na Safra
 		if card == null or seen.has(card.resource_path) or CustomContent.is_spawn_only(card):
 			continue
 		seen.append(card.resource_path)

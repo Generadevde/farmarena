@@ -58,8 +58,8 @@ func install_base_data(new_base_data: BaseData, level: int = 1):
 		if base_data.base_texture is ImageTexture:
 			$Sprite2D.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # arte do Criador, pixel nítido
 		if base_data.base_texture.get_size() == Vector2(48, 48):
-			$Sprite2D.scale = Vector2(1.6, 1.6)  # arte 2.0 (48x48)
-			$Sprite2D.position = Vector2(0, -8)
+			$Sprite2D.scale = Vector2(2.0, 2.0)  # arte 2.0 (48x48)
+			$Sprite2D.position = Vector2(0, -14)
 		if team == GameManager.Team.ENEMY:
 			$Sprite2D.self_modulate = Color(1.0, 0.82, 0.82)  # torres inimigas levemente avermelhadas
 

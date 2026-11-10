@@ -26,7 +26,12 @@ static func _raw_power(stats: UnitData) -> float:
 	return (stats.hp * 0.3 + dps * 3.0) * max(stats.unit_count, 1)
 
 
+static var fixed_power := 0.0  # > 0: usa esse valor (a Safra usa pra não mudar carta antiga)
+
+
 static func power_per_cost() -> float:
+	if fixed_power > 0.0:
+		return fixed_power
 	var ratios: Array = []
 	for card in CardDatabase.all_cards:
 		if card == null or card.is_spell() or card.cost <= 0:
@@ -516,6 +521,17 @@ static func _outline(img: Image):
 # espelhada), corpo com degradê, contorno escuro e olhinhos. Funciona pra
 # 32x32 (carta), 32x64 (base) e 36x64 (fundo de arena vira um padrão)
 static func generate_sprite(w: int, h: int, seed_value: int) -> Image:
+	if w == 48 and h == 48:
+		# 2.0: personagem montado por peças, no estilo das cartas oficiais
+		var rng48 = RandomNumberGenerator.new()
+		rng48.seed = seed_value
+		var st48 = UnitData.new()
+		st48.is_ranged = rng48.randf() < 0.3
+		st48.damage = rng48.randi_range(40, 160)
+		if rng48.randf() < 0.15:
+			st48.unit_type = UnitData.UnitType.AIR
+		var d48 = design_card(rng48, random_turma(rng48), rng48.randi() % CardData.CardRole.size(), st48, null)
+		return SpriteForge.make_image(d48["receita"], d48["paleta"])
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var img = Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
@@ -635,3 +651,222 @@ static func generate_arena_background(w: int, h: int, seed_value: int) -> Image:
 		if abs(y - river_y) > 3:
 			img.set_pixel(x, y, [Color("ffec27"), Color("ff77a8"), Color("fff1e8"), Color("7a7a7a")][rng.randi() % 4])
 	return img
+
+
+# ================================================================ 2.0: gerador por PEÇAS e por TURMA
+# Carta nova sai com a cara da turma dela (peças, cores e nome), usando o
+# mesmo SpriteForge das cartas oficiais. Usado pelo Criador ("Gerar") e pela
+# Safra (cartas automáticas a cada 3 dias).
+const TURMA_THEMES = {
+	"Curral": {"cabeca": ["vaca", "boi", "cavalo", "ovelha", "bode"], "pernas": ["casco"], "corpo": ["redondo", "la", "armadura", "poncho"], "bracos": ["patas"],
+		"cores": ["#f2ede0", "#8a5a3c", "#c89060", "#4a4048", "#d8c0a0", "#b87848"], "proj": "estrume"},
+	"Galinheiro": {"cabeca": ["galinha", "pato", "coruja"], "pernas": ["ave"], "corpo": ["penas"], "bracos": ["asas"],
+		"cores": ["#f4f0e4", "#f8dc50", "#b84828", "#8a6848", "#f0e8a0", "#506078"], "proj": "ovo"},
+	"Brejo": {"cabeca": ["sapo", "capivara", "gato"], "pernas": ["patinha"], "corpo": ["redondo", "poncho"], "bracos": ["patas"],
+		"cores": ["#68b848", "#a87848", "#3c8848", "#58a0a0", "#8a6038", "#90c060"], "proj": "gota"},
+	"Roçado": {"cabeca": ["milho", "abobora", "cebola", "espantalho"], "pernas": ["bota", "fantasma"], "corpo": ["macacao", "poncho", "saco"], "bracos": ["humanos"],
+		"cores": ["#f4d040", "#f08828", "#c880c0", "#c8a860", "#e05050", "#90c040"], "proj": "milho"},
+	"Peões": {"cabeca": ["humano", "velho", "porco"], "pernas": ["bota"], "corpo": ["macacao", "poncho", "armadura"], "bracos": ["humanos"],
+		"cores": ["#c84838", "#58a050", "#e8c040", "#3c6cb8", "#b83830", "#e8e0d0"], "proj": "pedra"},
+	"Coisa Estranha": {"cabeca": ["et", "balde", "abelha", "espantalho", "gato"], "pernas": ["rodas", "fantasma", "inseto", "bota"], "corpo": ["armadura", "listrado", "redondo"], "bracos": ["humanos", "patas"],
+		"cores": ["#78c878", "#98a0ac", "#f4c830", "#d8e8f0", "#9a5cd0", "#50c0e0"], "proj": "raio"},
+}
+const HEAD_NAMES = {"vaca": "Vaca", "boi": "Boi", "cavalo": "Cavalo", "ovelha": "Ovelha", "bode": "Bode", "galinha": "Galinha", "pato": "Pato", "coruja": "Coruja",
+	"sapo": "Sapo", "capivara": "Capivara", "gato": "Gato", "milho": "Milho", "abobora": "Abóbora", "cebola": "Cebola", "espantalho": "Espantalho",
+	"humano": "Peão", "velho": "Vovô", "porco": "Porco", "et": "ET", "balde": "Robô", "abelha": "Abelha"}
+const HEAD_FEMININE = ["vaca", "ovelha", "galinha", "coruja", "capivara", "abobora", "cebola", "abelha"]
+const WEAPON_TITLES = {"forcado": ["do Forcado", "do Forcado"], "machado": ["Lenhador", "Lenhadora"], "marreta": ["Marreteiro", "Marreteira"], "foice": ["Ceifador", "Ceifadora"],
+	"enxada": ["da Enxada", "da Enxada"], "frigideira": ["Cozinheiro", "Cozinheira"], "porrete": ["Brigão", "Brigona"], "motosserra": ["da Motosserra", "da Motosserra"],
+	"estilingue": ["Atirador", "Atiradora"], "lampiao": ["do Lampião", "do Lampião"], "viola": ["Violeiro", "Violeira"], "escudo": ["Blindado", "Blindada"]}
+const ROLE_TITLES = {0: ["em Bando", "em Bando"], 1: ["Parrudo", "Parruda"], 2: ["Nervoso", "Nervosa"], 3: ["Manhoso", "Manhosa"], 4: ["Vingativo", "Vingativa"], 5: ["Curandeiro", "Curandeira"],
+	6: ["Arrombador", "Arrombadora"], 7: ["de Guarda", "de Guarda"], 8: ["Voador", "Voadora"], 9: ["Ligeiro", "Ligeira"], 10: ["Parideiro", "Parideira"], 11: ["de Longe", "de Longe"]}
+const FUNNY_SUFFIXES = ["do Brejo", "de Ferro", "Turbo", "3000", "Mutante", "Ninja", "da Madrugada", "Atômico", "de Domingo", "Sem Freio", "do Além", "Premium", "Raiz", "Gourmet", "Caipira", "do Zap"]
+const MELEE_WEAPONS = ["forcado", "machado", "marreta", "foice", "enxada", "frigideira", "porrete", "motosserra"]
+const RANGED_WEAPONS = ["estilingue", "lampiao", "viola"]
+const WEAPON_PROJ = {"estilingue": "pedra", "lampiao": "fogo", "viola": "nota"}
+const HATS = ["palha", "cowboy", "balde", "bandana", "coroa", "cozinheiro", "flor", "penacho"]
+const BUILDINGS = ["galinheiro", "silo", "colmeia", "poco", "barril", "canhao_milho", "fornalha", "tenda", "ninho", "feno"]
+const BUILDING_NAMES = {"galinheiro": "Galinheiro", "silo": "Silo", "colmeia": "Colmeia", "poco": "Poço", "barril": "Barril", "canhao_milho": "Canhão", "fornalha": "Forno", "tenda": "Barraca", "ninho": "Ninho", "feno": "Monte de Feno"}
+const BUILDING_SUFFIX = ["Nervoso", "Blindado", "Assombrado", "Turbinado", "da Discórdia", "Atômico", "do Vizinho", "Encantado"]
+const ACCENTS = ["#c8483c", "#3c6cb8", "#e8a020", "#8048a0", "#40a060", "#e06080", "#30303c", "#50c0e0"]
+
+
+static func random_turma(rng: RandomNumberGenerator) -> String:
+	var names = TURMA_THEMES.keys()
+	return names[rng.randi() % names.size()]
+
+
+static func _pick_of(rng: RandomNumberGenerator, list: Array):
+	return list[rng.randi() % list.size()]
+
+
+## monta a arte (receita + paleta), o nome e o projétil de uma carta nova
+## já com os números decididos (stats de unidade OU dados de feitiço)
+static func design_card(rng: RandomNumberGenerator, turma: String, role: int, stats: UnitData, spell: SpellData) -> Dictionary:
+	var theme: Dictionary = TURMA_THEMES.get(turma, TURMA_THEMES["Peões"])
+	var palette = {"P": _pick_of(rng, theme["cores"]), "S": _pick_of(rng, theme["cores"]), "A": _pick_of(rng, ACCENTS)}
+	var out = {"receita": {}, "paleta": palette, "nome": "", "proj": theme["proj"]}
+
+	if spell != null:
+		var icon = "melancia"
+		var thing = "Melancia"
+		if spell.summon_count > 0:
+			icon = "ovo"; thing = "Ovo Surpresa"
+		elif spell.heal_amount > 0:
+			icon = _pick_of(rng, ["coracao", "nota"]); thing = "Carinho" if icon == "coracao" else "Modão"
+		elif spell.shield_amount > 0:
+			icon = "escudo"; thing = "Tampa"
+		elif spell.rage_damage_mult > 1.0:
+			icon = "pimenta"; thing = "Pimenta"
+		elif spell.status_effect == UnitData.OnHitEffect.FREEZE:
+			icon = "floco"; thing = "Geada"
+		elif spell.status_effect == UnitData.OnHitEffect.SLOW:
+			icon = "lama"; thing = "Lama"
+		elif spell.status_effect == UnitData.OnHitEffect.STUN:
+			icon = "raio"; thing = "Trovão"
+		elif spell.status_effect == UnitData.OnHitEffect.POISON:
+			icon = "cogumelo"; thing = "Cogumelo"
+		elif spell.status_effect == UnitData.OnHitEffect.PULL:
+			icon = "tornado"; thing = "Redemoinho"
+		elif spell.damage >= 350:
+			icon = "vaca_caindo"; thing = "Vaca"
+		elif rng.randf() < 0.5:
+			icon = "raio"; thing = "Raio"
+		out["receita"] = {"icone": icon}
+		palette["K"] = _pick_of(rng, ["#f8e040", "#f8ecc8", "#f0d060"])
+		palette["M"] = _pick_of(rng, ["#a8b4c0", "#c8d4e0"])
+		out["nome"] = "%s %s" % [_pick_of(rng, ["Chuva de", "Festa de", "Praga de", "Estouro de", "Benção de", "Surra de"]), thing] if rng.randf() < 0.7 else "%s %s" % [thing, _pick_of(rng, FUNNY_SUFFIXES)]
+		return out
+
+	if stats.unit_type == UnitData.UnitType.BUILDING:
+		var obj = _pick_of(rng, BUILDINGS)
+		out["receita"] = {"objeto": obj}
+		palette["W"] = _pick_of(rng, ["#8a5a34", "#6a4428", "#a07040"])
+		out["nome"] = "%s %s" % [BUILDING_NAMES[obj], _pick_of(rng, BUILDING_SUFFIX)]
+		return out
+
+	var head = _pick_of(rng, theme["cabeca"])
+	var recipe = {"cabeca": head, "pernas": _pick_of(rng, theme["pernas"]), "corpo": _pick_of(rng, theme["corpo"]), "bracos": _pick_of(rng, theme["bracos"])}
+	var weapon = ""
+	if stats.is_ranged:
+		if rng.randf() < 0.75:
+			weapon = _pick_of(rng, RANGED_WEAPONS)
+			out["proj"] = WEAPON_PROJ[weapon]
+	elif stats.damage >= 90 or rng.randf() < 0.4:
+		weapon = _pick_of(rng, MELEE_WEAPONS)
+	elif role == CardData.CardRole.TANQUE and rng.randf() < 0.5:
+		weapon = "escudo"
+	if weapon != "":
+		recipe["arma"] = weapon
+	if rng.randf() < 0.55:
+		recipe["chapeu"] = _pick_of(rng, HATS)
+	if stats.unit_type == UnitData.UnitType.AIR:
+		if recipe["bracos"] != "asas":
+			recipe["costas"] = _pick_of(rng, ["asas_inseto", "foguete"])
+	elif rng.randf() < 0.15:
+		recipe["costas"] = _pick_of(rng, ["capa", "rabo_galo"])
+	if head in ["humano", "velho"]:
+		palette["K"] = _pick_of(rng, ["#e8b088", "#d89868", "#c08058", "#f0c8a0"])
+	elif head in ["galinha", "pato", "coruja"]:
+		palette["K"] = _pick_of(rng, ["#f0b030", "#f09030"])
+	out["receita"] = recipe
+
+	var fem = 1 if head in HEAD_FEMININE else 0
+	var title = WEAPON_TITLES[weapon][fem] if weapon != "" and rng.randf() < 0.7 else ROLE_TITLES.get(role, ["Ligeiro", "Ligeira"])[fem]
+	var name = "%s %s" % [HEAD_NAMES.get(head, "Bicho"), title]
+	if stats.unit_count > 1:
+		name = "Bando de %s" % HEAD_NAMES.get(head, "Bicho")
+	if rng.randf() < 0.45:
+		name += " " + _pick_of(rng, FUNNY_SUFFIXES)
+	out["nome"] = name
+	return out
+
+
+static func describe_unit(stats: UnitData, role: int) -> Dictionary:
+	var pros: Array = []
+	var cons: Array = []
+	if stats.unit_type == UnitData.UnitType.AIR:
+		pros.append("Voa por cima de tudo")
+	if stats.unit_count > 1:
+		pros.append("Vêm em %d" % stats.unit_count)
+		cons.append("Dano em área acaba com o grupo")
+	if stats.is_ranged:
+		pros.append("Ataca de longe")
+	if stats.target_type == UnitData.TargetType.ALL:
+		pros.append("Acerta voador")
+	elif stats.target_type == UnitData.TargetType.BUILDING:
+		pros.append("Vai direto na torre")
+		cons.append("Ignora as tropas")
+	elif stats.unit_type != UnitData.UnitType.AIR:
+		cons.append("Não acerta voador")
+	if stats.can_heal_allies:
+		pros.append("Cura quem está perto")
+	if stats.on_hit_effect != UnitData.OnHitEffect.NONE:
+		pros.append("Golpe com efeito: %s" % CustomContent.EFFECT_NAMES[stats.on_hit_effect])
+	if stats.is_aoe:
+		pros.append("Dano em área")
+	if stats.spawns_units:
+		pros.append("Invoca ajudantes")
+	if role == CardData.CardRole.TANQUE:
+		pros.append("Muita vida")
+		cons.append("Lento")
+	if stats.unit_type == UnitData.UnitType.BUILDING:
+		cons.append("Some com o tempo")
+	if pros.is_empty():
+		pros.append("Equilibrada")
+	if cons.is_empty():
+		cons.append("Sem truque especial")
+	return {"pros": pros.slice(0, 3), "cons": cons.slice(0, 2)}
+
+
+## gera uma carta completa (na memória) no formato do Catalogo.
+## Devolve {"def": {...}, "stats": UnitData|null, "spell": SpellData|null}
+static func generate_def(seed_value: int, turma: String = "", kind: int = 0, role: int = -1, cost: int = 0) -> Dictionary:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = seed_value
+	if turma == "":
+		turma = random_turma(rng)
+	var is_spell = (kind == 2) or (kind == 0 and rng.randf() < 0.22)
+	if cost <= 0:
+		cost = rng.randi_range(3, 13) * 5
+	if role < 0:
+		role = rng.randi() % CardData.CardRole.size()
+	if is_spell and !(role in [CardData.CardRole.PUNICAO, CardData.CardRole.CONTROLE, CardData.CardRole.SUPORTE]):
+		role = [CardData.CardRole.PUNICAO, CardData.CardRole.CONTROLE, CardData.CardRole.SUPORTE][rng.randi() % 3]
+	var stats: UnitData = null
+	var spell: SpellData = null
+	var text = {"pros": [], "cons": []}
+	if is_spell:
+		spell = SpellData.new()
+		_fill_spell(spell, role, cost, rng)
+		# variações 2.0: fúria e escudo
+		if role == CardData.CardRole.SUPORTE and rng.randf() < 0.5:
+			spell.heal_amount = 0
+			spell.duration = 0.0
+			if rng.randf() < 0.5:
+				spell.rage_damage_mult = 1.3
+				spell.rage_speed_mult = 1.25
+				spell.rage_attack_speed_mult = 1.25
+				spell.buff_duration = 4.0 + cost / 10.0
+				text["pros"] = ["Deixa os aliados em fúria"]
+			else:
+				spell.shield_amount = int(cost * 11.0)
+				spell.buff_duration = 8.0
+				text["pros"] = ["Dá escudo aos aliados"]
+			text["cons"] = ["Não causa dano"]
+		elif spell.heal_amount > 0:
+			text = {"pros": ["Cura em área"], "cons": ["Não causa dano"]}
+		elif role == CardData.CardRole.CONTROLE:
+			text = {"pros": ["Atrapalha os inimigos: %s" % CustomContent.EFFECT_NAMES[spell.status_effect]], "cons": ["Dano baixo"]}
+		else:
+			text = {"pros": ["Dano na hora, em área"], "cons": ["Fraco contra torre"]}
+	else:
+		stats = UnitData.new()
+		_fill_unit(stats, role, cost, rng)
+		text = describe_unit(stats, role)
+	var design = design_card(rng, turma, role, stats, spell)
+	var rarity = Progresso._weighted([45, 35, 17, 3])
+	var def = {"nome": design["nome"], "turma": turma, "custo": cost, "papel": role, "raridade": rarity, "arena": 0,
+		"perigo": clampi(int(cost / 10.0) + 1, 1, 10), "desc": "", "pros": text["pros"], "cons": text["cons"],
+		"receita": design["receita"], "paleta": design["paleta"], "proj": design["proj"]}
+	return {"def": def, "stats": stats, "spell": spell}

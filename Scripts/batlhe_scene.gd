@@ -796,11 +796,11 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 
 	var panel = PanelContainer.new()
 	panel.theme = ThemeBuilder.game_theme
-	panel.custom_minimum_size = Vector2(260, 0)
+	panel.custom_minimum_size = Vector2(500, 0)
 	center.add_child(panel)
 
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
+	vbox.add_theme_constant_override("separation", 10)
 	panel.add_child(vbox)
 
 	var title = Label.new()
@@ -819,9 +819,9 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 	var joke = Label.new()
 	joke.text = jokes[randi() % jokes.size()]
 	joke.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	joke.add_theme_font_size_override("font_size", 16)
+	joke.add_theme_font_size_override("font_size", 20)
 	joke.modulate = Color(1, 1, 1, 0.8)
-	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_font_size_override("font_size", 56)
 	title.add_theme_color_override(
 		"font_color",
 		Color(0.85, 0.85, 0.85) if is_draw else (Color(1, 0.85, 0.2) if player_won else Color(1, 0.35, 0.35))
@@ -872,7 +872,10 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 	)
 	vbox.add_child(replay_button)
 
+	replay_button.custom_minimum_size.y = 52
 	var continue_button = Button.new()
+	continue_button.custom_minimum_size.y = 64
+	continue_button.add_theme_font_size_override("font_size", 24)
 	continue_button.text = "Continuar"
 	continue_button.pressed.connect(func():
 		get_tree().paused = false
@@ -886,9 +889,12 @@ func _build_reward_row(label_text: String, value_text: String, value_color: Colo
 	var label = Label.new()
 	label.text = label_text
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.add_theme_font_size_override("font_size", 22)
 	row.add_child(label)
 	var value = Label.new()
 	value.text = value_text
+	value.add_theme_font_size_override("font_size", 22)
+	value.add_theme_font_override("font", ThemeDB.fallback_font)
 	value.add_theme_color_override("font_color", value_color)
 	row.add_child(value)
 	return row

@@ -12,7 +12,7 @@ class_name Catalogo
 
 const UNIT_TEMPLATE = "res://Units/scenes/unit_base.tscn"
 const PATH_PREFIX = "res://c2/"
-const SPRITE_SCALE = 0.72  # 48px da arte -> ~35 unidades de mundo (antes eram 32)
+const SPRITE_SCALE = 0.95  # só visual: o corpo (colisão/alcance) vem do CollisionShape, não do sprite
 
 const COMUM = 0
 const RARA = 1
@@ -487,7 +487,9 @@ static func _enum_value(enum_dict: Dictionary, value, fallback: int = 0) -> int:
 	return int(value)
 
 
-static func build_card(def: Dictionary, path: String = "") -> CardData:
+## stats_override / spell_override: números já prontos (gerador / Safra)
+static func build_card(def: Dictionary, path: String = "", stats_override: UnitData = null, spell_override: SpellData = null) -> CardData:
+	_ensure()
 	if _template == null:
 		_template = load(UNIT_TEMPLATE)
 	var card = CardData.new()
@@ -508,12 +510,12 @@ static func build_card(def: Dictionary, path: String = "") -> CardData:
 	if def.get("ficha", false):
 		card.set_meta("spawn_only", true)
 
-	if def.has("f"):
-		var spell = SpellData.new()
-		_apply_fields(spell, def["f"])
+	if def.has("f") or spell_override != null:
+		var spell = spell_override if spell_override != null else SpellData.new()
+		_apply_fields(spell, def.get("f", {}))
 		card.spell_data = spell
 	else:
-		var stats = UnitData.new()
+		var stats = stats_override if stats_override != null else UnitData.new()
 		_apply_fields(stats, def.get("u", {}))
 		stats.role = card.role
 		if stats.is_ranged:

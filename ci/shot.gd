@@ -52,6 +52,11 @@ func _ready():
 	await _shot("carta")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	hub._show_safra()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("safra")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._show_loot("Baú do Celeiro", Progresso.roll_chest(2), Color("#c84838"))
 	await get_tree().create_timer(1.6).timeout
 	await _shot("bau")

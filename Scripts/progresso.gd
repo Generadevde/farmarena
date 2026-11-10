@@ -471,6 +471,7 @@ func on_battle_finished(won: bool, ranked: bool, xp_gain: int) -> Dictionary:
 			summary["sem_espaco"] = true
 			var consolation = 15 + 5 * ArenaManager.get_player_arena()
 			PlayerProfile.add_coins(consolation)
+	Safra.on_battle(won)
 	if randf() < 0.22 and !mascate_active():
 		_spawn_mascate()
 		summary["mascate"] = true

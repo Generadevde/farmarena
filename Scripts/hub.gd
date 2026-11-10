@@ -44,6 +44,7 @@ func _ready():
 		MusicPlayer.play_menu_music()
 	_build_shell()
 	_rebuild_all()
+	Safra.sync_profile()
 	Progresso.changed.connect(_queue_refresh)
 	PlayerProfile.profile_changed.connect(_refresh_top)
 	Progresso.rewards_pending.connect(_defer_pending)
@@ -137,8 +138,13 @@ func _build_shell():
 	_layout_pages.call_deferred()
 
 
+func _w() -> float:
+	return get_viewport_rect().size.x
+
+
 func _layout_pages():
-	var w = size.x
+	size = get_viewport_rect().size
+	var w = _w()
 	var h = size.y - TOP_H - BAR_H
 	for i in _pages_root.get_child_count():
 		var sc: Control = _pages_root.get_child(i)
@@ -154,7 +160,7 @@ func _go_tab(i: int):
 	last_tab = i
 	_cancel_placing()
 	var tw = create_tween()
-	tw.tween_property(_pages_root, "position:x", -i * size.x, 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_pages_root, "position:x", -i * _w(), 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_style_tabs()
 
 
@@ -226,6 +232,8 @@ func _rebuild_all():
 func _refresh_top():
 	var prog = Progresso.level_progress()
 	_level_label.text = "⭐ Nível %d" % Progresso.player_level()
+	for l in [_level_label, _coins_label, _trophy_label]:
+		l.add_theme_font_override("font", ThemeDB.fallback_font)
 	_xp_bar.max_value = prog[1]
 	_xp_bar.value = prog[0]
 	_name_label.text = PlayerProfile.player_name
@@ -252,6 +260,7 @@ func _refresh_dots():
 			mission_ready = true
 	_dots[2].visible = chest_ready or mission_ready
 	_dots[3].visible = Progresso.road_claimable() > 0
+	_dots[4].visible = Safra.mission_ready()
 
 
 # ================================================================ ajudantes de interface
@@ -262,9 +271,23 @@ func _clear(box: Node) -> Node:
 	return box
 
 
+static var _digit_re: RegEx
+
+
+## a fonte rústica do tema tem "1" parecido com "I" e "0" com "O" -- qualquer
+## texto com número usa a fonte padrão, que é bem mais legível
+func _readable(control: Control, text: String):
+	if _digit_re == null:
+		_digit_re = RegEx.new()
+		_digit_re.compile("[0-9]")
+	if _digit_re.search(text) != null:
+		control.add_theme_font_override("font", ThemeDB.fallback_font)
+
+
 func _label(text: String, font_size: int = 18, color: Color = ThemeBuilder.COLOR_CREAM) -> Label:
 	var l = Label.new()
 	l.text = text
+	_readable(l, text)
 	l.add_theme_font_size_override("font_size", font_size)
 	l.add_theme_color_override("font_color", color)
 	return l
@@ -286,6 +309,7 @@ func _wrap(text: String, font_size: int = 17, color: Color = ThemeBuilder.COLOR_
 func _button(text: String, on_press: Callable, font_size: int = 20) -> Button:
 	var b = Button.new()
 	b.text = text
+	_readable(b, text)
 	b.add_theme_font_size_override("font_size", font_size)
 	b.custom_minimum_size.y = 56
 	b.pressed.connect(on_press)
@@ -321,6 +345,7 @@ static func _clock(seconds: float) -> String:
 
 func _live(label: Control, fn: Callable):
 	label.text = fn.call()
+	label.add_theme_font_override("font", ThemeDB.fallback_font)
 	_live_labels.append([label, fn])
 
 
@@ -368,7 +393,7 @@ func _build_batalha(box: Node):
 	for m in PlayerProfile.daily_missions:
 		if !m["claimed"] and m["progress"] >= m["target"]:
 			pending += 1
-	var bm = _button("📋 Missões" + (" (%d!)" % pending if pending > 0 else ""), _show_missions)
+	var bm = _button("📊 Ranking", _goto.bind(STATS_HUB_SCENE))
 	bm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(bm)
 
@@ -380,6 +405,13 @@ func _build_batalha(box: Node):
 	chest_panel.add_child(crow)
 	for i in Progresso.CHEST_SLOTS:
 		crow.add_child(_chest_slot(i))
+
+	# missões do dia (direto na tela)
+	PlayerProfile._check_and_reset_daily_missions()
+	var mission_panel = _panel(box)
+	mission_panel.add_child(_label("📋 Missões do dia" + ("  --  %d pronta(s)!" % pending if pending > 0 else ""), 17, ThemeBuilder.COLOR_STAT_LABEL))
+	for m in PlayerProfile.daily_missions:
+		_mission_row(mission_panel, m, null)
 
 	# carta do dia
 	var cod = Catalogo.find_card(Progresso.card_of_the_day_path())
@@ -397,8 +429,9 @@ func _build_batalha(box: Node):
 func _chest_slot(i: int) -> Control:
 	var b = Button.new()
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size.y = 150
+	b.custom_minimum_size.y = 178
 	b.add_theme_font_size_override("font_size", 16)
+	b.add_theme_font_override("font", ThemeDB.fallback_font)
 	var list = Progresso.chests()
 	if i >= list.size():
 		b.text = "vazio"
@@ -418,7 +451,7 @@ func _chest_slot(i: int) -> Control:
 	b.add_child(art)
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	var name_text = "\n\n\n%s\n" % def["nome"]
+	var name_text = "\n\n\n\n%s\n" % def["nome"]
 	if Progresso.chest_ready(i):
 		b.text = name_text + "ABRIR!"
 		b.modulate = Color(1.0, 1.0, 0.7)
@@ -1001,7 +1034,10 @@ func _build_sitio(box: Node):
 	box.add_child(_button("📊 Ranking, temporada e estatísticas", _goto.bind(STATS_HUB_SCENE)))
 	box.add_child(_button("📰 Jornal da Roça", _goto.bind(JOURNAL_SCENE)))
 	box.add_child(_button("🎨 Criador (cartas, torres, arenas)", _goto.bind(CREATOR_SCENE)))
-	box.add_child(_button("🌱 Safra (cartas novas automáticas)", _show_safra))
+	var safra_b = _button("🌱 Safra (cartas novas a cada 3 dias)" + ("  --  PRÊMIO!" if Safra.mission_ready() else ""), _show_safra)
+	if Safra.mission_ready():
+		safra_b.modulate = Color(1, 1, 0.7)
+	box.add_child(safra_b)
 	box.add_child(_button("👤 Trocar de perfil", _goto.bind(PROFILE_SCENE)))
 	box.add_child(_button("Sair do jogo", get_tree().quit))
 
@@ -1016,60 +1052,92 @@ func _goto(scene: String):
 func _show_safra():
 	var v = _popup()
 	v.add_child(_title("🌱 Safra"))
-	if get_node_or_null("/root/Safra") != null:
-		var safra = get_node("/root/Safra")
-		v.add_child(_wrap(safra.status_text(), 17))
-		for c in safra.current_cards():
-			var row = HBoxContainer.new()
-			row.add_theme_constant_override("separation", 10)
-			v.add_child(row)
-			var cv = CardView.make(c, 110)
-			cv.show_level = Progresso.is_owned(c)
-			cv.tapped.connect(_show_card_popup)
-			row.add_child(cv)
-			row.add_child(_wrap("%s\n%s · custo %d" % [c.card_name, CardData.role_name(c.role), c.cost], 16))
-	else:
-		v.add_child(_wrap("A cada 3 dias o sítio colhe 2 cartas novas e 1 missão especial. Em breve!", 17))
+	v.add_child(_wrap(Safra.status_text(), 16))
+	v.add_child(_label("Colheita atual:", 17, ThemeBuilder.COLOR_STAT_LABEL))
+	for c in Safra.current_cards():
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		v.add_child(row)
+		var cv = CardView.make(c, 110)
+		cv.show_level = Progresso.is_owned(c)
+		cv.locked = false
+		cv.badge = "" if Progresso.is_owned(c) else "falta achar"
+		cv.tapped.connect(_show_card_popup)
+		row.add_child(cv)
+		row.add_child(_wrap("%s\n%s · %s · custo %d" % [c.card_name, c.get_nation_name(), CardData.role_name(c.role), c.cost], 16))
+	var m = Safra.mission()
+	if !m.is_empty():
+		var p = _panel(v)
+		p.add_child(_wrap("⭐ Missão da safra: %s" % Safra.mission_text(), 17, ThemeBuilder.COLOR_GOLD))
+		p.add_child(_label("Progresso: %d/%d   ·   Prêmio: a outra carta da safra + Caixote da Feira" % [mini(int(m["prog"]), Safra.MISSION_WINS), Safra.MISSION_WINS], 15))
+		if m["pego"]:
+			p.add_child(_label("✔ Prêmio já pego", 16, Color(0.6, 1, 0.6)))
+		elif Safra.mission_ready():
+			var b = _button("PEGAR PRÊMIO", _claim_safra.bind(v))
+			b.modulate = Color(1, 1, 0.7)
+			p.add_child(b)
+	var old_cards = Safra.all_cards().filter(func(c): return !Safra.current_cards().has(c))
+	if !old_cards.is_empty():
+		v.add_child(_label("Safras anteriores:", 15, ThemeBuilder.COLOR_STAT_LABEL))
+		var g = _grid(v, 6)
+		for c in old_cards.slice(maxi(0, old_cards.size() - 12)):
+			var ov = CardView.make(c, 92)
+			ov.show_level = false
+			ov.tapped.connect(_show_card_popup)
+			g.add_child(ov)
 	v.add_child(_button("Fechar", _close.bind(v)))
 
 
+func _claim_safra(popup_box: Node):
+	var loot = Safra.claim_mission()
+	_close(popup_box)
+	if !loot.is_empty():
+		_show_loot("🌱 Prêmio da safra", loot, Color(0.5, 0.9, 0.4))
+
+
 # ================================================================ missões
+func _mission_row(parent: Node, m: Dictionary, popup_box):
+	parent.add_child(_wrap(str(m["description"]), 16))
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	parent.add_child(row)
+	var bar = ProgressBar.new()
+	bar.max_value = m["target"]
+	bar.value = mini(int(m["progress"]), int(m["target"]))
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(200, 20)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(bar)
+	row.add_child(_label("%d/%d" % [mini(int(m["progress"]), int(m["target"])), int(m["target"])], 16))
+	var is_coins = int(m["reward_type"]) == MissionData.RewardType.COINS
+	var reward_text = ("💰 %d" if is_coins else "⭐ %d XP") % int(m["reward_amount"])
+	if m["claimed"]:
+		row.add_child(_label("✔ " + reward_text, 16, Color(0.6, 1, 0.6)))
+	elif m["progress"] >= m["target"]:
+		var b = _button("PEGAR " + reward_text, _claim_mission.bind(str(m["id"]), popup_box), 16)
+		b.modulate = Color(1, 1, 0.7)
+		row.add_child(b)
+	else:
+		row.add_child(_label(reward_text, 16, ThemeBuilder.COLOR_GOLD))
+
+
 func _show_missions():
 	PlayerProfile._check_and_reset_daily_missions()
 	var v = _popup()
 	v.add_child(_title("📋 Missões do dia"))
 	for m in PlayerProfile.daily_missions:
-		var p = _panel(v)
-		p.add_child(_wrap(str(m["description"]), 17))
-		var row = HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		p.add_child(row)
-		var bar = ProgressBar.new()
-		bar.max_value = m["target"]
-		bar.value = mini(int(m["progress"]), int(m["target"]))
-		bar.show_percentage = false
-		bar.custom_minimum_size = Vector2(200, 20)
-		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(bar)
-		row.add_child(_label("%d/%d" % [mini(int(m["progress"]), int(m["target"])), int(m["target"])], 16))
-		var is_coins = int(m["reward_type"]) == MissionData.RewardType.COINS
-		var reward_text = ("💰 %d" if is_coins else "⭐ %d XP") % int(m["reward_amount"])
-		if m["claimed"]:
-			row.add_child(_label("✔ " + reward_text, 16, Color(0.6, 1, 0.6)))
-		elif m["progress"] >= m["target"]:
-			var b = _button("PEGAR " + reward_text, _claim_mission.bind(str(m["id"]), v), 16)
-			b.modulate = Color(1, 1, 0.7)
-			row.add_child(b)
-		else:
-			row.add_child(_label(reward_text, 16, ThemeBuilder.COLOR_GOLD))
+		_mission_row(_panel(v), m, v)
 	v.add_child(_button("Fechar", _close.bind(v)))
 
 
-func _claim_mission(id: String, popup_box: Node):
+func _claim_mission(id: String, popup_box):
 	if PlayerProfile.claim_mission_reward(id):
-		_close(popup_box)
+		_toast("Missão cumprida!")
 		_queue_refresh()
-		_show_missions.call_deferred()
+		if popup_box != null:
+			_close(popup_box)
+			_show_missions.call_deferred()
 
 
 # ================================================================ prêmios
@@ -1083,6 +1151,8 @@ func _show_pending():
 				_show_loot("⬆ NÍVEL %d!" % int(r["nivel"]), [{"tipo": "ouro", "ouro": int(r["ouro"])}], Color(0.5, 1, 0.6))
 			"bau":
 				_show_loot("🎁 " + Progresso.CHESTS[int(r["bau"])]["nome"], r["itens"], Color.html(Progresso.CHESTS[int(r["bau"])]["cor"]))
+			"safra":
+				_show_loot("🌱 Safra nova! Amostra grátis", r["itens"], Color(0.5, 0.9, 0.4))
 			"maestria":
 				var c = Catalogo.find_card(str(r["path"]))
 				if c != null:
