@@ -1317,7 +1317,7 @@ func _legacy_audit():
 	var walker = (await _put("peao_forcado", P, ArenaBuilder.CENTER + Vector2(-75, 70)))[0]
 	walker.stats = walker.stats.duplicate()
 	walker.stats.move_speed = 70.0
-	await get_tree().create_timer(2.6).timeout
+	await get_tree().create_timer(2.05).timeout
 	_check("atravessa o rio", is_instance_valid(u) and u.global_position.y < ArenaBuilder.CENTER.y - 20 and walker.global_position.y > ArenaBuilder.CENTER.y - 20,
 		"com a habilidade y=%d, sem ela y=%d (rio em y=%d)" % [int(u.global_position.y), int(walker.global_position.y), int(ArenaBuilder.CENTER.y)])
 
@@ -1360,5 +1360,23 @@ func _legacy_audit():
 	await get_tree().create_timer(4.0).timeout
 	_check("ataque contínuo", 99999 - d.current_hp >= 100, "tirou %d em ~3s" % int(99999 - d.current_hp))
 
+	# 90 cartas do gerador entram em campo e lutam um pouco: pega erro de script em combinação de habilidades
+	CardGenerator.fixed_power = 15.0
+	var fought = 0
+	var no_damage: Array = []
+	for seed_n in 90:
+		var gen = CardGenerator.generate_def(90000 + seed_n * 53, "", 1)
+		if gen["stats"] == null:
+			continue
+		var gcard: CardData = Catalogo.build_card(gen["def"], "res://c2/ger_%d.tres" % seed_n, gen["stats"], gen["spell"])
+		await _wipe()
+		d = await _dummy(E, mid + Vector2(0, -40 if !gen["stats"].is_ranged else -80))
+		await _put_card(gcard, P, mid)
+		await get_tree().create_timer(3.2).timeout
+		fought += 1
+		if gen["stats"].damage > 0 and gen["stats"].target_type != UnitData.TargetType.BUILDING and gen["stats"].target_type != UnitData.TargetType.AIR and is_instance_valid(d) and d.current_hp >= 99999:
+			no_damage.append("%s%s" % [gen["def"]["nome"], str(Catalogo.abilities(gcard))])
+	CardGenerator.fixed_power = 0.0
+	print("RESULTADO gerador em campo: ", fought, " cartas lutaram | sem causar dano em 3s: ", no_damage)
 	print("RESULTADO antigas OK (", _aud_ok.size(), "): ", _aud_ok)
 	print("RESULTADO antigas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

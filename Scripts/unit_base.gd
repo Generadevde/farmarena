@@ -969,9 +969,10 @@ func _perform_attack():
 		# domina o inimigo: converte ele pro meu time em vez de só bater --
 		# versão inicial; não converte base, só unidades normais
 		if stats.can_convert_enemy and _converted_count < stats.convert_max_targets:
-			if !_is_base(target) and "team" in target:
-				target.team = team
+			if !_is_base(target) and target.has_method("convert_to"):
+				target.convert_to(team)
 				_converted_count += 1
+				target = null  # era meu alvo; agora é aliado
 
 	if target_killed:
 		if stats.heals_on_kill:
@@ -1742,6 +1743,19 @@ func _apply_card_level_to_stats(new_unit):
 	new_unit.stats.damage = round(new_unit.stats.damage * mult)
 
 
+## troca de lado de verdade: time, camadas de colisão, alvo e torre inimiga
+## (antes só mudava o "team" e a unidade convertida continuava brigando com quem a converteu)
+func convert_to(new_team):
+	if stats.unit_type == UnitData.UnitType.BUILDING:
+		return
+	team = new_team
+	target = null
+	enemy_base = null
+	_configure_physics_layers()
+	_refresh_enemy_tower()
+	_flash_color(Color(0.8, 0.5, 1.0), 0.4)
+
+
 func _spawn_clone():
 	# a cena vem da carta (as cartas 2.0 são montadas na memória e não têm arquivo de cena;
 	# antes isso fazia o clone simplesmente não nascer)
@@ -1785,6 +1799,12 @@ func die():
 	if stats.spawns_on_death and stats.death_spawn_scene != null:
 		for i in stats.death_spawn_count:
 			_spawn_child(stats.death_spawn_scene, global_position + Vector2(randf_range(-20, 20), randf_range(-20, 20)))
+
+	if stats.stores_resource:
+		# o espaço extra some junto com a unidade (antes ficava pra sempre)
+		var battle_scene = get_tree().get_first_node_in_group("battle_scene")
+		if battle_scene != null and battle_scene.has_method("add_storage_capacity"):
+			battle_scene.add_storage_capacity(team, -stats.storage_capacity_bonus)
 
 	if stats.grants_resource_on_death:
 		var opposing_is_player = team != GameManager.Team.PLAYER

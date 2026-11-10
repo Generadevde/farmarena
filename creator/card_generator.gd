@@ -781,6 +781,18 @@ static func design_card(rng: RandomNumberGenerator, turma: String, role: int, st
 	return out
 
 
+static func _roll_extra(rng: RandomNumberGenerator) -> int:
+	var total = 0
+	for w in EXTRA_WEIGHTS:
+		total += w
+	var roll = rng.randi() % total
+	for i in EXTRA_WEIGHTS.size():
+		roll -= EXTRA_WEIGHTS[i]
+		if roll < 0:
+			return i
+	return 0
+
+
 static func describe_unit(stats: UnitData, role: int) -> Dictionary:
 	var pros: Array = []
 	var cons: Array = []
@@ -816,6 +828,152 @@ static func describe_unit(stats: UnitData, role: int) -> Dictionary:
 	if cons.is_empty():
 		cons.append("Sem truque especial")
 	return {"pros": pros.slice(0, 3), "cons": cons.slice(0, 2)}
+
+
+# habilidades extras que o gerador pode somar a uma carta (todas passam na
+# auditoria automática). Quanto mais habilidades, mais rara a carta -- e um
+# pouco menos de vida/dano, pra força total continuar na mesma régua.
+const EXTRA_WEIGHTS = [50, 27, 14, 7, 2]  # 0, 1, 2, 3 ou 4 extras
+const EXTRA_POOL = ["escudo", "roubo", "casca", "regen", "primeiro", "furia_entrada", "onda", "investida", "executa", "furia_morte", "cresce",
+	"cura_matar", "devolve", "inabalavel", "explode", "clone", "contra", "ouro_matar", "rouba", "corrente", "longe", "mais_um", "avanco", "levanta", "efeito"]
+
+
+static func add_extras(st: UnitData, rng: RandomNumberGenerator, n: int) -> Array:
+	var labels: Array = []
+	var pool = EXTRA_POOL.duplicate()
+	var is_b = st.unit_type == UnitData.UnitType.BUILDING
+	var melee = !st.is_ranged
+	var tries = 0
+	while labels.size() < n and !pool.is_empty() and tries < 60:
+		tries += 1
+		var pick = pool[rng.randi() % pool.size()]
+		pool.erase(pick)
+		var hits = st.damage > 0
+		match pick:
+			"escudo":
+				st.has_shield = true
+				st.shield_amount = int(max(40, st.hp * 0.25 / 10.0)) * 10 if st.hp >= 400 else max(40, int(st.hp * 0.25))
+				labels.append("Começa com escudo")
+			"casca":
+				if st.damage_reduction_percent > 0: continue
+				st.damage_reduction_percent = 0.2
+				labels.append("Leva 20% menos dano")
+			"regen":
+				st.passive_regen = true
+				st.regen_amount = max(4, int(st.hp * 0.02))
+				st.regen_interval = 1.5
+				labels.append("Regenera sozinha")
+			"devolve":
+				st.reflects_damage = true
+				st.reflect_damage_percent = 0.2
+				labels.append("Devolve parte do dano")
+			"explode":
+				if !hits: continue
+				st.explodes_on_death = true
+				st.death_explosion_damage = int(st.damage * 1.5)
+				st.death_explosion_radius = 55.0
+				labels.append("Explode ao morrer")
+			"efeito":
+				if !hits or st.on_hit_effect != UnitData.OnHitEffect.NONE: continue
+				st.on_hit_effect = [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.POISON, UnitData.OnHitEffect.WEAKNESS][rng.randi() % 3]
+				st.on_hit_effect_strength = 10.0 if st.on_hit_effect == UnitData.OnHitEffect.POISON else 0.6
+				st.on_hit_effect_duration = 2.5
+				st.on_hit_effect_tick_interval = 1.0
+				labels.append("Golpe com efeito: %s" % CustomContent.EFFECT_NAMES[st.on_hit_effect])
+			"corrente":
+				if !st.is_ranged or !hits or st.is_aoe: continue
+				st.projectile_chains = true
+				st.projectile_chain_max_targets = 3
+				st.projectile_chain_range = 90.0
+				labels.append("Tiro pula entre inimigos")
+			"longe":
+				if !st.is_ranged or !hits: continue
+				st.distance_damage_bonus_per_100px = 0.3
+				labels.append("Mais dano quanto mais longe")
+			_:
+				if is_b or !hits:
+					continue  # as de baixo são só pra tropa que anda e bate
+				match pick:
+					"roubo":
+						st.lifesteal_percent = 0.25
+						labels.append("Rouba vida")
+					"primeiro":
+						st.first_attack_bonus = true
+						st.first_attack_multiplier = 2.0
+						labels.append("Primeiro golpe em dobro")
+					"furia_entrada":
+						st.entrance_rage_duration = 4.0
+						labels.append("Entra em fúria")
+					"onda":
+						st.entrance_shockwave_damage = int(st.damage * max(st.unit_count, 1) * 0.8)
+						st.entrance_shockwave_radius = 60.0
+						labels.append("Onda de choque ao entrar")
+					"investida":
+						if !melee: continue
+						st.charge_attack = true
+						st.charge_distance_needed = 120.0
+						labels.append("Investida em dobro")
+					"executa":
+						st.execute_threshold = 0.3
+						st.execute_damage_mult = 2.0
+						labels.append("Dobro em quem está quase morrendo")
+					"furia_morte":
+						st.low_hp_rage_threshold = 0.35
+						st.low_hp_rage_damage_mult = 1.5
+						labels.append("Mais forte quase morrendo")
+					"cresce":
+						st.ramping_damage = true
+						st.ramping_damage_per_hit = 0.1
+						st.ramping_damage_max_multiplier = 2.0
+						labels.append("Cada golpe bate mais forte")
+					"cura_matar":
+						st.heals_on_kill = true
+						st.heal_on_kill_amount = max(20, int(st.hp * 0.15))
+						labels.append("Cura ao matar")
+					"inabalavel":
+						st.immune_to_knockback = true
+						st.immune_to_pull = true
+						labels.append("Ninguém empurra nem puxa")
+					"clone":
+						if st.unit_count > 1: continue
+						st.can_clone = true
+						st.clone_hp_percent = 0.4
+						st.clone_count = 1
+						labels.append("Deixa um clone ao morrer")
+					"contra":
+						if !melee: continue
+						st.counter_attack_chance = 0.3
+						labels.append("Revida quando apanha")
+					"ouro_matar":
+						st.converts_kills_to_gold = true
+						st.gold_per_kill = 4
+						labels.append("Ganha recurso ao matar")
+					"rouba":
+						if !melee: continue
+						st.steals_resource_on_base_hit = true
+						st.resource_steal_amount = 3
+						labels.append("Rouba recurso batendo na torre")
+					"mais_um":
+						if !melee or st.is_aoe or st.spin_attack: continue
+						st.aoe_hits_extra_one = true
+						st.aoe_radius = 45.0
+						labels.append("Golpe acerta dois")
+					"avanco":
+						st.bandit_dash = true
+						st.dash_speed_multiplier = 3.0
+						st.dash_duration = 0.4
+						labels.append("Dá um bote no primeiro alvo")
+					"levanta":
+						if n < 3 or st.unit_count > 1: continue
+						st.can_resurrect = true
+						st.resurrect_hp_percent = 0.35
+						labels.append("Levanta uma vez depois de morrer")
+	if !labels.is_empty():
+		var keep = 1.0 - 0.07 * labels.size()
+		st.hp = max(30, int(round(st.hp * keep / 10.0)) * 10)
+		if st.damage > 0:
+			st.damage = max(5, int(round(st.damage * keep / 5.0)) * 5)
+	return labels
 
 
 ## gera uma carta completa (na memória) no formato do Catalogo.
@@ -863,7 +1021,22 @@ static func generate_def(seed_value: int, turma: String = "", kind: int = 0, rol
 		stats = UnitData.new()
 		_fill_unit(stats, role, cost, rng)
 		text = describe_unit(stats, role)
-	var design = design_card(rng, turma, role, stats, spell)
+	# o desenho usa a sua própria sequência de sorteio, pra arte/nome não mudarem
+	# quando as regras de habilidade mudarem
+	var art_rng = RandomNumberGenerator.new()
+	art_rng.seed = hash("arte%d" % seed_value)
+	if stats != null:
+		var extras = add_extras(stats, rng, _roll_extra(rng))
+		if !extras.is_empty():
+			text["pros"] = (extras + text["pros"]).slice(0, 3)
+	elif spell != null and spell.damage > 0 and spell.status_effect == UnitData.OnHitEffect.NONE and rng.randf() < 0.35:
+		spell.status_effect = [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.KNOCKBACK][rng.randi() % 2]
+		spell.status_effect_strength = 0.6
+		spell.status_effect_duration = 2.0
+		spell.knockback_distance = 40.0
+		spell.damage = int(spell.damage * 0.9)
+		text["pros"] = (["E ainda: %s" % CustomContent.EFFECT_NAMES[spell.status_effect]] + text["pros"]).slice(0, 3)
+	var design = design_card(art_rng, turma, role, stats, spell)
 	var rarity = Progresso._weighted([45, 35, 17, 3])
 	var def = {"nome": design["nome"], "turma": turma, "custo": cost, "papel": role, "raridade": rarity, "arena": 0,
 		"perigo": clampi(int(cost / 10.0) + 1, 1, 10), "desc": "", "pros": text["pros"], "cons": text["cons"],
