@@ -155,7 +155,7 @@ func _towers_test():
 	# tropa no MEIO indo pra torre da esquerda: deve usar a ponte do meio
 	var from_mid = Vector2(c.x, c.y + 60)
 	var path_mid = NavigationServer2D.map_get_path(map_rid, from_mid, to, true, 0b01)
-	var uses_center = path_mid.any(func(pt): return abs(pt.y - c.y) <= ArenaBuilder.RIVER_HALF + 1 and abs(pt.x - c.x) <= ArenaBuilder.CENTER_BRIDGE_HALF + 1)
+	var uses_center = Array(path_mid).any(func(pt): return abs(pt.y - c.y) <= ArenaBuilder.RIVER_HALF + 1 and abs(pt.x - c.x) <= ArenaBuilder.CENTER_BRIDGE_HALF + 1)
 	print("RESULTADO ponte do meio: tropa no meio usa a ponte central? ", uses_center)
 	# derruba uma torre do bot: partida continua; derruba a outra: acaba
 	bots[0].take_damage(999999)
