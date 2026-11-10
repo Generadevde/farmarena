@@ -192,7 +192,7 @@ func _stat_values() -> Dictionary:
 			else:
 				main = [Ico.SWORD, "-"]
 		var lasting = maxf(sp.duration, maxf(sp.buff_duration, sp.status_effect_duration))
-		return {"left": main, "right": [Ico.AREA, str(int(sp.radius))], "bl": [Ico.CLOCK, "%.0fs" % lasting if lasting > 0 else "já"],
+		return {"left": main, "right": [Ico.AREA, str(int(sp.radius))], "bl": [Ico.CLOCK, ("%.0fs" % lasting if lasting >= 1.0 else "%.1fs" % lasting) if lasting > 0 else "na hora"],
 			"mid": "Aliados" if (sp.affects_allies or !sp.affects_enemies) else "Inimigos", "br": []}
 	var st: UnitData = DeckBuilder.get_unit_stats(card)
 	if st == null:
