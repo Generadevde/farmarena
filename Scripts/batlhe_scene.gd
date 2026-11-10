@@ -484,7 +484,7 @@ func _install_base_data_on(group_name: String, base_data: BaseData, level: int =
 	# as DUAS torres do lado usam a base equipada; cada uma com uma fração da vida
 	for base_node in get_tree().get_nodes_in_group(group_name):
 		base_node.install_base_data(base_data, level)
-		base_node.scale_hp(ArenaBuilder.TOWER_HP_FRACTION)
+		base_node.scale_hp(ArenaBuilder.TOWER_HP_FRACTION * (0.6 if MatchSetup.rule == 2 else 1.0))
 
 
 func _show_opponent_name():
@@ -734,7 +734,7 @@ func _end_match(team):
 
 	# 2v2 é amistoso: dá ouro/XP/missão normalmente, mas NÃO mexe em troféu
 	# nem no aprendizado dos bots (seria injusto com eles -- era 2 contra 2)
-	if ai_profile != null and !_is_2v2:
+	if ai_profile != null and !_is_2v2 and !MatchSetup.tournament:
 		BotLearning.record_result(ai_profile.profile_name, !player_won, player_cards_played_this_match, true)
 
 		if player_won:
@@ -848,7 +848,10 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 
 	# 2.0: nível do jogador, baú de colheita, sequência e Mascate
 	var level_before = Progresso.player_level()
-	var prog = Progresso.on_battle_finished(player_won and !is_draw, ai_profile != null and !_is_2v2, xp_gained)
+	var prog = Progresso.on_battle_finished(player_won and !is_draw, ai_profile != null and !_is_2v2 and !MatchSetup.tournament, xp_gained)
+	if MatchSetup.tournament:
+		var t_text = Progresso.tournament_result(player_won and !is_draw)
+		vbox.add_child(_build_reward_row("🏟 Torneio", t_text, Color(1, 0.85, 0.3)))
 	if Progresso.player_level() > level_before:
 		vbox.add_child(_build_reward_row("⬆ Subiu de nível!", "Nível %d" % Progresso.player_level(), Color(0.5, 1.0, 0.6)))
 	if int(prog["bau"]) >= 0:
@@ -1006,7 +1009,8 @@ func _update_battle_timer(delta):
 	# entrando nos 2 minutos finais: recurso x2 pros dois lados + IA mais
 	# agressiva -- só dispara UMA vez. DIVIDE o wait_time atual (em vez de
 	# sobrescrever com o valor base), pra não apagar o bônus de produção da base
-	if !_entered_last_minute and _battle_time_remaining < LAST_MINUTE_THRESHOLD:
+	_process_cow_rain(delta)
+	if !_entered_last_minute and (_battle_time_remaining < LAST_MINUTE_THRESHOLD or MatchSetup.rule == 1):
 		_entered_last_minute = true
 		MusicPlayer.play_final_music()  # trilha acelerada nos 2 minutos finais
 		$ProductionTimer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
@@ -1160,6 +1164,27 @@ func _show_bot_emote(emoji: String):
 
 
 var _spawning_companions := false
+var _cow_rain_timer := 12.0
+
+
+# regra "Chuva de vaca": cai uma vaca num ponto aleatório e acerta os DOIS lados
+func _process_cow_rain(delta: float):
+	if MatchSetup.rule != 3 or match_over:
+		return
+	_cow_rain_timer -= delta
+	if _cow_rain_timer > 0.0:
+		return
+	_cow_rain_timer = randf_range(14.0, 22.0)
+	var cow = Catalogo.card("vaca_cadente")
+	if cow == null:
+		return
+	var sp: SpellData = cow.spell_data.duplicate()
+	sp.summon_count = 0
+	sp.base_damage_multiplier = 0.0
+	var pos = ArenaBuilder.CENTER + Vector2(randf_range(-220, 220), randf_range(-330, 330))
+	cast_spell(sp, pos, GameManager.Team.PLAYER)
+	cast_spell(sp, pos, GameManager.Team.ENEMY)
+	Fx.text(self, to_local(pos) + Vector2(0, -40), "MUUU!", Color(1, 0.9, 0.5), 1.2)
 
 
 # carta com unidades diferentes juntas: os acompanhantes nascem logo atrás
@@ -1204,6 +1229,10 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 		elif team == GameManager.Team.ENEMY and ai_profile != null:
 			mult = ai_profile.get_stat_multiplier(card_data)
 			level = ai_profile.get_card_level(card_data)
+
+	if MatchSetup.tournament:
+		level = MatchSetup.TOURNAMENT_LEVEL  # torneio: todo mundo no mesmo nível
+		mult = PlayerProfile.compute_stat_multiplier(level)
 
 	var spawned_units: Array = []
 	var _debug_start_time = Time.get_ticks_usec()

@@ -143,6 +143,8 @@ func _ready():
 	_btn(tools2, "# Grade", _toggle_grid)
 	_btn(tools2, "⬛ Contorno", _auto_outline)
 	_btn(tools2, "🎲 Gerar", _generate_random)
+	if image.get_width() == 48 and image.get_height() == 48:
+		_btn(tools2, "🧩 Peças", _open_parts)
 
 	# paleta
 	var pal_row = HBoxContainer.new()
@@ -504,3 +506,156 @@ func _refresh():
 		_tex.update(image)
 	_preview.texture = _tex
 	_canvas.queue_redraw()
+
+
+# ================================================================ 2.0: montar por PEÇAS
+# Escolhe cabeça, corpo, pernas, chapéu, arma... e as cores -- sai um
+# personagem no estilo das cartas oficiais. Depois dá pra retocar no pixel.
+const PART_LABELS = {"cabeca": "Cabeça", "corpo": "Corpo", "pernas": "Pernas", "bracos": "Braços", "chapeu": "Chapéu", "arma": "Arma", "costas": "Costas",
+	"objeto": "Construção", "icone": "Ícone", "torre": "Torre"}
+const PART_MODES = [["Personagem", ["cabeca", "corpo", "pernas", "bracos", "chapeu", "arma", "costas"]], ["Construção", ["objeto"]], ["Feitiço", ["icone"]], ["Torre", ["torre"]]]
+const SLOT_LABELS = {"P": "Cor principal", "S": "Cor 2", "A": "Detalhe", "K": "Pele/bico", "M": "Metal", "W": "Madeira"}
+const PART_COLORS = ["#f2ede0", "#d8c8a8", "#f8dc50", "#f0a030", "#e0483c", "#b8402c", "#f070a0", "#9a5cd0", "#3c6cb8", "#50c0e0", "#4fae58", "#3c8848",
+	"#a8683c", "#6a4428", "#e8b088", "#c08058", "#a0a8b4", "#5a606c", "#30303c"]
+
+var _parts_layer: CanvasLayer
+var _parts_mode := 0
+var _parts_recipe: Dictionary = {}
+var _parts_palette: Dictionary = {}
+var _parts_preview: TextureRect
+var _parts_rows: VBoxContainer
+
+
+func _open_parts():
+	if _parts_recipe.is_empty():
+		_parts_random()
+	_parts_layer = CanvasLayer.new()
+	_parts_layer.layer = 80
+	add_child(_parts_layer)
+	var bg = ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.85)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_parts_layer.add_child(bg)
+	var scroll = ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.theme = ThemeBuilder.game_theme
+	_parts_layer.add_child(scroll)
+	var box = VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation", 8)
+	scroll.add_child(box)
+	_parts_preview = TextureRect.new()
+	_parts_preview.custom_minimum_size = Vector2(240, 240)
+	_parts_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_parts_preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	box.add_child(_parts_preview)
+	var modes = HBoxContainer.new()
+	box.add_child(modes)
+	for i in PART_MODES.size():
+		_btn(modes, PART_MODES[i][0], _parts_set_mode.bind(i))
+	_parts_rows = VBoxContainer.new()
+	_parts_rows.add_theme_constant_override("separation", 6)
+	box.add_child(_parts_rows)
+	var actions = HBoxContainer.new()
+	box.add_child(actions)
+	_btn(actions, "🎲 Sortear", _parts_roll)
+	_btn(actions, "✔ Usar", _parts_use)
+	_btn(actions, "Cancelar", _parts_close)
+	_parts_build_rows()
+
+
+func _parts_set_mode(i: int):
+	_parts_mode = i
+	_parts_recipe = {}
+	for cat in PART_MODES[i][1]:
+		var names = SpriteForge.pieces(cat)
+		if cat in ["cabeca", "corpo", "pernas", "bracos", "objeto", "icone", "torre"] and !names.is_empty():
+			_parts_recipe[cat] = names[0]
+	_parts_build_rows()
+
+
+func _parts_random():
+	var rng = RandomNumberGenerator.new()
+	rng.randomize()
+	var st = UnitData.new()
+	st.damage = rng.randi_range(40, 160)
+	st.is_ranged = rng.randf() < 0.3
+	var d = CardGenerator.design_card(rng, CardGenerator.random_turma(rng), rng.randi() % CardData.CardRole.size(), st, null)
+	_parts_recipe = d["receita"]
+	_parts_palette = SpriteForge.DEFAULT_PALETTE.duplicate()
+	for k in d["paleta"]:
+		_parts_palette[k] = d["paleta"][k]
+	_parts_mode = 0
+
+
+func _parts_roll():
+	if _parts_mode == 0:
+		_parts_random()
+	else:
+		for cat in PART_MODES[_parts_mode][1]:
+			var names = SpriteForge.pieces(cat)
+			_parts_recipe[cat] = names[randi() % names.size()]
+		for slot in _parts_palette:
+			_parts_palette[slot] = PART_COLORS[randi() % PART_COLORS.size()]
+	_parts_build_rows()
+
+
+func _parts_build_rows():
+	for c in _parts_rows.get_children():
+		c.queue_free()
+	for cat in PART_MODES[_parts_mode][1]:
+		var row = HBoxContainer.new()
+		_parts_rows.add_child(row)
+		_btn(row, "◀", _parts_step.bind(cat, -1)).custom_minimum_size = Vector2(70, 56)
+		var l = Label.new()
+		l.text = "%s: %s" % [PART_LABELS[cat], str(_parts_recipe.get(cat, "")).replace("_", " ") if str(_parts_recipe.get(cat, "")) != "" else "nenhum"]
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", 18)
+		row.add_child(l)
+		_btn(row, "▶", _parts_step.bind(cat, 1)).custom_minimum_size = Vector2(70, 56)
+	var colors = GridContainer.new()
+	colors.columns = 2
+	_parts_rows.add_child(colors)
+	for slot in SLOT_LABELS:
+		var b = _btn(colors, SLOT_LABELS[slot], _parts_next_color.bind(slot))
+		var sw = ColorRect.new()
+		sw.color = Color.html(str(_parts_palette.get(slot, SpriteForge.DEFAULT_PALETTE[slot])))
+		sw.custom_minimum_size = Vector2(34, 34)
+		sw.position = Vector2(8, 12)
+		sw.size = Vector2(34, 34)
+		sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(sw)
+	_parts_preview.texture = ImageTexture.create_from_image(SpriteForge.make_image(_parts_recipe, _parts_palette))
+
+
+func _parts_step(cat: String, dir: int):
+	var names: Array = SpriteForge.pieces(cat)
+	var optional = cat in ["chapeu", "arma", "costas"]
+	if optional:
+		names = [""] + names
+	var i = names.find(str(_parts_recipe.get(cat, "")))
+	_parts_recipe[cat] = names[posmod(i + dir, names.size())]
+	_parts_build_rows()
+
+
+func _parts_next_color(slot: String):
+	var cur = str(_parts_palette.get(slot, SpriteForge.DEFAULT_PALETTE[slot]))
+	var i = PART_COLORS.find(cur)
+	_parts_palette[slot] = PART_COLORS[posmod(i + 1, PART_COLORS.size())]
+	_parts_build_rows()
+
+
+func _parts_use():
+	_push_undo()
+	var img = SpriteForge.make_image(_parts_recipe, _parts_palette)
+	image.fill(Color(0, 0, 0, 0))
+	image.blit_rect(img, Rect2i(0, 0, 48, 48), Vector2i.ZERO)
+	_parts_close()
+	_refresh()
+
+
+func _parts_close():
+	if is_instance_valid(_parts_layer):
+		_parts_layer.queue_free()

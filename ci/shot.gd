@@ -52,6 +52,12 @@ func _ready():
 	await _shot("carta")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	Progresso.enter_tournament()
+	hub._show_tournament()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("torneio")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._show_safra()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("safra")
@@ -64,6 +70,9 @@ func _ready():
 	await get_tree().process_frame
 
 	MatchSetup.mode = MatchSetup.MODE_1V1
+	MatchSetup.tournament = true
+	MatchSetup.rule = 3
+	MatchSetup.arena_override = 6
 	MatchSetup.next_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[0])
 	var battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child(battle)

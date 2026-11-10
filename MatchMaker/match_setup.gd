@@ -52,13 +52,41 @@ func choose_opponent() -> AIProfile:
 	return BotLearning.get_or_create_profile(chosen)
 
 
+# ---- torneio / regras especiais
+const RULE_NAMES = ["Clássico", "Recurso em dobro", "Torres de palha", "Chuva de vaca"]
+const RULE_TEXT = ["Regras normais. Que vença o melhor.", "O recurso enche em dobro desde o primeiro segundo. Correria!",
+	"As torres têm só 60% da vida. Qualquer vacilo custa caro.", "De tempos em tempos cai uma vaca do céu num lugar aleatório. Em todo mundo."]
+const TOURNAMENT_LEVEL = 5   # no torneio todas as cartas (suas e do bot) jogam no mesmo nível
+var tournament := false
+var rule := 0
+var arena_override := 0
+
+
+func clear_special():
+	tournament = false
+	rule = 0
+	arena_override = 0
+
+
+## partida de torneio contra um bot específico
+func start_tournament_match(tree: SceneTree, bot_name: String, rule_id: int, arena_i: int):
+	mode = MODE_1V1
+	tournament = true
+	rule = rule_id
+	arena_override = arena_i
+	next_ai_profile = BotLearning.get_or_create_profile(bot_name)
+	tree.change_scene_to_file(BATTLE_SCENE)
+
+
 func start_1v1(tree: SceneTree):
+	clear_special()
 	mode = MODE_1V1
 	next_ai_profile = choose_opponent()
 	tree.change_scene_to_file(BATTLE_SCENE)
 
 
 func start_2v2(tree: SceneTree):
+	clear_special()
 	mode = MODE_2V2
 	var main_enemy = choose_opponent()
 	next_ai_profile = main_enemy

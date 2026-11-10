@@ -8,13 +8,13 @@ const SAVE_DIR = "user://profiles/"
 # vaga" de quem joga pouco -- não existe vaga, existe só o seu progresso
 const DEFAULT_ARENAS = [
 	{},  # índice 0 não existe, só de preenchimento
-	{"name": "Arena 1", "emoji": "🌱", "trophy_threshold": 0},
-	{"name": "Arena 2", "emoji": "🐄", "trophy_threshold": 600},
-	{"name": "Arena 3", "emoji": "🚜", "trophy_threshold": 1300},
-	{"name": "Arena 4", "emoji": "🌽", "trophy_threshold": 2100},
-	{"name": "Arena 5", "emoji": "🏭", "trophy_threshold": 3000},
-	{"name": "Arena 6", "emoji": "👑", "trophy_threshold": 4000},
-	{"name": "Arena 7", "emoji": "🏆", "trophy_threshold": 5000},
+	{"name": "Pasto Verde", "emoji": "🌱", "trophy_threshold": 0},
+	{"name": "Curral Velho", "emoji": "🐄", "trophy_threshold": 600},
+	{"name": "Milharal", "emoji": "🌽", "trophy_threshold": 1300},
+	{"name": "Brejo", "emoji": "🐸", "trophy_threshold": 2100},
+	{"name": "Vila da Feira", "emoji": "🎪", "trophy_threshold": 3000},
+	{"name": "Noite Estranha", "emoji": "🛸", "trophy_threshold": 4000},
+	{"name": "Arena do Rodeio", "emoji": "🏆", "trophy_threshold": 5000},
 ]
 const DEFAULT_MAX_ARENA = 7
 

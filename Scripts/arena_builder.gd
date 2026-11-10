@@ -53,7 +53,13 @@ static func _clear_old(battle: Node):
 
 
 static func _background(battle: Node):
-	var tex: Texture2D = ArenaManager.get_background(PlayerProfile.arena_index)
+	# cada arena tem o próprio cenário (mesmo traçado, tema diferente);
+	# torneio sorteia um cenário qualquer
+	var arena_i = MatchSetup.arena_override if MatchSetup.arena_override > 0 else ArenaManager.get_player_arena()
+	var tex: Texture2D = ArenaManager.get_background(arena_i) if MatchSetup.arena_override <= 0 else null
+	var themed = "res://Resources/arena/arena_bg_%d.png" % clampi(arena_i, 1, 7)
+	if tex == null and ResourceLoader.exists(themed):
+		tex = load(themed)
 	if tex == null and ResourceLoader.exists(BG_PATH):
 		tex = load(BG_PATH)
 	if tex == null:

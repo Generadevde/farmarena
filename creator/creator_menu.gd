@@ -411,7 +411,7 @@ func _open_base_form(pack: Dictionary):
 	_proj_changed = false
 	_clear_body()
 	_body.add_child(_label("Editando: " + b.base_name, 22))
-	_build_art_block(CustomContent.BASE_ART_SIZE, "Arte da base", Vector2(100, 200))
+	_build_art_block(CustomContent.BASE_ART_SIZE, "Arte da torre", Vector2(160, 160))
 	_field_box = VBoxContainer.new()
 	_body.add_child(_field_box)
 	_section("Base")

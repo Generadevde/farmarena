@@ -71,7 +71,7 @@ func _blank() -> Dictionary:
 		"owned": {}, "copies": {}, "uses": {}, "xp": 0,
 		"chests": [], "shop": {}, "road": [], "decks": [], "active_deck": 0,
 		"streak": 0, "best_streak": 0, "mascate": {}, "pending": [],
-		"season": 0, "season_uses": {}, "new": {}, "safra": {},
+		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {},
 	}
 
 
@@ -462,7 +462,7 @@ func on_battle_finished(won: bool, ranked: bool, xp_gain: int) -> Dictionary:
 		d["streak"] = int(d["streak"]) + 1 if won else 0
 		d["best_streak"] = maxi(int(d["best_streak"]), int(d["streak"]))
 	summary["sequencia"] = int(d["streak"])
-	if won:
+	if won and !MatchSetup.tournament:
 		if has_free_slot():
 			var type = roll_win_chest_type()
 			d["chests"].append({"tipo": type, "inicio": 0.0, "pulado": 0.0})
@@ -724,3 +724,116 @@ func _apply_active_deck():
 	if PlayerProfile.deck_card_paths != deck_paths(active_deck()):
 		PlayerProfile.deck_card_paths = deck_paths(active_deck()).duplicate()
 		PlayerProfile.save_profile()
+
+
+# ================================================================ Torneio da Roça (modo desafio)
+# 8 competidores, mata-mata: quartas -> semi -> final. Perdeu, tá fora.
+# Cartas todas no mesmo nível, uma regra especial sorteada por torneio e
+# adversários cada vez mais fortes. 1 entrada grátis por dia; depois, ouro.
+const TOURNAMENT_ROUNDS = ["Quartas de final", "Semifinal", "FINAL"]
+const TOURNAMENT_FEE = 150
+const TOURNAMENT_PRIZES = [
+	{"ouro": 60, "bau": 0},
+	{"ouro": 120, "bau": 1},
+	{"ouro": 300, "bau": 2},
+]
+
+
+func tournament() -> Dictionary:
+	return d["torneio"]
+
+
+func tournament_active() -> bool:
+	return bool(d["torneio"].get("ativo", false))
+
+
+func tournament_free_today() -> bool:
+	return str(d["torneio"].get("dia_gratis", "")) != Time.get_date_string_from_system()
+
+
+func tournament_cups() -> int:
+	return int(d["torneio"].get("tacas", 0))
+
+
+func can_enter_tournament() -> bool:
+	return !tournament_active() and (tournament_free_today() or PlayerProfile.coins >= TOURNAMENT_FEE)
+
+
+func enter_tournament() -> bool:
+	if !can_enter_tournament():
+		return false
+	var t: Dictionary = d["torneio"]
+	if tournament_free_today():
+		t["dia_gratis"] = Time.get_date_string_from_system()
+	else:
+		PlayerProfile.spend_coins(TOURNAMENT_FEE)
+	# adversários: do mais perto do seu troféu pro mais forte (a final é contra o melhor)
+	var mine = ArenaManager.get_trophies(PlayerProfile.player_name)
+	var roster: Array = BotSimulator.roster_names.duplicate()
+	roster.sort_custom(func(a, b): return ArenaManager.get_trophies(a) < ArenaManager.get_trophies(b))
+	var above = roster.filter(func(n): return ArenaManager.get_trophies(n) >= mine)
+	var below = roster.filter(func(n): return ArenaManager.get_trophies(n) < mine)
+	below.reverse()
+	var ordered: Array = above + below
+	var picks: Array = []
+	for i in [0, mini(4, ordered.size() - 1), mini(10, ordered.size() - 1)]:
+		if ordered.size() > 0 and !picks.has(ordered[i]):
+			picks.append(ordered[i])
+	while picks.size() < 3 and !roster.is_empty():
+		var extra = roster[randi() % roster.size()]
+		if !picks.has(extra) or roster.size() < 3:
+			picks.append(extra)
+	# figurantes da chave (os outros 4 da tabela, só pra mostrar)
+	var others: Array = []
+	for n in roster:
+		if !picks.has(n) and others.size() < 4:
+			others.append(n)
+	t["ativo"] = true
+	t["rodada"] = 0
+	t["oponentes"] = picks
+	t["figurantes"] = others
+	t["regra"] = randi() % MatchSetup.RULE_NAMES.size()
+	t["arena"] = randi_range(1, 7)
+	_commit()
+	return true
+
+
+func tournament_opponent() -> String:
+	var t = d["torneio"]
+	var list: Array = t.get("oponentes", [])
+	var r = int(t.get("rodada", 0))
+	return str(list[r]) if r < list.size() else ""
+
+
+func start_tournament_match(tree: SceneTree):
+	if !tournament_active():
+		return
+	var t = d["torneio"]
+	MatchSetup.start_tournament_match(tree, tournament_opponent(), int(t.get("regra", 0)), int(t.get("arena", 1)))
+
+
+## chamado no fim da partida de torneio; devolve o texto do placar
+func tournament_result(won: bool) -> String:
+	var t: Dictionary = d["torneio"]
+	if !tournament_active():
+		return ""
+	var r = int(t.get("rodada", 0))
+	var text: String
+	if won:
+		var prize = TOURNAMENT_PRIZES[clampi(r, 0, 2)]
+		PlayerProfile.add_coins(int(prize["ouro"]))
+		_push({"tipo": "bau", "bau": int(prize["bau"]), "itens": [{"tipo": "ouro", "ouro": int(prize["ouro"])}] + roll_chest(int(prize["bau"]))})
+		if r >= 2:
+			t["ativo"] = false
+			t["tacas"] = tournament_cups() + 1
+			add_xp(150)
+			text = "CAMPEÃO! 🏆 taça nº %d" % tournament_cups()
+		else:
+			t["rodada"] = r + 1
+			text = "Passou! Agora: %s" % TOURNAMENT_ROUNDS[r + 1]
+	else:
+		t["ativo"] = false
+		text = "Eliminado nas %s" % TOURNAMENT_ROUNDS[r].to_lower() if r < 2 else "Vice-campeão. Quase!"
+	t["ultimo"] = text
+	_commit()
+	return text

@@ -54,35 +54,30 @@ static func random_name(rng: RandomNumberGenerator, is_spell: bool) -> String:
 
 # kind: 0 = aleatório, 1 = unidade, 2 = feitiço. role -1 = aleatório. cost 0 = aleatório
 static func generate_card(kind: int = 0, role: int = -1, cost: int = 0, seed_value: int = -1) -> Dictionary:
-	var rng = RandomNumberGenerator.new()
-	if seed_value >= 0:
-		rng.seed = seed_value
-	else:
-		rng.randomize()
-
-	var is_spell = (kind == 2) or (kind == 0 and rng.randf() < 0.18)
-	if cost <= 0:
-		cost = rng.randi_range(2, 14) * 5  # 10 a 70, igual às cartas do jogo
-	if role < 0:
-		role = rng.randi() % CardData.CardRole.size()
-		if is_spell and !(role in [CardData.CardRole.PUNICAO, CardData.CardRole.CONTROLE, CardData.CardRole.SUPORTE, CardData.CardRole.FINALIZADOR]):
-			role = [CardData.CardRole.PUNICAO, CardData.CardRole.CONTROLE, CardData.CardRole.SUPORTE][rng.randi() % 3]
-
+	# 2.0: números + arte por peças + nome, tudo coerente com uma turma
+	var seed_now = seed_value if seed_value >= 0 else int(randi())
+	var gen = generate_def(seed_now, "", kind, role, cost)
+	var def: Dictionary = gen["def"]
+	var is_spell = gen["spell"] != null
 	var pack = CustomContent.make_blank_card(is_spell)
 	var card: CardData = pack["card"]
-	card.card_name = random_name(rng, is_spell)
-	card.cost = cost
-	card.role = role as CardData.CardRole
-	pack["image"] = generate_sprite(CustomContent.CARD_ART_SIZE.x, CustomContent.CARD_ART_SIZE.y, rng.randi())
-
+	card.card_name = def["nome"]
+	card.cost = int(def["custo"])
+	card.role = int(def["papel"]) as CardData.CardRole
+	card.danger_level = int(def["perigo"])
+	card.nation_data = Catalogo.nation(def["turma"])
+	card.art_recipe = def["receita"]
+	card.art_palette = def["paleta"]
+	card.pros.assign(def["pros"])
+	card.cons.assign(def["cons"])
+	card.description = "Carta gerada. Turma: %s." % def["turma"]
+	pack["image"] = SpriteForge.make_image(def["receita"], def["paleta"])
 	if is_spell:
-		_fill_spell(pack["spell"], role, cost, rng)
-		card.danger_level = clamp(int(cost / 10.0) + 1, 1, 10)
-		card.description = "Feitiço gerado aleatoriamente."
+		pack["spell"] = gen["spell"]
 	else:
-		_fill_unit(pack["stats"], role, cost, rng)
-		card.danger_level = clamp(int(cost / 10.0 * 1.2 + rng.randi_range(-1, 1)), 1, 10)
-		card.description = "Carta gerada aleatoriamente. Categoria: %s." % CardData.role_name(role)
+		pack["stats"] = gen["stats"]
+		if gen["stats"].is_ranged:
+			pack["proj_image"] = SpriteForge.projectile(def["proj"], def["paleta"]).get_image()
 	return pack
 
 

@@ -22,8 +22,8 @@ const OVERRIDES_PATH = "user://custom/overrides.json"
 const ARENAS_PATH = "user://custom/arenas.json"
 const UNIT_TEMPLATE = "res://Units/scenes/unit_base.tscn"
 
-const CARD_ART_SIZE = Vector2i(32, 32)
-const BASE_ART_SIZE = Vector2i(32, 64)
+const CARD_ART_SIZE = Vector2i(48, 48)  # 2.0: mesma grade das cartas oficiais (peças do SpriteForge)
+const BASE_ART_SIZE = Vector2i(48, 48)  # 2.0: torre na mesma grade das peças
 const ARENA_ART_SIZE = Vector2i(36, 64)  # 9:16, igual a tela
 const PROJ_ART_SIZE = Vector2i(16, 16)  # projétil -- desenhe apontando pra DIREITA (ele gira na direção do tiro)
 
@@ -610,6 +610,8 @@ func _build_unit_scene(stats: UnitData, tex: Texture2D, scene_path: String) -> P
 	if sprite != null:
 		sprite.texture = tex
 		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		if tex != null and tex.get_width() >= 48:
+			sprite.scale = Vector2(Catalogo.SPRITE_SCALE, Catalogo.SPRITE_SCALE)  # arte 2.0 (48x48)
 	var packed = PackedScene.new()
 	packed.pack(node)
 	node.free()

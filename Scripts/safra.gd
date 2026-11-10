@@ -70,6 +70,10 @@ func _build_period(p: int):
 		var role = ROLES[rng.randi() % ROLES.size()]
 		var gen = CardGenerator.generate_def(rng.randi(), turma, kind, role, 0)
 		var def: Dictionary = gen["def"]
+		for existing in CardDatabase.all_cards:
+			if existing != null and existing.card_name == def["nome"]:
+				def["nome"] = "%s %s" % [def["nome"], CardGenerator.FUNNY_SUFFIXES[rng.randi() % CardGenerator.FUNNY_SUFFIXES.size()]]
+				break
 		def["desc"] = "Colhida na safra nº %d." % p
 		var card = Catalogo.build_card(def, "%ssafra_%d_%d.tres" % [Catalogo.PATH_PREFIX, p, n], gen["stats"], gen["spell"])
 		card.set_meta("safra", p)

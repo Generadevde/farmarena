@@ -386,6 +386,11 @@ func _build_batalha(box: Node):
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	box.add_child(row)
+	var tb = _button("🏟 TORNEIO DA ROÇA" + ("  --  %s" % Progresso.TOURNAMENT_ROUNDS[int(Progresso.tournament().get("rodada", 0))] if Progresso.tournament_active() else ("  (entrada grátis hoje!)" if Progresso.tournament_free_today() else "")), _show_tournament, 22)
+	tb.custom_minimum_size.y = 70
+	if Progresso.tournament_active() or Progresso.tournament_free_today():
+		tb.modulate = Color(1.0, 0.85, 1.0)
+	box.add_child(tb)
 	var b2 = _button("👥 2 contra 2", _start_2v2)
 	b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(b2)
@@ -478,6 +483,50 @@ func _open_chest(i: int):
 	var loot = Progresso.open_chest(i)
 	if !loot.is_empty():
 		_show_loot(def["nome"], loot, Color.html(def["cor"]))
+
+
+func _show_tournament():
+	var v = _popup(640)
+	v.add_child(_title("🏟 Torneio da Roça"))
+	var t = Progresso.tournament()
+	v.add_child(_label("Taças conquistadas: 🏆 %d" % Progresso.tournament_cups(), 18, ThemeBuilder.COLOR_GOLD))
+	if !Progresso.tournament_active():
+		v.add_child(_wrap("Mata-mata com 8 competidores: quartas, semi e final. Perdeu, tá fora.\n\n· Todas as cartas jogam no nível %d (as suas e as do bot) -- ganha quem joga melhor.\n· Cada torneio sorteia uma REGRA ESPECIAL e um cenário.\n· Os adversários ficam mais fortes a cada fase.\n· Não vale troféu: é só glória e prêmio." % MatchSetup.TOURNAMENT_LEVEL, 16))
+		v.add_child(_label("Prêmios: quartas 💰60 + Saco · semi 💰120 + Caixote · campeão 💰300 + Baú do Celeiro + taça", 15, ThemeBuilder.COLOR_STAT_LABEL))
+		if str(t.get("ultimo", "")) != "":
+			v.add_child(_label("Último torneio: %s" % str(t["ultimo"]), 15, Color(0.85, 0.8, 0.7)))
+		var eb = _button("ENTRAR -- grátis hoje!" if Progresso.tournament_free_today() else "ENTRAR  💰 %d" % Progresso.TOURNAMENT_FEE, _enter_tournament.bind(v), 22)
+		eb.disabled = !Progresso.can_enter_tournament()
+		v.add_child(eb)
+	else:
+		var r = int(t.get("rodada", 0))
+		var rule = int(t.get("regra", 0))
+		var p = _panel(v)
+		p.add_child(_label("Regra deste torneio: %s" % MatchSetup.RULE_NAMES[rule], 19, Color(1, 0.8, 1)))
+		p.add_child(_wrap(MatchSetup.RULE_TEXT[rule], 15))
+		p.add_child(_label("Cenário: %s" % ArenaManager.get_arena_info(int(t.get("arena", 1))).get("name", ""), 15, ThemeBuilder.COLOR_STAT_LABEL))
+		var ops: Array = t.get("oponentes", [])
+		for i in ops.size():
+			var mark = "✔" if i < r else ("👉" if i == r else "·")
+			v.add_child(_label("%s %s: %s  (🏆 %d)" % [mark, Progresso.TOURNAMENT_ROUNDS[i], str(ops[i]), ArenaManager.get_trophies(str(ops[i]))], 18, Color(0.6, 1, 0.6) if i < r else (Color(1, 1, 0.7) if i == r else Color(0.7, 0.68, 0.62))))
+		var figs: Array = t.get("figurantes", [])
+		if !figs.is_empty():
+			v.add_child(_wrap("Também na chave: " + ", ".join(figs.map(func(n): return str(n))), 14, ThemeBuilder.COLOR_STAT_LABEL))
+		var gb = _button("⚔ JOGAR: %s" % Progresso.TOURNAMENT_ROUNDS[r], _play_tournament, 24)
+		gb.custom_minimum_size.y = 80
+		gb.modulate = Color(1.0, 0.92, 0.6)
+		v.add_child(gb)
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _enter_tournament(popup_box: Node):
+	if Progresso.enter_tournament():
+		_close(popup_box)
+		_show_tournament.call_deferred()
+
+
+func _play_tournament():
+	Progresso.start_tournament_match(get_tree())
 
 
 func _pick_active_deck(i: int):
