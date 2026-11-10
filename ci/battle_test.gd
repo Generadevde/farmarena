@@ -54,6 +54,10 @@ func _ready():
 		await _tornado_and_air_test()
 		get_tree().quit()
 		return
+	if mode == "antigas":
+		await _legacy_audit()
+		get_tree().quit()
+		return
 	if mode == "habilidades":
 		await _abilities_audit()
 		get_tree().quit()
@@ -1123,3 +1127,238 @@ func _simulation_audit():
 	top.sort_custom(func(a, b): return ArenaManager.get_trophies(a) > ArenaManager.get_trophies(b))
 	print("RESULTADO simulação top 5: ", top.slice(0, 5).map(func(n): return "%s %d" % [n, ArenaManager.get_trophies(n)]),
 		" | arenas: ", range(1, 8).map(func(a): return top.filter(func(n): return ArenaManager.get_participant_arena(n) == a).size()))
+
+
+# ================================================================ HABILIDADES ANTIGAS (do jogo anterior, hoje sem carta oficial)
+func _make(fields: Dictionary, extra: Dictionary = {}) -> CardData:
+	var u = {"hp": 600, "damage": 60, "attack_speed": 1.0, "move_speed": 55.0}
+	for k in fields:
+		u[k] = fields[k]
+	var def = {"nome": "Teste", "turma": "Peões", "custo": 30, "papel": "VERSATIL", "receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "humano"}, "paleta": {}, "u": u}
+	for k in extra:
+		def[k] = extra[k]
+	return Catalogo.build_card(def, "res://c2/teste_%d.tres" % randi())
+
+
+func _put_card(c: CardData, team, pos: Vector2) -> Array:
+	var before = get_tree().get_nodes_in_group("units")
+	var anchor = get_tree().get_first_node_in_group("player_base" if team == GameManager.Team.PLAYER else "enemy_base")
+	battle.spawn_unit(c.unit_scene, team, anchor.global_position, c)
+	await get_tree().process_frame
+	var out: Array = []
+	for u in get_tree().get_nodes_in_group("units"):
+		if !before.has(u):
+			out.append(u)
+	for i in out.size():
+		out[i].global_position = pos + Vector2((i - (out.size() - 1) * 0.5) * 16.0, 0)
+	return out
+
+
+func _legacy_audit():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	battle.get_node("ProductionTimer").stop()
+	battle.get_node("EnemyProductionTimer").stop()
+	var P = GameManager.Team.PLAYER
+	var E = GameManager.Team.ENEMY
+	for b in get_tree().get_nodes_in_group("enemy_base") + get_tree().get_nodes_in_group("player_base"):
+		b.max_hp = 9999999
+		b.hp = 9999999
+	var mid = ArenaBuilder.CENTER + Vector2(135, 150)
+	var d
+	var hit: float
+	var u
+
+	# escudo fixo
+	await _wipe()
+	u = (await _put_card(_make({"has_shield": true, "shield_amount": 100}), P, mid))[0]
+	await get_tree().create_timer(0.8).timeout
+	u.take_damage(60)
+	_check("escudo", u.current_hp == u.stats.hp and u.current_shield == 40, "vida %d/%d escudo %d" % [int(u.current_hp), u.stats.hp, u.current_shield])
+
+	# escudo temporário
+	await _wipe()
+	u = (await _put_card(_make({"has_temp_shield": true, "temp_shield_amount": 80, "temp_shield_duration": 2.0}), P, mid))[0]
+	var sh0 = u.current_shield
+	await get_tree().create_timer(3.0).timeout
+	_check("escudo temporário", sh0 == 80 and u.current_shield == 0, "começou %d, depois de 3s %d" % [sh0, u.current_shield])
+
+	# clone ao morrer
+	await _wipe()
+	u = (await _put_card(_make({"can_clone": true, "clone_hp_percent": 0.5, "clone_count": 2}), P, mid))[0]
+	await get_tree().create_timer(0.6).timeout
+	u.take_damage(999999)
+	await get_tree().create_timer(0.3).timeout
+	var clones = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion())
+	_check("clone ao morrer", clones.size() == 2 and clones[0].current_hp == 300, "%d clones, vida %s" % [clones.size(), str(clones[0].current_hp) if clones.size() > 0 else "-"])
+	for cl in clones:
+		cl.take_damage(999999)
+	await get_tree().create_timer(0.3).timeout
+	var after_clones = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion()).size()
+	_check("clone não clona de novo", after_clones == 0, "sobraram %d" % after_clones)
+
+	# contra-ataque
+	await _wipe()
+	u = (await _put_card(_make({"counter_attack_chance": 1.0, "damage": 40, "hp": 5000}), P, mid))[0]
+	var foe = (await _put("peao_forcado", E, mid + Vector2(0, -34)))[0]
+	foe.stats = foe.stats.duplicate()
+	foe.stats.hp = 50000
+	foe.current_hp = 50000
+	u.stats.attack_speed = 99.0  # só o contra-ataque conta
+	await get_tree().create_timer(4.0).timeout
+	_check("contra-ataque", 50000 - foe.current_hp >= 80, "atacante perdeu %d" % int(50000 - foe.current_hp))
+
+	# invoca ao atacar
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -34))
+	var summoner = _make({"summons_on_attack": true, "attack_summon_chance": 1.0})
+	DeckBuilder.get_unit_stats(summoner).attack_summon_scene = Catalogo.card("pintinho").unit_scene
+	await _put_card(summoner, P, mid)
+	await get_tree().create_timer(4.0).timeout
+	var kids = get_tree().get_nodes_in_group("units").filter(func(x): return x.team == P).size() - 1
+	_check("invoca ao atacar", kids >= 2, "%d pintinhos em 4s" % kids)
+
+	# recurso ao matar
+	await _wipe()
+	GameManager.player_money = 0
+	await _put_card(_make({"converts_kills_to_gold": true, "gold_per_kill": 7, "damage": 300}), P, mid)
+	await _put("pintinho", E, mid + Vector2(0, -34))
+	await get_tree().create_timer(3.0).timeout
+	_check("recurso ao matar", int(GameManager.player_money) == 7, "ganhou %d" % int(GameManager.player_money))
+
+	# rouba recurso batendo na torre
+	await _wipe()
+	GameManager.player_money = 0
+	GameManager.enemy_money = 50
+	var e_tower = get_tree().get_nodes_in_group("enemy_base")[1]
+	await _put_card(_make({"steals_resource_on_base_hit": true, "resource_steal_amount": 5}), P, e_tower.global_position + Vector2(0, 70))
+	await get_tree().create_timer(4.0).timeout
+	_check("rouba recurso da torre", GameManager.player_money >= 5 and GameManager.enemy_money < 50, "eu +%d, inimigo %d" % [int(GameManager.player_money), int(GameManager.enemy_money)])
+
+	# dano maior de longe
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -150))
+	await _put_card(_make({"is_ranged": true, "attack_range": 180.0, "distance_damage_bonus_per_100px": 0.5, "move_speed": 0.0, "unit_type": "BUILDING", "duration": 30.0}, {"proj": "pedra"}), P, mid)
+	hit = await _first_hit(d, 5.0)
+	_check("dano maior de longe", hit >= 85, "%d a ~150px, base 60" % int(hit))
+
+	# tiro em corrente
+	await _wipe()
+	var ds: Array = []
+	for off in [Vector2(0, -90), Vector2(-40, -110), Vector2(40, -110)]:
+		ds.append(await _dummy(E, mid + off))
+	await _put_card(_make({"is_ranged": true, "attack_range": 140.0, "projectile_chains": true, "projectile_chain_max_targets": 3, "projectile_chain_range": 90.0, "move_speed": 0.0, "unit_type": "BUILDING", "duration": 30.0}, {"proj": "raio"}), P, mid)
+	await get_tree().create_timer(4.0).timeout
+	var n_hit = ds.filter(func(x): return x.current_hp < 99999).size()
+	_check("tiro em corrente", n_hit >= 2, "%d de 3 atingidos" % n_hit)
+
+	# golpe pega um inimigo a mais
+	await _wipe()
+	ds = [await _dummy(E, mid + Vector2(-14, -34)), await _dummy(E, mid + Vector2(18, -34))]
+	await _put_card(_make({"aoe_hits_extra_one": true, "aoe_radius": 50.0}), P, mid)
+	await get_tree().create_timer(3.0).timeout
+	n_hit = ds.filter(func(x): return x.current_hp < 99999).size()
+	_check("golpe pega um a mais", n_hit == 2, "%d de 2 atingidos" % n_hit)
+
+	# invulnerável ao nascer
+	await _wipe()
+	u = (await _put_card(_make({"spawn_invulnerability_duration": 2.0, "initial_stun_duration": 0.0}), P, mid))[0]
+	u.take_damage(200)
+	var inv_ok = u.current_hp == u.stats.hp
+	await get_tree().create_timer(2.5).timeout
+	u.take_damage(200)
+	_check("invulnerável ao nascer", inv_ok and u.current_hp == u.stats.hp - 200, "no começo intacta? %s, depois vida %d" % [str(inv_ok), int(u.current_hp)])
+
+	# avanço (dash) ao achar alvo
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -100))
+	u = (await _put_card(_make({"bandit_dash": true, "dash_speed_multiplier": 3.0, "dash_duration": 0.5}), P, mid + Vector2(0, 20)))[0]
+	var top_speed = 0.0
+	for k in 20:
+		await get_tree().create_timer(0.1).timeout
+		if is_instance_valid(u):
+			top_speed = max(top_speed, u.velocity.length())
+	_check("avanço ao achar alvo", top_speed >= 130, "velocidade máxima %d, normal 55" % int(top_speed))
+
+	# dano extra contra uma categoria
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -34))
+	await _put_card(_make({"extra_damage_vs_role": CardData.CardRole.TANQUE, "extra_damage_vs_role_mult": 1.0}), P, mid)
+	hit = await _first_hit(d, 4.0)
+	_check("dano extra contra tanque", hit >= 115, "%d num tanque, base 60" % int(hit))
+
+	# vira construção depois de um tempo
+	await _wipe()
+	var transformer = _make({"transforms_into_building": true, "transform_after_seconds": 2.0})
+	DeckBuilder.get_unit_stats(transformer).transformed_scene = Catalogo.card("canhao_pipoca").unit_scene
+	await _put_card(transformer, P, mid)
+	await get_tree().create_timer(3.0).timeout
+	var blds = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion() and x.stats.unit_type == UnitData.UnitType.BUILDING).size()
+	_check("vira construção", blds == 1, "%d construção em campo" % blds)
+
+	# converte inimigo
+	await _wipe()
+	foe = (await _put("peao_forcado", E, mid + Vector2(0, -34)))[0]
+	foe.stats = foe.stats.duplicate()
+	foe.stats.hp = 50000
+	foe.current_hp = 50000
+	u = (await _put_card(_make({"can_convert_enemy": true, "convert_max_targets": 1, "hp": 5000}), P, mid))[0]
+	await get_tree().create_timer(4.0).timeout
+	var conv_team = is_instance_valid(foe) and foe.team == P
+	var still_fighting = is_instance_valid(foe) and is_instance_valid(u) and (foe.target == u or u.target == foe)
+	_check("converte inimigo", conv_team and !still_fighting, "mudou de time? %s | os dois ainda brigam entre si? %s" % [str(conv_team), str(still_fighting)])
+
+	# atravessa o rio
+	await _wipe()
+	u = (await _put_card(_make({"crosses_water": true, "move_speed": 70.0}), P, ArenaBuilder.CENTER + Vector2(75, 70)))[0]
+	var walker = (await _put("peao_forcado", P, ArenaBuilder.CENTER + Vector2(-75, 70)))[0]
+	walker.stats = walker.stats.duplicate()
+	walker.stats.move_speed = 70.0
+	await get_tree().create_timer(2.6).timeout
+	_check("atravessa o rio", is_instance_valid(u) and u.global_position.y < ArenaBuilder.CENTER.y - 20 and walker.global_position.y > ArenaBuilder.CENTER.y - 20,
+		"com a habilidade y=%d, sem ela y=%d (rio em y=%d)" % [int(u.global_position.y), int(walker.global_position.y), int(ArenaBuilder.CENTER.y)])
+
+	# imune a um efeito
+	await _wipe()
+	u = (await _put_card(_make({"immune_to_effect": "SLOW"}), P, mid))[0]
+	u.apply_on_hit_effect(UnitData.OnHitEffect.SLOW, 0.3, 3.0, 1.0, 0.0, mid)
+	_check("imune a lentidão", u.speed_multiplier == 1.0, "multiplicador %.1f" % u.speed_multiplier)
+
+	# guarda mais recurso enquanto vive
+	await _wipe()
+	var cap0 = battle.player_max_money
+	u = (await _put_card(_make({"stores_resource": true, "storage_capacity_bonus": 20}), P, mid))[0]
+	var cap1 = battle.player_max_money
+	u.take_damage(999999)
+	await get_tree().create_timer(0.3).timeout
+	_check("guarda mais recurso", cap1 == cap0 + 20 and battle.player_max_money == cap0, "limite %d -> %d -> %d depois de morrer" % [cap0, cap1, battle.player_max_money])
+
+	# dá recurso ao inimigo quando morre
+	await _wipe()
+	GameManager.enemy_money = 0
+	u = (await _put_card(_make({"grants_resource_on_death": true, "death_resource_amount": 10}), P, mid))[0]
+	await get_tree().create_timer(0.6).timeout
+	u.take_damage(999999)
+	await get_tree().process_frame
+	_check("dá recurso ao morrer", int(GameManager.enemy_money) == 10, "inimigo ganhou %d" % int(GameManager.enemy_money))
+
+	# disfarce
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -34))
+	u = (await _put_card(_make({"spawns_disguised": true}), P, mid))[0]
+	var disguised0 = u._is_disguised
+	await get_tree().create_timer(3.0).timeout
+	_check("disfarce", disguised0 and !u._is_disguised, "nasceu disfarçada? %s, revelou ao atacar? %s" % [str(disguised0), str(!u._is_disguised)])
+
+	# ataque contínuo
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -34))
+	await _put_card(_make({"continuous_attack": true, "continuous_damage_per_second": 50.0}), P, mid)
+	await get_tree().create_timer(4.0).timeout
+	_check("ataque contínuo", 99999 - d.current_hp >= 100, "tirou %d em ~3s" % int(99999 - d.current_hp))
+
+	print("RESULTADO antigas OK (", _aud_ok.size(), "): ", _aud_ok)
+	print("RESULTADO antigas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

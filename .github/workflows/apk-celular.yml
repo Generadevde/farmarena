@@ -69,7 +69,7 @@ jobs:
 
       - name: Teste de partida (1v1 e 2v2, sem tela)
         run: |
-          for m in torres tornado congelar corpo efeitos habilidades simulacao empurrao 1v1 2v2; do
+          for m in torres tornado congelar corpo efeitos habilidades antigas simulacao empurrao 1v1 2v2; do
             echo "======== $m"
             CI_MODE=$m timeout 300 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|IA |JOGADOR|RESULTADO|FILME|SCRIPT ERROR|ERROR|at: " | head -200 || true
           done

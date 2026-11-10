@@ -57,6 +57,7 @@ var _converted_count: int = 0  # quantas unidades essa já converteu (pro can_co
 var _duration_remaining: float = 0.0  # pra atualizar a barra de duração visual
 var _true_sprite_texture: Texture2D = null  # textura de verdade, guardada enquanto disfarçada
 var _is_disguised: bool = false
+var _is_clone := false
 var _charge_distance_accumulated: float = 0.0  # distância andada desde o último ataque, pro golpe carregado
 var _has_dashed: bool = false  # se já usou o avanço estilo Bandida (só acontece 1 vez na vida)
 var _dash_time_remaining: float = 0.0  # quanto tempo ainda falta do avanço em andamento
@@ -1742,12 +1743,19 @@ func _apply_card_level_to_stats(new_unit):
 
 
 func _spawn_clone():
-	if scene_file_path == "":
-		return
-	var clone_scene = load(scene_file_path)
+	# a cena vem da carta (as cartas 2.0 são montadas na memória e não têm arquivo de cena;
+	# antes isso fazia o clone simplesmente não nascer)
+	var clone_scene: PackedScene = card_data.unit_scene if card_data != null and card_data.unit_scene != null else null
+	if clone_scene == null and scene_file_path != "":
+		clone_scene = load(scene_file_path)
+	if clone_scene == null or _is_clone:
+		return  # clone não clona de novo
 
 	for i in max(stats.clone_count, 1):
 		var clone = clone_scene.instantiate()
+		clone._is_clone = true
+		clone.card_data = card_data
+		clone.card_role = card_role
 		clone.team = team
 		clone.card_level = card_level
 		_apply_card_level_to_stats(clone)  # antes o clone mostrava o nível mas tinha a força do nível 1
