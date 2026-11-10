@@ -46,6 +46,10 @@ func _ready():
 		await _freeze_test()
 		get_tree().quit()
 		return
+	if mode == "tornado":
+		await _tornado_and_air_test()
+		get_tree().quit()
+		return
 	if mode == "corpo":
 		await _melee_test()
 		get_tree().quit()
@@ -113,6 +117,74 @@ func _art_sheet():
 		sheet.blend_rect(img, Rect2i(0, 0, 128, 128), Vector2i((i % 6) * 136 + 4, (i / 6) * 136 + 4))
 	sheet.save_png("user://arte_gerada.png")
 	print("TESTE arte salva em ", ProjectSettings.globalize_path("user://arte_gerada.png"))
+
+
+func _find_card(fn: Callable) -> CardData:
+	for c in CardDatabase.all_cards:
+		if c != null and !c.is_spell() and fn.call(c):
+			return c
+	return null
+
+
+func _tornado_and_air_test():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	var pb = get_tree().get_first_node_in_group("player_base")
+	var eb = get_tree().get_first_node_in_group("enemy_base")
+	# --- aérea atrás de tanque
+	var tank = _find_card(func(c): return DeckBuilder.get_unit_stats(c).push_weight >= 3.0 and DeckBuilder.get_unit_stats(c).unit_type == UnitData.UnitType.GROUND)
+	var air = _find_card(func(c): return DeckBuilder.get_unit_stats(c).unit_type == UnitData.UnitType.AIR)
+	if tank != null and air != null:
+		var start = pb.global_position.lerp(eb.global_position, 0.25)
+		battle.spawn_unit(tank.unit_scene, GameManager.Team.PLAYER, start, tank)
+		await get_tree().process_frame
+		var t_unit = get_tree().get_nodes_in_group("units")[-1]
+		battle.spawn_unit(air.unit_scene, GameManager.Team.PLAYER, start, air)
+		await get_tree().process_frame
+		var a_unit = get_tree().get_nodes_in_group("units")[-1]
+		a_unit.global_position = start + (pb.global_position - eb.global_position).normalized() * 30.0
+		t_unit.global_position = start
+		await get_tree().create_timer(6.0).timeout
+		var a_d = a_unit.global_position.distance_to(eb.global_position)
+		var t_d = t_unit.global_position.distance_to(eb.global_position)
+		print("RESULTADO aérea x tanque: ", air.card_name, " atrás de ", tank.card_name, " -> aérea passou na frente? ", a_d < t_d, " (aérea ", int(a_d), "px da base, tanque ", int(t_d), "px)")
+		for u in get_tree().get_nodes_in_group("units"):
+			u.queue_free()
+		await get_tree().process_frame
+	# --- tornado
+	var chick = _find_card(func(c): return c.card_name == "Chicken")
+	var center = pb.global_position.lerp(eb.global_position, 0.5)
+	for i in 6:
+		battle.spawn_unit(chick.unit_scene, GameManager.Team.ENEMY, center, chick)
+		await get_tree().process_frame
+	var victims: Array = []
+	for u in get_tree().get_nodes_in_group("units"):
+		u.apply_incapacitate(30.0)  # paradas, só o tornado mexe
+		u.global_position = center + Vector2.RIGHT.rotated(victims.size() * TAU / 6.0) * 90.0
+		victims.append(u)
+	var sp = SpellData.new()
+	sp.radius = 110.0
+	sp.duration = 4.0
+	sp.tick_interval = 0.25
+	sp.status_effect = UnitData.OnHitEffect.PULL
+	sp.knockback_distance = 22.0
+	sp.affects_enemies = true
+	battle.cast_spell(sp, center, GameManager.Team.PLAYER)
+	var samples: Array = []
+	var max_jump = 0.0
+	var last: Array = victims.map(func(v): return v.global_position)
+	for k in 16:
+		await get_tree().create_timer(0.25).timeout
+		var avg = 0.0
+		for i in victims.size():
+			var v = victims[i]
+			avg += v.global_position.distance_to(center)
+			max_jump = max(max_jump, v.global_position.distance_to(last[i]))
+			last[i] = v.global_position
+		samples.append(int(avg / victims.size()))
+	print("RESULTADO tornado: distância média do centro ao longo do tempo ", samples, " | maior salto em 0,25s=", int(max_jump), "px")
 
 
 func _freeze_test():

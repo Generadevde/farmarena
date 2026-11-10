@@ -182,6 +182,8 @@ func _physics_process(delta):
 	_process_poison(delta)
 	_update_status_modulate()
 
+	_process_forced_move(delta)
+
 	# a recarga do ataque conta SEMPRE (antes só contava enquanto estava no
 	# alcance -- se o alvo se mexia um pouco, a recarga congelava e o golpe
 	# seguinte demorava muito ou nem saía)
@@ -564,7 +566,12 @@ func _update_formation_speed_cap():
 	# "quem está mais perto do MEU alvo" não fazia sentido nenhum (o aliado
 	# podia nem estar indo na direção desse alvo). A base é um ponto em
 	# comum de verdade, pra qualquer unidade do time, resolvendo isso
+	# unidade AÉREA voa por cima de todo mundo -- nunca segura o passo atrás
+	# de ninguém (antes ficava presa atrás do tanque terrestre)
+	if stats.unit_type == UnitData.UnitType.AIR:
+		return
 	var my_dist_to_base = global_position.distance_to(enemy_base.global_position)
+	var to_base = (enemy_base.global_position - global_position).normalized()
 
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body == self or !("team" in body) or body.team != team:
@@ -575,6 +582,12 @@ func _update_formation_speed_cap():
 		# unidade presa pra sempre, já que a trava só solta quando o
 		# "líder" anda mais rápido de novo, o que nunca acontece com construção
 		if body.stats.unit_type == UnitData.UnitType.BUILDING:
+			continue
+		# só segura atrás de quem anda no CHÃO como ela, e que esteja
+		# realmente NA FRENTE (no caminho até a base), não do lado
+		if body.stats.unit_type == UnitData.UnitType.AIR:
+			continue
+		if to_base.dot((body.global_position - global_position).normalized()) < 0.6:
 			continue
 		if body.stats.push_weight <= stats.push_weight:
 			continue
@@ -1278,18 +1291,47 @@ func apply_confuse(duration: float):
 	_confused_until = max(_confused_until, GameManager.game_time + duration)
 
 
+# EMPURRÃO e PUXÃO são deslizamentos suaves (somam num vetor que a unidade
+# vai percorrendo em poucos frames) -- antes eram teletransporte na hora:
+# o tornado jogava a unidade de um lado pro outro do centro a cada pulso,
+# em vez de concentrar todo mundo no meio
+var _forced_move: Vector2 = Vector2.ZERO
+const FORCED_MOVE_RATE = 10.0  # fração por segundo (rápido mas visível)
+
+
+func _mass_factor() -> float:
+	# pesado escorrega menos (raiz do peso -- vaca 3.8 anda ~half da galinha)
+	return 1.0 / sqrt(max(stats.push_weight, 1.0))
+
+
 func apply_knockback(from_position: Vector2, distance: float):
-	if stats.immune_to_knockback:
+	if stats.immune_to_knockback or stats.unit_type == UnitData.UnitType.BUILDING:
 		return
 	var dir = (global_position - from_position).normalized()
-	global_position += dir * distance
+	_forced_move += dir * distance * _mass_factor()
 
 
 func apply_pull(from_position: Vector2, distance: float):
-	if stats.immune_to_pull:
+	if stats.immune_to_pull or stats.unit_type == UnitData.UnitType.BUILDING:
 		return
-	var dir = (from_position - global_position).normalized()
-	global_position += dir * distance
+	var to_center = from_position - global_position
+	var d = to_center.length()
+	if d < 4.0:
+		return
+	# nunca passa do centro: puxa no máximo 85% do que falta
+	var amount = min(distance * _mass_factor(), d * 0.85)
+	# substitui (não soma) o puxão anterior -- vários pulsos seguidos não
+	# acumulam um "estilingue" que atravessa o centro
+	_forced_move = to_center.normalized() * amount
+
+
+func _process_forced_move(delta):
+	if _forced_move.length() < 0.2:
+		_forced_move = Vector2.ZERO
+		return
+	var step = _forced_move * min(1.0, delta * FORCED_MOVE_RATE)
+	global_position += step
+	_forced_move -= step
 
 
 func apply_poison(damage_per_tick: float, tick_interval: float, duration: float):
