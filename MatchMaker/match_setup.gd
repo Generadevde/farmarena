@@ -59,6 +59,7 @@ const RULE_TEXT = ["Regras normais. Que vença o melhor.", "O recurso enche em d
 	"As torres têm só 60% da vida. Qualquer vacilo custa caro.", "De tempos em tempos cai uma vaca do céu num lugar aleatório. Em todo mundo."]
 const TOURNAMENT_LEVEL = 5   # no torneio todas as cartas (suas e do bot) jogam no mesmo nível
 var tournament := false
+var skip_intro := false  # testes automáticos pulam a tela de "versus"
 var friendly := false   # amistoso de clã: não vale troféu nem baú
 var rule := 0
 var arena_override := 0

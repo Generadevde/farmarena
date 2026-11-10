@@ -250,8 +250,7 @@ func _ready():
 	# arena 2.0: campo simétrico, 2 torres por lado, caminhos, câmera
 	ArenaBuilder.build(self)
 	BattleHud.install(self)  # HUD 2.0 preso na tela (mão, recurso, relógio, adversário)
-	if MatchSetup.rule > 0 or MatchSetup.tournament:
-		_announce_rule.call_deferred()
+	_show_intro.call_deferred()
 
 	_setup_hud_anchors()
 
@@ -1177,10 +1176,115 @@ func _show_bot_emote(emoji: String):
 	tween.tween_callback(label.queue_free)
 
 
-func _announce_rule():
-	var title = ("🏟 TORNEIO · " if MatchSetup.tournament else "🌪 CLIMA MALUCO · ") + MatchSetup.RULE_NAMES[MatchSetup.rule]
-	Fx.text(self, to_local(ArenaBuilder.CENTER) + Vector2(0, -20), title, Color(1, 0.85, 1.0), 3.5)
-	Fx.text(self, to_local(ArenaBuilder.CENTER) + Vector2(0, 40), MatchSetup.RULE_TEXT[MatchSetup.rule], Color(1, 1, 1), 3.5)
+# ================================================================ TELA DE "VERSUS" antes da partida
+var _intro_layer: CanvasLayer
+
+
+func _intro_label(parent: Node, text: String, font_size: int, color: Color = Color(1, 1, 1), plain_font: bool = false) -> Label:
+	var l = Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", color)
+	if plain_font:
+		l.add_theme_font_override("font", ThemeDB.fallback_font)
+	parent.add_child(l)
+	return l
+
+
+func _intro_side(parent: Node, who: String, color: Color, extra: String = ""):
+	_intro_label(parent, who + extra, 38, color)
+	_intro_label(parent, "🏆 %d   ·   %s" % [ArenaManager.get_trophies(who), Cla.clan_of(who) if Cla.clan_of(who) != "" else "sem clã"], 22, Color(1, 0.95, 0.8), true)
+
+
+func _show_intro():
+	if MatchSetup.skip_intro or OS.get_environment("CI_MODE") != "" or is_replay_mode or ai_profile == null or match_over:
+		return
+	_intro_layer = CanvasLayer.new()
+	_intro_layer.layer = 90
+	_intro_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_intro_layer)
+	var bg = Button.new()  # a tela inteira é um botão: tocar começa a partida
+	bg.flat = true
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.pressed.connect(_close_intro)
+	var shade = ColorRect.new()
+	shade.color = Color(0.05, 0.03, 0.02, 0.88)
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_intro_layer.add_child(shade)
+	_intro_layer.add_child(bg)
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.theme = ThemeBuilder.game_theme
+	_intro_layer.add_child(center)
+	var col = VBoxContainer.new()
+	col.custom_minimum_size.x = 620
+	col.add_theme_constant_override("separation", 14)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(col)
+
+	var kind = "⚔ BATALHA"
+	if MatchSetup.tournament:
+		kind = "🏟 TORNEIO · " + Progresso.TOURNAMENT_ROUNDS[clampi(int(Progresso.tournament().get("rodada", 0)), 0, 2)]
+	elif MatchSetup.friendly:
+		kind = "🤝 AMISTOSO DE CLÃ"
+	elif _is_2v2:
+		kind = "👥 2 CONTRA 2"
+	_intro_label(col, kind, 26, ThemeBuilder.COLOR_GOLD)
+	var arena_i = MatchSetup.arena_override if MatchSetup.arena_override > 0 else ArenaManager.get_player_arena()
+	var arena_info = ArenaManager.get_arena_info(arena_i)
+	_intro_label(col, "%s %s" % [arena_info.get("emoji", ""), arena_info.get("name", "")], 18, Color(0.85, 0.8, 0.7))
+
+	_intro_side(col, ai_profile.profile_name, Color(1.0, 0.5, 0.45))
+	if _is_2v2 and MatchSetup.second_enemy_ai_profile != null:
+		_intro_side(col, MatchSetup.second_enemy_ai_profile.profile_name, Color(1.0, 0.5, 0.45))
+	_intro_label(col, "VS", 64, Color(1, 0.9, 0.4))
+	_intro_side(col, PlayerProfile.player_name, Color(0.5, 0.8, 1.0))
+	if _is_2v2 and MatchSetup.ally_ai_profile != null:
+		_intro_side(col, MatchSetup.ally_ai_profile.profile_name, Color(0.5, 0.8, 1.0), "  (aliado)")
+
+	var box = PanelContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(box)
+	var inner = VBoxContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(inner)
+	var notes: Array = []
+	if MatchSetup.rule > 0:
+		_intro_label(inner, "🌪 Modificador: " + MatchSetup.RULE_NAMES[MatchSetup.rule], 24, Color(1, 0.8, 1.0))
+		_intro_label(inner, MatchSetup.RULE_TEXT[MatchSetup.rule], 17, Color(1, 1, 1), true)
+	else:
+		_intro_label(inner, "Batalha normal", 24, Color(0.75, 1.0, 0.75))
+		_intro_label(inner, "Sem modificador. Recurso em dobro a partir de 1:59.", 17, Color(1, 1, 1), true)
+	if MatchSetup.tournament:
+		notes.append("Todas as cartas no nível %d" % MatchSetup.TOURNAMENT_LEVEL)
+		notes.append("Não vale troféu")
+	elif MatchSetup.friendly or _is_2v2:
+		notes.append("Não vale troféu")
+	for power in [["ouro2", "Ouro em dobro ligado"], ["xp2", "XP em dobro ligado"], ["sorte", "Ferradura: baú melhor se vencer"]]:
+		if Progresso.power_battles(power[0]) > 0:
+			notes.append("⚡ " + power[1])
+	if int(Progresso.d["streak"]) >= 2 and !MatchSetup.tournament and !MatchSetup.friendly:
+		notes.append("🔥 Sequência de %d vitórias" % int(Progresso.d["streak"]))
+	if !notes.is_empty():
+		_intro_label(inner, "  ·  ".join(notes), 16, Color(1, 0.9, 0.6), true)
+	_intro_label(col, "toque pra começar", 18, Color(1, 1, 1, 0.7))
+
+	get_tree().paused = true
+	get_tree().create_timer(4.0, true, false, true).timeout.connect(_close_intro)
+
+
+func _close_intro():
+	if _intro_layer == null or !is_instance_valid(_intro_layer):
+		return
+	_intro_layer.queue_free()
+	_intro_layer = null
+	if !match_over:
+		get_tree().paused = false
+	Sfx.play("carta")
 
 
 var _spawning_companions := false

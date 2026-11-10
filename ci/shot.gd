@@ -123,6 +123,9 @@ func _ready():
 	MatchSetup.next_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[0])
 	var battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child(battle)
+	await get_tree().create_timer(0.5).timeout
+	await _shot("versus")
+	battle._close_intro()
 	await get_tree().create_timer(1.0).timeout
 	var pb = ArenaBuilder.tower_positions(GameManager.Team.PLAYER)
 	var eb = ArenaBuilder.tower_positions(GameManager.Team.ENEMY)
