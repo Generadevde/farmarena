@@ -10,6 +10,7 @@ CX, CY = PW // 2, PH // 2
 RIVER_HALF = 5          # rio: linhas CY-5 .. CY+4  (mundo ±20)
 BRIDGE_X = 37.5         # pontes em CX±37.5 (mundo ±150)
 BRIDGE_HALF = 7         # largura 14px (mundo 56)
+CENTER_BRIDGE_HALF = 4  # ponte do meio, mais estreita: 8px (mundo 32)
 TOWER_DX = 33.75        # torres em CX±33.75 (mundo ±135)
 TOWER_DY = 95           # torres em CY±95 (mundo ±380)
 
@@ -62,6 +63,30 @@ def build(seed=7):
                 elif d <= half + 1:
                     mirror_set(x, y, G3)
 
+    # caminho do meio: sai da ponte central, desce e se divide em "Y" até
+    # os caminhos das duas torres
+    fork_y = CY + 30
+    for y in range(CY + RIVER_HALF, fork_y + 1):
+        for x in range(CX - 4, CX + 4):
+            c = DIRT[0] if abs(x + 0.5 - CX) < 2.5 else DIRT[1]
+            mirror_set(x, y, c)
+        mirror_set(CX - 5, y, G3)
+        mirror_set(CX + 4, y, G3)
+    for side_x in (-1, 1):
+        target_x = CX + side_x * (BRIDGE_X + (TOWER_DX - BRIDGE_X) * 0.55)
+        target_y = CY + RIVER_HALF + int((TOWER_DY + 12 - RIVER_HALF) * 0.55)
+        steps = 60
+        for i in range(steps + 1):
+            t = i / steps
+            x_c = CX + (target_x - CX) * t
+            y_c = fork_y + (target_y - fork_y) * t
+            for dx in range(-3, 4):
+                for dy in range(-1, 2):
+                    c = DIRT[0] if abs(dx) < 2 else DIRT[1]
+                    if rnd.random() < 0.05:
+                        c = DIRT[2]
+                    mirror_set(int(x_c) + dx, int(y_c) + dy, c)
+
     # base de terra embaixo de cada torre (círculo batido)
     for side_x in (-1, 1):
         tx = CX + side_x * TOWER_DX
@@ -109,6 +134,18 @@ def build(seed=7):
                     if rel % 4 == 0 and y % 3 == 1:
                         c = WOOD[2]  # pregos
                 px[x, y] = c
+
+    # ponte do meio (estreita, de corda e tábua)
+    for y in range(CY - RIVER_HALF - 2, CY + RIVER_HALF + 2):
+        for x in range(CX - CENTER_BRIDGE_HALF, CX + CENTER_BRIDGE_HALF):
+            rel = x - (CX - CENTER_BRIDGE_HALF)
+            if rel in (0, 2 * CENTER_BRIDGE_HALF - 1):
+                c = OUT
+            elif y % 2 == 0:
+                c = WOOD[0]
+            else:
+                c = WOOD[2] if rel in (1, 2 * CENTER_BRIDGE_HALF - 2) else WOOD[1]
+            px[x, y] = c
 
     # cerca em volta do campo (só nas laterais e pontas, sem atrapalhar)
     for y in range(PH):
