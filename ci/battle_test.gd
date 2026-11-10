@@ -193,6 +193,14 @@ func _art_sheet():
 	print("RESULTADO clã: membros=", Cla.members(Cla.mine()).size(), " pediu? ", req_ok, " recebidas=", Cla.current_request().get("got", 0), " doação=", don,
 		" pontos=", Cla.harvest_points(), " clãs=", Cla.ranking().size(), " | poderes: chave->'", key_msg, "' baú pronto? ", Progresso.chest_ready(Progresso.chests().size() - 1),
 		" relógio->'", Progresso.use_power("relogio3"), "' mult=", Progresso.clock_boost_mult())
+	BotSimulator._load_extra_bots()
+	ArenaManager.trophies[PlayerProfile.player_name] = 3300
+	var born = BotSimulator.ensure_rivals()
+	var near_now = BotSimulator.roster_names.filter(func(n): return abs(ArenaManager.get_trophies(n) - 3300) <= 150)
+	var opp = MatchSetup.choose_opponent()
+	print("RESULTADO gerador de bots: com 3300 troféus nasceram ", born, " | perto agora=", near_now.size(), " ex: ", near_now.slice(0, 3),
+		" | adversário sorteado=", opp.profile_name, " (🏆 ", ArenaManager.get_trophies(opp.profile_name), ", baralho ", opp.deck.size(), " cartas, clã ", Cla.clan_of(opp.profile_name), ")")
+	ArenaManager.trophies[PlayerProfile.player_name] = 0
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:

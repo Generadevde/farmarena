@@ -24,6 +24,7 @@ const OPPONENT_TROPHY_RANGE = 150
 
 ## bot perto do seu troféu (sem repetir os 2 últimos)
 func choose_opponent() -> AIProfile:
+	BotSimulator.ensure_rivals()  # nunca falta adversário na sua faixa
 	if BotSimulator.roster_names.is_empty():
 		return null
 	var mine = ArenaManager.get_trophies(PlayerProfile.player_name)

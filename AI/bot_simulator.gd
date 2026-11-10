@@ -56,7 +56,77 @@ var _profile_ready: bool = false
 
 # chamado pela profile_setup DEPOIS que perfil + ArenaManager + Leaderboard
 # foram carregados -- só agora é seguro simular e salvar resultado
+# ================================================================ GERADOR DE BOTS
+# Os bots evoluem sozinhos; se você não acompanha, ficam poucos perto do seu
+# nível. Sempre que houver menos de MIN_RIVALS adversários na sua faixa de
+# troféus, nascem bots novos ali (nome gerado, baralho e estilo próprios).
+# Eles entram no elenco de vez: jogam entre si, sobem, entram em clã.
+const MIN_RIVALS = 8
+const RIVAL_RANGE = 150
+const MAX_EXTRA_BOTS = 120
+const NAME_A = ["Zé", "Tião", "Dona", "Seu", "Chico", "Nhô", "Mané", "Tonho", "Bastião", "Juca", "Dito", "Nena", "Cida", "Tonha", "Zeca", "Biu", "Lurdes", "Quinzinho", "Totonho", "Maroca"]
+const NAME_B = ["da Porteira", "do Brejo", "do Trator", "da Pamonha", "do Curral", "Pé de Cana", "da Roça", "do Milharal", "Sem Freio", "da Viola", "do Rodeio", "Capivara", "do Açude", "da Farinha", "Bota Suja", "do Galinheiro", "Lampião", "da Enxada", "Carrapato", "do Berrante"]
+var _base_roster: Array = []
+var extra_bots: Array = []
+
+
+func _extra_path() -> String:
+	return "user://profiles/bots_extra_%d.json" % PlayerProfile.active_profile_id
+
+
+func _load_extra_bots():
+	if _base_roster.is_empty():
+		_base_roster = roster_names.duplicate()
+	extra_bots = []
+	if FileAccess.file_exists(_extra_path()):
+		var parsed = JSON.parse_string(FileAccess.get_file_as_string(_extra_path()))
+		if parsed is Array:
+			extra_bots = parsed
+	roster_names.assign(_base_roster)
+	for n in extra_bots:
+		if !roster_names.has(str(n)):
+			roster_names.append(str(n))
+
+
+func _new_bot_name() -> String:
+	for attempt in 40:
+		var n = "%s %s" % [NAME_A[randi() % NAME_A.size()], NAME_B[randi() % NAME_B.size()]]
+		if attempt > 25:
+			n += " %d" % randi_range(2, 99)
+		if !roster_names.has(n) and n != PlayerProfile.player_name:
+			return n
+	return "Novato %d" % randi_range(100, 9999)
+
+
+## garante adversários na faixa do jogador; devolve quantos bots nasceram
+func ensure_rivals() -> int:
+	if PlayerProfile.active_profile_id < 0:
+		return 0
+	var mine = ArenaManager.get_trophies(PlayerProfile.player_name)
+	var near = 0
+	for n in roster_names:
+		if abs(ArenaManager.get_trophies(n) - mine) <= RIVAL_RANGE:
+			near += 1
+	var born = 0
+	while near < MIN_RIVALS and extra_bots.size() < MAX_EXTRA_BOTS:
+		var n = _new_bot_name()
+		roster_names.append(n)
+		extra_bots.append(n)
+		ArenaManager.trophies[n] = maxi(0, mine + randi_range(-110, 110))
+		near += 1
+		born += 1
+	if born > 0:
+		ArenaManager._save()
+		var f = FileAccess.open(_extra_path(), FileAccess.WRITE)
+		if f != null:
+			f.store_string(JSON.stringify(extra_bots))
+		print("BotSimulator: nasceram ", born, " bots novos perto de ", mine, " troféus")
+	return born
+
+
 func on_profile_loaded():
+	_load_extra_bots()
+	ensure_rivals()
 	_profile_ready = true
 	_catch_up_on_elapsed_time()
 	_timer.start()
