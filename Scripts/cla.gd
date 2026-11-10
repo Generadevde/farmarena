@@ -10,11 +10,11 @@ class_name Cla
 
 const NAMES = ["Unidos do Curral", "Tropa do Brejo", "Os Sem Porteira", "Galo Doido FC", "Fazenda Feliz", "Capivaras Zen",
 	"Trator Azul", "Pé de Serra", "Os Butina", "Milho Verde", "Boiada Brava", "Coisa Estranha S/A"]
-const REQUEST_CAP = [12, 4, 1, 0]        # cópias por pedido, por raridade (lendária não dá)
+const REQUEST_CAP = [12, 4, 1, 0, 0]        # cópias por pedido, por raridade (lendária não dá)
 const REQUEST_COOLDOWN = 20 * 60          # segundos entre um pedido e outro
 const SECONDS_PER_COPY = 75.0             # ritmo das doações dos colegas
-const DONATE_GOLD = [6, 30, 120, 0]
-const DONATE_XP = [3, 10, 30, 0]
+const DONATE_GOLD = [6, 30, 120, 0, 0]
+const DONATE_XP = [3, 10, 30, 0, 0]
 const HARVEST_TIERS = [200, 450, 800]     # pontos do clã -> Saco, Caixote, Baú do Celeiro (+ poder raro)
 const CHAT_LINES = ["Bão dia, povo!", "Alguém tem Pintaiada sobrando?", "Perdi pra um Robô Balde de novo...", "Hoje tem torneio, hein.",
 	"Quem aí já viu o Mascate hoje?", "Tô quase na próxima arena!", "Esse Jacaré tá forte demais, uai.", "Bora encher a colheita!",

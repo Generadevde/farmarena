@@ -18,8 +18,12 @@ const COMUM = 0
 const RARA = 1
 const EPICA = 2
 const LENDARIA = 3
-const RARITY_NAMES = ["Comum", "Rara", "Épica", "Lendária"]
-const RARITY_COLORS = [Color("#b9c2c9"), Color("#f29b38"), Color("#b667e8"), Color("#5fe0d0")]
+## RARIDADE 2.0: não é mais escolhida na mão -- é a QUANTIDADE DE HABILIDADES
+## da carta (ver abilities()):  0 = Normal · 1 = Rara · 2 = Épica · 3 = Lendária · 4+ = Mística
+## Vale pra carta oficial, da Safra e do Criador, tudo igual.
+const MISTICA = 4
+const RARITY_NAMES = ["Normal", "Rara", "Épica", "Lendária", "Mística"]
+const RARITY_COLORS = [Color("#b9c2c9"), Color("#f29b38"), Color("#b667e8"), Color("#5fe0d0"), Color("#ff5ad0")]
 
 # ---------------------------------------------------------------- turmas
 const TURMAS = {
@@ -111,7 +115,7 @@ const CARTAS = [
 		"desc": "Acorda o sítio inteiro às 4 da manhã e ainda bate em quem reclamar.",
 		"pros": ["Chega em fúria", "Dano alto e rápido"], "cons": ["Não acerta voador"],
 		"receita": {"pernas": "ave", "corpo": "penas", "bracos": "asas", "cabeca": "galinha", "chapeu": "coroa", "costas": "rabo_galo"}, "paleta": {"P": "#b84828", "A": "#e8a020", "K": "#f0c040"},
-		"u": {"hp": 980, "damage": 200, "attack_speed": 1.4, "move_speed": 60.0, "unit_scale": 1.25, "push_weight": 1.8, "entrance_rage_duration": 4.0, "entrance_rage_damage_mult": 1.4, "entrance_rage_speed_mult": 1.4}},
+		"u": {"hp": 980, "damage": 200, "attack_speed": 1.4, "move_speed": 60.0, "unit_scale": 1.25, "push_weight": 1.8, "entrance_rage_duration": 4.0, "entrance_rage_damage_mult": 1.4, "entrance_rage_speed_mult": 1.4, "first_attack_bonus": true, "first_attack_multiplier": 1.5}},
 	{"id": "corujao", "nome": "Corujão Bombardeiro", "turma": "Galinheiro", "custo": 50, "papel": "AEREO", "raridade": EPICA, "arena": 4, "perigo": 8,
 		"desc": "Voa devagar, solta pedra do céu e não pede desculpa.",
 		"pros": ["Voa", "Dano em área no chão"], "cons": ["Lento", "Não ataca outros voadores"],
@@ -158,7 +162,7 @@ const CARTAS = [
 		"desc": "Ninguém quis beijar. Aí ele ficou assim.",
 		"pros": ["Quando morre, viram 4 sapinhos", "Forte e gordo"], "cons": ["Lento"],
 		"receita": {"pernas": "patinha", "corpo": "redondo", "bracos": "patas", "cabeca": "sapo", "chapeu": "coroa"}, "paleta": {"P": "#3c8848", "K": "#c8e080", "A": "#d83c30", "S": "#40a0d8"}, "filho_morte": "sapinho",
-		"u": {"hp": 1600, "damage": 130, "attack_speed": 2.2, "move_speed": 30.0, "unit_scale": 1.7, "push_weight": 3.5, "spawns_on_death": true, "death_spawn_count": 4}},
+		"u": {"hp": 1600, "damage": 130, "attack_speed": 2.2, "move_speed": 30.0, "unit_scale": 1.7, "push_weight": 3.5, "spawns_on_death": true, "death_spawn_count": 4, "is_aoe": true, "aoe_radius": 40.0}},
 	{"id": "lamacal", "nome": "Lamaçal", "turma": "Brejo", "custo": 25, "papel": "CONTROLE", "raridade": COMUM, "arena": 1, "perigo": 3,
 		"desc": "Uma poça de lama de respeito. Ninguém sai correndo dali.",
 		"pros": ["Deixa todo mundo lento", "Dura bastante"], "cons": ["Quase não causa dano"],
@@ -300,9 +304,9 @@ const CARTAS = [
 		"f": {"radius": 95.0, "damage": 70, "base_damage_multiplier": 0.1, "status_effect": "MARK", "status_effect_strength": 1.4, "status_effect_duration": 6.0, "fx_color": "#e04030"}},
 	{"id": "caveira_boi", "nome": "Boi da Cara Preta", "turma": "Coisa Estranha", "custo": 55, "papel": "FINALIZADOR", "raridade": LENDARIA, "arena": 6, "perigo": 9,
 		"desc": "Pega essa torre que tem medo de careta. Morre, levanta e continua.",
-		"pros": ["Voa", "Levanta uma vez depois de morrer", "Cada golpe bate mais forte"], "cons": ["Caro", "Vida mediana"],
+		"pros": ["Levanta uma vez depois de morrer", "Cada golpe bate mais forte", "Rouba vida e enfurece quase morrendo"], "cons": ["Caro", "Vida mediana"],
 		"receita": {"pernas": "fantasma", "corpo": "saco", "bracos": "humanos", "cabeca": "caveira", "costas": "morcego", "arma": "foice"}, "paleta": {"M": "#e8e0d0", "P": "#584868", "K": "#584868", "W": "#3a2a30", "A": "#8048a0"},
-		"u": {"hp": 900, "damage": 150, "attack_speed": 1.5, "move_speed": 48.0, "unit_scale": 1.3, "push_weight": 2.0, "unit_type": "AIR", "target_type": "ALL", "can_resurrect": true, "resurrect_hp_percent": 0.5, "ramping_damage": true, "ramping_damage_per_hit": 0.12, "ramping_damage_max_multiplier": 2.2}},
+		"u": {"hp": 900, "damage": 150, "attack_speed": 1.5, "move_speed": 48.0, "unit_scale": 1.3, "push_weight": 2.0, "unit_type": "AIR", "target_type": "ALL", "can_resurrect": true, "resurrect_hp_percent": 0.5, "ramping_damage": true, "ramping_damage_per_hit": 0.12, "ramping_damage_max_multiplier": 2.2, "lifesteal_percent": 0.2, "low_hp_rage_threshold": 0.4, "low_hp_rage_damage_mult": 1.4}},
 
 	# ============================== CARTAS DE TURMA MISTA (unidades diferentes juntas)
 	{"id": "moleque", "nome": "Moleque", "turma": "Peões", "custo": 10, "papel": "VERSATIL", "raridade": COMUM, "ficha": true,
@@ -367,13 +371,13 @@ const CARTAS = [
 		"desc": "Feito de balde, roda de carrinho de mão e uma motosserra. Funciona. Infelizmente.",
 		"pros": ["Vida absurda", "Chega dando onda de choque", "Não é empurrado"], "cons": ["Lentíssimo", "Caríssimo", "Só bate em torre e construção"],
 		"receita": {"pernas": "rodas", "corpo": "armadura", "bracos": "humanos", "cabeca": "balde", "arma": "motosserra"}, "paleta": {"M": "#98a0ac", "S": "#787c88", "K": "#787c88", "A": "#e06030", "W": "#484858"},
-		"u": {"hp": 3600, "damage": 300, "attack_speed": 3.6, "move_speed": 14.0, "unit_scale": 2.3, "push_weight": 6.0, "immune_to_knockback": true, "immune_to_pull": true, "entrance_shockwave_damage": 150, "entrance_shockwave_radius": 70.0, "is_aoe": true, "aoe_radius": 40.0, "target_type": "BUILDING"}},
+		"u": {"hp": 3600, "damage": 300, "attack_speed": 3.6, "move_speed": 14.0, "unit_scale": 2.3, "push_weight": 6.0, "immune_to_knockback": true, "immune_to_pull": true, "entrance_shockwave_damage": 150, "entrance_shockwave_radius": 70.0, "is_aoe": true, "aoe_radius": 40.0, "target_type": "BUILDING", "damage_reduction_percent": 0.15}},
 	{"id": "disco_voador", "nome": "Disco Voador", "turma": "Coisa Estranha", "custo": 65, "papel": "AEREO", "raridade": LENDARIA, "arena": 6, "perigo": 9,
 		"desc": "Aquela luz no céu do sítio que ninguém acredita quando você conta.",
 		"pros": ["Voa e ataca muito rápido", "Dano em área"], "cons": ["Alcance curto", "Caro"],
 		"receita": {"objeto": "ovni"}, "paleta": {"M": "#a0a8b8", "S": "#50c0e0", "A": "#f04848"},
 		"proj": "raio",
-		"u": {"hp": 1300, "damage": 70, "attack_speed": 0.6, "move_speed": 40.0, "unit_scale": 1.5, "push_weight": 2.5, "unit_type": "AIR", "is_ranged": true, "attack_range": 80.0, "target_type": "ALL", "is_aoe": true, "aoe_radius": 35.0}},
+		"u": {"hp": 1300, "damage": 70, "attack_speed": 0.6, "move_speed": 40.0, "unit_scale": 1.5, "push_weight": 2.5, "unit_type": "AIR", "is_ranged": true, "attack_range": 80.0, "target_type": "ALL", "is_aoe": true, "aoe_radius": 35.0, "projectile_chains": true, "projectile_chain_max_targets": 3, "projectile_chain_range": 90.0, "on_hit_effect": "SLOW", "on_hit_effect_strength": 0.7, "on_hit_effect_duration": 1.0}},
 	{"id": "raio", "nome": "Raio", "turma": "Coisa Estranha", "custo": 20, "papel": "PUNICAO", "raridade": COMUM, "arena": 0, "perigo": 4,
 		"desc": "Céu limpo, sem nuvem. E mesmo assim caiu.",
 		"pros": ["Dano na hora", "Dá um choque que trava"], "cons": ["Área pequena"],
@@ -545,8 +549,103 @@ static func find_base(path: String) -> BaseData:
 	return null
 
 
+static var _rarity_cache: Dictionary = {}
+
+
 static func rarity_of(c: CardData) -> int:
-	return clampi(c.rarity, 0, 3) if c != null else 0
+	if c == null:
+		return 0
+	var key = c.get_instance_id()
+	if !_rarity_cache.has(key):
+		_rarity_cache[key] = clampi(abilities(c).size(), 0, MISTICA)
+	return _rarity_cache[key]
+
+
+static func clear_rarity_cache():
+	_rarity_cache.clear()
+
+
+## lista (em texto) de tudo que a carta faz ALÉM de andar, bater e ter vida.
+## Voar, atirar de longe e vir em bando são características, não habilidades.
+static func abilities(c: CardData) -> Array:
+	var out: Array = []
+	if c == null:
+		return out
+	if c.is_spell():
+		var sp: SpellData = c.spell_data
+		if sp.status_effect != UnitData.OnHitEffect.NONE:
+			out.append("Efeito: " + CustomContent.EFFECT_NAMES[sp.status_effect])
+		if sp.heal_amount > 0:
+			out.append("Cura")
+		if sp.cleanses:
+			out.append("Purifica")
+		if sp.rage_damage_mult > 1.0 or sp.rage_speed_mult > 1.0:
+			out.append("Fúria")
+		if sp.shield_amount > 0:
+			out.append("Escudo")
+		if sp.summon_count > 0:
+			out.append("Invoca tropas")
+		if sp.duration > 0:
+			out.append("Fica no chão")
+		return out
+	var st: UnitData = DeckBuilder.get_unit_stats(c)
+	if st == null:
+		return out
+	if st.on_hit_effect != UnitData.OnHitEffect.NONE:
+		out.append("Golpe: " + CustomContent.EFFECT_NAMES[st.on_hit_effect])
+	if st.is_aoe or st.spin_attack or st.frontal_cone_attack:
+		out.append("Dano em área")
+	if st.charge_attack:
+		out.append("Investida")
+	if st.can_stealth:
+		out.append("Furtivo")
+	if st.first_attack_bonus:
+		out.append("1º golpe em dobro")
+	if st.entrance_rage_duration > 0:
+		out.append("Entra em fúria")
+	if st.entrance_shockwave_damage > 0 or st.deals_arrival_damage:
+		out.append("Onda de choque")
+	if st.lifesteal_percent > 0:
+		out.append("Roubo de vida")
+	if st.forces_aggro:
+		out.append("Provoca")
+	if st.damage_reduction_percent > 0 or st.has_shield:
+		out.append("Casca dura")
+	if st.passive_regen:
+		out.append("Regenera")
+	if st.is_linked:
+		out.append("Divide o dano")
+	if st.spawns_on_death:
+		out.append("Filhotes ao morrer")
+	if st.kamikaze or st.explodes_on_death:
+		out.append("Explode")
+	if st.projectile_splits or st.projectile_pierces or st.projectile_chains:
+		out.append("Tiro especial")
+	if st.can_heal_allies:
+		out.append("Cura aliados")
+	if st.spawns_units or st.summons_on_attack:
+		out.append("Invoca tropas")
+	if st.immune_while_moving:
+		out.append("Intocável andando")
+	if st.ramping_attack_speed or st.ramping_damage or st.same_target_ramping_damage:
+		out.append("Vai ficando mais forte")
+	if st.low_hp_rage_threshold > 0:
+		out.append("Fúria na beira da morte")
+	if st.execute_threshold > 0:
+		out.append("Executa")
+	if st.generates_resource:
+		out.append("Gera recurso")
+	if st.reflects_damage:
+		out.append("Devolve dano")
+	if st.heals_on_kill:
+		out.append("Cura ao matar")
+	if st.can_resurrect:
+		out.append("Levanta de novo")
+	if st.immune_to_knockback or st.immune_to_pull:
+		out.append("Inabalável")
+	if !c.companions.is_empty():
+		out.append("Acompanhantes")
+	return out
 
 
 static func rarity_color(c: CardData) -> Color:

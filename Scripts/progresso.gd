@@ -18,10 +18,10 @@ const CHEST_SLOTS = 3
 const BATTLE_SKIPS_SECONDS = 60  # cada partida jogada adianta o baú que está abrindo
 
 const CHESTS = [
-	{"nome": "Saco de Milho", "tempo": 60, "cartas": 3, "ouro": [20, 40], "pesos": [80, 18, 2, 0], "cor": "#d8b060", "garante": -1},
-	{"nome": "Caixote da Feira", "tempo": 180, "cartas": 5, "ouro": [50, 90], "pesos": [62, 30, 7, 1], "cor": "#b87840", "garante": 1},
-	{"nome": "Baú do Celeiro", "tempo": 480, "cartas": 8, "ouro": [120, 200], "pesos": [48, 34, 15, 3], "cor": "#c84838", "garante": 2},
-	{"nome": "Baú Lendário", "tempo": 900, "cartas": 10, "ouro": [300, 500], "pesos": [35, 35, 22, 8], "cor": "#5fe0d0", "garante": 3},
+	{"nome": "Saco de Milho", "tempo": 60, "cartas": 3, "ouro": [20, 40], "pesos": [78, 19, 3, 0, 0], "cor": "#d8b060", "garante": -1},
+	{"nome": "Caixote da Feira", "tempo": 180, "cartas": 5, "ouro": [50, 90], "pesos": [58, 30, 10, 2, 0], "cor": "#b87840", "garante": 1},
+	{"nome": "Baú do Celeiro", "tempo": 480, "cartas": 8, "ouro": [120, 200], "pesos": [42, 34, 18, 5, 1], "cor": "#c84838", "garante": 2},
+	{"nome": "Baú Lendário", "tempo": 900, "cartas": 10, "ouro": [300, 500], "pesos": [28, 34, 24, 10, 4], "cor": "#5fe0d0", "garante": 3},
 ]
 const WIN_CHEST_WEIGHTS = [60, 28, 10, 2]
 
@@ -31,13 +31,14 @@ const COPIES_NEEDED = [
 	[1, 2, 4, 8, 13, 20, 30, 45],
 	[1, 1, 2, 3, 5, 8, 12, 18],
 	[1, 1, 1, 2, 2, 3, 4, 5],
+	[1, 1, 1, 1, 2, 2, 3, 3],
 ]
-const COIN_FACTOR = [1.0, 1.5, 2.5, 4.0]
-const COPIES_PER_ROLL = [[3, 8], [2, 4], [1, 2], [1, 1]]
-const DUPLICATE_GOLD = [5, 20, 100, 500]  # ouro por cópia que sobra de carta no nível máximo
-const SHOP_PRICE = [8, 30, 150, 800]      # por cópia
-const SHOP_QTY = [10, 5, 2, 1]
-const UNLOCK_PRICE = [60, 200, 800, 3000]  # carta que você ainda não tem
+const COIN_FACTOR = [1.0, 1.5, 2.5, 4.0, 6.0]
+const COPIES_PER_ROLL = [[3, 8], [2, 4], [1, 2], [1, 1], [1, 1]]
+const DUPLICATE_GOLD = [5, 20, 100, 500, 1500]  # ouro por cópia que sobra de carta no nível máximo
+const SHOP_PRICE = [8, 30, 150, 800, 2500]      # por cópia
+const SHOP_QTY = [10, 5, 2, 1, 1]
+const UNLOCK_PRICE = [60, 200, 800, 3000, 8000]  # carta que você ainda não tem
 const SHOP_CHESTS = [[1, 250], [2, 700]]
 
 const MASTERY_STEPS = [10, 30, 75, 150]
@@ -611,7 +612,7 @@ func buy_surprise() -> Dictionary:
 		PlayerProfile.add_coins(gold2)
 		result = {"tipo": "ouro", "ouro": gold2, "fala": "Opa! Dinheiro esquecido!"}
 	else:
-		var rarity = _weighted([45, 35, 16, 4])
+		var rarity = _weighted([45, 35, 15, 4, 1])
 		var c = _pick_of_rarity(pool(), rarity)
 		if c == null:
 			return {"tipo": "ouro", "ouro": 0, "fala": "A caixa veio vazia. Coisas da vida."}

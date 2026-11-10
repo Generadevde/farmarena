@@ -182,6 +182,24 @@ func _spawn_splits():
 	)
 
 	var count = min(split_count, nearby.size())
+	# os grãos que não têm inimigo por perto pra acertar voam abertos em leque e somem
+	# (só visual) -- assim dá pra ver o tiro se dividindo mesmo contra um alvo só
+	var forward = _locked_direction if _locked_direction != Vector2.ZERO else Vector2.UP
+	for k in range(count, split_count):
+		if texture == null:
+			break
+		var frag = Sprite2D.new()
+		frag.texture = texture
+		frag.position = position
+		frag.z_index = 25
+		get_parent().add_child(frag)
+		var spread = forward.rotated(deg_to_rad(-55.0 + 110.0 * (k + 0.5) / split_count))
+		frag.rotation = spread.angle()
+		var tw = frag.create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(frag, "position", position + spread * 70.0, 0.3)
+		tw.tween_property(frag, "modulate:a", 0.0, 0.3)
+		tw.chain().tween_callback(frag.queue_free)
 	for i in count:
 		var new_proj = Projectile.new()
 		new_proj.target = nearby[i]

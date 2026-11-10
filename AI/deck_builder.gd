@@ -36,6 +36,7 @@ static func get_unit_stats(card: CardData) -> UnitData:
 
 
 static func clear_cache():
+	Catalogo.clear_rarity_cache()
 	_stats_cache.clear()
 
 

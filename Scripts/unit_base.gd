@@ -913,9 +913,10 @@ func _perform_attack():
 	if stats.charge_attack:
 		if _charge_distance_accumulated >= stats.charge_distance_needed:
 			dmg *= stats.charge_damage_multiplier
-			if stats.charge_knockback_distance > 0 and target != null and is_instance_valid(target) and "global_position" in target:
-				var knockback_dir = (target.global_position - global_position).normalized()
-				target.global_position += knockback_dir * stats.charge_knockback_distance
+			# empurrão da investida: só em UNIDADE (torre e construção nunca saem do lugar),
+			# e deslizando -- antes movia o alvo na marra, inclusive as torres
+			if stats.charge_knockback_distance > 0 and target != null and is_instance_valid(target) and target.has_method("apply_knockback"):
+				target.apply_knockback(global_position, stats.charge_knockback_distance)
 		_charge_distance_accumulated = 0.0  # sempre reseta -- carregado ou não, precisa andar de novo pra carregar o próximo
 
 	if stats.is_ranged:

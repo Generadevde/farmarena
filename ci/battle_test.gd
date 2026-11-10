@@ -213,6 +213,11 @@ func _art_sheet():
 	print("RESULTADO gerador de bots: com 3300 troféus nasceram ", born, " | perto agora=", near_now.size(), " ex: ", near_now.slice(0, 3),
 		" | adversário sorteado=", opp.profile_name, " (🏆 ", ArenaManager.get_trophies(opp.profile_name), ", baralho ", opp.deck.size(), " cartas, clã ", Cla.clan_of(opp.profile_name), ")")
 	ArenaManager.trophies[PlayerProfile.player_name] = 0
+	var by_rarity: Array = [[], [], [], [], []]
+	for rc in Catalogo.cards():
+		by_rarity[Catalogo.rarity_of(rc)].append(rc.card_name)
+	for ri in 5:
+		print("RESULTADO raridade ", Catalogo.RARITY_NAMES[ri], " (", by_rarity[ri].size(), "): ", by_rarity[ri])
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:
@@ -995,6 +1000,13 @@ func _abilities_audit():
 					saw = saw or near_foe.current_hp < 99999
 		_check("torre " + base.base_name, saw)
 
+	await _wipe()
+	var e_tower = get_tree().get_nodes_in_group("enemy_base")[0]
+	var tower_pos = e_tower.global_position
+	for n in 3:
+		await _put("cavalo_coiceiro", P, tower_pos + Vector2(0, 160 + n * 20))
+	await get_tree().create_timer(8.0).timeout
+	_check("torre não sai do lugar com investida", e_tower.global_position.distance_to(tower_pos) < 0.5, "moveu %.1fpx" % e_tower.global_position.distance_to(tower_pos))
 	print("RESULTADO habilidades OK (", _aud_ok.size(), "): ", _aud_ok)
 	print("RESULTADO habilidades COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
 

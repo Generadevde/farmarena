@@ -961,6 +961,8 @@ func _show_card_popup(card: CardData):
 	var stats_text = _stats_text(card, mult)
 	if stats_text != "":
 		v.add_child(_wrap(stats_text, 17))
+	var skills = Catalogo.abilities(card)
+	v.add_child(_wrap("Habilidades (%d): %s" % [skills.size(), ", ".join(skills)] if !skills.is_empty() else "Sem habilidade especial: carta Normal.", 16, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
 	for p in card.pros:
 		v.add_child(_wrap("✔ " + p, 16, Color(0.6, 1.0, 0.6)))
 	for p in card.cons:
@@ -1496,7 +1498,7 @@ func _donate(i: int):
 func _show_request_picker():
 	var v = _popup(660, true)
 	v.add_child(_title("Pedir qual carta?"))
-	v.add_child(_wrap("Comum: até 12 cópias · Rara: até 4 · Épica: 1. Lendária não dá pra pedir.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	v.add_child(_wrap("Normal: até 12 cópias · Rara: até 4 · Épica: 1. Lendária e Mística não dá pra pedir.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var g = _grid(v, 4)
 	var cards = Progresso.owned_cards().filter(func(c): return Cla.REQUEST_CAP[Catalogo.rarity_of(c)] > 0 and Progresso.copies_needed(c) > 0)
 	cards.sort_custom(func(a, b): return Catalogo.rarity_of(a) < Catalogo.rarity_of(b) if Catalogo.rarity_of(a) != Catalogo.rarity_of(b) else a.cost < b.cost)
