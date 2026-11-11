@@ -15,6 +15,7 @@ class_name Assembleia
 const PLAYER_WEIGHT = 5
 const MAX_TOTAL = 0.12
 const HISTORY_MAX = 12
+const NEUTRAL_BAND = 0.18   # bot sem opinião forte (vontade perto de zero) fica NEUTRO
 ## quanto muda por votação: [vida, dano], por papel da carta
 const STEP_BY_ROLE = {
 	CardData.CardRole.TANQUE: [0.04, 0.02], CardData.CardRole.ENXAME: [0.03, 0.03], CardData.CardRole.PUNICAO: [0.02, 0.04],
@@ -113,7 +114,7 @@ static func _nerf_wish(bot: String, deck: Array, path: String, share: float, avg
 	return s
 
 
-## [sim, não] de uma pauta, contando bots + o seu voto
+## [sim, não, neutros] de uma pauta, contando bots + o seu voto
 static func votes(pauta: Dictionary) -> Array:
 	var path = str(pauta["path"])
 	var want_nerf = str(pauta["tipo"]) == "nerf"
@@ -122,9 +123,12 @@ static func votes(pauta: Dictionary) -> Array:
 	var avg_share = float(Progresso.DECK_SIZE) / maxf(1.0, float(CardDatabase.all_cards.size()))
 	var yes = 0
 	var no = 0
+	var neutral = 0
 	for dk in decks:
 		var wish = _nerf_wish(dk[0], dk[1], path, share, avg_share)
-		if (wish > 0.0) == want_nerf:
+		if absf(wish) < NEUTRAL_BAND:
+			neutral += 1   # tanto faz pra ele: não vota
+		elif (wish > 0.0) == want_nerf:
 			yes += 1
 		else:
 			no += 1
@@ -133,7 +137,9 @@ static func votes(pauta: Dictionary) -> Array:
 		yes += PLAYER_WEIGHT
 	elif mine < 0:
 		no += PLAYER_WEIGHT
-	return [yes, no]
+	else:
+		neutral += 1
+	return [yes, no, neutral]
 
 
 # ---------------------------------------------------------------- pautas
@@ -233,10 +239,10 @@ static func _close(pauta: Dictionary, period: int):
 		adj["dmg"] = clampf(float(adj.get("dmg", 1.0)) + dir * st[1], 1.0 - MAX_TOTAL, 1.0 + MAX_TOTAL)
 		_d()["ajustes"][card.resource_path] = adj
 	var hist: Array = _d()["historico"]
-	hist.push_front({"periodo": period, "carta": card.card_name, "tipo": str(pauta["tipo"]), "autor": str(pauta["autor"]), "sim": v[0], "nao": v[1], "passou": passed, "efeito": effect_text(card, str(pauta["tipo"]))})
+	hist.push_front({"periodo": period, "carta": card.card_name, "tipo": str(pauta["tipo"]), "autor": str(pauta["autor"]), "sim": v[0], "nao": v[1], "neutros": v[2], "passou": passed, "efeito": effect_text(card, str(pauta["tipo"]))})
 	while hist.size() > HISTORY_MAX:
 		hist.pop_back()
-	Progresso._push({"tipo": "assembleia", "carta": card.resource_path, "texto": "%s em %s: %s (%d a %d)" % ["BUFF" if str(pauta["tipo"]) == "buff" else "NERF", card.card_name, "APROVADO" if passed else "recusado", v[0], v[1]]})
+	Progresso._push({"tipo": "assembleia", "carta": card.resource_path, "texto": "%s em %s: %s (%d a %d)" % ["BUFF" if str(pauta["tipo"]) == "buff" else "NERF", card.card_name, "APROVADO" if passed else "recusado", v[0], v[1]] + ("  ·  %d neutros" % v[2] if v[2] > 0 else "")})
 
 
 ## chama ao abrir o menu e ao carregar o perfil: fecha as pautas vencidas,

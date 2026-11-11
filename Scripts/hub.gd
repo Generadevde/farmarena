@@ -2264,7 +2264,7 @@ func _show_assembleia():
 	Assembleia.sync()
 	var v = _popup(660, true)
 	v.add_child(_title("⚖ Assembleia das cartas"))
-	v.add_child(_wrap("A cada 3 dias os bots abrem uma pauta (pelos números da temporada) e você pode abrir UMA sua. Todo mundo vota: os bots pesam o quanto a carta vence, o quanto é usada e se ELES usam. Seu voto vale por %d. Pauta aprovada muda a carta só um pouco (2%% a 4%%, conforme o tipo)." % Assembleia.PLAYER_WEIGHT, 15, ThemeBuilder.COLOR_STAT_LABEL))
+	v.add_child(_wrap("A cada 3 dias os bots abrem uma pauta (pelos números da temporada) e você pode abrir UMA sua. Todo mundo vota: os bots pesam o quanto a carta vence, o quanto é usada e se ELES usam -- quem não tem opinião forte fica neutro, e você também pode. Seu voto vale por %d. Pauta aprovada muda a carta só um pouco (2%% a 4%%, conforme o tipo)." % Assembleia.PLAYER_WEIGHT, 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var left = _label("", 16, Color(1, 0.9, 0.6))
 	_live(left, func(): return "⏳ A votação fecha em " + _clock(Assembleia.seconds_left()))
 	v.add_child(left)
@@ -2300,7 +2300,7 @@ func _show_assembleia():
 		bar.show_percentage = false
 		bar.custom_minimum_size.y = 22
 		p.add_child(bar)
-		p.add_child(_label("👍 %d a favor   ·   👎 %d contra   ·   %s" % [vt[0], vt[1], "passando" if vt[0] > vt[1] else "sendo recusada"], 16, Color(0.6, 1, 0.6) if vt[0] > vt[1] else Color(1, 0.7, 0.6)))
+		p.add_child(_label("👍 %d a favor  ·  👎 %d contra  ·  😐 %d neutros  ·  %s" % [vt[0], vt[1], vt[2], "passando" if vt[0] > vt[1] else "sendo recusada"], 15, Color(0.6, 1, 0.6) if vt[0] > vt[1] else Color(1, 0.7, 0.6)))
 		var mine = int(pa.get("voto", 0))
 		var vr = HBoxContainer.new()
 		vr.add_theme_constant_override("separation", 8)
@@ -2313,6 +2313,10 @@ func _show_assembleia():
 		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		nb.modulate = Color(1, 0.7, 0.65) if mine < 0 else Color(1, 1, 1)
 		vr.add_child(nb)
+		var ub = _button("😐 Neutro" + ("  ✔" if mine == 0 else ""), _vote_assembly.bind(v, i, 0), 18)
+		ub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		ub.modulate = Color(1, 1, 0.75) if mine == 0 else Color(1, 1, 1)
+		vr.add_child(ub)
 	var pb = _button("📣 Abrir minha pauta (1 a cada 3 dias)" if Assembleia.can_propose() else "Você já abriu sua pauta nestes 3 dias", _pick_assembly_card.bind(v), 19)
 	pb.disabled = !Assembleia.can_propose()
 	if !pb.disabled:
