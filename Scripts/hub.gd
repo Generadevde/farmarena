@@ -45,6 +45,10 @@ func _ready():
 	_rebuild_all()
 	Safra.sync_profile()
 	Assembleia.sync()
+	if int(Progresso.d.get("bots_arena_v", 0)) < 1:
+		Progresso.d["bots_arena_v"] = 1
+		BotLearning.enforce_arena_everywhere()
+		Progresso.save()
 	Progresso.changed.connect(_queue_refresh)
 	PlayerProfile.profile_changed.connect(_refresh_top)
 	Progresso.rewards_pending.connect(_defer_pending)
@@ -2109,7 +2113,7 @@ func _show_bot(who: String):
 		g.add_child(cv)
 	v.add_child(_label("Toque numa carta pra ver os números no nível dele.", 14, ThemeBuilder.COLOR_STAT_LABEL))
 	if prof.equipped_base != null:
-		v.add_child(_label("Torre: %s" % prof.equipped_base.base_name, 15, ThemeBuilder.COLOR_STAT_LABEL))
+		v.add_child(_label("🏰 Torre: %s  ·  nível %d" % [prof.equipped_base.base_name, Progresso.bot_tower_level(prof)], 16, ThemeBuilder.COLOR_STAT_LABEL))
 	var history = Registro.history_of(who)
 	if !history.is_empty():
 		v.add_child(_label("Última temporada: %dº lugar" % int(history[0][1]), 15, ThemeBuilder.COLOR_STAT_LABEL))
@@ -2311,7 +2315,7 @@ func _celebrate(card: CardData, title_text: String, sub_text: String, color: Col
 	var state = {"done": false}
 	bg.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: state["done"] = true)
 	var waited = 0.0
-	while waited < 1.35 and !state["done"]:
+	while waited < 1.1 and !state["done"]:
 		await get_tree().process_frame
 		waited += get_process_delta_time()
 	if is_instance_valid(layer):
@@ -2321,6 +2325,7 @@ func _celebrate(card: CardData, title_text: String, sub_text: String, color: Col
 		await out.finished
 		layer.queue_free()
 	_celebrating = false
+	_show_pending.call_deferred()
 
 
 # ================================================================ GAZETA DA ROÇA (jornal)
@@ -2779,7 +2784,7 @@ func _claim_mission(id: String, popup_box):
 
 # ================================================================ prêmios
 func _show_pending():
-	if !get_tree().get_nodes_in_group("hub_popup").is_empty():
+	if !get_tree().get_nodes_in_group("hub_popup").is_empty() or _loot_busy or _celebrating:
 		return
 	# um aviso de cada vez: o próximo aparece quando esse fechar
 	while true:
@@ -2809,7 +2814,21 @@ func _show_pending():
 						return
 
 
+var _loot_busy := false
+
+
 func _show_loot(title_text: String, loot: Array, color: Color):
+	# carta NOVA: a animação de desbloqueio vem PRIMEIRO, na hora, e só depois
+	# aparece a lista do que veio (no máximo 2 animações pra não demorar)
+	_loot_busy = true
+	var shown = 0
+	for item in loot:
+		if item.get("nova", false) and shown < 2:
+			var nc = Catalogo.find_card(str(item.get("path", "")))
+			if nc != null:
+				shown += 1
+				await _celebrate(nc, "CARTA NOVA!", "%s  ·  %s" % [Catalogo.RARITY_NAMES[Catalogo.rarity_of(nc)], nc.get_nation_name() if nc.get_nation_name() != "" else "Coringa"], Catalogo.rarity_color(nc))
+	_loot_busy = false
 	Sfx.play("nivel" if title_text.contains("NÍVEL") or title_text.contains("Maestria") else "bau", 0.0, 2.0)
 	var v = _popup(640)
 	var t = _title(title_text)
@@ -2873,12 +2892,6 @@ func _show_loot(title_text: String, loot: Array, color: Color):
 		reveal.append([w, tw])
 		delay += 0.05
 	Sfx.play("carta", 0.1, 0.0)
-	# carta NOVA: animação de desbloqueio (uma de cada vez, rapidinho)
-	for item in loot:
-		if item.get("nova", false):
-			var nc = Catalogo.find_card(str(item.get("path", "")))
-			if nc != null:
-				_celebrate.call_deferred(nc, "CARTA NOVA!", "%s  ·  %s" % [Catalogo.RARITY_NAMES[Catalogo.rarity_of(nc)], nc.get_nation_name() if nc.get_nation_name() != "" else "Coringa"], Catalogo.rarity_color(nc))
 	# tocar em qualquer lugar mostra tudo de uma vez
 	var overlay: Node = v.get_meta("overlay")
 	var bg = overlay.get_child(0)

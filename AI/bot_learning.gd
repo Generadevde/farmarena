@@ -135,10 +135,16 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 
 	var base_path = data.get("equipped_base_path", "")
 	var base_just_rolled = false
+	var bot_arena_now = ArenaManager.get_participant_arena(bot_name)
+	# torre de arena mais alta que a do bot não vale: sorteia outra da arena dele
+	if base_path != "" and ResourceLoader.exists(base_path):
+		var current_base = load(base_path)
+		if current_base is BaseData and current_base.unlock_arena > bot_arena_now:
+			base_path = ""
 	if base_path == "" or !ResourceLoader.exists(base_path):
 		# ainda não tem base (bot novo, ou base antiga sumiu) -- sorteia uma
 		# de acordo com a categoria preferida
-		base_path = _roll_initial_base(profile.preferred_base_category)
+		base_path = _roll_initial_base(profile.preferred_base_category, bot_arena_now)
 		data["equipped_base_path"] = base_path
 		base_just_rolled = true
 
@@ -193,6 +199,11 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 	# cartas que VOCÊ criou no Criador: cada bot "descobre" uma parte delas
 	# (sempre as mesmas pra ele) e às vezes já coloca no deck
 	if _learn_custom_cards(bot_name, data, profile, style, known_paths):
+		known_changed = true
+
+	# ARENA: o bot só joga com carta que já existe na arena DELE. Carta de arena
+	# mais alta (ex.: carta de safra que mudou de arena) sai e entra outra parecida.
+	if _enforce_arena_on_deck(profile, data, bot_arena_now, known_paths):
 		known_changed = true
 
 	var needs_save = is_new or known_changed or base_just_rolled or archetype_just_migrated
@@ -889,8 +900,45 @@ func _roll_preferred_base_category(reacts_to_threats: bool, prefer_expensive: bo
 # só entre as que já estão liberadas de graça (nation_xp_cost 0, mesmo
 # critério "sem custo" que o jogador usa pro início). Se não achar nenhuma
 # da categoria preferida ainda liberada, cai pra qualquer uma liberada
-func _roll_initial_base(preferred_category: int) -> String:
-	var unlocked = BotSimulator.available_bases.filter(func(b): return b.nation_xp_cost <= 0)
+func _enforce_arena_on_deck(profile: AIProfile, data: Dictionary, cap: int, known_paths: Array) -> bool:
+	var changed = false
+	for i in profile.deck.size():
+		var old: CardData = profile.deck[i]
+		if old == null or old.unlock_arena <= cap:
+			continue
+		var same_role: Array = []
+		var any: Array = []
+		for c in CardDatabase.all_cards:
+			if c == null or CustomContent.is_spawn_only(c) or c.unlock_arena > cap or profile.deck.has(c):
+				continue
+			any.append(c)
+			if c.role == old.role and c.is_spell() == old.is_spell():
+				same_role.append(c)
+		var pool = same_role if !same_role.is_empty() else any
+		if pool.is_empty():
+			continue
+		var pick: CardData = pool[abs(hash(profile.profile_name + old.resource_path)) % pool.size()]
+		profile.deck[i] = pick
+		if !known_paths.has(pick.resource_path):
+			known_paths.append(pick.resource_path)
+		changed = true
+	if changed:
+		data["deck_paths"] = _deck_to_paths(profile.deck)
+		data["known_card_paths"] = known_paths
+		data.erase("favorite_card_path")
+	return changed
+
+
+## passa por todos os bots uma vez, pra arrumar baralho e torre fora da arena
+func enforce_arena_everywhere():
+	for n in BotSimulator.roster_names:
+		get_or_create_profile(str(n))
+
+
+func _roll_initial_base(preferred_category: int, arena_cap: int = 99) -> String:
+	var unlocked = BotSimulator.available_bases.filter(func(b): return b != null and b.nation_xp_cost <= 0 and b.unlock_arena <= arena_cap)
+	if unlocked.is_empty():
+		unlocked = BotSimulator.available_bases.filter(func(b): return b != null and b.unlock_arena <= 0)
 	if unlocked.is_empty():
 		return ""
 
@@ -1097,8 +1145,10 @@ func _maybe_upgrade_base(data: Dictionary):
 	if level >= PlayerProfile.MAX_CARD_LEVEL:
 		return
 
-	var matches_needed = PlayerProfile.BASE_UPGRADE_MATCHES + (level - 1) * PlayerProfile.BASE_UPGRADE_MATCHES_GROWTH
-	var cost_needed = PlayerProfile.BASE_UPGRADE_COST + (level - 1) * PlayerProfile.BASE_UPGRADE_COST_GROWTH
+	# MESMOS valores de uma carta (antes a torre pedia 40 partidas + 300 de
+	# ouro e, na prática, nunca saía do nível 1)
+	var matches_needed = PlayerProfile.UPGRADE_BASE_USES + (level - 1) * PlayerProfile.UPGRADE_USES_GROWTH
+	var cost_needed = PlayerProfile.UPGRADE_BASE_COST + (level - 1) * PlayerProfile.UPGRADE_COST_GROWTH
 	var matches_have = data.get("base_matches_played", 0)
 	var gold = data.get("gold", 0)
 

@@ -1052,17 +1052,17 @@ func tower_level() -> int:
 	return clampi(mini(player_level(), best + 1), 1, PlayerProfile.MAX_CARD_LEVEL)
 
 
-## torre do bot: o que ele já tem, ou a média das cartas dele (o que for maior)
+## torre do bot: o nível que ele já comprou (ouro + partidas, mesmos valores
+## de uma carta), sem passar de 1 acima da melhor carta do baralho dele --
+## a mesma trava que vale pra você.
 func bot_tower_level(profile) -> int:
 	if profile == null:
 		return 1
-	var total = 0.0
-	var n = 0
-	for path in profile.card_levels:
-		total += float(profile.card_levels[path])
-		n += 1
-	var avg = int(round(total / n)) if n > 0 else 1
-	return clampi(maxi(int(profile.base_level), avg), 1, PlayerProfile.MAX_CARD_LEVEL)
+	var best = 1
+	for c in profile.deck:
+		if c != null:
+			best = maxi(best, int(profile.get_card_level(c)))
+	return clampi(mini(int(profile.base_level), best + 1), 1, PlayerProfile.MAX_CARD_LEVEL)
 
 
 # ================================================================ PODERES (raros: torneio e topo da colheita do clã)

@@ -1070,7 +1070,12 @@ static func _generate_once(seed_value: int, turma: String, kind: int, role: int,
 		if is_spell:
 			allowed = ["barril", "tornado"] if target == Catalogo.EPICA else (["cemiterio"] if target == Catalogo.LENDARIA else [])
 		else:
-			allowed = ["longe", "corredor"] if target <= Catalogo.RARA else (["voador_filhotes", "mineiro", "balao", "bruxa"] if target == Catalogo.EPICA else [])
+			if target <= Catalogo.RARA:
+				allowed = ["longe", "corredor", "morteiro", "besta", "exercito", "torre_bomba"]
+			elif target == Catalogo.EPICA:
+				allowed = ["voador_filhotes", "mineiro", "balao", "bruxa", "tesla", "coletor", "inferno", "gigante_bomba"]
+			elif target == Catalogo.LENDARIA:
+				allowed = ["ariete"]
 		if !allowed.is_empty():
 			special = _special_spell(rng, turma, cost, allowed) if is_spell else _special_unit(rng, turma, cost, allowed)
 	if !special.is_empty():
@@ -1154,7 +1159,7 @@ static func _generate_once(seed_value: int, turma: String, kind: int, role: int,
 # ---------------------------------------------------------------- receitas especiais
 const TURMA_TOKEN = {"Curral": "bezerro", "Galinheiro": "pintinho", "Brejo": "sapinho", "Roçado": "aboborinha", "Peões": "moleque", "Coisa Estranha": "abelha"}
 const SMALL_TOKENS = ["pintinho", "sapinho", "abelha"]
-const SPECIAL_UNITS = ["longe", "voador_filhotes", "mineiro", "balao", "bruxa", "corredor"]
+const SPECIAL_UNITS = ["longe", "voador_filhotes", "mineiro", "balao", "bruxa", "corredor", "morteiro", "besta", "exercito", "torre_bomba", "tesla", "coletor", "inferno", "gigante_bomba", "ariete"]
 const SPECIAL_SPELLS = ["barril", "cemiterio", "tornado"]
 
 
@@ -1253,6 +1258,145 @@ static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int, 
 			role = CardData.CardRole.INVOCADOR
 			pros = ["Chama %s enquanto anda" % _token_plural(token).to_lower(), "Tiro em área"]
 			cons = ["Frágil de perto"]
+		"morteiro":  # construção que joga bomba de MUITO longe, só no chão
+			c = clampi(cost, 35, 45)
+			st.unit_type = UnitData.UnitType.BUILDING
+			st.duration = 30.0
+			st.move_speed = 0.0
+			st.is_ranged = true
+			st.attack_range = 260.0
+			st.is_aoe = true
+			st.aoe_radius = 50.0
+			hp_v = 15.0 * c * k
+			dmg_v = 5.5 * c * k
+			st.attack_speed = 4.5
+			st.unit_scale = 1.4
+			role = CardData.CardRole.CONSTRUCAO
+			pros = ["Bombardeia de muito longe", "Dano em área"]
+			cons = ["Atira bem devagar", "Não acerta voador"]
+		"besta":  # construção de tiro rápido e alcance enorme
+			c = clampi(cost, 50, 60)
+			st.unit_type = UnitData.UnitType.BUILDING
+			st.duration = 35.0
+			st.move_speed = 0.0
+			st.is_ranged = true
+			st.attack_range = 270.0
+			hp_v = 18.0 * c * k
+			dmg_v = 0.5 * c * k
+			st.attack_speed = 0.3
+			st.unit_scale = 1.4
+			role = CardData.CardRole.CONSTRUCAO
+			pros = ["Alcance enorme", "Metralha sem parar"]
+			cons = ["Cara", "Não acerta voador"]
+		"exercito":  # um monte de bichinho fraco
+			c = clampi(cost, 25, 35)
+			st.unit_count = 10 if c >= 30 else 8
+			hp_v = 1.6 * c * k
+			dmg_v = 0.9 * c * k
+			st.attack_speed = 1.0
+			st.move_speed = 70.0
+			st.unit_scale = 0.6
+			st.push_weight = 0.4
+			role = CardData.CardRole.ENXAME
+			pros = ["Vêm em %d" % st.unit_count, "Derretem qualquer tanque sozinho"]
+			cons = ["Qualquer dano em área acaba com todos"]
+		"torre_bomba":  # construção de defesa com dano em área
+			c = clampi(cost, 35, 45)
+			st.unit_type = UnitData.UnitType.BUILDING
+			st.duration = 35.0
+			st.move_speed = 0.0
+			st.is_ranged = true
+			st.attack_range = 150.0
+			st.is_aoe = true
+			st.aoe_radius = 50.0
+			hp_v = 26.0 * c * k
+			dmg_v = 4.2 * c * k
+			st.attack_speed = 1.7
+			st.unit_scale = 1.4
+			role = CardData.CardRole.CONSTRUCAO
+			pros = ["Defesa com dano em área", "Aguenta bastante"]
+			cons = ["Não acerta voador"]
+		"tesla":  # construção que dá choque em tudo, chão e ar
+			c = clampi(cost, 35, 45)
+			st.unit_type = UnitData.UnitType.BUILDING
+			st.duration = 35.0
+			st.move_speed = 0.0
+			st.is_ranged = true
+			st.attack_range = 150.0
+			st.target_type = UnitData.TargetType.ALL
+			st.on_hit_effect = UnitData.OnHitEffect.STUN
+			st.on_hit_effect_duration = 0.3
+			hp_v = 20.0 * c * k
+			dmg_v = 3.2 * c * k
+			st.attack_speed = 1.1
+			st.unit_scale = 1.3
+			role = CardData.CardRole.CONSTRUCAO
+			pros = ["Acerta chão e ar", "O choque trava o alvo um instante"]
+			cons = ["Some depois de um tempo"]
+		"coletor":  # construção que só gera recurso
+			c = clampi(cost, 50, 60)
+			st.unit_type = UnitData.UnitType.BUILDING
+			st.duration = 45.0
+			st.move_speed = 0.0
+			hp_v = 15.0 * c * k
+			dmg_v = 0.0
+			st.attack_speed = 0.0
+			st.attack_range = 0.0
+			st.generates_resource = true
+			st.resource_per_tick = 1
+			st.resource_tick_interval = 0.6
+			st.unit_scale = 1.4
+			role = CardData.CardRole.CONSTRUCAO
+			pros = ["Devolve mais recurso do que custou", "Ótimo pra baralho caro"]
+			cons = ["Não ataca nem defende", "Demora a se pagar"]
+		"inferno":  # construção que esquenta: dano sobe no mesmo alvo
+			c = clampi(cost, 45, 55)
+			st.unit_type = UnitData.UnitType.BUILDING
+			st.duration = 35.0
+			st.move_speed = 0.0
+			st.is_ranged = true
+			st.attack_range = 160.0
+			st.target_type = UnitData.TargetType.ALL
+			st.same_target_ramping_damage = true
+			st.same_target_ramping_damage_per_hit = 0.25
+			st.same_target_ramping_damage_max_multiplier = 8.0
+			hp_v = 20.0 * c * k
+			dmg_v = 0.7 * c * k
+			st.attack_speed = 0.4
+			st.unit_scale = 1.4
+			role = CardData.CardRole.CONSTRUCAO
+			pros = ["O dano vai subindo no mesmo alvo", "Derrete tanque"]
+			cons = ["Fraca contra bando"]
+		"gigante_bomba":  # tanque que explode ao morrer
+			c = clampi(cost, 55, 65)
+			hp_v = 36.0 * c * k
+			dmg_v = 2.6 * c * k
+			st.attack_speed = 1.5
+			st.move_speed = 32.0
+			st.unit_scale = 1.6
+			st.push_weight = 3.5
+			st.explodes_on_death = true
+			st.death_explosion_damage = int(13.0 * c * k)
+			st.death_explosion_radius = 85.0
+			role = CardData.CardRole.TANQUE
+			pros = ["Tanque", "Quando morre solta uma explosão enorme"]
+			cons = ["Lento", "Caro"]
+		"ariete":  # corre pra torre, bate forte na chegada e solta tropa ao quebrar
+			c = clampi(cost, 40, 50)
+			st.target_type = UnitData.TargetType.BUILDING
+			hp_v = 18.0 * c * k
+			dmg_v = 4.0 * c * k
+			st.attack_speed = 1.5
+			st.move_speed = 65.0
+			st.charge_attack = true
+			st.charge_distance_needed = 140.0
+			st.charge_damage_multiplier = 2.0
+			st.spawns_on_death = true
+			st.death_spawn_scene = Catalogo.card(token).unit_scene
+			st.death_spawn_count = 3 if token in SMALL_TOKENS else 2
+			role = CardData.CardRole.FINALIZADOR
+			pros = ["Investida em dobro na torre", "Quando quebra solta %s" % _token_plural(token).to_lower()]
+			cons = ["Ignora as tropas"]
 		_:  # corredor: rápido e só quer torre
 			c = clampi(cost, 35, 45)
 			st.target_type = UnitData.TargetType.BUILDING
@@ -1264,7 +1408,7 @@ static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int, 
 			pros = ["Muito rápido", "Corre direto pra torre"]
 			cons = ["Ignora as tropas"]
 	st.hp = max(30, int(round(hp_v / 10.0)) * 10)
-	st.damage = max(5, int(round(dmg_v / 5.0)) * 5)
+	st.damage = max(5, int(round(dmg_v / 5.0)) * 5) if dmg_v > 0.0 else 0
 	st.detection_range = max(110.0, st.attack_range + 20.0)
 	st.role = role
 	return {"id": which, "stats": st, "custo": c, "papel": role, "pros": pros, "cons": cons}

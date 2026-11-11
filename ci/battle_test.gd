@@ -261,7 +261,7 @@ func _art_sheet():
 			kinds["construção" if is_b else ("voadora" if gst.unit_type == UnitData.UnitType.AIR else "unidade")] += 1
 			if gst.hp <= 0:
 				bad.append("sem vida")
-			if gst.damage <= 0 and !gst.can_heal_allies and !gst.spawns_units:
+			if gst.damage <= 0 and !gst.can_heal_allies and !gst.spawns_units and !gst.generates_resource:
 				bad.append("não bate nem ajuda")
 			if gst.is_ranged and gst.projectile_texture == null:
 				bad.append("atirador sem projétil")
