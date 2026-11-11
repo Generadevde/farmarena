@@ -76,7 +76,7 @@ jobs:
 
       - name: Folha de artes geradas
         run: |
-          CI_MODE=arte timeout 120 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|RESULTADO|SCRIPT ERROR|at: " || true
+          CI_MODE=arte timeout 120 ./godot --headless res://ci/battle_test.tscn 2>&1 | grep -E "TESTE|RESULTADO|AMOSTRA|SCRIPT ERROR|at: " || true
           mkdir -p ci_out && cp "$HOME/.local/share/godot/app_userdata/Farm Arena/arte_gerada.png" ci_out/ || true
 
       - name: Capturas de tela (tela virtual)

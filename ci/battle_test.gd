@@ -294,6 +294,23 @@ func _art_sheet():
 	for k in problems:
 		prob_txt.append("%s: %d (ex: %s)" % [k, problems[k].size(), ", ".join(problems[k].slice(0, 3))])
 	print("RESULTADO gerador problemas: ", prob_txt)
+	# AMOSTRA: 50 cartas do gerador, uma por linha
+	CardGenerator.fixed_power = 15.0
+	for sn in 50:
+		var sg = CardGenerator.generate_def(910000 + sn * 101)
+		var sd: Dictionary = sg["def"]
+		var kind_txt = "feitiço"
+		var nums = ""
+		if sg["spell"] != null:
+			var ssp: SpellData = sg["spell"]
+			nums = "dano %d cura %d escudo %d raio %d dura %.0fs" % [ssp.damage, ssp.heal_amount, ssp.shield_amount, int(ssp.radius), ssp.duration]
+		else:
+			var sst: UnitData = sg["stats"]
+			kind_txt = "construção" if sst.unit_type == UnitData.UnitType.BUILDING else ("voador" if sst.unit_type == UnitData.UnitType.AIR else "tropa")
+			nums = "vida %d dano %d a cada %.1fs x%d alcance %d vel %d" % [sst.hp, sst.damage, sst.attack_speed, sst.unit_count, int(sst.attack_range), int(sst.move_speed)]
+		var sab = (Catalogo.spell_abilities(sg["spell"]) if sg["spell"] != null else Catalogo.unit_abilities(sg["stats"])).map(func(pair): return pair[0])
+		print("AMOSTRA %02d | %s | custo %d | %s | %s | %s | arena %d | receita=%s | %s | habilidades=%s" % [sn + 1, sd["nome"], int(sd["custo"]), Catalogo.RARITY_NAMES[CardGenerator.gen_rarity(sg)], kind_txt, str(sd["turma"]), int(sd["arena"]), str(sd.get("especial", "")) if str(sd.get("especial", "")) != "" else "-", nums, str(sab)])
+	CardGenerator.fixed_power = 0.0
 	var tower_rar = [0, 0, 0, 0, 0]
 	var tower_bad: Array = []
 	for tn in 300:
