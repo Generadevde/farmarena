@@ -72,7 +72,7 @@ func _blank() -> Dictionary:
 		"owned": {}, "copies": {}, "uses": {}, "xp": 0,
 		"chests": [], "shop": {}, "road": [], "decks": [], "active_deck": 0,
 		"streak": 0, "best_streak": 0, "mascate": {}, "pending": [],
-		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {}, "gazeta": {},
+		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {}, "gazeta": {}, "diario": {},
 	}
 
 
@@ -1037,6 +1037,100 @@ func tournament_result(won: bool) -> String:
 		Gazeta.add_event("CAMPEONATO", "#c8a020", ("A turma %s levou o Torneio da Roça" % win_turma) if win_turma != "" and r >= 2 else "%s segue vivo no Torneio da Roça" % winner, "%s eliminou %s %s." % [winner, PlayerProfile.player_name, "na final" if r >= 2 else "nas " + TOURNAMENT_ROUNDS[r].to_lower()])
 		text = "Eliminado nas %s" % TOURNAMENT_ROUNDS[r].to_lower() if r < 2 else "Vice-campeão. Quase!"
 	t["ultimo"] = text
+	_commit()
+	return text
+
+
+# ================================================================ DESAFIO DO DIA
+const DAILY_WINS = 3
+const DAILY_GOLD_PER_WIN = 40
+const DAILY_CHEST = 2
+
+
+func _daily_state() -> Dictionary:
+	var today = Time.get_date_string_from_system()
+	if !d.has("diario") or !(d["diario"] is Dictionary) or str(d["diario"].get("dia", "")) != today:
+		d["diario"] = {"dia": today, "vit": 0, "jogos": 0, "feito": false}
+	return d["diario"]
+
+
+func daily_wins() -> int:
+	return int(_daily_state()["vit"])
+
+
+func daily_done() -> bool:
+	return bool(_daily_state()["feito"])
+
+
+## o baralho do dia: muda todo dia, igual o dia inteiro. Puxa pra uma turma
+## e sempre tem quem derruba torre, quem acerta voador e um feitiço de dano.
+func daily_deck() -> Array:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = hash("diario" + Time.get_date_string_from_system())
+	var all: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and !CustomContent.is_spawn_only(c) and !c.has_meta("safra") and Catalogo.find_card(c.resource_path) != null:
+			all.append(c)
+	all.sort_custom(func(a, b): return a.resource_path < b.resource_path)
+	var turmas: Array = Catalogo.TURMAS.keys()
+	var theme = str(turmas[rng.randi() % turmas.size()])
+	var order: Array = []
+	while !all.is_empty():
+		order.append(all.pop_at(rng.randi() % all.size()))
+	var themed = order.filter(func(c): return c.get_nation_name() == theme)
+	var deck: Array = []
+	for test in [func(c): return DeckDoctor.is_wincon(c), func(c): return DeckDoctor.hits_air(c) and !c.is_spell(), func(c): return c.is_spell() and c.spell_data.damage > 0, func(c): return DeckDoctor.is_area(c)]:
+		for src in [themed, order]:
+			var found = false
+			for c in src:
+				if !deck.has(c) and test.call(c):
+					deck.append(c)
+					found = true
+					break
+			if found:
+				break
+	for src in [themed, order]:
+		for c in src:
+			if deck.size() < DECK_SIZE and !deck.has(c):
+				deck.append(c)
+	deck.sort_custom(func(a, b): return a.cost < b.cost)
+	return deck
+
+
+func daily_theme() -> String:
+	var count: Dictionary = {}
+	for c in daily_deck():
+		count[c.get_nation_name()] = int(count.get(c.get_nation_name(), 0)) + 1
+	var best = ""
+	for k in count:
+		if best == "" or count[k] > count[best]:
+			best = k
+	return best
+
+
+func start_daily_match(tree: SceneTree):
+	MatchSetup.start_daily_match(tree, daily_deck())
+
+
+## fim de partida do Desafio do Dia; devolve o texto do placar
+func daily_result(won: bool) -> String:
+	var st = _daily_state()
+	st["jogos"] = int(st["jogos"]) + 1
+	var text = "Não foi dessa vez. Pode tentar de novo quantas vezes quiser."
+	if won and !bool(st["feito"]):
+		st["vit"] = int(st["vit"]) + 1
+		PlayerProfile.add_coins(DAILY_GOLD_PER_WIN)
+		text = "Vitória %d de %d  ·  💰 +%d" % [int(st["vit"]), DAILY_WINS, DAILY_GOLD_PER_WIN]
+		if int(st["vit"]) >= DAILY_WINS:
+			st["feito"] = true
+			add_xp(60)
+			_push({"tipo": "bau", "bau": DAILY_CHEST, "itens": roll_chest(DAILY_CHEST)})
+			if randf() < 0.25:
+				grant_power()
+			text = "DESAFIO DO DIA COMPLETO!  🎁 %s" % CHESTS[DAILY_CHEST]["nome"]
+			Gazeta.add_event("DESAFIO", "#58a040", "%s completou o Desafio do Dia" % PlayerProfile.player_name, "Três vitórias com o baralho emprestado (turma %s)." % daily_theme())
+	elif won:
+		text = "Vitória! (o prêmio de hoje você já pegou)"
 	_commit()
 	return text
 

@@ -63,9 +63,11 @@ var skip_intro := false  # testes automáticos pulam a tela de "versus"
 var friendly := false   # amistoso de clã: não vale troféu nem baú
 var rule := 0
 var arena_override := 0
+var daily := false      # Desafio do Dia: baralho pronto, cartas niveladas, não vale troféu
 
 
 func clear_special():
+	daily = false
 	friendly = false
 	tournament = false
 	rule = 0
@@ -79,6 +81,19 @@ func start_tournament_match(tree: SceneTree, bot_name: String, rule_id: int, are
 	rule = rule_id
 	arena_override = arena_i
 	next_ai_profile = BotLearning.get_or_create_profile(bot_name)
+	tree.change_scene_to_file(BATTLE_SCENE)
+
+
+## Desafio do Dia: você joga com o baralho do dia (emprestado), tudo no nível
+## de torneio, contra alguém da sua faixa. Não vale troféu.
+func start_daily_match(tree: SceneTree, deck: Array):
+	clear_special()
+	mode = MODE_1V1
+	tournament = true
+	daily = true
+	arena_override = randi_range(1, 7)
+	DeckManager.full_deck.assign(deck)   # só nesta partida; o menu devolve o seu baralho
+	next_ai_profile = choose_opponent()
 	tree.change_scene_to_file(BATTLE_SCENE)
 
 

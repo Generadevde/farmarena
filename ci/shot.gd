@@ -89,6 +89,27 @@ func _ready():
 	await _shot("ranking")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	hub._show_daily()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("diario")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._show_deck_check()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("analise")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._show_deck_suggest()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("sugestao")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._show_settings()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("config")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	print("SHOT sair: multa=", ArenaManager.loss_points_for("x", PlayerProfile.player_name), " | diario=", Progresso.daily_deck().map(func(c): return c.card_name), " tema=", Progresso.daily_theme())
 	hub._show_ranking(3)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("temporada")

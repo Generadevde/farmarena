@@ -23,8 +23,12 @@ func _ready():
 		var path = "res://Sounds/sfx/%s.wav" % n
 		if ResourceLoader.exists(path):
 			_streams[n] = load(path)
+	Config.setup()
+	if "_player" in MusicPlayer and MusicPlayer._player != null:
+		MusicPlayer._player.bus = Config.BUS_MUSIC
 	for i in VOICES:
 		var p = AudioStreamPlayer.new()
+		p.bus = Config.BUS_SFX
 		p.volume_db = VOLUME_DB
 		add_child(p)
 		_players.append(p)

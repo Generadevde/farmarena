@@ -698,6 +698,105 @@ func _show_replay_ended_screen():
 
 
 # fim de partida: `team` = lado que PERDEU
+# ================================================================ SAIR DA PARTIDA
+var _leave_layer: CanvasLayer = null
+
+
+## quantos troféus custa sair agora (metade de uma derrota); 0 se a partida não vale troféu
+func leave_penalty() -> int:
+	if ai_profile == null or _is_2v2 or MatchSetup.tournament or MatchSetup.friendly or is_replay_mode:
+		return 0
+	return int(ceil(ArenaManager.loss_points_for(ai_profile.profile_name, PlayerProfile.player_name) / 2.0))
+
+
+## botão da setinha: pergunta antes, com a partida pausada
+func ask_leave():
+	if match_over or _leave_layer != null:
+		return
+	if is_replay_mode:
+		get_tree().paused = false
+		get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+		return
+	var was_paused = get_tree().paused
+	get_tree().paused = true
+	_leave_layer = CanvasLayer.new()
+	_leave_layer.layer = 95
+	_leave_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(_leave_layer)
+	var bg = ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.75)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_leave_layer.add_child(bg)
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.theme = ThemeBuilder.game_theme
+	_leave_layer.add_child(center)
+	var panel = PanelContainer.new()
+	panel.custom_minimum_size = Vector2(560, 0)
+	center.add_child(panel)
+	var box = VBoxContainer.new()
+	box.add_theme_constant_override("separation", 14)
+	panel.add_child(box)
+	var title = Label.new()
+	title.text = "Sair da partida?"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 34)
+	title.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	box.add_child(title)
+	var info = Label.new()
+	var penalty = leave_penalty()
+	if MatchSetup.daily:
+		info.text = "Você perde só esta tentativa do Desafio do Dia."
+	elif MatchSetup.tournament:
+		info.text = "No torneio, sair conta como DERROTA."
+	elif penalty > 0:
+		info.text = "Você perde 🏆 %d troféus (metade de uma derrota) e a sequência de vitórias. Não ganha ouro nem baú." % penalty
+	else:
+		info.text = "Esta partida não vale troféu. Você só não ganha os prêmios."
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	info.add_theme_font_size_override("font_size", 20)
+	box.add_child(info)
+	var stay = Button.new()
+	stay.text = "Continuar jogando"
+	stay.custom_minimum_size.y = 76
+	stay.add_theme_font_size_override("font_size", 26)
+	stay.pressed.connect(_cancel_leave.bind(was_paused))
+	box.add_child(stay)
+	var go = Button.new()
+	go.text = "Sair mesmo assim"
+	go.custom_minimum_size.y = 60
+	go.add_theme_font_size_override("font_size", 20)
+	go.modulate = Color(1.0, 0.7, 0.65)
+	go.pressed.connect(_confirm_leave)
+	box.add_child(go)
+
+
+func _cancel_leave(was_paused: bool):
+	if _leave_layer != null:
+		_leave_layer.queue_free()
+		_leave_layer = null
+	get_tree().paused = was_paused
+
+
+func _confirm_leave():
+	if match_over:
+		return
+	match_over = true
+	$Timer.stop()
+	var penalty = leave_penalty()
+	if penalty > 0:
+		ArenaManager.apply_penalty(PlayerProfile.player_name, penalty)
+		Progresso.d["streak"] = 0
+		Progresso.save()
+	if MatchSetup.daily:
+		Progresso.daily_result(false)
+	elif MatchSetup.tournament:
+		Progresso.tournament_result(false)
+	get_tree().paused = false
+	get_tree().change_scene_to_file(MAIN_MENU_SCENE)
+
+
 func _end_match(team):
 	if match_over:
 		return
@@ -862,7 +961,9 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 		vbox.add_child(_build_reward_row("🤝 Amistoso", "não vale troféu nem baú", Color(0.8, 0.8, 0.8)))
 	if ai_profile != null and !is_replay_mode:
 		Gazeta.report_match(ai_profile.profile_name, _kills_player, _kills_enemy, player_won and !is_draw)
-	if MatchSetup.tournament:
+	if MatchSetup.daily:
+		vbox.add_child(_build_reward_row("📅 Desafio do Dia", Progresso.daily_result(player_won and !is_draw), Color(0.6, 1.0, 0.55)))
+	elif MatchSetup.tournament:
 		var t_text = Progresso.tournament_result(player_won and !is_draw)
 		vbox.add_child(_build_reward_row("🏟 Torneio", t_text, Color(1, 0.85, 0.3)))
 	if Progresso.player_level() > level_before:
@@ -1237,7 +1338,7 @@ func _show_intro():
 
 	var kind = "⚔ BATALHA"
 	if MatchSetup.tournament:
-		kind = "🏟 " + Progresso.tournament_stage_text()
+		kind = "🏟 " + Progresso.tournament_stage_text() if !MatchSetup.daily else "📅 DESAFIO DO DIA · vitória %d de %d" % [Progresso.daily_wins() + 1, Progresso.DAILY_WINS]
 	elif MatchSetup.friendly:
 		kind = "🤝 AMISTOSO DE CLÃ"
 	elif _is_2v2:
@@ -1269,6 +1370,8 @@ func _show_intro():
 		_intro_label(inner, "Batalha normal", 24, Color(0.75, 1.0, 0.75))
 		_intro_label(inner, "Sem modificador. Recurso em dobro a partir de 1:59.", 17, Color(1, 1, 1), true)
 	if MatchSetup.tournament:
+		if MatchSetup.daily:
+			notes.append("Você joga com o BARALHO DO DIA (emprestado)")
 		notes.append("Cartas e torres no nível %d" % MatchSetup.TOURNAMENT_LEVEL)
 		notes.append("Não vale troféu")
 	elif MatchSetup.friendly or _is_2v2:

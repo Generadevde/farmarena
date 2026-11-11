@@ -168,6 +168,20 @@ func get_arena_ranking(arena_index: int) -> Array:
 const SIMULATED_LOSS_RATIO = 0.85
 
 
+## quantos troféus o perdedor perderia nessa partida (sem aplicar nada)
+func loss_points_for(winner_name: String, loser_name: String) -> int:
+	var diff = get_trophies(loser_name) - get_trophies(winner_name)
+	var t = (clamp(diff / REFERENCE_POINT_GAP, -1.0, 1.0) + 1.0) / 2.0
+	return int(round(lerp(LOSS_MIN, LOSS_MAX, t)))
+
+
+## multa (ex.: sair no meio da partida): só tira troféu de um nome
+func apply_penalty(participant_name: String, points: int):
+	trophies[participant_name] = max(get_trophies(participant_name) - points, 0)
+	_sync_player_arena_cache()
+	_save()
+
+
 func record_match_points(winner_name: String, loser_name: String, simulated: bool = false):
 	var winner_trophies = get_trophies(winner_name)
 	var loser_trophies = get_trophies(loser_name)

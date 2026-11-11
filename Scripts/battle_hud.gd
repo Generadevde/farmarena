@@ -44,6 +44,18 @@ func _ready():
 	top.offset_top = 10
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(top)
+	# setinha de sair (pergunta antes; sair custa metade dos troféus de uma derrota)
+	var back = Button.new()
+	back.text = "←"
+	back.custom_minimum_size = Vector2(64, 56)
+	back.add_theme_font_size_override("font_size", 30)
+	back.add_theme_font_override("font", ThemeDB.fallback_font)
+	back.modulate = Color(1, 1, 1, 0.85)
+	back.pressed.connect(func():
+		var battle = get_parent()
+		if battle != null and battle.has_method("ask_leave"):
+			battle.ask_leave())
+	top.add_child(back)
 	var opp = Label.new()
 	opp.name = "OpponentNameLabel"
 	opp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
