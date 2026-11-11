@@ -72,7 +72,7 @@ func _blank() -> Dictionary:
 		"owned": {}, "copies": {}, "uses": {}, "xp": 0,
 		"chests": [], "shop": {}, "road": [], "decks": [], "active_deck": 0,
 		"streak": 0, "best_streak": 0, "mascate": {}, "pending": [],
-		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {},
+		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {},
 	}
 
 
@@ -85,6 +85,8 @@ func _load():
 			for k in parsed:
 				d[k] = parsed[k]
 	_ensure_defaults()
+	if _loaded_id >= 0:
+		Assembleia.sync()
 	changed.emit()
 
 

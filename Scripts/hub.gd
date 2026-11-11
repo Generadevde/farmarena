@@ -44,6 +44,7 @@ func _ready():
 	_build_shell()
 	_rebuild_all()
 	Safra.sync_profile()
+	Assembleia.sync()
 	Progresso.changed.connect(_queue_refresh)
 	PlayerProfile.profile_changed.connect(_refresh_top)
 	Progresso.rewards_pending.connect(_defer_pending)
@@ -1319,6 +1320,9 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var lv = level_view if level_view > 0 else Progresso.level(card)
 	if Safra.is_novelty(card):
 		side.add_child(_label("🆕 NOVIDADE desta safra", 16, Color(0.5, 1, 0.6)))
+	var adj_text = Assembleia.adjust_text(card)
+	if adj_text != "":
+		side.add_child(_wrap("⚖ Ajustada pela Assembleia: " + adj_text, 15, Color(0.8, 0.95, 1.0)))
 	side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[rarity], card.get_nation_name() if card.get_nation_name() != "" else "Coringa"], 17, Catalogo.RARITY_COLORS[rarity]))
 	side.add_child(_label("%s  ·  %s" % [CardData.role_name(card.role), ("Nível %d de %s" % [lv, whose] if level_view > 0 else "Nível %d" % lv) if (owned or level_view > 0) else "não liberada"], 17))
 	if card.description != "":
@@ -1735,6 +1739,7 @@ func _build_sitio(box: Node):
 	box.add_child(_button("📈 Estatísticas das cartas", _show_card_stats))
 	box.add_child(_button("🎬 Replays salvos", _show_replays))
 	box.add_child(_button("📜 Registro das temporadas (você e os bots)", _show_registro))
+	box.add_child(_button("⚖ Assembleia das cartas (votar buff e nerf)", _show_assembleia))
 	box.add_child(_button("📰 Jornal da Roça", _goto.bind(JOURNAL_SCENE)))
 	box.add_child(_button("🎨 Criador (cartas, torres, arenas)", _goto.bind(CREATOR_SCENE)))
 	var safra_b = _button("🌱 Safra (cartas novas a cada 3 dias)" + ("  --  PRÊMIO!" if Safra.mission_ready() else ""), _show_safra)
@@ -2239,6 +2244,148 @@ func _copy_meta(cards: Array, popup_box: Node):
 	_queue_refresh()
 
 
+# ================================================================ ASSEMBLEIA DAS CARTAS (buff e nerf por votação)
+func _show_assembly_result(r: Dictionary):
+	var v = _popup(620)
+	v.add_child(_title("⚖ Resultado da Assembleia"))
+	var c = Catalogo.find_card(str(r.get("carta", "")))
+	if c != null:
+		var cv = CardView.make(c, 200, true)
+		cv.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		cv.tapped.connect(_show_card_popup)
+		v.add_child(cv)
+	var l = _wrap(str(r.get("texto", "")), 20, Color(1, 0.95, 0.7))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(l)
+	v.add_child(_button("Entendi", _close_loot.bind(v), 20))
+
+
+func _show_assembleia():
+	Assembleia.sync()
+	var v = _popup(660, true)
+	v.add_child(_title("⚖ Assembleia das cartas"))
+	v.add_child(_wrap("A cada 3 dias os bots abrem uma pauta (pelos números da temporada) e você pode abrir UMA sua. Todo mundo vota: os bots pesam o quanto a carta vence, o quanto é usada e se ELES usam. Seu voto vale por %d. Pauta aprovada muda a carta só um pouco (2%% a 4%%, conforme o tipo)." % Assembleia.PLAYER_WEIGHT, 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var left = _label("", 16, Color(1, 0.9, 0.6))
+	_live(left, func(): return "⏳ A votação fecha em " + _clock(Assembleia.seconds_left()))
+	v.add_child(left)
+	var list = Assembleia.pautas()
+	if list.is_empty():
+		v.add_child(_label("Nenhuma pauta aberta agora.", 16))
+	for i in list.size():
+		var pa: Dictionary = list[i]
+		var c = Catalogo.find_card(str(pa["path"]))
+		if c == null:
+			continue
+		var is_buff = str(pa["tipo"]) == "buff"
+		var p = _panel(v)
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		p.add_child(row)
+		var cv = CardView.make(c, 150, true)
+		cv.show_level = false
+		cv.mastery_override = 0
+		cv.tapped.connect(_show_card_popup)
+		row.add_child(cv)
+		var side = VBoxContainer.new()
+		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(side)
+		side.add_child(_wrap("%s em %s" % ["⬆ BUFF" if is_buff else "⬇ NERF", c.card_name], 21, Color(0.5, 1, 0.6) if is_buff else Color(1, 0.6, 0.5)))
+		side.add_child(_wrap("Se passar: %s" % Assembleia.effect_text(c, str(pa["tipo"])), 15))
+		side.add_child(_wrap("Pedido de %s" % str(pa["autor"]), 14, ThemeBuilder.COLOR_STAT_LABEL))
+		side.add_child(_wrap("Vence %d%% das partidas  ·  está em %d%% dos baralhos" % [int(round(Assembleia.card_win_rate(c.resource_path) * 100)), int(round(Assembleia.usage_share(c.resource_path) * 100))], 14, ThemeBuilder.COLOR_STAT_LABEL))
+		var vt = Assembleia.votes(pa)
+		var bar = ProgressBar.new()
+		bar.max_value = maxi(1, vt[0] + vt[1])
+		bar.value = vt[0]
+		bar.show_percentage = false
+		bar.custom_minimum_size.y = 22
+		p.add_child(bar)
+		p.add_child(_label("👍 %d a favor   ·   👎 %d contra   ·   %s" % [vt[0], vt[1], "passando" if vt[0] > vt[1] else "sendo recusada"], 16, Color(0.6, 1, 0.6) if vt[0] > vt[1] else Color(1, 0.7, 0.6)))
+		var mine = int(pa.get("voto", 0))
+		var vr = HBoxContainer.new()
+		vr.add_theme_constant_override("separation", 8)
+		p.add_child(vr)
+		var yb = _button("👍 A favor" + ("  ✔" if mine > 0 else ""), _vote_assembly.bind(v, i, 1), 18)
+		yb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		yb.modulate = Color(0.7, 1, 0.7) if mine > 0 else Color(1, 1, 1)
+		vr.add_child(yb)
+		var nb = _button("👎 Contra" + ("  ✔" if mine < 0 else ""), _vote_assembly.bind(v, i, -1), 18)
+		nb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		nb.modulate = Color(1, 0.7, 0.65) if mine < 0 else Color(1, 1, 1)
+		vr.add_child(nb)
+	var pb = _button("📣 Abrir minha pauta (1 a cada 3 dias)" if Assembleia.can_propose() else "Você já abriu sua pauta nestes 3 dias", _pick_assembly_card.bind(v), 19)
+	pb.disabled = !Assembleia.can_propose()
+	if !pb.disabled:
+		pb.modulate = Color(1.0, 0.92, 0.6)
+	v.add_child(pb)
+	# cartas já mexidas
+	var adjusted: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and Assembleia.adjust_text(c) != "":
+			adjusted.append("%s: %s" % [c.card_name, Assembleia.adjust_text(c)])
+	if !adjusted.is_empty():
+		var ap = _panel(v)
+		ap.add_child(_label("Cartas já ajustadas", 17, ThemeBuilder.COLOR_GOLD))
+		for t in adjusted:
+			ap.add_child(_wrap("• " + t, 15))
+	var hist = Assembleia.history()
+	if !hist.is_empty():
+		var hp = _panel(v)
+		hp.add_child(_label("Últimas votações", 17, ThemeBuilder.COLOR_GOLD))
+		for h in hist:
+			hp.add_child(_wrap("%s %s em %s (%s): %d a %d  ·  pedido de %s" % ["✔" if h["passou"] else "✖", "BUFF" if str(h["tipo"]) == "buff" else "NERF", str(h["carta"]), "passou" if h["passou"] else "recusada", int(h["sim"]), int(h["nao"]), str(h["autor"])], 14, Color(0.7, 1, 0.7) if h["passou"] else Color(0.85, 0.8, 0.75)))
+	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _vote_assembly(popup_box: Node, index: int, value: int):
+	Assembleia.vote(index, value)
+	_close(popup_box)
+	_show_assembleia.call_deferred()
+
+
+func _pick_assembly_card(popup_box: Node):
+	_close(popup_box)
+	var v = _popup(660, true)
+	v.add_child(_title("Qual carta entra em pauta?"))
+	v.add_child(_label("Toque numa carta.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var cards: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and !CustomContent.is_spawn_only(c):
+			cards.append(c)
+	cards.sort_custom(func(a, b): return a.cost < b.cost if a.cost != b.cost else a.card_name < b.card_name)
+	var g = _grid(v, 4)
+	for c in cards:
+		var cv = CardView.make(c, 146)
+		cv.show_level = false
+		cv.mastery_override = 0
+		cv.locked = false
+		cv.tapped.connect(_pick_assembly_kind.bind(v))
+		g.add_child(cv)
+	v.add_child(_button("Cancelar", _close.bind(v)))
+
+
+func _pick_assembly_kind(card: CardData, popup_box: Node):
+	_close(popup_box)
+	var v = _popup(600)
+	v.add_child(_title(card.card_name))
+	v.add_child(_wrap("O que você quer pedir pra essa carta?", 17))
+	var bb = _button("⬆ BUFF  (%s)" % Assembleia.effect_text(card, "buff"), _confirm_assembly.bind(card, "buff", v), 20)
+	bb.modulate = Color(0.7, 1, 0.7)
+	v.add_child(bb)
+	var nb = _button("⬇ NERF  (%s)" % Assembleia.effect_text(card, "nerf"), _confirm_assembly.bind(card, "nerf", v), 20)
+	nb.modulate = Color(1, 0.7, 0.65)
+	v.add_child(nb)
+	v.add_child(_button("Cancelar", _close.bind(v)))
+
+
+func _confirm_assembly(card: CardData, kind: String, popup_box: Node):
+	var problem = Assembleia.propose(card, kind)
+	_close(popup_box)
+	if problem != "":
+		_toast(problem)
+	_show_assembleia.call_deferred()
+
+
 func _load_replays() -> Array:
 	if !FileAccess.file_exists("user://replays.json"):
 		return []
@@ -2473,6 +2620,9 @@ func _show_pending():
 					return
 				"poder":
 					_show_loot("⚡ PODER RARO!", [{"tipo": "poder", "id": str(r["id"])}], Color.html(Progresso.POWERS[str(r["id"])]["cor"]))
+					return
+				"assembleia":
+					_show_assembly_result(r)
 					return
 				"maestria":
 					var c = Catalogo.find_card(str(r["path"]))

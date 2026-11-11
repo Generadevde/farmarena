@@ -94,6 +94,22 @@ func _ready():
 	await _shot("temporada")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	print("SHOT assembleia: pautas=", Assembleia.pautas(), " | propor nerf vaca -> '", Assembleia.propose(Catalogo.card("vaca_brava"), "nerf"), "' votos=", Assembleia.votes(Assembleia.pautas()[-1]) if !Assembleia.pautas().is_empty() else [])
+	var vb: CardData = Catalogo.card("vaca_brava")
+	var hp_before = DeckBuilder.get_unit_stats(vb).hp
+	Progresso.d["assembleia"]["ajustes"][vb.resource_path] = {"hp": 1.04, "dmg": 1.02}
+	Assembleia.apply_all()
+	var inst = vb.unit_scene.instantiate()
+	var hp_mid = inst.stats.hp
+	inst.free()
+	Progresso.d["assembleia"]["ajustes"].erase(vb.resource_path)
+	Assembleia.apply_all()
+	print("SHOT assembleia ajuste: vaca vida ", hp_before, " -> ", hp_mid, " (esperado ", int(round(hp_before * 1.04)), ") -> volta ", DeckBuilder.get_unit_stats(vb).hp)
+	hub._show_assembleia()
+	await get_tree().create_timer(0.5).timeout
+	await _shot("assembleia")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._show_card_stats()
 	await get_tree().create_timer(0.5).timeout
 	await _shot("meta")
