@@ -435,7 +435,7 @@ func _apply_player_base():
 	if base_data == null:
 		return  # ainda não escolheu nenhuma -- base fica com o HP padrão genérico
 
-	_install_base_data_on("player_base", base_data, PlayerProfile.get_base_level(base_data))
+	_install_base_data_on("player_base", base_data, MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.tower_level())
 	PlayerProfile.record_base_usage(base_data)
 
 	if base_data.base_type == BaseData.BaseType.PRODUCTION:
@@ -454,7 +454,7 @@ func _apply_ai_base():
 
 	# nível de base de verdade agora -- upado com o mesmo custo híbrido
 	# (ouro + partidas jogadas) que o jogador usa, não mais uma aproximação
-	_install_base_data_on("enemy_base", base_data, ai_profile.base_level)
+	_install_base_data_on("enemy_base", base_data, MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.bot_tower_level(ai_profile))
 
 	if base_data.base_type == BaseData.BaseType.PRODUCTION:
 		$EnemyProductionTimer.wait_time *= (1.0 - base_data.production_speed_boost)
@@ -964,8 +964,8 @@ func _save_match_replay(player_won: bool):
 		"bot_deck_paths": ai_profile.deck.map(func(c): return c.resource_path if c != null else "") if ai_profile != null else [],
 		"player_base_path": player_base.resource_path if player_base != null else "",
 		"bot_base_path": bot_base.resource_path if bot_base != null else "",
-		"player_base_level": PlayerProfile.get_base_level(player_base) if player_base != null else 1,
-		"bot_base_level": ai_profile.base_level if ai_profile != null else 1,
+		"player_base_level": (MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.tower_level()) if player_base != null else 1,
+		"bot_base_level": (MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.bot_tower_level(ai_profile)) if ai_profile != null else 1,
 		"action_log": match_action_log,
 	}
 	var replays = []
@@ -1228,7 +1228,7 @@ func _show_intro():
 
 	var kind = "⚔ BATALHA"
 	if MatchSetup.tournament:
-		kind = "🏟 TORNEIO · " + Progresso.TOURNAMENT_ROUNDS[clampi(int(Progresso.tournament().get("rodada", 0)), 0, 2)]
+		kind = "🏟 " + Progresso.tournament_stage_text()
 	elif MatchSetup.friendly:
 		kind = "🤝 AMISTOSO DE CLÃ"
 	elif _is_2v2:
@@ -1260,10 +1260,12 @@ func _show_intro():
 		_intro_label(inner, "Batalha normal", 24, Color(0.75, 1.0, 0.75))
 		_intro_label(inner, "Sem modificador. Recurso em dobro a partir de 1:59.", 17, Color(1, 1, 1), true)
 	if MatchSetup.tournament:
-		notes.append("Todas as cartas no nível %d" % MatchSetup.TOURNAMENT_LEVEL)
+		notes.append("Cartas e torres no nível %d" % MatchSetup.TOURNAMENT_LEVEL)
 		notes.append("Não vale troféu")
 	elif MatchSetup.friendly or _is_2v2:
 		notes.append("Não vale troféu")
+	if !MatchSetup.tournament and ai_profile != null:
+		notes.append("🏰 Torres: você nv %d · rival nv %d" % [Progresso.tower_level(), Progresso.bot_tower_level(ai_profile)])
 	for power in [["ouro2", "Ouro em dobro ligado"], ["xp2", "XP em dobro ligado"], ["sorte", "Ferradura: baú melhor se vencer"]]:
 		if Progresso.power_battles(power[0]) > 0:
 			notes.append("⚡ " + power[1])

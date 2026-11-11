@@ -99,10 +99,26 @@ func _ready():
 	await _shot("registro")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
-	Progresso.enter_tournament()
+	hub._show_tournament()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("torneios")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	var entered = Progresso.enter_tournament("dez")
+	var log_t: Array = []
+	for won in [true, true, true, false, true]:
+		log_t.append(Progresso.tournament_result(won))
+	print("SHOT desafio: entrou? ", entered, " | ", log_t, " | ", Progresso.tournament_stage_text(), " | oponente=", Progresso.tournament_opponent(), " | torre jogador nv ", Progresso.tower_level())
 	hub._show_tournament()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("torneio")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._go_tab(1)
+	await get_tree().create_timer(0.3).timeout
+	hub._on_deck_slot_tapped(Progresso.deck_cards(0)[0], 0)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("carta_baralho")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
 	hub._show_safra()

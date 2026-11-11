@@ -784,22 +784,112 @@ func tournament_cups() -> int:
 	return int(d["torneio"].get("tacas", 0))
 
 
-func can_enter_tournament() -> bool:
-	return !tournament_active() and (tournament_free_today() or PlayerProfile.coins >= TOURNAMENT_FEE)
+## modos de torneio. "vit" = vitórias pra completar (0 = sem limite),
+## "der" = derrotas que eliminam, "marcos" = baú ganho ao chegar em N vitórias
+const TOURNEYS = {
+	"mata": {"nome": "Torneio da Roça", "icone": "🏟", "fee": 150, "vit": 3, "der": 1, "marcos": {},
+		"desc": "Mata-mata de 8: quartas, semi e final. Perdeu, tá fora. Uma regra especial sorteada pro torneio todo.",
+		"premio": "💰60 + Saco · 💰120 + Caixote · campeão 💰300 + Baú do Celeiro + poder + taça"},
+	"dez": {"nome": "Desafio das 10 Vitórias", "icone": "🔟", "fee": 250, "vit": 10, "der": 3, "marcos": {3: 0, 6: 1, 8: 2, 10: 3},
+		"desc": "Ganhe 10 partidas antes de perder 3. Sem regra maluca: jogo limpo, adversário cada vez mais forte.",
+		"premio": "ouro a cada vitória · baú com 3, 6, 8 e 10 vitórias · com 10: melhor baú + poder + taça"},
+	"maluco": {"nome": "Desafio Maluco", "icone": "🌪", "fee": 120, "vit": 6, "der": 2, "marcos": {2: 0, 4: 1, 6: 2},
+		"desc": "6 vitórias antes de 2 derrotas. Cada partida sorteia uma regra doida diferente.",
+		"premio": "ouro a cada vitória · baú com 2, 4 e 6 vitórias · com 6: poder + taça"},
+	"sobrev": {"nome": "Sobrevivência", "icone": "💀", "fee": 80, "vit": 0, "der": 1, "marcos": {},
+		"desc": "Não tem fim: vá ganhando até perder UMA. O ouro cresce a cada vitória e vem baú a cada 3. Bata o seu recorde.",
+		"premio": "ouro crescente · baú a cada 3 vitórias · poder a cada 5"},
+}
+const TOURNEY_ORDER = ["mata", "dez", "maluco", "sobrev"]
 
 
-func enter_tournament() -> bool:
-	if !can_enter_tournament():
+func tournament_mode() -> String:
+	var m = str(d["torneio"].get("modo", "mata"))
+	return m if TOURNEYS.has(m) else "mata"
+
+
+func tournament_wins() -> int:
+	return int(d["torneio"].get("vit", 0))
+
+
+func tournament_losses() -> int:
+	return int(d["torneio"].get("der", 0))
+
+
+func tournament_record(mode: String) -> int:
+	return int(d["torneio"].get("recordes", {}).get(mode, 0))
+
+
+## texto curto de em que pé está (tela de VERSUS e menu)
+func tournament_stage_text() -> String:
+	var mode = tournament_mode()
+	var def = TOURNEYS[mode]
+	if mode == "mata":
+		return TOURNAMENT_ROUNDS[clampi(int(d["torneio"].get("rodada", 0)), 0, 2)]
+	if int(def["vit"]) <= 0:
+		return "%s · %d vitória(s)" % [def["nome"], tournament_wins()]
+	return "%s · %d/%d vitórias · %d/%d derrotas" % [def["nome"], tournament_wins(), int(def["vit"]), tournament_losses(), int(def["der"])]
+
+
+func tournament_fee(mode: String = "mata") -> int:
+	return int(TOURNEYS.get(mode, TOURNEYS["mata"])["fee"])
+
+
+func can_enter_tournament(mode: String = "mata") -> bool:
+	return !tournament_active() and (tournament_free_today() or PlayerProfile.coins >= tournament_fee(mode))
+
+
+func _roster_by_trophies() -> Array:
+	var roster: Array = BotSimulator.roster_names.duplicate()
+	roster.sort_custom(func(a, b): return ArenaManager.get_trophies(a) < ArenaManager.get_trophies(b))
+	return roster
+
+
+## adversário dos desafios: começa perto dos seus troféus e sobe a cada vitória
+func _challenge_opponent(wins: int, avoid: String = "") -> String:
+	var roster = _roster_by_trophies()
+	if roster.is_empty():
+		return ""
+	var mine = ArenaManager.get_trophies(PlayerProfile.player_name)
+	var pos = 0
+	while pos < roster.size() - 1 and ArenaManager.get_trophies(roster[pos]) < mine:
+		pos += 1
+	var idx = clampi(pos - 3 + wins * 2 + randi() % 3, 0, roster.size() - 1)
+	if str(roster[idx]) == avoid and roster.size() > 1:
+		idx = idx - 1 if idx > 0 else idx + 1
+	return str(roster[idx])
+
+
+func _setup_challenge_match(t: Dictionary):
+	var mode = tournament_mode()
+	t["oponente"] = _challenge_opponent(int(t.get("vit", 0)), str(t.get("oponente", "")))
+	t["regra"] = (1 + randi() % (MatchSetup.RULE_NAMES.size() - 1)) if mode == "maluco" else 0
+	t["arena"] = randi_range(1, 7)
+
+
+func enter_tournament(mode: String = "mata") -> bool:
+	if !TOURNEYS.has(mode) or !can_enter_tournament(mode):
 		return false
 	var t: Dictionary = d["torneio"]
 	if tournament_free_today():
 		t["dia_gratis"] = Time.get_date_string_from_system()
 	else:
-		PlayerProfile.spend_coins(TOURNAMENT_FEE)
+		PlayerProfile.spend_coins(tournament_fee(mode))
+	t["modo"] = mode
+	t["vit"] = 0
+	t["der"] = 0
+	t["ativo"] = true
+	t["rodada"] = 0
+	if mode != "mata":
+		t["oponentes"] = []
+		t["figurantes"] = []
+		t["oponente"] = ""
+		_setup_challenge_match(t)
+		_commit()
+		return true
 	# adversários: do mais perto do seu troféu pro mais forte (a final é contra o melhor)
 	var mine = ArenaManager.get_trophies(PlayerProfile.player_name)
-	var roster: Array = BotSimulator.roster_names.duplicate()
-	roster.sort_custom(func(a, b): return ArenaManager.get_trophies(a) < ArenaManager.get_trophies(b))
+	var roster: Array = _roster_by_trophies()
 	var above = roster.filter(func(n): return ArenaManager.get_trophies(n) >= mine)
 	var below = roster.filter(func(n): return ArenaManager.get_trophies(n) < mine)
 	below.reverse()
@@ -817,8 +907,6 @@ func enter_tournament() -> bool:
 	for n in roster:
 		if !picks.has(n) and others.size() < 4:
 			others.append(n)
-	t["ativo"] = true
-	t["rodada"] = 0
 	t["oponentes"] = picks
 	t["figurantes"] = others
 	t["regra"] = randi() % MatchSetup.RULE_NAMES.size()
@@ -829,6 +917,8 @@ func enter_tournament() -> bool:
 
 func tournament_opponent() -> String:
 	var t = d["torneio"]
+	if tournament_mode() != "mata":
+		return str(t.get("oponente", ""))
 	var list: Array = t.get("oponentes", [])
 	var r = int(t.get("rodada", 0))
 	return str(list[r]) if r < list.size() else ""
@@ -841,11 +931,72 @@ func start_tournament_match(tree: SceneTree):
 	MatchSetup.start_tournament_match(tree, tournament_opponent(), int(t.get("regra", 0)), int(t.get("arena", 1)))
 
 
+## sai do torneio em andamento (o que já ganhou, fica)
+func abandon_tournament():
+	var t: Dictionary = d["torneio"]
+	if !tournament_active():
+		return
+	t["ativo"] = false
+	t["ultimo"] = "Desistiu (%s)" % tournament_stage_text()
+	_commit()
+
+
+func _challenge_result(won: bool) -> String:
+	var t: Dictionary = d["torneio"]
+	var mode = tournament_mode()
+	var def = TOURNEYS[mode]
+	var goal = int(def["vit"])
+	var text: String
+	if won:
+		var w = tournament_wins() + 1
+		t["vit"] = w
+		var gold = (25 + 15 * w) if mode == "sobrev" else (20 + 10 * w)
+		PlayerProfile.add_coins(gold)
+		text = "Vitória %d%s  ·  💰 +%d" % [w, "/%d" % goal if goal > 0 else "", gold]
+		var chest = -1
+		if def["marcos"].has(w):
+			chest = int(def["marcos"][w])
+		elif mode == "sobrev" and w % 3 == 0:
+			chest = clampi(int(w / 3.0) - 1, 0, 3)
+		if chest >= 0:
+			_push({"tipo": "bau", "bau": chest, "itens": roll_chest(chest)})
+			text += "  ·  🎁 %s" % CHESTS[chest]["nome"]
+		if mode == "sobrev" and w % 5 == 0:
+			grant_power()
+		var recs: Dictionary = t.get("recordes", {})
+		if w > int(recs.get(mode, 0)):
+			recs[mode] = w
+			t["recordes"] = recs
+		if goal > 0 and w >= goal:
+			t["ativo"] = false
+			t["tacas"] = tournament_cups() + 1
+			add_xp(300 if mode == "dez" else 150)
+			grant_power()
+			text = "COMPLETOU o %s! 🏆 taça nº %d" % [def["nome"], tournament_cups()]
+	else:
+		var l = tournament_losses() + 1
+		t["der"] = l
+		if l >= int(def["der"]):
+			t["ativo"] = false
+			text = "Fim do %s com %d vitória(s)" % [def["nome"], tournament_wins()]
+			if mode == "sobrev":
+				text += "  ·  recorde: %d" % tournament_record(mode)
+		else:
+			text = "Derrota %d/%d  ·  ainda dá!" % [l, int(def["der"])]
+	if tournament_active():
+		_setup_challenge_match(t)
+	t["ultimo"] = text
+	_commit()
+	return text
+
+
 ## chamado no fim da partida de torneio; devolve o texto do placar
 func tournament_result(won: bool) -> String:
 	var t: Dictionary = d["torneio"]
 	if !tournament_active():
 		return ""
+	if tournament_mode() != "mata":
+		return _challenge_result(won)
 	var r = int(t.get("rodada", 0))
 	var text: String
 	if won:
@@ -868,6 +1019,30 @@ func tournament_result(won: bool) -> String:
 	t["ultimo"] = text
 	_commit()
 	return text
+
+
+# ================================================================ nível das TORRES
+## A torre sobe junto com o seu nível de jogador, mas nunca passa de 1 nível
+## acima da carta mais forte do baralho em uso (pra acompanhar as cartas).
+func tower_level() -> int:
+	var best = 1
+	for c in deck_cards(active_deck()):
+		if c != null:
+			best = maxi(best, level(c))
+	return clampi(mini(player_level(), best + 1), 1, PlayerProfile.MAX_CARD_LEVEL)
+
+
+## torre do bot: o que ele já tem, ou a média das cartas dele (o que for maior)
+func bot_tower_level(profile) -> int:
+	if profile == null:
+		return 1
+	var total = 0.0
+	var n = 0
+	for path in profile.card_levels:
+		total += float(profile.card_levels[path])
+		n += 1
+	var avg = int(round(total / n)) if n > 0 else 1
+	return clampi(maxi(int(profile.base_level), avg), 1, PlayerProfile.MAX_CARD_LEVEL)
 
 
 # ================================================================ PODERES (raros: torneio e topo da colheita do clã)

@@ -395,6 +395,9 @@ func _build_batalha(box: Node):
 	var g = _grid(deck_panel, 4)
 	for c in Progresso.deck_cards(Progresso.active_deck()):
 		var v = CardView.make(c, 160, true)
+		if Progresso.can_upgrade(c):
+			v.badge = "MELHORAR!"
+			v.badge_color = Color(0.5, 1, 0.6)
 		v.tapped.connect(_show_card_popup)
 		g.add_child(v)
 
@@ -405,7 +408,7 @@ func _build_batalha(box: Node):
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	box.add_child(row)
-	var tb = _button("🏟 TORNEIO DA ROÇA" + ("  --  %s" % Progresso.TOURNAMENT_ROUNDS[int(Progresso.tournament().get("rodada", 0))] if Progresso.tournament_active() else ("  (entrada grátis hoje!)" if Progresso.tournament_free_today() else "")), _show_tournament, 22)
+	var tb = _button("🏟 TORNEIOS E DESAFIOS" + ("\n%s" % Progresso.tournament_stage_text() if Progresso.tournament_active() else ("  (entrada grátis hoje!)" if Progresso.tournament_free_today() else "")), _show_tournament, 22)
 	tb.custom_minimum_size.y = 70
 	if Progresso.tournament_active() or Progresso.tournament_free_today():
 		tb.modulate = Color(1.0, 0.85, 1.0)
@@ -507,43 +510,92 @@ func _open_chest(i: int):
 
 
 func _show_tournament():
-	var v = _popup(640)
-	v.add_child(_title("🏟 Torneio da Roça"))
+	var v = _popup(660, true)
+	v.add_child(_title("🏟 Torneios e Desafios"))
 	var t = Progresso.tournament()
 	v.add_child(_label("Taças conquistadas: 🏆 %d" % Progresso.tournament_cups(), 18, ThemeBuilder.COLOR_GOLD))
 	if !Progresso.tournament_active():
-		v.add_child(_wrap("Mata-mata com 8 competidores: quartas, semi e final. Perdeu, tá fora.\n\n· Todas as cartas jogam no nível %d (as suas e as do bot) -- ganha quem joga melhor.\n· Cada torneio sorteia uma REGRA ESPECIAL e um cenário.\n· Os adversários ficam mais fortes a cada fase.\n· Não vale troféu: é só glória e prêmio." % MatchSetup.TOURNAMENT_LEVEL, 16))
-		v.add_child(_label("Prêmios: quartas 💰60 + Saco · semi 💰120 + Caixote · campeão 💰300 + Baú do Celeiro + taça", 15, ThemeBuilder.COLOR_STAT_LABEL))
+		v.add_child(_wrap("Em todos: cartas e torres no nível %d pros dois lados -- ganha quem joga melhor. Não vale troféu. A 1ª entrada do dia é grátis (em qualquer um)." % MatchSetup.TOURNAMENT_LEVEL, 15, ThemeBuilder.COLOR_STAT_LABEL))
 		if str(t.get("ultimo", "")) != "":
-			v.add_child(_label("Último torneio: %s" % str(t["ultimo"]), 15, Color(0.85, 0.8, 0.7)))
-		var eb = _button("ENTRAR -- grátis hoje!" if Progresso.tournament_free_today() else "ENTRAR  💰 %d" % Progresso.TOURNAMENT_FEE, _enter_tournament.bind(v), 22)
-		eb.disabled = !Progresso.can_enter_tournament()
-		v.add_child(eb)
+			v.add_child(_wrap("Último: %s" % str(t["ultimo"]), 15, Color(0.85, 0.8, 0.7)))
+		var free = Progresso.tournament_free_today()
+		for mode in Progresso.TOURNEY_ORDER:
+			var def = Progresso.TOURNEYS[mode]
+			var p = _panel(v)
+			p.add_child(_label("%s %s" % [def["icone"], def["nome"]], 21, ThemeBuilder.COLOR_GOLD))
+			p.add_child(_wrap(def["desc"], 15))
+			p.add_child(_wrap("Prêmios: " + def["premio"], 14, Color(0.8, 0.95, 1.0)))
+			if mode != "mata" and Progresso.tournament_record(mode) > 0:
+				p.add_child(_label("Seu recorde: %d vitória(s)" % Progresso.tournament_record(mode), 15, Color(1, 0.85, 0.5)))
+			var eb = _button("ENTRAR -- grátis hoje!" if free else "ENTRAR  💰 %d" % int(def["fee"]), _enter_tournament.bind(v, mode), 20)
+			eb.disabled = !Progresso.can_enter_tournament(mode)
+			p.add_child(eb)
 	else:
-		var r = int(t.get("rodada", 0))
+		var mode_now = Progresso.tournament_mode()
+		var def_now = Progresso.TOURNEYS[mode_now]
 		var rule = int(t.get("regra", 0))
-		var p = _panel(v)
-		p.add_child(_label("Regra deste torneio: %s" % MatchSetup.RULE_NAMES[rule], 19, Color(1, 0.8, 1)))
-		p.add_child(_wrap(MatchSetup.RULE_TEXT[rule], 15))
-		p.add_child(_label("Cenário: %s" % ArenaManager.get_arena_info(int(t.get("arena", 1))).get("name", ""), 15, ThemeBuilder.COLOR_STAT_LABEL))
-		var ops: Array = t.get("oponentes", [])
-		for i in ops.size():
-			var mark = "✔" if i < r else ("👉" if i == r else "·")
-			v.add_child(_label("%s %s: %s  (🏆 %d)" % [mark, Progresso.TOURNAMENT_ROUNDS[i], str(ops[i]), ArenaManager.get_trophies(str(ops[i]))], 18, Color(0.6, 1, 0.6) if i < r else (Color(1, 1, 0.7) if i == r else Color(0.7, 0.68, 0.62))))
-		var figs: Array = t.get("figurantes", [])
-		if !figs.is_empty():
-			v.add_child(_wrap("Também na chave: " + ", ".join(figs.map(func(n): return str(n))), 14, ThemeBuilder.COLOR_STAT_LABEL))
-		var gb = _button("⚔ JOGAR: %s" % Progresso.TOURNAMENT_ROUNDS[r], _play_tournament, 24)
+		v.add_child(_label("%s %s" % [def_now["icone"], def_now["nome"]], 22, ThemeBuilder.COLOR_GOLD))
+		var p2 = _panel(v)
+		p2.add_child(_label("Regra da partida: %s" % MatchSetup.RULE_NAMES[rule], 19, Color(1, 0.8, 1)))
+		p2.add_child(_wrap(MatchSetup.RULE_TEXT[rule], 15))
+		p2.add_child(_label("Cenário: %s" % ArenaManager.get_arena_info(int(t.get("arena", 1))).get("name", ""), 15, ThemeBuilder.COLOR_STAT_LABEL))
+		var play_text = "⚔ JOGAR"
+		if mode_now == "mata":
+			var r = int(t.get("rodada", 0))
+			var ops: Array = t.get("oponentes", [])
+			for i in ops.size():
+				var mark = "✔" if i < r else ("👉" if i == r else "·")
+				v.add_child(_label("%s %s: %s  (🏆 %d)" % [mark, Progresso.TOURNAMENT_ROUNDS[i], str(ops[i]), ArenaManager.get_trophies(str(ops[i]))], 18, Color(0.6, 1, 0.6) if i < r else (Color(1, 1, 0.7) if i == r else Color(0.7, 0.68, 0.62))))
+			var figs: Array = t.get("figurantes", [])
+			if !figs.is_empty():
+				v.add_child(_wrap("Também na chave: " + ", ".join(figs.map(func(n): return str(n))), 14, ThemeBuilder.COLOR_STAT_LABEL))
+			play_text = "⚔ JOGAR: %s" % Progresso.TOURNAMENT_ROUNDS[r]
+		else:
+			var wins = Progresso.tournament_wins()
+			var losses = Progresso.tournament_losses()
+			var goal = int(def_now["vit"])
+			var max_l = int(def_now["der"])
+			v.add_child(_label("Vitórias: %s" % ("%d de %d" % [wins, goal] if goal > 0 else str(wins)), 22, Color(0.6, 1, 0.6)))
+			if goal > 0:
+				var bar = ProgressBar.new()
+				bar.max_value = goal
+				bar.value = wins
+				bar.show_percentage = false
+				bar.custom_minimum_size.y = 24
+				v.add_child(bar)
+			v.add_child(_label("Derrotas: %s%s   (com %d, acabou)" % ["✖ ".repeat(losses), "○ ".repeat(maxi(0, max_l - losses)), max_l], 19, Color(1.0, 0.62, 0.55)))
+			# próximo prêmio
+			var marks: Dictionary = def_now["marcos"]
+			var next_mark = -1
+			for k in marks:
+				if int(k) > wins and (next_mark == -1 or int(k) < next_mark):
+					next_mark = int(k)
+			if next_mark != -1:
+				v.add_child(_label("Próximo baú: com %d vitórias (%s)" % [next_mark, Progresso.CHESTS[int(marks[next_mark])]["nome"]], 16, Color(0.8, 0.95, 1.0)))
+			elif mode_now == "sobrev":
+				v.add_child(_label("Próximo baú: com %d vitórias  ·  recorde: %d" % [(int(wins / 3.0) + 1) * 3, Progresso.tournament_record(mode_now)], 16, Color(0.8, 0.95, 1.0)))
+			var opp = Progresso.tournament_opponent()
+			v.add_child(_label("👉 Próximo adversário: %s  (🏆 %d)" % [opp, ArenaManager.get_trophies(opp)], 18, Color(1, 1, 0.7)))
+			play_text = "⚔ JOGAR a partida %d" % (wins + losses + 1)
+		var gb = _button(play_text, _play_tournament, 24)
 		gb.custom_minimum_size.y = 80
 		gb.modulate = Color(1.0, 0.92, 0.6)
 		v.add_child(gb)
+		v.add_child(_button("Desistir (o que já ganhou, fica)", _abandon_tournament.bind(v), 15))
 	v.add_child(_button("Fechar", _close.bind(v)))
 
 
-func _enter_tournament(popup_box: Node):
-	if Progresso.enter_tournament():
+func _enter_tournament(popup_box: Node, mode: String = "mata"):
+	if Progresso.enter_tournament(mode):
 		_close(popup_box)
 		_show_tournament.call_deferred()
+
+
+func _abandon_tournament(popup_box: Node):
+	Progresso.abandon_tournament()
+	_close(popup_box)
+	_queue_refresh()
+	_show_tournament.call_deferred()
 
 
 func _play_tournament():
@@ -575,6 +627,17 @@ func _set_cards_view(v: int):
 
 func _build_torres(box: Node):
 	var equipped = PlayerProfile.get_equipped_base()
+	var tlv = Progresso.tower_level()
+	var tp = _panel(box)
+	tp.add_child(_label("🏰 Nível das torres: %d" % tlv, 22, ThemeBuilder.COLOR_GOLD))
+	var why = "Sobe sozinho junto com o seu nível de jogador (hoje nível %d), sem passar de 1 acima da carta mais forte do baralho. Cada nível dá +15%% de vida e de dano." % Progresso.player_level()
+	if tlv >= PlayerProfile.MAX_CARD_LEVEL:
+		why = "Nível máximo! Cada nível deu +15% de vida e de dano."
+	elif tlv < Progresso.player_level():
+		why += " Agora quem segura é o baralho: melhore suas cartas pra torre subir."
+	else:
+		why += " Agora falta subir o seu nível de jogador."
+	tp.add_child(_wrap(why, 15, ThemeBuilder.COLOR_STAT_LABEL))
 	box.add_child(_wrap("Sua torre vale pras DUAS torres do seu lado. Cada tipo muda o jeito de jogar. As novas liberam conforme você sobe de arena.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var list: Array = BotSimulator.available_bases.filter(func(b): return b != null)
 	list.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena)
@@ -610,11 +673,12 @@ func _build_torres(box: Node):
 
 
 func _base_summary(b: BaseData) -> String:
-	var hp = int(round(b.base_hp * ArenaBuilder.TOWER_HP_FRACTION))
+	var tmult = PlayerProfile.compute_base_stat_multiplier(Progresso.tower_level())
+	var hp = int(round(b.base_hp * tmult * ArenaBuilder.TOWER_HP_FRACTION))
 	var txt = "❤ %d cada" % hp
 	match b.base_type:
 		BaseData.BaseType.CANNON:
-			txt += "  ·  ⚔ %d a cada %.1fs  ·  alcance %d%s" % [b.attack_damage, b.attack_speed, int(b.attack_range), "  ·  em área" if b.is_aoe else ""]
+			txt += "  ·  ⚔ %d a cada %.1fs  ·  alcance %d%s" % [int(round(b.attack_damage * tmult)), b.attack_speed, int(b.attack_range), "  ·  em área" if b.is_aoe else ""]
 		BaseData.BaseType.PRODUCTION:
 			txt += "  ·  recurso +%d%% mais rápido" % int(round(b.production_speed_boost * 100))
 		BaseData.BaseType.HEAL:
@@ -672,11 +736,14 @@ func _build_cartas(box: Node):
 	var deck = Progresso.deck_cards(_deck_slot)
 	for i in deck.size():
 		var v = CardView.make(deck[i], 160, true)
+		if Progresso.can_upgrade(deck[i]):
+			v.badge = "MELHORAR!"
+			v.badge_color = Color(0.5, 1, 0.6)
 		v.set_selected(_pending_card != null or _pending_index == i)
 		v.tapped.connect(_on_deck_slot_tapped.bind(i))
 		g.add_child(v)
 		_drop_targets.append([v, i])
-	var hint = "Toque numa carta pra ver a descrição e usar no baralho. Ou SEGURE o dedo nela e arraste direto pro lugar."
+	var hint = "Toque em qualquer carta (do baralho ou da coleção) pra ver as informações, melhorar e trocar. Ou SEGURE o dedo e arraste direto pro lugar."
 	if _pending_card != null:
 		hint = "👉 Toque na posição do baralho onde %s vai entrar." % _pending_card.card_name
 	elif _pending_index != -1:
@@ -879,8 +946,12 @@ func _on_deck_slot_tapped(_card, index: int):
 		_cancel_placing()
 		_queue_refresh()
 		return
-	_pending_index = -1 if _pending_index == index else index
-	_queue_refresh()
+	if _pending_index != -1:
+		_cancel_placing()
+		_queue_refresh()
+		return
+	# toque numa carta do baralho = informações + melhorar + trocar
+	_show_card_popup(_card, index)
 
 
 func _on_collection_tapped(card: CardData):
@@ -932,12 +1003,153 @@ func _close(v: Node):
 		overlay.queue_free()
 
 
-func _show_card_popup(card: CardData):
+const ABILITY_HELP = {
+	"Dano em área": "acerta todo mundo que estiver perto do alvo.",
+	"Investida": "corre e o primeiro golpe bate mais forte e empurra.",
+	"Furtivo": "inimigo só enxerga de perto; aparece depois de atacar.",
+	"1º golpe em dobro": "o primeiro ataque causa o dobro de dano.",
+	"Entra em fúria": "chega mais rápido e mais forte por alguns segundos.",
+	"Onda de choque": "causa dano em volta quando entra em campo.",
+	"Roubo de vida": "recupera vida a cada golpe.",
+	"Provoca": "os inimigos por perto são obrigados a bater nele.",
+	"Casca dura": "leva menos dano (ou tem escudo extra).",
+	"Regenera": "recupera vida sozinho com o tempo.",
+	"Divide o dano": "o grupo reparte o dano que cada um leva.",
+	"Filhotes ao morrer": "quando morre, solta unidades menores.",
+	"Explode": "causa dano em área quando morre ou encosta.",
+	"Tiro especial": "o tiro se divide, atravessa ou pula entre alvos.",
+	"Cura aliados": "cura as tropas amigas em volta.",
+	"Cura": "recupera vida dos aliados na área.",
+	"Purifica": "tira efeitos ruins dos aliados.",
+	"Fúria": "aliados na área batem e andam mais rápido.",
+	"Escudo": "dá um escudo temporário aos aliados.",
+	"Fica no chão": "o efeito continua na área por um tempo.",
+	"Invoca tropas": "faz nascer outras unidades.",
+	"Intocável andando": "não leva dano enquanto anda; só parado ou atacando.",
+	"Vai ficando mais forte": "bate cada vez mais rápido ou mais forte.",
+	"Fúria na beira da morte": "com pouca vida, fica mais perigoso.",
+	"Executa": "finaliza na hora inimigo com pouca vida.",
+	"Gera recurso": "produz recurso extra enquanto estiver vivo.",
+	"Devolve dano": "quem bate nele leva parte do dano de volta.",
+	"Cura ao matar": "recupera vida a cada inimigo derrotado.",
+	"Levanta de novo": "volta à vida uma vez depois de morrer.",
+	"Inabalável": "não é empurrado nem puxado.",
+	"Acompanhantes": "vem com outras unidades diferentes junto.",
+}
+
+
+func _ability_help(skill: String) -> String:
+	if ABILITY_HELP.has(skill):
+		return ABILITY_HELP[skill]
+	if skill.begins_with("Golpe: "):
+		return "cada golpe aplica esse efeito no alvo."
+	if skill.begins_with("Efeito: "):
+		return "aplica esse efeito em quem estiver na área."
+	return ""
+
+
+## um quadradinho de número: rótulo pequeno, valor grande e, em verde, o
+## quanto sobe no próximo nível
+func _stat_tile(grid: Node, label_text: String, value: String, plus: String = ""):
+	var p = PanelContainer.new()
+	p.custom_minimum_size = Vector2(292, 0)
+	grid.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 0)
+	p.add_child(v)
+	v.add_child(_label(label_text, 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var h = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	v.add_child(h)
+	h.add_child(_label(value, 21))
+	if plus != "":
+		h.add_child(_label(plus, 17, Color(0.5, 1.0, 0.55)))
+
+
+static func _speed_name(sp: float) -> String:
+	if sp <= 0:
+		return "Parado"
+	if sp < 32:
+		return "Muito lenta"
+	if sp < 48:
+		return "Lenta"
+	if sp < 66:
+		return "Média"
+	if sp < 90:
+		return "Rápida"
+	return "Muito rápida"
+
+
+func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
+	var up = next_mult > mult
+	if card.is_spell():
+		var sp: SpellData = card.spell_data
+		if sp.damage > 0:
+			var d0 = int(round(sp.damage * mult))
+			_stat_tile(g, "💥 Dano", str(d0), "+%d" % (int(round(sp.damage * next_mult)) - d0) if up else "")
+			var t0 = int(round(sp.damage * mult * sp.base_damage_multiplier))
+			_stat_tile(g, "🏰 Dano em torre", str(t0), "+%d" % (int(round(sp.damage * next_mult * sp.base_damage_multiplier)) - t0) if up else "")
+		if sp.heal_amount > 0:
+			var h0 = int(round(sp.heal_amount * mult))
+			_stat_tile(g, "✚ Cura", str(h0), "+%d" % (int(round(sp.heal_amount * next_mult)) - h0) if up else "")
+		if sp.shield_amount > 0:
+			var s0 = int(round(sp.shield_amount * mult))
+			_stat_tile(g, "🛡 Escudo", str(s0), "+%d" % (int(round(sp.shield_amount * next_mult)) - s0) if up else "")
+		_stat_tile(g, "⭕ Raio", str(int(sp.radius)))
+		if sp.duration > 0:
+			_stat_tile(g, "⏱ Duração", "%.1fs" % sp.duration)
+		if sp.summon_count > 0:
+			_stat_tile(g, "👥 Invoca", "x%d" % sp.summon_count)
+		_stat_tile(g, "🎯 Afeta", "Aliados" if (sp.affects_allies or !sp.affects_enemies) else "Inimigos")
+		_stat_tile(g, "💧 Custo", str(card.cost))
+		return
+	var st: UnitData = DeckBuilder.get_unit_stats(card)
+	if st == null:
+		return
+	var hp0 = int(round(st.hp * mult))
+	_stat_tile(g, "❤ Vida", str(hp0), "+%d" % (int(round(st.hp * next_mult)) - hp0) if up else "")
+	if st.damage > 0:
+		var d1 = int(round(st.damage * mult))
+		_stat_tile(g, "⚔ Dano", str(d1), "+%d" % (int(round(st.damage * next_mult)) - d1) if up else "")
+		if st.attack_speed > 0:
+			var dps0 = int(round(st.damage * mult / st.attack_speed))
+			_stat_tile(g, "🔥 Dano por segundo", str(dps0), "+%d" % (int(round(st.damage * next_mult / st.attack_speed)) - dps0) if up else "")
+			_stat_tile(g, "⏱ Vel. de ataque", "%.1fs" % st.attack_speed)
+		_stat_tile(g, "📏 Alcance", str(int(st.attack_range)) if st.is_ranged else "Corpo a corpo")
+	else:
+		_stat_tile(g, "⚔ Dano", "não ataca")
+	_stat_tile(g, "👟 Velocidade", "%s (%d)" % [_speed_name(st.move_speed), int(st.move_speed)] if st.move_speed > 0 else "Parado")
+	var targets = "Chão"
+	match st.target_type:
+		UnitData.TargetType.BUILDING:
+			targets = "Só torres"
+		UnitData.TargetType.ALL:
+			targets = "Chão e ar"
+		UnitData.TargetType.AIR:
+			targets = "Só ar"
+	_stat_tile(g, "🎯 Alvos", targets if st.damage > 0 else "-")
+	var kind = "Terrestre"
+	if st.unit_type == UnitData.UnitType.AIR:
+		kind = "Voador"
+	elif st.unit_type == UnitData.UnitType.BUILDING:
+		kind = "Construção"
+	_stat_tile(g, "🐾 Tipo", kind)
+	var count_text = "x%d" % st.unit_count
+	for comp in card.companions:
+		count_text += " +%d" % int(comp["count"])
+	if st.unit_count > 1 or !card.companions.is_empty():
+		_stat_tile(g, "👥 Quantidade", count_text)
+	if st.is_aoe:
+		_stat_tile(g, "⭕ Área do golpe", str(int(st.aoe_radius)))
+	_stat_tile(g, "💧 Custo", str(card.cost))
+
+
+func _show_card_popup(card: CardData, deck_index: int = -1):
 	if card == null:
 		return
 	var owned = Progresso.is_owned(card)
 	Progresso.clear_new(card)
-	var v = _popup()
+	var v = _popup(640, true)
 	var head = HBoxContainer.new()
 	head.add_theme_constant_override("separation", 14)
 	v.add_child(head)
@@ -950,29 +1162,15 @@ func _show_card_popup(card: CardData):
 	head.add_child(side)
 	side.add_child(_wrap(card.card_name, 26, ThemeBuilder.COLOR_GOLD))
 	var rarity = Catalogo.rarity_of(card)
+	var lv = Progresso.level(card)
 	side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[rarity], card.get_nation_name() if card.get_nation_name() != "" else "Coringa"], 17, Catalogo.RARITY_COLORS[rarity]))
-	side.add_child(_label("%s  ·  custo %d" % [CardData.role_name(card.role), card.cost], 17))
+	side.add_child(_label("%s  ·  %s" % [CardData.role_name(card.role), "Nível %d" % lv if owned else "não liberada"], 17))
 	if card.description != "":
 		side.add_child(_wrap("“%s”" % card.description, 16, Color(0.95, 0.9, 0.78)))
 
-	# números
-	var lv = Progresso.level(card)
-	var mult = PlayerProfile.compute_stat_multiplier(lv)
-	var stats_text = _stats_text(card, mult)
-	if stats_text != "":
-		v.add_child(_wrap(stats_text, 17))
-	var target_line = _target_text(card)
-	if target_line != "":
-		v.add_child(_wrap(target_line, 17, Color(1.0, 0.85, 0.55)))
-	var skills = Catalogo.abilities(card)
-	v.add_child(_wrap("Habilidades (%d): %s" % [skills.size(), ", ".join(skills)] if !skills.is_empty() else "Sem habilidade especial: carta Normal.", 16, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
-	for p in card.pros:
-		v.add_child(_wrap("✔ " + p, 16, Color(0.6, 1.0, 0.6)))
-	for p in card.cons:
-		v.add_child(_wrap("✖ " + p, 16, Color(1.0, 0.62, 0.55)))
-
+	# melhoria primeiro: é o que mais se usa
+	var can_level = owned and Progresso.copies_needed(card) > 0
 	if owned:
-		# nível
 		var need = Progresso.copies_needed(card)
 		if need > 0:
 			var bar = ProgressBar.new()
@@ -981,26 +1179,88 @@ func _show_card_popup(card: CardData):
 			bar.show_percentage = false
 			bar.custom_minimum_size.y = 22
 			v.add_child(bar)
-			var up = _button("⬆ Subir pro nível %d   (%d/%d cópias · 💰 %d)" % [lv + 1, Progresso.copies(card), need, Progresso.upgrade_cost(card)], _upgrade.bind(card, v), 18)
+			var missing: Array = []
+			if Progresso.copies(card) < need:
+				missing.append("faltam %d cópia(s)" % (need - Progresso.copies(card)))
+			if PlayerProfile.coins < Progresso.upgrade_cost(card):
+				missing.append("faltam 💰 %d" % (Progresso.upgrade_cost(card) - PlayerProfile.coins))
+			var up = _button("⬆ MELHORAR pro nível %d   (%d/%d cópias · 💰 %d)" % [lv + 1, Progresso.copies(card), need, Progresso.upgrade_cost(card)], _upgrade.bind(card, v, deck_index), 19)
 			up.disabled = !Progresso.can_upgrade(card)
+			if !up.disabled:
+				up.modulate = Color(0.7, 1.0, 0.7)
 			v.add_child(up)
+			if !missing.is_empty():
+				v.add_child(_label("Pra melhorar: " + " e ".join(missing), 15, Color(1, 0.8, 0.55)))
 		else:
-			v.add_child(_label("Nível máximo!", 18, ThemeBuilder.COLOR_GOLD))
-		# maestria
+			v.add_child(_label("⭐ Nível máximo!", 18, ThemeBuilder.COLOR_GOLD))
+
+	# números em quadradinhos (em verde, o ganho do próximo nível)
+	var mult = PlayerProfile.compute_stat_multiplier(lv)
+	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) if can_level else mult
+	if can_level:
+		v.add_child(_label("Números no nível %d   (em verde: o que ganha no nível %d)" % [lv, lv + 1], 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var g = _grid(v, 2)
+	_fill_stat_tiles(g, card, mult, next_mult)
+	var target_line = _target_text(card)
+	if target_line != "":
+		v.add_child(_wrap(target_line, 16, Color(1.0, 0.85, 0.55)))
+
+	# habilidades, uma por linha, explicadas
+	var skills = Catalogo.abilities(card)
+	var sk_panel = _panel(v)
+	sk_panel.add_child(_label("Habilidades (%d) -- carta %s" % [skills.size(), Catalogo.RARITY_NAMES[rarity]], 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
+	if skills.is_empty():
+		sk_panel.add_child(_wrap("Nenhuma: é só vida e pancada.", 15))
+	for skill in skills:
+		var help_text = _ability_help(str(skill))
+		sk_panel.add_child(_wrap("• %s%s" % [skill, ": " + help_text if help_text != "" else ""], 15))
+
+	if !card.pros.is_empty() or !card.cons.is_empty():
+		var pc = _panel(v)
+		for p in card.pros:
+			pc.add_child(_wrap("✔ " + p, 15, Color(0.6, 1.0, 0.6)))
+		for p in card.cons:
+			pc.add_child(_wrap("✖ " + p, 15, Color(1.0, 0.62, 0.55)))
+
+	# histórico
+	var hist = _panel(v)
+	if owned:
 		var mp = Progresso.mastery_progress(card)
 		var m = Progresso.mastery(card)
-		var mtext = "Maestria: %s" % (Progresso.MASTERY_NAMES[m] if m > 0 else "nenhuma ainda")
-		mtext += "  ·  usada %d vezes" % mp[0]
+		var mtext = "Maestria: %s  ·  você usou %d vez(es)" % [Progresso.MASTERY_NAMES[m] if m > 0 else "nenhuma ainda", mp[0]]
 		if mp[1] > 0:
 			mtext += "  (próxima borda com %d)" % mp[1]
-		v.add_child(_wrap(mtext, 15, Progresso.MASTERY_COLORS[m] if m > 0 else ThemeBuilder.COLOR_STAT_LABEL))
-		if !Progresso.deck_paths(_deck_slot).has(card.resource_path):
+		hist.add_child(_wrap(mtext, 15, Progresso.MASTERY_COLORS[m] if m > 0 else ThemeBuilder.COLOR_STAT_LABEL))
+	var season: Dictionary = SeasonStats.stats.get(card.resource_path, {})
+	var played = int(season.get("wins", 0)) + int(season.get("losses", 0))
+	if played > 0:
+		hist.add_child(_wrap("Na temporada (todo mundo): jogada em %d partidas, vence %d%%" % [played, int(round(100.0 * int(season.get("wins", 0)) / played))], 15, ThemeBuilder.COLOR_STAT_LABEL))
+	else:
+		hist.add_child(_wrap("Na temporada: ainda sem partidas registradas.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	hist.add_child(_wrap("Libera na Arena %d (%s)" % [maxi(1, card.unlock_arena), ArenaManager.get_arena_info(maxi(1, card.unlock_arena)).get("name", "")], 15, ThemeBuilder.COLOR_STAT_LABEL))
+
+	if owned:
+		if deck_index >= 0:
+			var sw = _button("🔁 Trocar esta carta do baralho", _begin_swap.bind(deck_index, v), 20)
+			sw.modulate = Color(1.0, 0.92, 0.6)
+			v.add_child(sw)
+		elif !Progresso.deck_paths(_deck_slot).has(card.resource_path):
 			var use_b = _button("➕ Usar no Baralho %d" % (_deck_slot + 1), _begin_place.bind(card, v), 22)
 			use_b.modulate = Color(1.0, 0.92, 0.6)
 			v.add_child(use_b)
 	else:
 		v.add_child(_wrap("Você ainda não tem esta carta. Ela aparece nos baús e na Feira a partir da Arena %d." % maxi(1, card.unlock_arena), 16, Color(1, 0.85, 0.5)))
 	v.add_child(_button("Fechar", _close.bind(v)))
+
+
+func _begin_swap(index: int, popup_box: Node):
+	_close(popup_box)
+	if _tab != 1:
+		_go_tab(1)
+	_cards_view = 0
+	_pending_card = null
+	_pending_index = index
+	_queue_refresh()
 
 
 ## frase clara de QUEM a carta ataca
@@ -1061,11 +1321,12 @@ func _stats_text(card: CardData, mult: float) -> String:
 	return "  ·  ".join(parts2)
 
 
-func _upgrade(card: CardData, popup_box: Node):
+func _upgrade(card: CardData, popup_box: Node, deck_index: int = -1):
 	if Progresso.upgrade(card):
 		_close(popup_box)
 		_toast("%s subiu pro nível %d!" % [card.card_name, Progresso.level(card)])
-		_show_card_popup.call_deferred(card)
+		_queue_refresh()
+		_show_card_popup.call_deferred(card, deck_index)
 
 
 func _begin_place(card: CardData, popup_box: Node):
