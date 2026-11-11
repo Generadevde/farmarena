@@ -726,7 +726,7 @@ func _show_daily():
 	var v = _popup(660)
 	v.add_child(_title("📅 Desafio do Dia"))
 	var deck = Progresso.daily_deck()
-	v.add_child(_wrap("Hoje o baralho é emprestado: turma %s. Vença %d partidas com ele. Cartas e torres no nível %d pros dois lados, não vale troféu, e pode tentar quantas vezes quiser. Amanhã o baralho muda." % [Progresso.daily_theme(), Progresso.DAILY_WINS, MatchSetup.TOURNAMENT_LEVEL], 15, ThemeBuilder.COLOR_STAT_LABEL))
+	v.add_child(_wrap("Hoje o baralho é emprestado: turma %s. Vença %d partidas com ele antes de perder %d (cada derrota gasta uma tentativa). Cartas e torres no nível %d pros dois lados, não vale troféu. Amanhã o baralho muda." % [Progresso.daily_theme(), Progresso.DAILY_WINS, Progresso.DAILY_TRIES, MatchSetup.TOURNAMENT_LEVEL], 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var g = _grid(v, 4)
 	for c in deck:
 		var cv = CardView.make(c, 150, true)
@@ -738,8 +738,7 @@ func _show_daily():
 	var check = DeckDoctor.analyze(deck)
 	v.add_child(_label("Nota do baralho: %s (%d)" % [check["veredito"], int(check["nota"])], 15, check["cor"]))
 	var ladder = LadderView.new()
-	ladder.setup(Progresso.daily_wins(), Progresso.DAILY_WINS, 0, 0, {Progresso.DAILY_WINS: Progresso.DAILY_CHEST})
-	ladder.custom_minimum_size.y = 96
+	ladder.setup(Progresso.daily_wins(), Progresso.DAILY_WINS, Progresso.daily_losses(), Progresso.DAILY_TRIES, {Progresso.DAILY_WINS: Progresso.DAILY_CHEST})
 	v.add_child(ladder)
 	v.add_child(_label("Prêmio: 💰 %d por vitória  ·  com %d vitórias: %s + XP (e às vezes um poder)" % [Progresso.DAILY_GOLD_PER_WIN, Progresso.DAILY_WINS, Progresso.CHESTS[Progresso.DAILY_CHEST]["nome"]], 14, Color(0.8, 0.95, 1.0)))
 	if Progresso.daily_done():
@@ -747,12 +746,17 @@ func _show_daily():
 	var pb = _button("⚔ JOGAR com o baralho do dia", _play_daily, 24)
 	pb.custom_minimum_size.y = 80
 	pb.modulate = Color(1.0, 0.92, 0.6)
+	if !Progresso.daily_can_play():
+		pb.disabled = true
+		pb.text = "Acabaram as 3 tentativas de hoje. Volte amanhã!"
+		pb.modulate = Color(1, 1, 1)
 	v.add_child(pb)
 	v.add_child(_button("Voltar", _close.bind(v)))
 
 
 func _play_daily():
-	Progresso.start_daily_match(get_tree())
+	if Progresso.daily_can_play():
+		Progresso.start_daily_match(get_tree())
 
 
 # ================================================================ DOUTOR DO BARALHO
@@ -1923,7 +1927,8 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 
 	if owned:
 		var n_stars = Progresso.stars(card)
-		if n_stars < Progresso.STAR_MAX:
+		# lapidar só existe pra carta no nível máximo
+		if n_stars < Progresso.STAR_MAX and Progresso.polish_unlocked(card):
 			var pol = _button("💎 LAPIDAR  (%d cristais · você tem %d)   +3%% vida e dano" % [Progresso.star_cost(card), Progresso.crystals()], _polish.bind(card, v, deck_index), 16)
 			pol.disabled = !Progresso.can_polish(card)
 			if !pol.disabled:
@@ -2212,7 +2217,7 @@ func _build_feira(box: Node):
 
 	var kp = _panel(box)
 	kp.add_child(_label("💎 Balcão de Cristal  ·  você tem %d" % Progresso.crystals(), 19, Color(0.6, 0.95, 1.0)))
-	kp.add_child(_wrap("Cristal é raro: vem ao subir de nível (+1), completar o Desafio do Dia (+2) e ganhar torneio (+3 a +5). Também serve pra LAPIDAR uma carta (segure a carta e toque em Lapidar).", 14, ThemeBuilder.COLOR_STAT_LABEL))
+	kp.add_child(_wrap("Cristal é raro: vem ao subir de nível (+1), completar o Desafio do Dia (+2) e ganhar torneio (+3 a +5). Também serve pra LAPIDAR uma carta que chegou no nível %d: ela fica dourada e ganha +3%% de vida e dano por estrela." % PlayerProfile.MAX_CARD_LEVEL, 14, ThemeBuilder.COLOR_STAT_LABEL))
 	var krow = HBoxContainer.new()
 	krow.add_theme_constant_override("separation", 8)
 	kp.add_child(krow)

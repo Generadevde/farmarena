@@ -106,15 +106,22 @@ func _draw():
 	var turma_col: Color = card.nation_data.color if card.nation_data != null else Color(0.55, 0.55, 0.55)
 	var mastery = _mastery()
 	var frame_col = rarity_col
+	# carta LAPIDADA (tem estrela): moldura e nome dourados, pra chamar atenção
+	var polished = !locked and (stars_override if stars_override >= 0 else (Progresso.stars(card) if level_override <= 0 else 0)) > 0
+	if polished:
+		frame_col = Color("#f2c230")
 	if locked:
 		frame_col = Color(0.35, 0.33, 0.3)
 		turma_col = Color(0.3, 0.29, 0.27)
 
 	# sombra + moldura
 	draw_rect(Rect2(3 * u, 5 * u, w - 3 * u, h - 5 * u), Color(0, 0, 0, 0.35))
-	draw_rect(Rect2(0, 0, w - 3 * u, h - 5 * u), Color("#2a1a22"))
+	draw_rect(Rect2(0, 0, w - 3 * u, h - 5 * u), Color("#2a1a22") if !polished else Color("#7a4a08"))
 	var inner = Rect2(3 * u, 3 * u, w - 9 * u, h - 11 * u)
 	draw_rect(inner, frame_col)
+	if polished:
+		# filete claro por dentro: dá o brilho de ouro
+		draw_rect(Rect2(inner.position + Vector2(1.5, 1.5) * u, inner.size - Vector2(3, 3) * u), Color("#fff0a0"), false, 1.5 * u)
 	# fundo da arte (cor da turma, com faixa clara em cima)
 	var art_box = Rect2(inner.position + Vector2(4, 4) * u, Vector2(inner.size.x - 8 * u, inner.size.x - 8 * u))
 	draw_rect(art_box, turma_col.darkened(0.25))
@@ -122,11 +129,15 @@ func _draw():
 	if card.icon != null:
 		var art_rect = Rect2(art_box.position, art_box.size)
 		draw_texture_rect(card.icon, art_rect, false, Color(0.12, 0.12, 0.12, 0.9) if locked else Color.WHITE)
+	if polished:
+		# banho dourado de leve na arte + reflexo no canto
+		draw_rect(art_box, Color(1.0, 0.82, 0.2, 0.16))
+		draw_colored_polygon(PackedVector2Array([art_box.position, art_box.position + Vector2(art_box.size.x * 0.45, 0), art_box.position + Vector2(0, art_box.size.y * 0.45)]), Color(1.0, 0.95, 0.6, 0.22))
 	# nome
 	var font = ThemeDB.fallback_font
 	var foot_h = FOOT * u if show_stats else 0.0
 	var name_rect = Rect2(inner.position.x + 2 * u, art_box.end.y + 2 * u, inner.size.x - 4 * u, inner.end.y - art_box.end.y - 4 * u - foot_h)
-	draw_rect(name_rect, Color("#f3e6c8") if !locked else Color(0.6, 0.58, 0.54))
+	draw_rect(name_rect, (Color("#ffe9a0") if polished else Color("#f3e6c8")) if !locked else Color(0.6, 0.58, 0.54))
 	var fs = int(15 * u)
 	var label = card.card_name if !locked else "???"
 	while fs > 9 and font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > name_rect.size.x - 4:

@@ -746,7 +746,7 @@ func ask_leave():
 	var info = Label.new()
 	var penalty = leave_penalty()
 	if MatchSetup.daily:
-		info.text = "Você perde só esta tentativa do Desafio do Dia."
+		info.text = "Sair conta como DERROTA: gasta uma das 3 tentativas do Desafio do Dia."
 	elif MatchSetup.tournament:
 		info.text = "No torneio, sair conta como DERROTA."
 	elif penalty > 0:

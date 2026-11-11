@@ -1283,8 +1283,8 @@ func _bot_crystals(data: Dictionary):
 	var best_path = ""
 	for path in data.get("deck_paths", []):
 		var st = int(stars_by_card.get(path, 0))
-		if st >= Progresso.STAR_MAX or have < int(Progresso.STAR_COST[st]):
-			continue
+		if st >= Progresso.STAR_MAX or have < int(Progresso.STAR_COST[st]) or int(levels.get(path, 1)) < PlayerProfile.MAX_CARD_LEVEL:
+			continue  # só lapida carta no nível máximo, igual você
 		if best_path == "" or int(levels.get(path, 1)) > int(levels.get(best_path, 1)):
 			best_path = path
 	if best_path == "":

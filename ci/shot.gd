@@ -90,7 +90,13 @@ func _ready():
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
 	Progresso.add_crystals(40)
-	print("SHOT cristal: lapidou? ", Progresso.polish(Progresso.deck_cards(0)[3]), " estrelas=", Progresso.stars(Progresso.deck_cards(0)[3]), " cristais=", Progresso.crystals())
+	var pol_c: CardData = Progresso.deck_cards(0)[3]
+	var early = Progresso.polish(pol_c)
+	PlayerProfile.card_levels[pol_c.resource_path] = PlayerProfile.MAX_CARD_LEVEL
+	print("SHOT cristal: lapidou no nível baixo? ", early, " | no nível máximo? ", Progresso.polish(pol_c), " estrelas=", Progresso.stars(pol_c), " cristais=", Progresso.crystals())
+	hub._queue_refresh()
+	await get_tree().create_timer(0.5).timeout
+	await _shot("dourada")
 	hub._show_modes()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("modos")

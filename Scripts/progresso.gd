@@ -1047,8 +1047,9 @@ func tournament_result(won: bool) -> String:
 
 # ================================================================ CRISTAIS (recurso raro) e ESTRELAS
 ## Cristal vem bem pouquinho: subir de nível, completar o Desafio do Dia e
-## ganhar torneio. Serve pra LAPIDAR uma carta (até 3 estrelas, +3% de vida e
-## dano cada) e pro Balcão de Cristal da Feira (carta à escolha, Baú Lendário).
+## ganhar torneio. Serve pra LAPIDAR uma carta que já está no nível máximo
+## (até 3 estrelas, +3% de vida e dano cada; a carta fica dourada) e pro
+## Balcão de Cristal da Feira (carta à escolha, Baú Lendário).
 ## No torneio as estrelas não valem (lá é todo mundo igual). Os bots seguem a
 ## mesma regra: ganham cristal raramente e lapidam as cartas do baralho.
 const STAR_MAX = 3
@@ -1082,8 +1083,13 @@ func star_cost(c: CardData) -> int:
 	return int(STAR_COST[clampi(stars(c), 0, STAR_MAX - 1)])
 
 
+## só carta no NÍVEL MÁXIMO pode ser lapidada (é o que vem depois do nível 9)
+func polish_unlocked(c: CardData) -> bool:
+	return is_owned(c) and level(c) >= PlayerProfile.MAX_CARD_LEVEL
+
+
 func can_polish(c: CardData) -> bool:
-	return is_owned(c) and stars(c) < STAR_MAX and crystals() >= star_cost(c)
+	return polish_unlocked(c) and stars(c) < STAR_MAX and crystals() >= star_cost(c)
 
 
 func polish(c: CardData) -> bool:
@@ -1118,6 +1124,7 @@ func buy_crystal_chest() -> Array:
 
 # ================================================================ DESAFIO DO DIA
 const DAILY_WINS = 3
+const DAILY_TRIES = 3   # tentativas por dia (cada derrota gasta uma)
 const DAILY_GOLD_PER_WIN = 40
 const DAILY_CHEST = 2
 
@@ -1125,8 +1132,21 @@ const DAILY_CHEST = 2
 func _daily_state() -> Dictionary:
 	var today = Time.get_date_string_from_system()
 	if !d.has("diario") or !(d["diario"] is Dictionary) or str(d["diario"].get("dia", "")) != today:
-		d["diario"] = {"dia": today, "vit": 0, "jogos": 0, "feito": false}
+		d["diario"] = {"dia": today, "vit": 0, "jogos": 0, "der": 0, "feito": false}
 	return d["diario"]
+
+
+func daily_losses() -> int:
+	return int(_daily_state().get("der", 0))
+
+
+func daily_tries_left() -> int:
+	return maxi(0, DAILY_TRIES - daily_losses())
+
+
+## ainda dá pra jogar o desafio hoje? (acabaram as tentativas = só amanhã)
+func daily_can_play() -> bool:
+	return daily_done() or daily_tries_left() > 0
 
 
 func daily_wins() -> int:
@@ -1191,7 +1211,13 @@ func start_daily_match(tree: SceneTree):
 func daily_result(won: bool) -> String:
 	var st = _daily_state()
 	st["jogos"] = int(st["jogos"]) + 1
-	var text = "Não foi dessa vez. Pode tentar de novo quantas vezes quiser."
+	var text = ""
+	if !won and !bool(st["feito"]):
+		st["der"] = int(st.get("der", 0)) + 1
+		var left = maxi(0, DAILY_TRIES - int(st["der"]))
+		text = "Não foi dessa vez. %s" % ("Restam %d tentativa(s) hoje." % left if left > 0 else "Acabaram as tentativas de hoje. Amanhã tem baralho novo.")
+	elif !won:
+		text = "Não foi dessa vez (o prêmio de hoje você já pegou)."
 	if won and !bool(st["feito"]):
 		st["vit"] = int(st["vit"]) + 1
 		PlayerProfile.add_coins(DAILY_GOLD_PER_WIN)
