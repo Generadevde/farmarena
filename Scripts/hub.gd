@@ -45,8 +45,8 @@ func _ready():
 	_rebuild_all()
 	Safra.sync_profile()
 	Assembleia.sync()
-	if int(Progresso.d.get("bots_arena_v", 0)) < 1:
-		Progresso.d["bots_arena_v"] = 1
+	if int(Progresso.d.get("bots_arena_v", 0)) < 2:
+		Progresso.d["bots_arena_v"] = 2
 		BotLearning.enforce_arena_everywhere()
 		Progresso.save()
 	Progresso.changed.connect(_queue_refresh)

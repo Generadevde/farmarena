@@ -201,6 +201,11 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 	if _learn_custom_cards(bot_name, data, profile, style, known_paths):
 		known_changed = true
 
+	if int(data.get("copies_v", 0)) < 1 and !is_new:
+		_catch_up_copies(data, bot_arena_now)
+		profile.card_levels = data.get("card_levels", {})
+		profile.base_level = data.get("base_level", 1)
+		known_changed = true
 	# ARENA: o bot só joga com carta que já existe na arena DELE. Carta de arena
 	# mais alta (ex.: carta de safra que mudou de arena) sai e entra outra parecida.
 	if _enforce_arena_on_deck(profile, data, bot_arena_now, known_paths):
@@ -1019,11 +1024,15 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 		data["total_wins"] = data.get("total_wins", 0) + 1  # só informativo (vitalício)
 		data["gold"] = data.get("gold", 0) + reward["gold"]
 		data["current_loss_streak"] = 0  # quebrou a má fase, começa a contar de novo
+		_catch_up_copies(data, bot_arena)
 		_bot_open_chest(data, bot_arena)
 	else:
 		data["total_losses"] = data.get("total_losses", 0) + 1
 		data["gold"] = data.get("gold", 0) + reward["gold"]
 		data["current_loss_streak"] = data.get("current_loss_streak", 0) + 1
+		_catch_up_copies(data, bot_arena)
+		if randf() < BOT_LOSS_CHEST_CHANCE:
+			_bot_open_chest(data, bot_arena, 0)
 		_maybe_switch_archetype(data)
 
 	# rixa -- diferente da má-fase geral (que conta QUALQUER derrota), essa
@@ -1163,13 +1172,61 @@ func _maybe_upgrade_base(data: Dictionary):
 ## Vitória do bot rende um baú, igual pra você: cópias de cartas da arena dele
 ## (pelos mesmos pesos de raridade) e um pouco de ouro. Nem toda vitória rende,
 ## porque você também espera o baú abrir e tem limite de espaço.
-const BOT_CHEST_CHANCE = 0.6
+const BOT_CHEST_CHANCE = 1.0        # toda vitória rende baú (você ainda tem Feira, presentes, clã e torneio)
+const BOT_LOSS_CHEST_CHANCE = 0.3   # e de vez em quando um Saco mesmo perdendo, pra não empacar
 
 
-func _bot_open_chest(data: Dictionary, bot_arena: int):
-	if randf() > BOT_CHEST_CHANCE:
+## ACERTO DE CONTAS (uma vez por bot): a regra de cópias começou agora, então
+## bot antigo, cheio de vitórias, estava sem cópia nenhuma e empacou com carta
+## nível 2 e torre nível 3. Aqui ele recebe as cópias que TERIA ganho nos baús
+## das vitórias que já tem, e evolui o que der com o ouro guardado.
+func _catch_up_copies(data: Dictionary, bot_arena: int):
+	if int(data.get("copies_v", 0)) >= 1:
 		return
-	var type = Progresso._weighted(Progresso.WIN_CHEST_WEIGHTS)
+	data["copies_v"] = 1
+	var wins = int(data.get("total_wins", 0))
+	if wins <= 0:
+		return
+	var pool_count = [0, 0, 0, 0, 0]
+	for c in CardDatabase.all_cards:
+		if c != null and !CustomContent.is_spawn_only(c) and c.unlock_arena <= bot_arena:
+			pool_count[Catalogo.rarity_of(c)] += 1
+	# quantas "sorteadas" de cada raridade um baú de vitória dá, em média
+	var rolls_per_win = [0.0, 0.0, 0.0, 0.0, 0.0]
+	var total_w = 0.0
+	for w in Progresso.WIN_CHEST_WEIGHTS:
+		total_w += w
+	for t in Progresso.CHESTS.size():
+		var chance = float(Progresso.WIN_CHEST_WEIGHTS[t]) / total_w
+		var def: Dictionary = Progresso.CHESTS[t]
+		var sum_p = 0.0
+		for pw in def["pesos"]:
+			sum_p += pw
+		for r in 5:
+			rolls_per_win[r] += chance * float(def["cartas"]) * float(def["pesos"][r]) / sum_p
+	var copies: Dictionary = data.get("card_copies", {})
+	for path in data.get("deck_paths", []):
+		var card = Catalogo.find_card(str(path))
+		if card == null:
+			continue
+		var r = Catalogo.rarity_of(card)
+		if pool_count[r] <= 0:
+			continue
+		var avg_copies = (Progresso.COPIES_PER_ROLL[r][0] + Progresso.COPIES_PER_ROLL[r][1]) * 0.5
+		var gained = int(round(wins * rolls_per_win[r] / pool_count[r] * avg_copies))
+		copies[path] = mini(400, int(copies.get(path, 0)) + gained)
+	data["card_copies"] = copies
+	# ouro dos baús que ele teria aberto
+	data["gold"] = int(data.get("gold", 0)) + wins * 30
+	for i in 8:
+		_maybe_upgrade_cards(data)
+		_maybe_upgrade_base(data)
+
+
+func _bot_open_chest(data: Dictionary, bot_arena: int, forced_type: int = -1):
+	if forced_type < 0 and randf() > BOT_CHEST_CHANCE:
+		return
+	var type = forced_type if forced_type >= 0 else Progresso._weighted(Progresso.WIN_CHEST_WEIGHTS)
 	var def: Dictionary = Progresso.CHESTS[type]
 	data["gold"] = int(data.get("gold", 0)) + randi_range(int(def["ouro"][0]), int(def["ouro"][1]))
 	var pool: Array = []
