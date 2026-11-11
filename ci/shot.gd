@@ -175,6 +175,11 @@ func _ready():
 	await get_tree().create_timer(0.4).timeout
 	await _shot("doca")
 	hub._clear_selection()
+	hub._show_compare(Catalogo.card("vaca_brava"), Catalogo.card("molecada"))
+	await get_tree().create_timer(0.4).timeout
+	await _shot("comparar")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
 	hub._show_safra()

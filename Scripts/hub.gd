@@ -227,6 +227,8 @@ func _process(delta):
 			if is_instance_valid(pair[0]):
 				pair[0].text = pair[1].call()
 		_check_chest_ready()
+		if !Progresso.d["pending"].is_empty():
+			_show_pending()
 	_clan_timer += delta
 	if _clan_timer >= 5.0:
 		_clan_timer = 0.0
@@ -817,27 +819,29 @@ func _build_dock():
 			var ub = _button("Usar este", _pick_active_deck.bind(_deck_slot), 15)
 			ub.custom_minimum_size.y = 42
 			head.add_child(ub)
-		var row = HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", 4)
-		col.add_child(row)
 		var deck = Progresso.deck_cards(_deck_slot)
+		var row: HBoxContainer = null
 		for i in deck.size():
-			var cv = CardView.make(deck[i], 94)
+			if i % 4 == 0:
+				row = HBoxContainer.new()
+				row.alignment = BoxContainer.ALIGNMENT_CENTER
+				row.add_theme_constant_override("separation", 8)
+				col.add_child(row)
+			var cv = CardView.make(deck[i], 138)
 			if Progresso.can_upgrade(deck[i]):
 				cv.badge = "SUBIR"
 				cv.badge_color = Color(0.5, 1, 0.6)
 			cv.set_selected(_pending_card != null or _pending_index == i)
 			cv.tapped.connect(_on_deck_slot_tapped.bind(i))
-			cv.held.connect(_show_card_popup.bind(i))
+			cv.held.connect(_on_card_held.bind(i))
 			row.add_child(cv)
 			_drop_targets.append([cv, i])
 		var hint_row = HBoxContainer.new()
 		col.add_child(hint_row)
-		var hint = "Toque numa carta: escolhe pra trocar  ·  Segure: informações"
+		var hint = "Toque: baralho mostra a carta, coleção escolhe  ·  Segure: informações"
 		var active = false
 		if _pending_card != null:
-			hint = "👉 Toque AQUI EM CIMA no lugar onde %s entra" % _pending_card.card_name
+			hint = "👉 Toque no lugar de %s  ·  segure outra pra comparar" % _pending_card.card_name
 			active = true
 		elif _pending_index != -1 and _pending_index < deck.size():
 			hint = "👉 Toque na carta da coleção que entra no lugar de %s" % deck[_pending_index].card_name
@@ -1028,7 +1032,7 @@ func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Col
 	else:
 		# toque = escolhe pra trocar (o baralho está sempre em cima); segurar = informações
 		v.tapped.connect(_on_collection_tapped)
-		v.held.connect(_show_card_popup)
+		v.held.connect(_on_card_held)
 		_col_views[c] = v
 	return v
 
@@ -1122,13 +1126,11 @@ func _on_deck_slot_tapped(_card, index: int):
 		_cancel_placing()
 		_queue_refresh()
 		return
-	if _pending_index == index:
+	if _pending_index != -1:
 		_clear_selection()
 		return
-	# toque numa carta do baralho = escolhe ELA pra sair; depois toque na que entra
-	_pending_index = index
-	Sfx.play("carta")
-	_refresh_selection()
+	# toque numa carta do baralho = informações na hora (lá tem Evoluir e Trocar)
+	_show_card_popup(_card, index)
 
 
 func _on_collection_tapped(card: CardData):
@@ -1180,7 +1182,11 @@ func _popup(min_width: float = 600.0, tall: bool = false) -> VBoxContainer:
 func _close(v: Node):
 	var overlay = v.get_meta("overlay")
 	if is_instance_valid(overlay):
+		overlay.remove_from_group("hub_popup")
 		overlay.queue_free()
+	# fechou uma janela: se ficou prêmio esperando (ex.: subiu de nível ao
+	# evoluir uma carta), mostra agora -- antes só aparecia depois da próxima partida
+	_show_pending.call_deferred()
 
 
 const ABILITY_HELP = {
@@ -1482,6 +1488,126 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var back_b = _button("Voltar", _close.bind(v), 20)
 	back_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn_row.add_child(back_b)
+
+
+## segurar uma carta: informações. Se já tem OUTRA carta escolhida, compara as duas.
+func _on_card_held(card: CardData, deck_index: int = -1):
+	var other: CardData = _pending_card
+	if other == null and _pending_index != -1:
+		var deck = Progresso.deck_cards(_deck_slot)
+		if _pending_index < deck.size():
+			other = deck[_pending_index]
+	if other != null and other != card:
+		_show_compare(other, card)
+	else:
+		_show_card_popup(card, deck_index)
+
+
+## números de uma carta pra comparação: nome -> [texto, valor (ou null), maior é melhor?]
+func _compare_values(c: CardData) -> Dictionary:
+	var lv = Progresso.level(c)
+	var mult = PlayerProfile.compute_stat_multiplier(lv)
+	var out: Dictionary = {}
+	out["Custo"] = [str(c.cost), float(c.cost), false]
+	out["Nível"] = [str(lv) if Progresso.is_owned(c) else "não tem", float(lv), true]
+	out["Raridade"] = [Catalogo.RARITY_NAMES[Catalogo.rarity_of(c)], float(Catalogo.rarity_of(c)), true]
+	if c.is_spell():
+		var sp: SpellData = c.spell_data
+		out["Tipo"] = ["Feitiço", null, true]
+		if sp.damage > 0:
+			out["Dano"] = [str(int(round(sp.damage * mult))), sp.damage * mult, true]
+		if sp.heal_amount > 0:
+			out["Cura"] = [str(int(round(sp.heal_amount * mult))), sp.heal_amount * mult, true]
+		if sp.shield_amount > 0:
+			out["Escudo"] = [str(int(round(sp.shield_amount * mult))), sp.shield_amount * mult, true]
+		out["Raio"] = [str(int(sp.radius)), sp.radius, true]
+		if sp.duration > 0:
+			out["Duração"] = ["%.1fs" % sp.duration, sp.duration, true]
+	else:
+		var st: UnitData = DeckBuilder.get_unit_stats(c)
+		if st != null:
+			var kind = "Terrestre"
+			if st.unit_type == UnitData.UnitType.AIR:
+				kind = "Voador"
+			elif st.unit_type == UnitData.UnitType.BUILDING:
+				kind = "Construção"
+			out["Tipo"] = [kind, null, true]
+			out["Vida"] = [str(int(round(st.hp * mult))) + (" x%d" % st.unit_count if st.unit_count > 1 else ""), st.hp * mult * st.unit_count, true]
+			if st.damage > 0:
+				out["Dano"] = [str(int(round(st.damage * mult))), st.damage * mult, true]
+				if st.attack_speed > 0:
+					var dps = st.damage * mult / st.attack_speed * st.unit_count
+					out["Dano por segundo"] = [str(int(round(dps))), dps, true]
+					out["Vel. de ataque"] = ["%.1fs" % st.attack_speed, st.attack_speed, false]
+				out["Alcance"] = [str(int(st.attack_range)) if st.is_ranged else "Corpo a corpo", st.attack_range if st.is_ranged else 0.0, true]
+			if st.move_speed > 0:
+				out["Velocidade"] = ["%s (%d)" % [_speed_name(st.move_speed), int(st.move_speed)], st.move_speed, true]
+			var targets = "Chão"
+			match st.target_type:
+				UnitData.TargetType.BUILDING:
+					targets = "Só torres"
+				UnitData.TargetType.ALL:
+					targets = "Chão e ar"
+				UnitData.TargetType.AIR:
+					targets = "Só ar"
+			out["Alvos"] = [targets if st.damage > 0 else "-", null, true]
+	var skills = Catalogo.abilities(c)
+	out["Habilidades"] = [", ".join(skills) if !skills.is_empty() else "nenhuma", null, true]
+	return out
+
+
+func _show_compare(a: CardData, b: CardData):
+	var v = _popup(680)
+	v.add_child(_title("⚖ Comparar"))
+	var top = HBoxContainer.new()
+	top.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.add_theme_constant_override("separation", 40)
+	v.add_child(top)
+	for c in [a, b]:
+		var cv = CardView.make(c, 210, true)
+		cv.locked = false
+		cv.show_level = Progresso.is_owned(c)
+		cv.tapped.connect(_show_card_popup)
+		top.add_child(cv)
+	var va = _compare_values(a)
+	var vb = _compare_values(b)
+	var order = ["Custo", "Nível", "Raridade", "Tipo", "Vida", "Dano", "Dano por segundo", "Vel. de ataque", "Alcance", "Velocidade", "Alvos", "Cura", "Escudo", "Raio", "Duração", "Habilidades"]
+	var table = GridContainer.new()
+	table.columns = 3
+	table.add_theme_constant_override("h_separation", 8)
+	table.add_theme_constant_override("v_separation", 4)
+	table.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(table)
+	var green = Color(0.5, 1.0, 0.55)
+	for key in order:
+		if !va.has(key) and !vb.has(key):
+			continue
+		var ea: Array = va.get(key, ["-", null, true])
+		var eb: Array = vb.get(key, ["-", null, true])
+		var col_a = ThemeBuilder.COLOR_CREAM
+		var col_b = ThemeBuilder.COLOR_CREAM
+		if ea[1] != null and eb[1] != null and !is_equal_approx(float(ea[1]), float(eb[1])) and key != "Nível" and key != "Raridade":
+			var a_better = (float(ea[1]) > float(eb[1])) == bool(ea[2])
+			if a_better:
+				col_a = green
+			else:
+				col_b = green
+		var la = _wrap(str(ea[0]), 17, col_a)
+		la.custom_minimum_size.x = 230
+		la.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		la.add_theme_font_override("font", ThemeDB.fallback_font)
+		table.add_child(la)
+		var lk = _label(key, 13, ThemeBuilder.COLOR_STAT_LABEL)
+		lk.custom_minimum_size.x = 150
+		lk.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lk.add_theme_font_override("font", ThemeDB.fallback_font)
+		table.add_child(lk)
+		var lb = _wrap(str(eb[0]), 17, col_b)
+		lb.custom_minimum_size.x = 230
+		lb.add_theme_font_override("font", ThemeDB.fallback_font)
+		table.add_child(lb)
+	v.add_child(_label("Em verde: o melhor número de cada linha.", 13, ThemeBuilder.COLOR_STAT_LABEL))
+	v.add_child(_button("Voltar", _close.bind(v), 20))
 
 
 func _begin_swap(index: int, popup_box: Node):
