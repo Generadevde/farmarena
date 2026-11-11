@@ -103,6 +103,7 @@ func _build_shell():
 		var scroll = ScrollContainer.new()
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		_pages_root.add_child(scroll)
+		scroll.add_child(ScrollGlide.new())
 		var box = VBoxContainer.new()
 		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		box.add_theme_constant_override("separation", 12)
@@ -1164,6 +1165,7 @@ func _popup(min_width: float = 600.0, tall: bool = false) -> VBoxContainer:
 	v.add_theme_constant_override("separation", 10)
 	if tall:
 		var sc = ScrollContainer.new()
+		sc.add_child(ScrollGlide.new())
 		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		sc.custom_minimum_size = Vector2(min_width - 20, minf(1150.0, get_viewport_rect().size.y - 260.0))
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1352,6 +1354,7 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	outer.add_child(head)
 	# miolo com rolagem curta + rodapé FIXO com os botões (não precisa descer pra fechar)
 	var mid_scroll = ScrollContainer.new()
+	mid_scroll.add_child(ScrollGlide.new())
 	mid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	mid_scroll.custom_minimum_size = Vector2(640, clampf(get_viewport_rect().size.y - 880.0, 380.0, 700.0))
 	outer.add_child(mid_scroll)
@@ -2987,6 +2990,50 @@ func _toast(text: String):
 
 
 # ================================================================ desenho do baú
+## DESLIZE: quando você solta o dedo no meio de uma rolagem, a lista continua
+## andando um pouco e vai freando, em vez de parar seca. Fica pendurado em
+## qualquer ScrollContainer. Se o próprio Godot já estiver deslizando, não mexe.
+class ScrollGlide extends Node:
+	var _down := false
+	var _vel := 0.0
+	var _last := 0.0
+	var _coast := false
+	var _frames := 0
+	var _pos := 0.0
+
+	func _input(event):
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+			var sc: ScrollContainer = get_parent()
+			_down = event.pressed
+			if _down:
+				_coast = false
+				_vel = 0.0
+				_last = float(sc.scroll_vertical)
+			elif absf(_vel) > 140.0 and sc.is_visible_in_tree():
+				_coast = true
+				_frames = 0
+				_pos = float(sc.scroll_vertical)
+
+	func _process(delta):
+		var sc: ScrollContainer = get_parent()
+		if _down:
+			var now = float(sc.scroll_vertical)
+			_vel = clampf(lerpf(_vel, (now - _last) / maxf(delta, 0.001), 0.45), -7000.0, 7000.0)
+			_last = now
+		elif _coast:
+			_frames += 1
+			if _frames <= 2 and absf(float(sc.scroll_vertical) - _pos) > 1.5:
+				_coast = false  # já está deslizando sozinho
+				return
+			_pos += _vel * delta
+			var before = sc.scroll_vertical
+			sc.scroll_vertical = int(round(_pos))
+			_vel *= exp(-3.0 * delta)
+			var stuck = sc.scroll_vertical == before and absf(_vel * delta) >= 1.0
+			if absf(_vel) < 30.0 or stuck:
+				_coast = false
+
+
 ## raios girando atrás da carta na comemoração
 class BurstView extends Control:
 	var color := Color(1, 0.9, 0.4)
