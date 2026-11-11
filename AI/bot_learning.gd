@@ -971,6 +971,7 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 		data["total_wins"] = data.get("total_wins", 0) + 1  # só informativo (vitalício)
 		data["gold"] = data.get("gold", 0) + reward["gold"]
 		data["current_loss_streak"] = 0  # quebrou a má fase, começa a contar de novo
+		_bot_open_chest(data, bot_arena)
 	else:
 		data["total_losses"] = data.get("total_losses", 0) + 1
 		data["gold"] = data.get("gold", 0) + reward["gold"]
@@ -1109,32 +1110,64 @@ func _maybe_upgrade_base(data: Dictionary):
 	data["base_level"] = level + 1
 
 
+## Vitória do bot rende um baú, igual pra você: cópias de cartas da arena dele
+## (pelos mesmos pesos de raridade) e um pouco de ouro. Nem toda vitória rende,
+## porque você também espera o baú abrir e tem limite de espaço.
+const BOT_CHEST_CHANCE = 0.6
+
+
+func _bot_open_chest(data: Dictionary, bot_arena: int):
+	if randf() > BOT_CHEST_CHANCE:
+		return
+	var type = Progresso._weighted(Progresso.WIN_CHEST_WEIGHTS)
+	var def: Dictionary = Progresso.CHESTS[type]
+	data["gold"] = int(data.get("gold", 0)) + randi_range(int(def["ouro"][0]), int(def["ouro"][1]))
+	var pool: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and !CustomContent.is_spawn_only(c) and c.unlock_arena <= bot_arena:
+			pool.append(c)
+	if pool.is_empty():
+		return
+	var copies: Dictionary = data.get("card_copies", {})
+	for i in int(def["cartas"]):
+		var rarity = Progresso._weighted(def["pesos"])
+		if i == 0 and int(def["garante"]) > 0:
+			rarity = maxi(rarity, int(def["garante"]))
+		var card: CardData = Progresso._pick_of_rarity(pool, rarity)
+		if card == null:
+			continue
+		var range_q = Progresso.COPIES_PER_ROLL[Catalogo.rarity_of(card)]
+		copies[card.resource_path] = mini(400, int(copies.get(card.resource_path, 0)) + randi_range(range_q[0], range_q[1]))
+	data["card_copies"] = copies
+
+
+## MESMA regra do jogador: pra subir uma carta o bot precisa das CÓPIAS dela
+## (que vêm dos baús das vitórias) e do ouro, com o mesmo preço por raridade.
+## Antes bastava ouro + ter usado a carta, e eles subiam rápido demais.
 func _maybe_upgrade_cards(data: Dictionary):
 	var deck_paths: Array = data.get("deck_paths", [])
-	var card_usage: Dictionary = data.get("card_usage", {})
 	var card_levels: Dictionary = data.get("card_levels", {})
+	var copies: Dictionary = data.get("card_copies", {})
 	var gold: int = data.get("gold", 0)
 
 	for path in deck_paths:
-		var level = card_levels.get(path, 1)
+		var level = int(card_levels.get(path, 1))
 		if level >= PlayerProfile.MAX_CARD_LEVEL:
 			continue
-
-		var usage_needed = PlayerProfile.UPGRADE_BASE_USES + (level - 1) * PlayerProfile.UPGRADE_USES_GROWTH
-		var cost_needed = PlayerProfile.UPGRADE_BASE_COST + (level - 1) * PlayerProfile.UPGRADE_COST_GROWTH
-		var usage_have = card_usage.get(path, 0)
-
-		print("DEBUG upgrade check: ", path.get_file(), " -- uso: ", usage_have, "/", usage_needed,
-			" | ouro: ", gold, "/", cost_needed)
-
-		if usage_have < usage_needed or gold < cost_needed:
+		var card = Catalogo.find_card(str(path))
+		if card == null:
 			continue
-
-		card_usage[path] = usage_have - usage_needed
+		var rarity = Catalogo.rarity_of(card)
+		var copies_needed = int(Progresso.COPIES_NEEDED[rarity][clampi(level - 1, 0, 7)])
+		var cost_needed = int(round((PlayerProfile.UPGRADE_BASE_COST + (level - 1) * PlayerProfile.UPGRADE_COST_GROWTH) * Progresso.COIN_FACTOR[rarity]))
+		var copies_have = int(copies.get(path, 0))
+		if copies_have < copies_needed or gold < cost_needed:
+			continue
+		copies[path] = copies_have - copies_needed
 		gold -= cost_needed
 		card_levels[path] = level + 1
 
-	data["card_usage"] = card_usage
+	data["card_copies"] = copies
 	data["card_levels"] = card_levels
 	data["gold"] = gold
 
