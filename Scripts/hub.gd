@@ -114,6 +114,20 @@ func _build_shell():
 		scroll.add_child(margin)
 		_pages.append(box)
 
+	# doca do baralho: fica PRESA no topo da aba Cartas (não rola junto)
+	_deck_dock = PanelContainer.new()
+	var dsb = StyleBoxFlat.new()
+	dsb.bg_color = Color("#3a2618")
+	dsb.border_color = Color("#1e120a")
+	dsb.border_width_bottom = 4
+	dsb.content_margin_left = 10
+	dsb.content_margin_right = 10
+	dsb.content_margin_top = 8
+	dsb.content_margin_bottom = 8
+	_deck_dock.add_theme_stylebox_override("panel", dsb)
+	_deck_dock.theme = ThemeBuilder.game_theme
+	_pages_root.add_child(_deck_dock)
+
 	var bar = PanelContainer.new()
 	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bar.offset_top = -BAR_H
@@ -150,7 +164,10 @@ func _layout_pages():
 	size = get_viewport_rect().size
 	var w = _w()
 	var h = size.y - TOP_H - BAR_H
-	for i in _pages_root.get_child_count():
+	if is_instance_valid(_deck_dock):
+		_deck_dock.position = Vector2(w, 0)
+		_deck_dock.size = Vector2(w, _deck_dock.get_combined_minimum_size().y)
+	for i in _pages.size():
 		var sc: Control = _pages_root.get_child(i)
 		sc.position = Vector2(i * w, 0)
 		sc.size = Vector2(w, h)
@@ -755,96 +772,132 @@ func _equip_base_direct(b: BaseData):
 	_queue_refresh()
 
 
-func _build_cartas(box: Node):
+var _deck_dock: PanelContainer
+var _col_views: Dictionary = {}   # carta -> CardView da coleção (pra marcar a escolhida sem refazer a tela)
+
+
+## monta a doca fixa: troca Cartas/Torres, os 4 baralhos e as 7 cartas do
+## baralho sempre à vista. É nela que você toca pra pôr a carta escolhida.
+func _build_dock():
+	if !is_instance_valid(_deck_dock):
+		return
+	for c in _deck_dock.get_children():
+		_deck_dock.remove_child(c)
+		c.queue_free()
 	_drop_targets.clear()
+	var col = VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	_deck_dock.add_child(col)
 	var switch = HBoxContainer.new()
 	switch.add_theme_constant_override("separation", 8)
-	box.add_child(switch)
+	col.add_child(switch)
 	var names = ["🃏 Cartas", "🏰 Torres"]
 	for i in 2:
-		var sb = _button(names[i], _set_cards_view.bind(i), 22)
+		var sb = _button(names[i], _set_cards_view.bind(i), 19)
 		sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sb.custom_minimum_size.y = 64
+		sb.custom_minimum_size.y = 48
 		sb.modulate = Color(1, 1, 1) if i == _cards_view else Color(0.6, 0.58, 0.54)
 		switch.add_child(sb)
+	if _cards_view == 0:
+		var head = HBoxContainer.new()
+		head.add_theme_constant_override("separation", 6)
+		col.add_child(head)
+		for i in Progresso.DECK_SLOTS:
+			var b = _button(str(i + 1), _view_deck.bind(i), 18)
+			b.custom_minimum_size = Vector2(54, 42)
+			b.modulate = Color(1, 1, 0.75) if i == _deck_slot else Color(0.62, 0.6, 0.56)
+			head.add_child(b)
+		var is_active = _deck_slot == Progresso.active_deck()
+		var il = _label("Baralho %d · custo médio %.0f%s" % [_deck_slot + 1, Progresso.deck_average_cost(_deck_slot), " · EM USO" if is_active else ""], 15, ThemeBuilder.COLOR_STAT_LABEL)
+		il.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		il.clip_text = true
+		head.add_child(il)
+		if !is_active:
+			var ub = _button("Usar este", _pick_active_deck.bind(_deck_slot), 15)
+			ub.custom_minimum_size.y = 42
+			head.add_child(ub)
+		var row = HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 4)
+		col.add_child(row)
+		var deck = Progresso.deck_cards(_deck_slot)
+		for i in deck.size():
+			var cv = CardView.make(deck[i], 94)
+			if Progresso.can_upgrade(deck[i]):
+				cv.badge = "SUBIR"
+				cv.badge_color = Color(0.5, 1, 0.6)
+			cv.set_selected(_pending_card != null or _pending_index == i)
+			cv.tapped.connect(_on_deck_slot_tapped.bind(i))
+			cv.held.connect(_show_card_popup.bind(i))
+			row.add_child(cv)
+			_drop_targets.append([cv, i])
+		var hint_row = HBoxContainer.new()
+		col.add_child(hint_row)
+		var hint = "Toque numa carta: escolhe pra trocar  ·  Segure: informações"
+		var active = false
+		if _pending_card != null:
+			hint = "👉 Toque AQUI EM CIMA no lugar onde %s entra" % _pending_card.card_name
+			active = true
+		elif _pending_index != -1 and _pending_index < deck.size():
+			hint = "👉 Toque na carta da coleção que entra no lugar de %s" % deck[_pending_index].card_name
+			active = true
+		var hl = _label(hint, 15, Color(1, 0.9, 0.6) if active else ThemeBuilder.COLOR_STAT_LABEL)
+		hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hl.clip_text = true
+		hl.custom_minimum_size.y = 40
+		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hint_row.add_child(hl)
+		if active:
+			var xb = _button("✖", _clear_selection, 17)
+			xb.custom_minimum_size = Vector2(56, 40)
+			hint_row.add_child(xb)
+	_deck_dock.size = Vector2(_w(), _deck_dock.get_combined_minimum_size().y)
+
+
+## marca/desmarca a carta escolhida SEM refazer a tela (a rolagem não pula)
+func _refresh_selection():
+	_build_dock()
+	for c in _col_views:
+		if is_instance_valid(_col_views[c]):
+			_col_views[c].set_selected(_pending_card == c)
+
+
+func _clear_selection():
+	_cancel_placing()
+	_refresh_selection()
+
+
+func _build_cartas(box: Node):
+	_col_views.clear()
+	_build_dock()
+	# espaço do tamanho da doca, pra primeira linha não ficar escondida atrás dela
+	var spacer = Control.new()
+	spacer.custom_minimum_size.y = (_deck_dock.get_combined_minimum_size().y if is_instance_valid(_deck_dock) else 0.0) - 4.0
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(spacer)
 	if _cards_view == 1:
-		_build_place_bar()
 		_build_torres(box)
 		return
-	# baralhos
-	var deck_panel = _panel(box)
-	var head = HBoxContainer.new()
-	head.add_theme_constant_override("separation", 6)
-	deck_panel.add_child(head)
-	for i in Progresso.DECK_SLOTS:
-		var b = _button("Baralho %d" % (i + 1), _view_deck.bind(i), 17)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.modulate = Color(1, 1, 1) if i == _deck_slot else Color(0.62, 0.6, 0.56)
-		head.add_child(b)
-	var is_active = _deck_slot == Progresso.active_deck()
-	var info = HBoxContainer.new()
-	deck_panel.add_child(info)
-	var il = _label("Custo médio %.0f%s" % [Progresso.deck_average_cost(_deck_slot), "  ·  EM USO" if is_active else ""], 16, ThemeBuilder.COLOR_STAT_LABEL)
-	il.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.add_child(il)
-	if !is_active:
-		info.add_child(_button("Usar este", _pick_active_deck.bind(_deck_slot), 16))
-	var g = _grid(deck_panel, 4)
-	var deck = Progresso.deck_cards(_deck_slot)
-	for i in deck.size():
-		var v = CardView.make(deck[i], 160, true)
-		if Progresso.can_upgrade(deck[i]):
-			v.badge = "MELHORAR!"
-			v.badge_color = Color(0.5, 1, 0.6)
-		v.set_selected(_pending_card != null or _pending_index == i)
-		v.tapped.connect(_on_deck_slot_tapped.bind(i))
-		g.add_child(v)
-		_drop_targets.append([v, i])
-	var hint = "Toque em qualquer carta (do baralho ou da coleção) pra ver as informações, melhorar e trocar. Ou SEGURE o dedo e arraste direto pro lugar."
-	if _pending_card != null:
-		hint = "👉 Toque na posição do baralho onde %s vai entrar." % _pending_card.card_name
-	elif _pending_index != -1:
-		hint = "👉 Agora toque na carta da coleção que vai entrar no lugar."
-	deck_panel.add_child(_wrap(hint, 15, Color(1, 0.9, 0.6) if (_pending_card != null or _pending_index != -1) else ThemeBuilder.COLOR_STAT_LABEL))
-	if _pending_card != null or _pending_index != -1:
-		deck_panel.add_child(_button("Cancelar troca", _cancel_placing_and_refresh, 16))
 
-	# filtro por turma
-	var chips = HFlowContainer.new()
-	chips.add_theme_constant_override("h_separation", 6)
-	box.add_child(chips)
-	var all_b = _button("Todas", _set_filter.bind(""), 15)
-	all_b.custom_minimum_size.y = 44
-	all_b.modulate = Color(1, 1, 1) if _filter_turma == "" else Color(0.62, 0.6, 0.56)
-	chips.add_child(all_b)
+	# filtros: 3 botões numa linha só (cada toque passa pro próximo)
+	var frow = HBoxContainer.new()
+	frow.add_theme_constant_override("separation", 6)
+	box.add_child(frow)
+	var turma_names: Array = [""]
 	for n in CustomContent.all_nations():
-		if n == null:
-			continue
-		var cb = _button(n.nation_name, _set_filter.bind(n.nation_name), 15)
-		cb.custom_minimum_size.y = 44
-		cb.modulate = n.color.lightened(0.35) if _filter_turma == n.nation_name else Color(0.62, 0.6, 0.56)
-		chips.add_child(cb)
+		if n != null:
+			turma_names.append(n.nation_name)
+	for spec in [["Ordem: " + SORT_NAMES[_sort_mode], _set_sort.bind((_sort_mode + 1) % SORT_NAMES.size()), _sort_mode != 0],
+			["Tipo: " + KIND_NAMES[_filter_kind], _set_kind.bind((_filter_kind + 1) % KIND_NAMES.size()), _filter_kind != 0],
+			["Turma: " + (_filter_turma if _filter_turma != "" else "Todas"), _set_filter.bind(str(turma_names[(turma_names.find(_filter_turma) + 1) % turma_names.size()])), _filter_turma != ""]]:
+		var fb = _button(str(spec[0]), spec[1], 15)
+		fb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		fb.custom_minimum_size.y = 46
+		fb.clip_text = true
+		fb.modulate = Color(1, 1, 0.75) if spec[2] else Color(0.8, 0.77, 0.72)
+		frow.add_child(fb)
 
-	# ordem + filtro por tipo
-	var sort_row = HFlowContainer.new()
-	sort_row.add_theme_constant_override("h_separation", 6)
-	box.add_child(sort_row)
-	sort_row.add_child(_label("Ordem:", 15, ThemeBuilder.COLOR_STAT_LABEL))
-	for i in SORT_NAMES.size():
-		var ob = _button(SORT_NAMES[i], _set_sort.bind(i), 15)
-		ob.custom_minimum_size.y = 44
-		ob.modulate = Color(1, 1, 0.75) if _sort_mode == i else Color(0.62, 0.6, 0.56)
-		sort_row.add_child(ob)
-	var kind_row = HFlowContainer.new()
-	kind_row.add_theme_constant_override("h_separation", 6)
-	box.add_child(kind_row)
-	kind_row.add_child(_label("Tipo:", 15, ThemeBuilder.COLOR_STAT_LABEL))
-	for i in KIND_NAMES.size():
-		var kb = _button(KIND_NAMES[i], _set_kind.bind(i), 15)
-		kb.custom_minimum_size.y = 44
-		kb.modulate = Color(1, 1, 0.75) if _filter_kind == i else Color(0.62, 0.6, 0.56)
-		kind_row.add_child(kb)
-
+	var in_deck: Array = Progresso.deck_paths(_deck_slot)
 	var owned: Array = []
 	var missing: Array = []
 	for c in CardDatabase.all_cards:
@@ -855,7 +908,8 @@ func _build_cartas(box: Node):
 		if _filter_kind != 0 and _card_kind(c) != _filter_kind:
 			continue
 		if Progresso.is_owned(c):
-			owned.append(c)
+			if !in_deck.has(c.resource_path):
+				owned.append(c)
 		else:
 			missing.append(c)
 	owned.sort_custom(_sort_cards)
@@ -865,16 +919,16 @@ func _build_cartas(box: Node):
 	if !news.is_empty() and _filter_turma == "" and _filter_kind == 0:
 		var np = _panel(box)
 		np.add_child(_label("🆕 Novidades desta safra", 19, Color(0.5, 1, 0.6)))
-		var ng = _grid(np, 3)
+		var ng = _grid(np, 4)
 		for c in news:
-			var nv = CardView.make(c, 190, true)
+			var nv = CardView.make(c, 150, true)
 			nv.show_level = Progresso.is_owned(c)
 			nv.badge = "NOVIDADE"
 			nv.badge_color = Color(0.5, 1, 0.6)
 			nv.tapped.connect(_show_card_popup)
 			ng.add_child(nv)
-	box.add_child(_title("Coleção  %d/%d" % [owned.size(), owned.size() + missing.size()]))
-	var og = _grid(box, 3)
+	box.add_child(_label("Fora do baralho: %d carta(s)   ·   coleção %d/%d" % [owned.size(), owned.size() + in_deck.size(), owned.size() + in_deck.size() + missing.size()], 16, ThemeBuilder.COLOR_GOLD))
+	var og = _grid(box, 4)
 	for c in owned:
 		var badge = ""
 		var badge_col = Color(1, 0.9, 0.5)
@@ -890,7 +944,7 @@ func _build_cartas(box: Node):
 		og.add_child(_collection_entry(c, false, badge, badge_col))
 	if !missing.is_empty():
 		box.add_child(_title("Ainda não encontradas"))
-		var mg = _grid(box, 3)
+		var mg = _grid(box, 4)
 		var arena_now = ArenaManager.get_player_arena()
 		for c in missing:
 			var is_locked = c.unlock_arena > arena_now
@@ -958,7 +1012,7 @@ func _sort_cards(a: CardData, b: CardData) -> bool:
 
 ## uma carta da coleção: grande, com os dados dentro dela
 func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Color, hide_art: bool = false) -> Control:
-	var v = CardView.make(c, 214, true)
+	var v = CardView.make(c, 162, true)
 	v.locked = hide_art
 	v.show_level = !missing
 	if badge == "" and !missing:
@@ -970,8 +1024,10 @@ func _collection_entry(c: CardData, missing: bool, badge: String, badge_col: Col
 	if missing:
 		v.tapped.connect(_show_card_popup)
 	else:
+		# toque = escolhe pra trocar (o baralho está sempre em cima); segurar = informações
 		v.tapped.connect(_on_collection_tapped)
-		v.held.connect(_begin_drag)
+		v.held.connect(_show_card_popup)
+		_col_views[c] = v
 	return v
 
 
@@ -1032,39 +1088,6 @@ func _build_place_bar():
 	if is_instance_valid(_place_bar):
 		_place_bar.queue_free()
 	_place_bar = null
-	if _pending_card == null:
-		return
-	var p = PanelContainer.new()
-	p.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	p.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	p.offset_bottom = -BAR_H
-	add_child(p)
-	_place_bar = p
-	var v = VBoxContainer.new()
-	p.add_child(v)
-	var head = HBoxContainer.new()
-	v.add_child(head)
-	var l = _label("👉 %s entra no lugar de qual? (Baralho %d)" % [_pending_card.card_name, _deck_slot + 1], 17, Color(1, 0.9, 0.6))
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.clip_text = true
-	head.add_child(l)
-	var more = _button("ver detalhes", _show_card_popup.bind(_pending_card), 15)
-	more.custom_minimum_size.y = 44
-	head.add_child(more)
-	var cancel = _button("✖", _cancel_placing_and_refresh, 18)
-	cancel.custom_minimum_size = Vector2(60, 44)
-	head.add_child(cancel)
-	var row = HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 4)
-	v.add_child(row)
-	var deck = Progresso.deck_cards(_deck_slot)
-	for i in deck.size():
-		var cv = CardView.make(deck[i], 92)
-		cv.show_level = false
-		cv.tapped.connect(_on_deck_slot_tapped.bind(i))
-		row.add_child(cv)
-		_drop_targets.append([cv, i])
 
 
 func _view_deck(i: int):
@@ -1097,12 +1120,13 @@ func _on_deck_slot_tapped(_card, index: int):
 		_cancel_placing()
 		_queue_refresh()
 		return
-	if _pending_index != -1:
-		_cancel_placing()
-		_queue_refresh()
+	if _pending_index == index:
+		_clear_selection()
 		return
-	# toque numa carta do baralho = informações + melhorar + trocar
-	_show_card_popup(_card, index)
+	# toque numa carta do baralho = escolhe ELA pra sair; depois toque na que entra
+	_pending_index = index
+	Sfx.play("carta")
+	_refresh_selection()
 
 
 func _on_collection_tapped(card: CardData):
@@ -1111,9 +1135,11 @@ func _on_collection_tapped(card: CardData):
 		_cancel_placing()
 		_queue_refresh()
 		return
-	# toque = abre a descrição (lá tem o botão "Usar no baralho"); pra ir direto, segure e arraste
-	_cancel_placing()
-	_show_card_popup(card)
+	# toque = escolhe a carta; agora é só tocar no lugar dela no baralho lá em cima
+	_pending_card = null if _pending_card == card else card
+	_pending_index = -1
+	Sfx.play("carta")
+	_refresh_selection()
 
 
 # ---------------------------------------------------------------- popup de carta
@@ -1213,18 +1239,25 @@ func _ability_help(skill: String) -> String:
 ## quanto sobe no próximo nível
 func _stat_tile(grid: Node, label_text: String, value: String, plus: String = ""):
 	var p = PanelContainer.new()
-	p.custom_minimum_size = Vector2(292, 0)
+	p.custom_minimum_size = Vector2(198, 0)
 	grid.add_child(p)
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 0)
 	p.add_child(v)
-	v.add_child(_label(label_text, 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var name_l = _label(label_text, 12, ThemeBuilder.COLOR_STAT_LABEL)
+	name_l.add_theme_font_override("font", ThemeDB.fallback_font)
+	name_l.clip_text = true
+	v.add_child(name_l)
 	var h = HBoxContainer.new()
-	h.add_theme_constant_override("separation", 8)
+	h.add_theme_constant_override("separation", 6)
 	v.add_child(h)
-	h.add_child(_label(value, 21))
+	var val_l = _label(value, 18)
+	val_l.add_theme_font_override("font", ThemeDB.fallback_font)
+	h.add_child(val_l)
 	if plus != "":
-		h.add_child(_label(plus, 17, Color(0.5, 1.0, 0.55)))
+		var plus_l = _label(plus, 15, Color(0.5, 1.0, 0.55))
+		plus_l.add_theme_font_override("font", ThemeDB.fallback_font)
+		h.add_child(plus_l)
 
 
 static func _speed_name(sp: float) -> String:
@@ -1312,11 +1345,24 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var owned = Progresso.is_owned(card) and level_view <= 0
 	if level_view <= 0:
 		Progresso.clear_new(card)
-	var v = _popup(640, true)
+	var outer = _popup(660)
 	var head = HBoxContainer.new()
 	head.add_theme_constant_override("separation", 14)
-	v.add_child(head)
-	var cv = CardView.make(card, 220, true)
+	outer.add_child(head)
+	# miolo com rolagem curta + rodapé FIXO com os botões (não precisa descer pra fechar)
+	var mid_scroll = ScrollContainer.new()
+	mid_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	mid_scroll.custom_minimum_size = Vector2(640, clampf(get_viewport_rect().size.y - 880.0, 380.0, 700.0))
+	outer.add_child(mid_scroll)
+	var v = VBoxContainer.new()
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.add_theme_constant_override("separation", 8)
+	v.set_meta("overlay", outer.get_meta("overlay"))
+	mid_scroll.add_child(v)
+	var foot = VBoxContainer.new()
+	foot.add_theme_constant_override("separation", 6)
+	outer.add_child(foot)
+	var cv = CardView.make(card, 190, true)
 	cv.locked = false
 	cv.show_level = owned or level_view > 0
 	if level_view > 0:
@@ -1348,29 +1394,29 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 			bar.max_value = need
 			bar.value = mini(Progresso.copies(card), need)
 			bar.show_percentage = false
-			bar.custom_minimum_size.y = 22
-			v.add_child(bar)
+			bar.custom_minimum_size.y = 18
+			foot.add_child(bar)
 			var missing: Array = []
 			if Progresso.copies(card) < need:
 				missing.append("faltam %d cópia(s)" % (need - Progresso.copies(card)))
 			if PlayerProfile.coins < Progresso.upgrade_cost(card):
 				missing.append("faltam 💰 %d" % (Progresso.upgrade_cost(card) - PlayerProfile.coins))
-			var up = _button("⬆ MELHORAR pro nível %d   (%d/%d cópias · 💰 %d)" % [lv + 1, Progresso.copies(card), need, Progresso.upgrade_cost(card)], _upgrade.bind(card, v, deck_index), 19)
+			var up = _button("⬆ EVOLUIR pro nível %d   (%d/%d cópias · 💰 %d)" % [lv + 1, Progresso.copies(card), need, Progresso.upgrade_cost(card)], _upgrade.bind(card, v, deck_index), 19)
 			up.disabled = !Progresso.can_upgrade(card)
 			if !up.disabled:
 				up.modulate = Color(0.7, 1.0, 0.7)
-			v.add_child(up)
-			if !missing.is_empty():
-				v.add_child(_label("Pra melhorar: " + " e ".join(missing), 15, Color(1, 0.8, 0.55)))
+			elif !missing.is_empty():
+				up.text = "⬆ Evoluir pro nível %d: %s" % [lv + 1, " e ".join(missing)]
+			foot.add_child(up)
 		else:
-			v.add_child(_label("⭐ Nível máximo!", 18, ThemeBuilder.COLOR_GOLD))
+			foot.add_child(_label("⭐ Nível máximo!", 18, ThemeBuilder.COLOR_GOLD))
 
 	# números em quadradinhos (em verde, o ganho do próximo nível)
 	var mult = PlayerProfile.compute_stat_multiplier(lv)
 	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) if can_level else mult
 	if can_level:
 		v.add_child(_label("Números no nível %d   (em verde: o que ganha no nível %d)" % [lv, lv + 1], 14, ThemeBuilder.COLOR_STAT_LABEL))
-	var g = _grid(v, 2)
+	var g = _grid(v, 3)
 	_fill_stat_tiles(g, card, mult, next_mult)
 	var target_line = _target_text(card)
 	if target_line != "":
@@ -1410,21 +1456,28 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 		hist.add_child(_wrap("Na temporada: ainda sem partidas registradas.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	hist.add_child(_wrap("Libera na Arena %d (%s)" % [maxi(1, card.unlock_arena), ArenaManager.get_arena_info(maxi(1, card.unlock_arena)).get("name", "")], 15, ThemeBuilder.COLOR_STAT_LABEL))
 
+	var btn_row = HBoxContainer.new()
+	btn_row.add_theme_constant_override("separation", 8)
+	foot.add_child(btn_row)
 	if owned:
 		if deck_index >= 0:
-			var sw = _button("🔁 Trocar esta carta do baralho", _begin_swap.bind(deck_index, v), 20)
+			var sw = _button("🔁 Trocar", _begin_swap.bind(deck_index, v), 20)
+			sw.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			sw.modulate = Color(1.0, 0.92, 0.6)
-			v.add_child(sw)
+			btn_row.add_child(sw)
 		elif !Progresso.deck_paths(_deck_slot).has(card.resource_path):
-			var use_b = _button("➕ Usar no Baralho %d" % (_deck_slot + 1), _begin_place.bind(card, v), 22)
+			var use_b = _button("➕ Usar no baralho", _begin_place.bind(card, v), 20)
+			use_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			use_b.modulate = Color(1.0, 0.92, 0.6)
-			v.add_child(use_b)
+			btn_row.add_child(use_b)
 	elif level_view > 0:
 		var mine_text = "Você tem esta carta no nível %d." % Progresso.level(card) if Progresso.is_owned(card) else "Você ainda não tem esta carta."
-		v.add_child(_wrap("Números no nível %d, como %s usa.  %s" % [lv, whose, mine_text], 16, Color(1, 0.85, 0.5)))
+		v.add_child(_wrap("Números no nível %d, como %s usa.  %s" % [lv, whose, mine_text], 15, Color(1, 0.85, 0.5)))
 	else:
-		v.add_child(_wrap("Você ainda não tem esta carta. Ela aparece nos baús e na Feira a partir da Arena %d." % maxi(1, card.unlock_arena), 16, Color(1, 0.85, 0.5)))
-	v.add_child(_button("Fechar", _close.bind(v)))
+		v.add_child(_wrap("Você ainda não tem esta carta. Ela aparece nos baús e na Feira a partir da Arena %d." % maxi(1, card.unlock_arena), 15, Color(1, 0.85, 0.5)))
+	var back_b = _button("Voltar", _close.bind(v), 20)
+	back_b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn_row.add_child(back_b)
 
 
 func _begin_swap(index: int, popup_box: Node):

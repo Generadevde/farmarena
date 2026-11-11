@@ -163,9 +163,18 @@ func _ready():
 		n.queue_free()
 	hub._go_tab(1)
 	await get_tree().create_timer(0.3).timeout
-	hub._on_deck_slot_tapped(Progresso.deck_cards(0)[0], 0)
+	hub._show_card_popup(Progresso.deck_cards(0)[0], 0)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("carta_baralho")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	var pick_c = Progresso.owned_cards().filter(func(c): return !Progresso.deck_paths(0).has(c.resource_path))
+	if !pick_c.is_empty():
+		hub._on_collection_tapped(pick_c[0])
+	hub._pages_root.get_child(1).scroll_vertical = 500
+	await get_tree().create_timer(0.4).timeout
+	await _shot("doca")
+	hub._clear_selection()
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
 	hub._show_safra()
