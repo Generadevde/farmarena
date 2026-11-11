@@ -427,6 +427,12 @@ func _configure_physics_layers():
 	else:
 		collision_layer = LAYER_GROUND_PLAYER if team == GameManager.Team.PLAYER else LAYER_GROUND_ENEMY
 		collision_mask = LAYER_BUILDING
+	# tropa NÃO esbarra nas torres do próprio time: quem é solto atrás da torre
+	# passa por ela em vez de ficar preso (o caminho até o inimigo é reto)
+	if stats.unit_type != UnitData.UnitType.BUILDING and is_inside_tree():
+		for own_tower in get_tree().get_nodes_in_group("player_base" if team == GameManager.Team.PLAYER else "enemy_base"):
+			if own_tower is PhysicsBody2D:
+				add_collision_exception_with(own_tower)
 
 
 # raio de DESVIO -- cresce mais devagar que o raio de colisão de verdade
@@ -487,9 +493,29 @@ func _set_nav_velocity(desired_velocity: Vector2):
 		_on_velocity_computed(desired_velocity)
 
 
+var _stuck_time := 0.0
+
+
 func _on_velocity_computed(safe_velocity: Vector2):
+	var before = global_position
 	velocity = safe_velocity
 	move_and_slide()
+	# ANTI-TRAVA: quer andar mas não saiu do lugar (ex.: nasceu atrás de uma
+	# torre ou construção e o caminho é reto por dentro dela). Depois de meio
+	# segundo assim, dá passos de lado, pro centro do mapa, até destravar.
+	var dt = get_physics_process_delta_time()
+	if safe_velocity.length() > 8.0 and global_position.distance_to(before) < safe_velocity.length() * dt * 0.25:
+		_stuck_time += dt
+	else:
+		_stuck_time = maxf(0.0, _stuck_time - dt * 2.0)
+	if _stuck_time > 0.5:
+		var side = Vector2(1.0 if global_position.x < 0.0 else -1.0, 0.0)
+		if absf(global_position.x) < 12.0:
+			side = Vector2(1.0 if get_instance_id() % 2 == 0 else -1.0, 0.0)
+		velocity = side * maxf(safe_velocity.length(), 40.0)
+		move_and_slide()
+		if _stuck_time > 1.6:
+			_stuck_time = 0.3  # deu uma boa andada de lado: tenta ir reto de novo
 	_resolve_weight_collisions()
 	_apply_soft_separation()
 
