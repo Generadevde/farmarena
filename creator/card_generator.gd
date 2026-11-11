@@ -840,7 +840,7 @@ static func describe_unit(stats: UnitData, role: int) -> Dictionary:
 # habilidades extras que o gerador pode somar a uma carta (todas passam na
 # auditoria automática). Quanto mais habilidades, mais rara a carta -- e um
 # pouco menos de vida/dano, pra força total continuar na mesma régua.
-const EXTRA_WEIGHTS = [34, 26, 25, 11, 4]  # raridade alvo: Normal, Rara, Épica, Lendária, Mística
+const EXTRA_WEIGHTS = [40, 30, 23, 5, 2]  # raridade alvo: Normal, Rara, Épica, Lendária, Mística
 const EXTRA_POOL = ["escudo", "roubo", "casca", "regen", "primeiro", "furia_entrada", "onda", "investida", "executa", "furia_morte", "cresce",
 	"cura_matar", "devolve", "inabalavel", "explode", "clone", "contra", "ouro_matar", "rouba", "corrente", "longe", "mais_um", "avanco", "levanta", "efeito"]
 
@@ -985,7 +985,35 @@ static func add_extras(st: UnitData, rng: RandomNumberGenerator, n: int) -> Arra
 
 ## gera uma carta completa (na memória) no formato do Catalogo.
 ## Devolve {"def": {...}, "stats": UnitData|null, "spell": SpellData|null}
+## FREQUÊNCIA das raridades do gerador (cartas e torres):
+## Normal 40% · Rara 30% · Épica 23% · Lendária 5% · Mística 2%
 static func generate_def(seed_value: int, turma: String = "", kind: int = 0, role: int = -1, cost: int = 0) -> Dictionary:
+	var trng = RandomNumberGenerator.new()
+	trng.seed = hash("alvo%d" % seed_value)
+	var target = _roll_extra(trng)
+	# tenta até a raridade REAL (a que sai dos pontos de habilidade) bater com a sorteada
+	var best: Dictionary = {}
+	var best_gap = 99
+	for attempt in 12:
+		var gen = _generate_once(seed_value if attempt == 0 else hash("%d#%d" % [seed_value, attempt]), turma, kind, role, cost, target)
+		var gap = absi(gen_rarity(gen) - target)
+		if gap < best_gap:
+			best_gap = gap
+			best = gen
+		if gap == 0:
+			break
+	return best
+
+
+## raridade real de uma carta gerada (pelos pontos de habilidade)
+static func gen_rarity(gen: Dictionary) -> int:
+	var score = 0
+	for pair in (Catalogo.spell_abilities(gen["spell"]) if gen["spell"] != null else Catalogo.unit_abilities(gen["stats"])):
+		score += int(pair[1])
+	return Catalogo.rarity_from_score(score, int(gen["def"].get("raridade", 0)))
+
+
+static func _generate_once(seed_value: int, turma: String, kind: int, role: int, cost: int, target: int) -> Dictionary:
 	var rng = RandomNumberGenerator.new()
 	rng.seed = seed_value
 	if turma == "":
@@ -1037,7 +1065,14 @@ static func generate_def(seed_value: int, turma: String = "", kind: int = 0, rol
 	# filhotes... Elas já vêm prontas, então pulam o sorteio de habilidade.
 	var special: Dictionary = {}
 	if rng.randf() < 0.3 and Catalogo.card("abelha") != null:
-		special = _special_spell(rng, turma, cost) if is_spell else _special_unit(rng, turma, cost)
+		# só as receitas que cabem na raridade sorteada
+		var allowed: Array = []
+		if is_spell:
+			allowed = ["barril", "tornado"] if target == Catalogo.EPICA else (["cemiterio"] if target == Catalogo.LENDARIA else [])
+		else:
+			allowed = ["longe", "corredor"] if target <= Catalogo.RARA else (["voador_filhotes", "mineiro", "balao", "bruxa"] if target == Catalogo.EPICA else [])
+		if !allowed.is_empty():
+			special = _special_spell(rng, turma, cost, allowed) if is_spell else _special_unit(rng, turma, cost, allowed)
 	if !special.is_empty():
 		stats = special.get("stats", null)
 		spell = special.get("spell", null)
@@ -1047,12 +1082,15 @@ static func generate_def(seed_value: int, turma: String = "", kind: int = 0, rol
 	# RARIDADE 3.0: sorteia a raridade ALVO primeiro. Normal e Rara saem sem
 	# habilidade nenhuma; Épica, Lendária e Mística ganham habilidades até
 	# somar os pontos da faixa (ver Catalogo.rarity_from_score).
-	var target = _roll_extra(rng)
 	if !special.is_empty():
-		target = Catalogo.RARA  # sem habilidade = Rara; com habilidade, a raridade sai dos pontos
+		pass  # receita pronta: a raridade sai dos pontos dela
 	elif stats != null:
 		if target <= Catalogo.RARA:
 			Catalogo.strip_abilities(stats)
+			if stats.spawns_units and stats.unit_type != UnitData.UnitType.BUILDING:
+				stats.spawns_units = false
+				stats.hp = int(round(stats.hp * 1.5 / 10.0)) * 10
+				stats.damage = int(round(stats.damage * 1.5 / 5.0)) * 5
 			text = describe_unit(stats, role)
 			if target == Catalogo.RARA:
 				# Rara: sem habilidade, mas números um pouco melhores
@@ -1125,7 +1163,7 @@ static func _token_plural(token: String) -> String:
 	return (c.card_name + "s") if c != null else "Bichos"
 
 
-static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int) -> Dictionary:
+static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int, allowed: Array = SPECIAL_UNITS) -> Dictionary:
 	var k = power_per_cost() / DEFAULT_POWER_PER_COST * rng.randf_range(0.93, 1.07)
 	var token = str(TURMA_TOKEN.get(turma, "moleque"))
 	var st = UnitData.new()
@@ -1136,7 +1174,7 @@ static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int) 
 	st.target_type = UnitData.TargetType.GROUND
 	var hp_v := 100.0
 	var dmg_v := 10.0
-	var which = SPECIAL_UNITS[rng.randi() % SPECIAL_UNITS.size()]
+	var which = allowed[rng.randi() % allowed.size()]
 	var c = cost
 	var role = CardData.CardRole.VERSATIL
 	var pros: Array = []
@@ -1232,11 +1270,11 @@ static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int) 
 	return {"id": which, "stats": st, "custo": c, "papel": role, "pros": pros, "cons": cons}
 
 
-static func _special_spell(rng: RandomNumberGenerator, turma: String, cost: int) -> Dictionary:
+static func _special_spell(rng: RandomNumberGenerator, turma: String, cost: int, allowed: Array = SPECIAL_SPELLS) -> Dictionary:
 	var token = str(TURMA_TOKEN.get(turma, "moleque"))
 	var small = token in SMALL_TOKENS
 	var sp = SpellData.new()
-	var which = SPECIAL_SPELLS[rng.randi() % SPECIAL_SPELLS.size()]
+	var which = allowed[rng.randi() % allowed.size()]
 	var c = cost
 	var role = CardData.CardRole.CONTROLE
 	var pros: Array = []
@@ -1281,3 +1319,101 @@ static func _special_spell(rng: RandomNumberGenerator, turma: String, cost: int)
 			pros = ["Puxa todo mundo pro meio", "Junta os inimigos pra um dano em área"]
 			cons = ["Quase não causa dano"]
 	return {"id": which, "spell": sp, "custo": c, "papel": role, "pros": pros, "cons": cons, "nome": nm}
+
+
+
+# ================================================================ gerador de TORRES (Safra)
+const TOWER_NAMES_A = {"HP": ["Paiol", "Muralha", "Cercado", "Barracão"], "CANNON": ["Guarita", "Torre", "Mirante", "Canhoneira"],
+	"PRODUCTION": ["Engenho", "Roda d'Água", "Alambique", "Casa de Farinha"], "CAPACITY": ["Silo", "Tulha", "Depósito", "Celeiro"],
+	"HEAL": ["Bica", "Cacimba", "Fonte", "Enfermaria"], "AURA": ["Sineira", "Fogueira", "Cata-vento", "Espantadeira"]}
+const TOWER_NAMES_B = ["do Compadre", "da Vovó", "Torta", "de Pau a Pique", "da Encruzilhada", "do Seu Zé", "Mal-Assombrada", "de Lata", "Remendada", "do Fim do Mundo"]
+const TOWER_PIECES = {"HP": ["forte", "celeiro"], "CANNON": ["celeiro", "castelo_feno", "antena"], "PRODUCTION": ["moinho", "cocho"],
+	"CAPACITY": ["armazem"], "HEAL": ["caixa_dagua"], "AURA": ["capela", "colmeia"]}
+const TOWER_COLORS = ["#b8402c", "#3c6cb8", "#58a040", "#e8c040", "#8a5a34", "#c880c0", "#50b0a8", "#e07a28", "#6a7480", "#f2ede0"]
+
+
+## gera uma torre no formato do Catalogo (def pra Catalogo.build_base), com a
+## raridade sorteada na mesma frequência das cartas.
+static func generate_base_def(seed_value: int) -> Dictionary:
+	var rng = RandomNumberGenerator.new()
+	rng.seed = hash("torre%d" % seed_value)
+	var target = _roll_extra(rng)
+	var kind = "HP"
+	var b: Dictionary = {}
+	var pros: Array = []
+	var cons: Array = []
+	var category = "DEFENSIVO"
+	match target:
+		Catalogo.COMUM:
+			if rng.randf() < 0.5:
+				kind = "HP"
+				b = {"base_hp": rng.randi_range(160, 180) * 10}
+				pros = ["Vida muito alta"]
+				cons = ["Não ataca", "Nenhum bônus"]
+			else:
+				kind = "CANNON"
+				b = {"base_hp": rng.randi_range(120, 135) * 10, "attack_damage": rng.randi_range(6, 8) * 5, "attack_range": float(rng.randi_range(24, 27) * 5), "attack_speed": 1.0}
+				pros = ["Atira sozinha", "Boa vida"]
+				cons = ["Tiro fraco"]
+		Catalogo.RARA:
+			kind = "CANNON"
+			category = "OFENSIVO"
+			if rng.randf() < 0.5:
+				b = {"base_hp": rng.randi_range(100, 110) * 10, "attack_damage": rng.randi_range(8, 10) * 5, "attack_range": float(rng.randi_range(34, 37) * 5), "attack_speed": 2.4, "is_aoe": true, "aoe_radius": 55.0, "projectile_speed": 250.0}
+				pros = ["Tiro em área", "Alcance longo"]
+				cons = ["Atira devagar", "Menos vida"]
+			else:
+				b = {"base_hp": rng.randi_range(90, 100) * 10, "attack_damage": rng.randi_range(15, 18) * 5, "attack_range": float(rng.randi_range(38, 42) * 5), "attack_speed": 2.0, "projectile_speed": 420.0}
+				pros = ["Tiro forte", "Alcance enorme"]
+				cons = ["Pouca vida", "Atira devagar"]
+		Catalogo.EPICA:
+			var pick = rng.randi() % 3
+			if pick == 0:
+				kind = "PRODUCTION"
+				category = "ECONOMICO"
+				var boost = rng.randi_range(10, 14) / 100.0
+				b = {"base_hp": rng.randi_range(110, 120) * 10, "production_speed_boost": boost}
+				pros = ["Recurso %d%% mais rápido" % int(round(boost * 100))]
+				cons = ["Não ataca", "Menos vida"]
+			elif pick == 1:
+				kind = "CAPACITY"
+				category = "ECONOMICO"
+				var cap = rng.randi_range(4, 6) * 5
+				b = {"base_hp": rng.randi_range(115, 125) * 10, "capacity_bonus": cap}
+				pros = ["Guarda %d a mais de recurso" % cap]
+				cons = ["Não ataca"]
+			else:
+				kind = "HEAL"
+				b = {"base_hp": rng.randi_range(115, 125) * 10, "heal_amount": rng.randi_range(12, 16), "heal_radius": 110.0, "heal_interval": 1.0}
+				pros = ["Cura aliados próximos"]
+				cons = ["Não ataca"]
+		Catalogo.LENDARIA:
+			if rng.randf() < 0.35:
+				kind = "PRODUCTION"
+				category = "ECONOMICO"
+				var boost2 = rng.randi_range(18, 22) / 100.0
+				b = {"base_hp": rng.randi_range(90, 100) * 10, "production_speed_boost": boost2}
+				pros = ["Recurso %d%% mais rápido" % int(round(boost2 * 100))]
+				cons = ["Pouca vida", "Não ataca"]
+			else:
+				kind = "AURA"
+				var eff = ["SLOW", "POISON", "WEAKNESS"][rng.randi() % 3]
+				b = {"base_hp": rng.randi_range(115, 125) * 10, "aura_radius": float(rng.randi_range(23, 27) * 5), "aura_tick_interval": 1.2, "effect": eff,
+					"effect_strength": 14.0 if eff == "POISON" else 0.6, "effect_duration": 2.0, "effect_tick_interval": 1.0}
+				category = "OFENSIVO" if eff == "POISON" else "DEFENSIVO"
+				pros = [{"SLOW": "Deixa lentos os inimigos por perto", "POISON": "Envenena os inimigos por perto", "WEAKNESS": "Enfraquece os inimigos por perto"}[eff]]
+				cons = ["Não causa dano direto" if eff != "POISON" else "Alcance curto"]
+		_:
+			kind = "AURA"
+			b = {"base_hp": rng.randi_range(105, 115) * 10, "aura_radius": float(rng.randi_range(21, 24) * 5), "aura_tick_interval": 2.5, "effect": "FREEZE",
+				"effect_strength": 0.5, "effect_duration": 1.0}
+			pros = ["Congela quem chega perto", "A aura mais forte do jogo"]
+			cons = ["Alcance curto", "Não causa dano"]
+	var pieces: Array = TOWER_PIECES[kind]
+	var name_a: Array = TOWER_NAMES_A[kind]
+	var arena_range = [[0, 3], [1, 4], [2, 5], [4, 6], [6, 6]][target]
+	return {"nome": "%s %s" % [name_a[rng.randi() % name_a.size()], TOWER_NAMES_B[rng.randi() % TOWER_NAMES_B.size()]],
+		"turma": random_turma(rng), "arena": rng.randi_range(arena_range[0], arena_range[1]), "tipo": kind, "categoria": category,
+		"desc": "", "pros": pros, "cons": cons, "receita": {"torre": pieces[rng.randi() % pieces.size()]},
+		"paleta": {"A": TOWER_COLORS[rng.randi() % TOWER_COLORS.size()], "K": TOWER_COLORS[rng.randi() % TOWER_COLORS.size()], "S": TOWER_COLORS[rng.randi() % TOWER_COLORS.size()], "W": "#6a4428", "M": "#a0a8b4", "P": TOWER_COLORS[rng.randi() % TOWER_COLORS.size()]},
+		"proj": ["milho", "pedra", "raio"][rng.randi() % 3], "b": b}

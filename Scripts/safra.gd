@@ -55,6 +55,13 @@ func _save():
 		f.store_string(JSON.stringify({"periods": periods}))
 
 
+var _towers: Dictionary = {}   # período -> torre gerada naquela safra
+
+
+func current_tower() -> BaseData:
+	return _towers.get(int(periods[-1]), null) if !periods.is_empty() else null
+
+
 var _sigs: Dictionary = {}  # período -> ["raridade|papel", "especial:x"] das cartas dele
 
 
@@ -118,6 +125,18 @@ func _build_period(p: int):
 			CardDatabase.all_cards.append(card)
 	CardGenerator.fixed_power = 0.0
 	_by_period[p] = list
+	# TORRE NOVA: uma a cada 2 safras, na mesma frequência de raridade das cartas
+	if p % 2 == 0 and !_towers.has(p):
+		var bdef = CardGenerator.generate_base_def(p)
+		for existing_b in BotSimulator.available_bases:
+			if existing_b != null and existing_b.base_name == bdef["nome"]:
+				bdef["nome"] += " II"
+		bdef["desc"] = "Erguida na safra nº %d." % p
+		var tower = Catalogo.build_base(bdef, "%ssafra_torre_%d.tres" % [Catalogo.PATH_PREFIX, p])
+		tower.set_meta("safra", p)
+		_towers[p] = tower
+		if !BotSimulator.available_bases.has(tower):
+			BotSimulator.available_bases.append(tower)
 	DeckBuilder.clear_cache()
 
 

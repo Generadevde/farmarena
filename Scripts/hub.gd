@@ -705,6 +705,8 @@ func _build_torres(box: Node):
 		var side = VBoxContainer.new()
 		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(side)
+		if b.has_meta("safra"):
+			side.add_child(_label("🆕 NOVIDADE da safra" if b == Safra.current_tower() else "🌱 Torre de safra", 14, Color(0.5, 1, 0.6)))
 		side.add_child(_label(b.base_name + ("   ✔ EM USO" if b == equipped else ""), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
 		var brar = Catalogo.base_rarity(b)
 		var bab = Catalogo.base_ability(b)

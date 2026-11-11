@@ -294,6 +294,15 @@ func _art_sheet():
 	for k in problems:
 		prob_txt.append("%s: %d (ex: %s)" % [k, problems[k].size(), ", ".join(problems[k].slice(0, 3))])
 	print("RESULTADO gerador problemas: ", prob_txt)
+	var tower_rar = [0, 0, 0, 0, 0]
+	var tower_bad: Array = []
+	for tn in 300:
+		var tdef = CardGenerator.generate_base_def(7000 + tn)
+		var tb: BaseData = Catalogo.build_base(tdef)
+		tower_rar[Catalogo.base_rarity(tb)] += 1
+		if tb.base_hp < 800 or tb.base_hp > 1900 or tb.icon == null or !SpriteForge.has_piece("torre", str(tdef["receita"]["torre"])):
+			tower_bad.append(tdef["nome"])
+	print("RESULTADO gerador de torres: 300 torres -> raridades [normal..mística]=", tower_rar, " | com problema=", tower_bad.slice(0, 5), " | ex: ", CardGenerator.generate_base_def(7001)["nome"], ", ", CardGenerator.generate_base_def(7002)["nome"])
 	var sem_stats: Array = []
 	for c in all:
 		if !c.is_spell() and DeckBuilder.get_unit_stats(c) == null:
