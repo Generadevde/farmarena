@@ -45,12 +45,6 @@ func _ready():
 	_rebuild_all()
 	Safra.sync_profile()
 	Assembleia.sync()
-	if int(Progresso.d.get("bots_reset_v", 0)) < 1:
-		# pedido do jogador: todos os bots recomeçam do zero (uma vez só)
-		Progresso.d["bots_reset_v"] = 1
-		Progresso.d["bots_arena_v"] = 2
-		BotSimulator.reset_all_bots()
-		Progresso.save()
 	if int(Progresso.d.get("bots_arena_v", 0)) < 2:
 		Progresso.d["bots_arena_v"] = 2
 		BotLearning.enforce_arena_everywhere()
