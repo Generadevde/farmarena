@@ -860,6 +860,8 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 		vbox.add_child(_build_reward_row("⚡ Poder", power_text, Color(0.8, 0.9, 1.0)))
 	if MatchSetup.friendly:
 		vbox.add_child(_build_reward_row("🤝 Amistoso", "não vale troféu nem baú", Color(0.8, 0.8, 0.8)))
+	if ai_profile != null and !is_replay_mode:
+		Gazeta.report_match(ai_profile.profile_name, _kills_player, _kills_enemy, player_won and !is_draw)
 	if MatchSetup.tournament:
 		var t_text = Progresso.tournament_result(player_won and !is_draw)
 		vbox.add_child(_build_reward_row("🏟 Torneio", t_text, Color(1, 0.85, 0.3)))
@@ -1107,9 +1109,16 @@ func _update_resource_bar():
 # toda vez que QUALQUER unidade morre (jogador ou inimigo) -- só credita a
 # missão diária de "matar unidade X" quando é o time INIMIGO que morreu,
 # já que é o jogador quem tem missão diária, não o bot
+var _kills_player := 0   # tropas inimigas derrubadas (pro recorde do jornal)
+var _kills_enemy := 0
+
+
 func _on_unit_died(dead_unit_team, dead_unit_card_data):
 	if dead_unit_team == GameManager.Team.ENEMY:
+		_kills_player += 1
 		PlayerProfile.record_mission_unit_killed(dead_unit_card_data)
+	else:
+		_kills_enemy += 1
 
 	# reação por emoji -- se foi uma unidade IMPORTANTE do próprio bot que
 	# morreu (danger_level alto), mostra frustração. Só reage à própria

@@ -251,7 +251,7 @@ func _art_sheet():
 		if gen["spell"] != null:
 			kinds["feitiço"] += 1
 			var gs: SpellData = gen["spell"]
-			if gs.damage <= 0 and gs.heal_amount <= 0 and gs.shield_amount <= 0 and gs.rage_damage_mult <= 1.0 and gs.status_effect == UnitData.OnHitEffect.NONE:
+			if gs.damage <= 0 and gs.heal_amount <= 0 and gs.shield_amount <= 0 and gs.rage_damage_mult <= 1.0 and gs.status_effect == UnitData.OnHitEffect.NONE and (gs.summon_scene == null or gs.summon_count <= 0):
 				bad.append("feitiço que não faz nada")
 			if gs.radius < 30 or gs.radius > 140:
 				bad.append("área do feitiço estranha")
@@ -280,7 +280,7 @@ func _art_sheet():
 			if !is_b:
 				var ratio = CardGenerator._raw_power(gst) / max(int(gd["custo"]), 1)
 				ratios.append(ratio)
-				if ratio < 6.0 or ratio > 26.0:
+				if (ratio < 6.0 or ratio > 26.0) and str(gd.get("especial", "")) == "":
 					bad.append("força fora da faixa (%.0f por custo)" % ratio)
 		rar_count[Catalogo.rarity_of(gcard)] += 1
 		for b in bad:

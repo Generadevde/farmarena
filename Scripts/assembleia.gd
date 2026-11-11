@@ -242,6 +242,7 @@ static func _close(pauta: Dictionary, period: int):
 	hist.push_front({"periodo": period, "carta": card.card_name, "tipo": str(pauta["tipo"]), "autor": str(pauta["autor"]), "sim": v[0], "nao": v[1], "neutros": v[2], "passou": passed, "efeito": effect_text(card, str(pauta["tipo"]))})
 	while hist.size() > HISTORY_MAX:
 		hist.pop_back()
+	Gazeta.add_event("ASSEMBLEIA", "#7a5ab0", "%s em %s foi %s" % ["BUFF" if str(pauta["tipo"]) == "buff" else "NERF", card.card_name, "APROVADO" if passed else "recusado"], "Placar: %d a favor, %d contra, %d neutros. Pedido de %s.%s" % [v[0], v[1], v[2], str(pauta["autor"]), " Mudança: " + effect_text(card, str(pauta["tipo"])) + "." if passed else ""])
 	Progresso._push({"tipo": "assembleia", "carta": card.resource_path, "texto": "%s em %s: %s (%d a %d)" % ["BUFF" if str(pauta["tipo"]) == "buff" else "NERF", card.card_name, "APROVADO" if passed else "recusado", v[0], v[1]] + ("  ·  %d neutros" % v[2] if v[2] > 0 else "")})
 
 

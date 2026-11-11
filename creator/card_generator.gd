@@ -1099,7 +1099,15 @@ static func generate_def(seed_value: int, turma: String = "", kind: int = 0, rol
 	if special.has("nome"):
 		design["nome"] = special["nome"]
 	var rarity = mini(target, Catalogo.RARA)
-	var def = {"nome": design["nome"], "turma": turma, "custo": cost, "papel": role, "raridade": rarity, "arena": 0,
+	# ARENA: carta gerada sai pra TODAS as arenas, não só a primeira. Quanto
+	# mais rara, mais alta a arena em que ela aparece.
+	var final_score = 0
+	for pair in (Catalogo.spell_abilities(spell) if spell != null else Catalogo.unit_abilities(stats)):
+		final_score += int(pair[1])
+	var final_rarity = Catalogo.rarity_from_score(final_score, rarity)
+	var arena_range = [[0, 3], [1, 4], [2, 5], [4, 6], [6, 6]][final_rarity]
+	var arena_pick = art_rng.randi_range(arena_range[0], arena_range[1])
+	var def = {"nome": design["nome"], "turma": turma, "custo": cost, "papel": role, "raridade": rarity, "arena": arena_pick,
 		"perigo": clampi(int(cost / 10.0) + 1, 1, 10), "desc": "", "pros": text["pros"], "cons": text["cons"],
 		"receita": design["receita"], "paleta": design["paleta"], "proj": design["proj"], "especial": str(special.get("id", ""))}
 	return {"def": def, "stats": stats, "spell": spell}

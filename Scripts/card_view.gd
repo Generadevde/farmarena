@@ -156,7 +156,7 @@ func _draw():
 	if badge != "":
 		var bfs = int(13 * u)
 		var bw = font.get_string_size(badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bfs).x + 10 * u
-		var br = Rect2((w - 3 * u - bw) * 0.5, art_box.end.y - (40 if show_stats else 18) * u, bw, 18 * u)
+		var br = Rect2((w - 3 * u - bw) * 0.5, art_box.position.y + art_box.size.y * 0.5 - 9 * u if show_stats else art_box.end.y - 18 * u, bw, 18 * u)
 		draw_rect(br, Color(0.1, 0.06, 0.05, 0.88))
 		draw_string(font, br.position + Vector2(5 * u, 13.5 * u), badge, HORIZONTAL_ALIGNMENT_LEFT, -1, bfs, badge_color)
 	if show_stats and !locked:

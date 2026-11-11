@@ -333,7 +333,7 @@ func _refresh_dots():
 			if Cla.harvest_claimable(tier):
 				clan_alert = true
 	_dots[4].visible = clan_alert
-	_dots[5].visible = Safra.mission_ready()
+	_dots[5].visible = Safra.mission_ready() or Gazeta.unread() > 0
 
 
 # ================================================================ ajudantes de interface
@@ -586,27 +586,22 @@ func _show_tournament():
 		if mode_now == "mata":
 			var r = int(t.get("rodada", 0))
 			var ops: Array = t.get("oponentes", [])
-			for i in ops.size():
-				var mark = "✔" if i < r else ("👉" if i == r else "·")
-				v.add_child(_label("%s %s: %s  (🏆 %d)" % [mark, Progresso.TOURNAMENT_ROUNDS[i], str(ops[i]), ArenaManager.get_trophies(str(ops[i]))], 18, Color(0.6, 1, 0.6) if i < r else (Color(1, 1, 0.7) if i == r else Color(0.7, 0.68, 0.62))))
 			var figs: Array = t.get("figurantes", [])
-			if !figs.is_empty():
-				v.add_child(_wrap("Também na chave: " + ", ".join(figs.map(func(n): return str(n))), 14, ThemeBuilder.COLOR_STAT_LABEL))
+			var bracket = BracketView.new()
+			bracket.setup(PlayerProfile.player_name, ops, figs, r)
+			v.add_child(bracket)
+			if r < ops.size():
+				v.add_child(_label("👉 %s: você x %s  (🏆 %d)" % [Progresso.TOURNAMENT_ROUNDS[r], str(ops[r]), ArenaManager.get_trophies(str(ops[r]))], 18, Color(1, 1, 0.7)))
 			play_text = "⚔ JOGAR: %s" % Progresso.TOURNAMENT_ROUNDS[r]
 		else:
 			var wins = Progresso.tournament_wins()
 			var losses = Progresso.tournament_losses()
 			var goal = int(def_now["vit"])
 			var max_l = int(def_now["der"])
-			v.add_child(_label("Vitórias: %s" % ("%d de %d" % [wins, goal] if goal > 0 else str(wins)), 22, Color(0.6, 1, 0.6)))
-			if goal > 0:
-				var bar = ProgressBar.new()
-				bar.max_value = goal
-				bar.value = wins
-				bar.show_percentage = false
-				bar.custom_minimum_size.y = 24
-				v.add_child(bar)
-			v.add_child(_label("Derrotas: %s%s   (com %d, acabou)" % ["✖ ".repeat(losses), "○ ".repeat(maxi(0, max_l - losses)), max_l], 19, Color(1.0, 0.62, 0.55)))
+			var ladder = LadderView.new()
+			ladder.setup(wins, goal, losses, max_l, def_now["marcos"])
+			v.add_child(ladder)
+			v.add_child(_label("Vitórias: %s   ·   Derrotas: %d de %d" % ["%d de %d" % [wins, goal] if goal > 0 else str(wins), losses, max_l], 18, Color(0.6, 1, 0.6)))
 			# próximo prêmio
 			var marks: Dictionary = def_now["marcos"]
 			var next_mark = -1
@@ -1487,9 +1482,9 @@ func _stats_text(card: CardData, mult: float) -> String:
 func _upgrade(card: CardData, popup_box: Node, deck_index: int = -1):
 	if Progresso.upgrade(card):
 		_close(popup_box)
-		_toast("%s subiu pro nível %d!" % [card.card_name, Progresso.level(card)])
 		_queue_refresh()
-		_show_card_popup.call_deferred(card, deck_index)
+		await _celebrate(card, "NÍVEL %d!" % Progresso.level(card), "+15% de vida e de dano", Color(0.5, 1.0, 0.6))
+		_show_card_popup(card, deck_index)
 
 
 func _begin_place(card: CardData, popup_box: Node):
@@ -1740,7 +1735,10 @@ func _build_sitio(box: Node):
 	box.add_child(_button("🎬 Replays salvos", _show_replays))
 	box.add_child(_button("📜 Registro das temporadas (você e os bots)", _show_registro))
 	box.add_child(_button("⚖ Assembleia das cartas (votar buff e nerf)", _show_assembleia))
-	box.add_child(_button("📰 Jornal da Roça", _goto.bind(JOURNAL_SCENE)))
+	var jb = _button("📰 Gazeta da Roça" + ("   🔴 %d novidade(s)" % Gazeta.unread() if Gazeta.unread() > 0 else ""), _show_jornal)
+	if Gazeta.unread() > 0:
+		jb.modulate = Color(1.0, 0.92, 0.6)
+	box.add_child(jb)
 	box.add_child(_button("🎨 Criador (cartas, torres, arenas)", _goto.bind(CREATOR_SCENE)))
 	var safra_b = _button("🌱 Safra (cartas novas a cada 3 dias)" + ("  --  PRÊMIO!" if Safra.mission_ready() else ""), _show_safra)
 	if Safra.mission_ready():
@@ -2244,6 +2242,170 @@ func _copy_meta(cards: Array, popup_box: Node):
 	_queue_refresh()
 
 
+# ================================================================ comemoração (carta nova / subiu de nível)
+var _celebrating := false
+
+
+## animação rápida e bonita: raios girando, carta "pula" pra tela, título.
+## Dura ~1,3 s; tocar fecha na hora. Se já tem uma rodando, espera a vez.
+func _celebrate(card: CardData, title_text: String, sub_text: String, color: Color):
+	while _celebrating:
+		await get_tree().process_frame
+	_celebrating = true
+	Sfx.play("nivel", 0.05, 2.0)
+	var layer = CanvasLayer.new()
+	layer.layer = 70
+	add_child(layer)
+	var bg = ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.0)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(bg)
+	var size_now = get_viewport_rect().size
+	var mid = size_now * 0.5 + Vector2(0, -40)
+	var burst = BurstView.new()
+	burst.color = color
+	burst.position = mid
+	layer.add_child(burst)
+	var cv = CardView.make(card, 300, true)
+	cv.locked = false
+	cv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(cv)
+	cv.size = cv.custom_minimum_size
+	cv.pivot_offset = cv.custom_minimum_size * 0.5
+	cv.position = mid - cv.custom_minimum_size * 0.5
+	cv.scale = Vector2(0.2, 0.2)
+	cv.rotation = -0.5
+	var title = _label(title_text, 54, color.lightened(0.25))
+	title.add_theme_color_override("font_outline_color", Color(0.1, 0.05, 0.02))
+	title.add_theme_constant_override("outline_size", 10)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.size = Vector2(size_now.x, 70)
+	title.position = Vector2(0, mid.y - cv.custom_minimum_size.y * 0.5 - 110)
+	title.modulate.a = 0.0
+	layer.add_child(title)
+	var sub = _label("%s\n%s" % [card.card_name, sub_text], 22, Color(1, 0.95, 0.8))
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.size = Vector2(size_now.x, 70)
+	sub.position = Vector2(0, mid.y + cv.custom_minimum_size.y * 0.5 + 24)
+	sub.modulate.a = 0.0
+	layer.add_child(sub)
+	var tw = layer.create_tween().set_parallel(true)
+	tw.tween_property(bg, "color:a", 0.82, 0.15)
+	tw.tween_property(cv, "scale", Vector2(1.12, 1.12), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(cv, "rotation", 0.0, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(title, "modulate:a", 1.0, 0.2).set_delay(0.15)
+	tw.tween_property(sub, "modulate:a", 1.0, 0.2).set_delay(0.25)
+	tw.chain().tween_property(cv, "scale", Vector2(1.0, 1.0), 0.12)
+	var state = {"done": false}
+	bg.gui_input.connect(func(ev): if ev is InputEventMouseButton and ev.pressed: state["done"] = true)
+	var waited = 0.0
+	while waited < 1.35 and !state["done"]:
+		await get_tree().process_frame
+		waited += get_process_delta_time()
+	if is_instance_valid(layer):
+		var out = layer.create_tween().set_parallel(true)
+		for node in [bg, cv, title, sub, burst]:
+			out.tween_property(node, "modulate:a", 0.0, 0.12)
+		await out.finished
+		layer.queue_free()
+	_celebrating = false
+
+
+# ================================================================ GAZETA DA ROÇA (jornal)
+func _news_card(parent: Node, item: Dictionary, big: bool):
+	var p = PanelContainer.new()
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color("#f3e6c8") if !big else Color("#fff3d0")
+	sb.border_color = Color("#3a2414")
+	sb.set_border_width_all(2)
+	sb.border_width_left = 10
+	sb.border_color = Color.html(str(item.get("cor", "#3a2414")))
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 16
+	sb.content_margin_right = 12
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 10
+	p.add_theme_stylebox_override("panel", sb)
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(p)
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	p.add_child(row)
+	var col = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	row.add_child(col)
+	var tag_text = str(item.get("tag", ""))
+	if str(item.get("dia", "")) != "":
+		tag_text += "  ·  " + str(item["dia"])
+	var tag = _label(tag_text, 13, Color.html(str(item.get("cor", "#3a2414"))).darkened(0.25))
+	tag.add_theme_font_override("font", ThemeDB.fallback_font)
+	col.add_child(tag)
+	var head = _wrap(str(item.get("titulo", "")), 25 if big else 19, Color("#2a1608"))
+	col.add_child(head)
+	var body = _wrap(str(item.get("texto", "")), 15, Color("#4a3420"))
+	body.add_theme_font_override("font", ThemeDB.fallback_font)
+	col.add_child(body)
+	var c = Catalogo.find_card(str(item.get("carta", "")))
+	if c != null:
+		var cv = CardView.make(c, 96)
+		cv.show_level = false
+		cv.mastery_override = 0
+		cv.locked = false
+		cv.tapped.connect(_show_card_popup)
+		row.add_child(cv)
+
+
+func _show_jornal():
+	var v = _popup(670, true)
+	# cabeçalho de jornal
+	var mast = PanelContainer.new()
+	var msb = StyleBoxFlat.new()
+	msb.bg_color = Color("#f3e6c8")
+	msb.border_color = Color("#2a1608")
+	msb.border_width_top = 4
+	msb.border_width_bottom = 4
+	msb.content_margin_top = 8
+	msb.content_margin_bottom = 8
+	mast.add_theme_stylebox_override("panel", msb)
+	v.add_child(mast)
+	var mv = VBoxContainer.new()
+	mv.add_theme_constant_override("separation", 0)
+	mast.add_child(mv)
+	var name_l = _label("A GAZETA DA ROÇA", 40, Color("#2a1608"))
+	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mv.add_child(name_l)
+	var edition = _label("Edição de %s  ·  Temporada %d  ·  \"Se aconteceu no pasto, saiu aqui\"" % [Time.get_date_string_from_system(), SeasonManager.season_number], 13, Color("#5a4028"))
+	edition.add_theme_font_override("font", ThemeDB.fallback_font)
+	edition.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mv.add_child(edition)
+
+	var heads = Gazeta.headlines()
+	var bigs = heads.filter(func(h): return h.get("grande", false))
+	var smalls = heads.filter(func(h): return !h.get("grande", false))
+	var events = Gazeta.events()
+	if !bigs.is_empty():
+		v.add_child(_label("MANCHETES", 16, ThemeBuilder.COLOR_GOLD))
+		for h in bigs:
+			_news_card(v, h, true)
+	if !events.is_empty():
+		v.add_child(_label("ACONTECEU", 16, ThemeBuilder.COLOR_GOLD))
+		for e in events.slice(0, 6):
+			_news_card(v, e, false)
+	if !smalls.is_empty():
+		v.add_child(_label("NO PASTO HOJE", 16, ThemeBuilder.COLOR_GOLD))
+		for h in smalls:
+			_news_card(v, h, false)
+	var quote = Journal.get_random_bot_quote() if Journal.has_method("get_random_bot_quote") else ""
+	if quote != "":
+		v.add_child(_label("DISSE ME DISSE", 16, ThemeBuilder.COLOR_GOLD))
+		_news_card(v, {"tag": "FOFOCA", "cor": "#8a6ad8", "titulo": quote, "texto": ""}, false)
+	if heads.is_empty() and events.is_empty():
+		v.add_child(_wrap("Dia parado no pasto. Jogue umas partidas que a notícia aparece.", 16))
+	Gazeta.mark_read()
+	v.add_child(_button("Fechar", _close_loot.bind(v)))
+
+
 # ================================================================ ASSEMBLEIA DAS CARTAS (buff e nerf por votação)
 func _show_assembly_result(r: Dictionary):
 	var v = _popup(620)
@@ -2699,6 +2861,12 @@ func _show_loot(title_text: String, loot: Array, color: Color):
 		reveal.append([w, tw])
 		delay += 0.05
 	Sfx.play("carta", 0.1, 0.0)
+	# carta NOVA: animação de desbloqueio (uma de cada vez, rapidinho)
+	for item in loot:
+		if item.get("nova", false):
+			var nc = Catalogo.find_card(str(item.get("path", "")))
+			if nc != null:
+				_celebrate.call_deferred(nc, "CARTA NOVA!", "%s  ·  %s" % [Catalogo.RARITY_NAMES[Catalogo.rarity_of(nc)], nc.get_nation_name() if nc.get_nation_name() != "" else "Coringa"], Catalogo.rarity_color(nc))
 	# tocar em qualquer lugar mostra tudo de uma vez
 	var overlay: Node = v.get_meta("overlay")
 	var bg = overlay.get_child(0)
@@ -2740,6 +2908,203 @@ func _toast(text: String):
 
 
 # ================================================================ desenho do baú
+## raios girando atrás da carta na comemoração
+class BurstView extends Control:
+	var color := Color(1, 0.9, 0.4)
+	var _t := 0.0
+
+	func _init():
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _process(delta):
+		_t += delta
+		queue_redraw()
+
+	func _draw():
+		var grow = minf(1.0, _t * 4.0)
+		var rays = 12
+		for i in rays:
+			var ang = TAU * i / rays + _t * 0.9
+			var half = TAU / rays * 0.22
+			var r = 560.0 * grow
+			var pts = PackedVector2Array([Vector2.ZERO, Vector2.RIGHT.rotated(ang - half) * r, Vector2.RIGHT.rotated(ang + half) * r])
+			draw_colored_polygon(pts, Color(color.r, color.g, color.b, 0.22))
+		draw_circle(Vector2.ZERO, 210.0 * grow, Color(color.r, color.g, color.b, 0.18))
+		# estrelinhas voando pra fora
+		for i in 14:
+			var a2 = TAU * i / 14.0 + 0.3
+			var dist = fmod(_t * 260.0 + i * 37.0, 420.0)
+			var alpha = 1.0 - dist / 420.0
+			draw_rect(Rect2(Vector2.RIGHT.rotated(a2) * dist - Vector2(5, 5), Vector2(10, 10)), Color(1, 1, 0.8, alpha))
+
+
+## chaveamento do mata-mata: 8 nomes, quartas -> semi -> final
+class BracketView extends Control:
+	var me := ""
+	var ops: Array = []
+	var figs: Array = []
+	var round_now := 0
+
+	func setup(player: String, opponents: Array, extras: Array, r: int):
+		me = player
+		ops = opponents
+		figs = extras
+		round_now = r
+		custom_minimum_size = Vector2(620, 470)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _name(list: Array, i: int, fallback: String) -> String:
+		return str(list[i]) if i < list.size() else fallback
+
+	func _box(pos: Vector2, text: String, state: int):
+		## state: 0 normal, 1 você, 2 eliminado, 3 ainda não se sabe, 4 próximo rival
+		var w = 186.0
+		var h = 40.0
+		var bg = Color("#5a3a22")
+		var fg = Color("#f3e6c8")
+		match state:
+			1:
+				bg = Color("#c8a020")
+				fg = Color("#2a1608")
+			2:
+				bg = Color("#3a2c24")
+				fg = Color(0.6, 0.56, 0.52)
+			3:
+				bg = Color("#40302a")
+				fg = Color(0.7, 0.66, 0.6)
+			4:
+				bg = Color("#b84838")
+		draw_rect(Rect2(pos, Vector2(w, h)), Color("#2a1a12"))
+		draw_rect(Rect2(pos + Vector2(2, 2), Vector2(w - 4, h - 4)), bg)
+		var font = ThemeDB.fallback_font
+		var fs = 15
+		while fs > 10 and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > w - 12:
+			fs -= 1
+		draw_string(font, pos + Vector2(6, h * 0.5 + fs * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, w - 10, fs, fg)
+
+	func _link(a: Vector2, b: Vector2, c: Vector2, lit: bool):
+		## liga duas caixas (a, b) na caixa seguinte (c)
+		var col = Color("#f0c040") if lit else Color("#7a6048")
+		var midx = (a.x + c.x) * 0.5
+		draw_line(a, Vector2(midx, a.y), col, 3.0)
+		draw_line(b, Vector2(midx, b.y), col, 3.0)
+		draw_line(Vector2(midx, a.y), Vector2(midx, b.y), col, 3.0)
+		draw_line(Vector2(midx, c.y), c, col, 3.0)
+
+	func _draw():
+		var font = ThemeDB.fallback_font
+		var cols = [0.0, 217.0, 434.0]
+		var titles = ["QUARTAS", "SEMI", "FINAL"]
+		for i in 3:
+			draw_string(font, Vector2(cols[i], 16), titles[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#f0c040") if i == round_now else Color(0.75, 0.7, 0.62))
+		# quartas: você x op0 | fig0 x op1 | op2 x fig1 | fig2 x fig3
+		var q: Array = [me, _name(ops, 0, "?"), _name(figs, 0, "?"), _name(ops, 1, "?"), _name(ops, 2, "?"), _name(figs, 1, "?"), _name(figs, 2, "?"), _name(figs, 3, "?")]
+		var q_winner = [0, 3, 4, 6]   # quem passa em cada chave (a sua só se sabe depois)
+		var qy: Array = []
+		for i in 8:
+			qy.append(30.0 + i * 52.0 + (int(i / 2.0)) * 6.0)
+		var known_q = round_now >= 1
+		for i in 8:
+			var state = 0
+			if i == 0:
+				state = 1
+			elif i == 1 and round_now == 0:
+				state = 4
+			elif known_q and !q_winner.has(i):
+				state = 2
+			_box(Vector2(cols[0], qy[i]), q[i], state)
+		# semis
+		var s: Array = [me if known_q else "vencedor", q[3] if known_q else "vencedor", q[4] if known_q else "vencedor", q[6] if known_q else "vencedor"]
+		var sy: Array = []
+		for i in 4:
+			sy.append((qy[i * 2] + qy[i * 2 + 1]) * 0.5)
+		var known_s = round_now >= 2
+		for i in 4:
+			var state2 = 3
+			if known_q:
+				state2 = 0
+				if i == 0:
+					state2 = 1
+				elif i == 1 and round_now == 1:
+					state2 = 4
+				elif known_s and i == 3:
+					state2 = 2
+				elif known_s and i == 1:
+					state2 = 2
+			_box(Vector2(cols[1], sy[i]), s[i], state2)
+			_link(Vector2(cols[0] + 186, qy[i * 2] + 20), Vector2(cols[0] + 186, qy[i * 2 + 1] + 20), Vector2(cols[1], sy[i] + 20), known_q and i == 0)
+		# final
+		var f: Array = [me if known_s else "vencedor", q[4] if known_s else "vencedor"]
+		var fy: Array = [(sy[0] + sy[1]) * 0.5, (sy[2] + sy[3]) * 0.5]
+		for i in 2:
+			var state3 = 3
+			if known_s:
+				state3 = 1 if i == 0 else 4
+			_box(Vector2(cols[2], fy[i]), f[i], state3)
+			_link(Vector2(cols[1] + 186, sy[i * 2] + 20), Vector2(cols[1] + 186, sy[i * 2 + 1] + 20), Vector2(cols[2], fy[i] + 20), known_s and i == 0)
+		# taça entre os dois finalistas
+		var cup_y = (fy[0] + fy[1]) * 0.5 + 20
+		draw_line(Vector2(cols[2] + 93, fy[0] + 40), Vector2(cols[2] + 93, fy[1]), Color("#7a6048"), 3.0)
+		draw_circle(Vector2(cols[2] + 93, cup_y), 26, Color("#2a1a12"))
+		draw_circle(Vector2(cols[2] + 93, cup_y), 23, Color("#f0c040"))
+		draw_string(font, Vector2(cols[2] + 93 - 26, cup_y + 7), "TAÇA", HORIZONTAL_ALIGNMENT_CENTER, 52, 15, Color("#2a1608"))
+
+
+## escada dos desafios: uma bolinha por vitória, baú marcado nos degraus de prêmio
+class LadderView extends Control:
+	var wins := 0
+	var goal := 0
+	var losses := 0
+	var max_losses := 1
+	var marks: Dictionary = {}
+
+	func setup(w: int, g: int, l: int, ml: int, m: Dictionary):
+		wins = w
+		goal = g
+		losses = l
+		max_losses = ml
+		marks = m
+		custom_minimum_size = Vector2(620, 128)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw():
+		var font = ThemeDB.fallback_font
+		var steps = goal if goal > 0 else maxi(9, wins + 3)
+		var first = 0 if goal > 0 else maxi(0, wins - 6)
+		var shown = mini(steps - first, 10)
+		var gap = 600.0 / shown
+		var y = 40.0
+		draw_line(Vector2(gap * 0.5, y), Vector2(gap * (shown - 0.5), y), Color("#7a6048"), 6.0)
+		if wins > first:
+			draw_line(Vector2(gap * 0.5, y), Vector2(gap * (mini(wins - first, shown) - 0.5), y), Color("#58c060"), 6.0)
+		for i in shown:
+			var n = first + i + 1
+			var c = Vector2(gap * (i + 0.5), y)
+			var done = n <= wins
+			var prize = false
+			for k in marks:
+				if int(k) == n:
+					prize = true
+			if goal <= 0 and n % 3 == 0:
+				prize = true
+			draw_circle(c, 22, Color("#2a1a12"))
+			draw_circle(c, 19, Color("#58c060") if done else (Color("#f0c040") if n == wins + 1 else Color("#5a3a22")))
+			draw_string(font, c + Vector2(-20, 6), str(n), HORIZONTAL_ALIGNMENT_CENTER, 40, 16, Color("#16240f") if done else Color("#f3e6c8"))
+			if prize:
+				draw_rect(Rect2(c + Vector2(-13, 28), Vector2(26, 18)), Color("#2a1a12"))
+				draw_rect(Rect2(c + Vector2(-11, 30), Vector2(22, 14)), Color("#c84838") if !done else Color("#7a6048"))
+				draw_rect(Rect2(c + Vector2(-3, 34), Vector2(6, 6)), Color("#ffd23c"))
+		# vidas
+		for i in max_losses:
+			var hc = Vector2(24.0 + i * 44.0, 104.0)
+			draw_circle(hc, 16, Color("#2a1a12"))
+			draw_circle(hc, 13, Color("#4a3a34") if i < losses else Color("#e04848"))
+			if i < losses:
+				draw_line(hc + Vector2(-8, -8), hc + Vector2(8, 8), Color("#1a1210"), 4.0)
+				draw_line(hc + Vector2(8, -8), hc + Vector2(-8, 8), Color("#1a1210"), 4.0)
+		draw_string(font, Vector2(24.0 + max_losses * 44.0, 110.0), "vidas", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.85, 0.8, 0.72))
+
+
 class ChestArt extends Control:
 	var color := Color("#b87840")
 	var bouncing := false

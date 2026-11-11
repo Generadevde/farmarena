@@ -140,6 +140,27 @@ func _ready():
 	await _shot("torneio")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	Progresso.abandon_tournament()
+	Progresso.d["torneio"]["dia_gratis"] = ""
+	Progresso.enter_tournament("mata")
+	Progresso.tournament_result(true)
+	hub._show_tournament()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("chave")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	Gazeta.report_match(BotSimulator.roster_names[2], 14, 9, true)
+	hub._show_jornal()
+	await get_tree().create_timer(0.5).timeout
+	await _shot("jornal")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._celebrate(Catalogo.card("robo_balde"), "NÍVEL 2!", "+15% de vida e de dano", Color(0.5, 1.0, 0.6))
+	await get_tree().create_timer(0.7).timeout
+	await _shot("comemora")
+	await get_tree().create_timer(1.2).timeout
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._go_tab(1)
 	await get_tree().create_timer(0.3).timeout
 	hub._on_deck_slot_tapped(Progresso.deck_cards(0)[0], 0)

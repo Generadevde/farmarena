@@ -72,7 +72,7 @@ func _blank() -> Dictionary:
 		"owned": {}, "copies": {}, "uses": {}, "xp": 0,
 		"chests": [], "shop": {}, "road": [], "decks": [], "active_deck": 0,
 		"streak": 0, "best_streak": 0, "mascate": {}, "pending": [],
-		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {},
+		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {}, "gazeta": {},
 	}
 
 
@@ -987,6 +987,7 @@ func _challenge_result(won: bool) -> String:
 			add_xp(300 if mode == "dez" else 150)
 			grant_power()
 			text = "COMPLETOU o %s! 🏆 taça nº %d" % [def["nome"], tournament_cups()]
+			Gazeta.add_event("TORNEIO", "#c8a020", "%s completou o %s" % [PlayerProfile.player_name, def["nome"]], "Foram %d vitórias. É a taça nº %d da estante." % [w, tournament_cups()])
 	else:
 		var l = tournament_losses() + 1
 		t["der"] = l
@@ -1024,11 +1025,16 @@ func tournament_result(won: bool) -> String:
 			t["tacas"] = tournament_cups() + 1
 			add_xp(150)
 			text = "CAMPEÃO! 🏆 taça nº %d" % tournament_cups()
+			var deck_turma = Gazeta._turma_of_deck(deck_paths(active_deck()))
+			Gazeta.add_event("CAMPEONATO", "#c8a020", ("A turma %s conquistou o Torneio da Roça" % deck_turma) if deck_turma != "" else "%s conquistou o Torneio da Roça" % PlayerProfile.player_name, "%s venceu quartas, semi e final. Taça nº %d." % [PlayerProfile.player_name, tournament_cups()])
 		else:
 			t["rodada"] = r + 1
 			text = "Passou! Agora: %s" % TOURNAMENT_ROUNDS[r + 1]
 	else:
 		t["ativo"] = false
+		var winner = tournament_opponent()
+		var win_turma = Gazeta._turma_of_deck(BotLearning._load_raw(winner).get("deck_paths", []))
+		Gazeta.add_event("CAMPEONATO", "#c8a020", ("A turma %s levou o Torneio da Roça" % win_turma) if win_turma != "" and r >= 2 else "%s segue vivo no Torneio da Roça" % winner, "%s eliminou %s %s." % [winner, PlayerProfile.player_name, "na final" if r >= 2 else "nas " + TOURNAMENT_ROUNDS[r].to_lower()])
 		text = "Eliminado nas %s" % TOURNAMENT_ROUNDS[r].to_lower() if r < 2 else "Vice-campeão. Quase!"
 	t["ultimo"] = text
 	_commit()
