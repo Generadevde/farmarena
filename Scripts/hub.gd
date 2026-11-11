@@ -456,8 +456,9 @@ func _live(label: Control, fn: Callable):
 ## quadradinho de opção: ícone grande em cima, nome embaixo
 func _tile(grid: Node, icon: String, text: String, action: Callable, highlight: bool = false, note: String = "") -> Button:
 	var b = Button.new()
-	b.custom_minimum_size = Vector2(0, 118)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# a grade não estica os filhos: a largura tem que vir daqui
+	var cols = grid.columns if grid is GridContainer else 3
+	b.custom_minimum_size = Vector2(floorf((_w() - 40.0 - (cols - 1) * 8.0) / cols), 118)
 	b.pressed.connect(action)
 	if highlight:
 		b.modulate = Color(1.0, 0.95, 0.6)
