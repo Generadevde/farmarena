@@ -373,6 +373,18 @@ func chest_remaining(index: int) -> float:
 	return maxf(0.0, total - (now - float(ch["inicio"])) - extra - float(ch["pulado"]))
 
 
+## baú abre na hora (sem relógio): tocou, abriu
+func open_chest_now(index: int) -> Array:
+	if index < 0 or index >= d["chests"].size():
+		return []
+	var type = int(d["chests"][index]["tipo"])
+	d["chests"].remove_at(index)
+	var loot = roll_chest(type)
+	add_xp(5 + 5 * type)
+	_commit()
+	return loot
+
+
 func chest_ready(index: int) -> bool:
 	return float(d["chests"][index]["inicio"]) > 0.0 and chest_remaining(index) <= 0.0
 
@@ -1047,14 +1059,14 @@ func bot_tower_level(profile) -> int:
 
 # ================================================================ PODERES (raros: torneio e topo da colheita do clã)
 const POWERS = {
-	"relogio2": {"nome": "Relógio Adiantado", "desc": "Baús abrem 2x mais rápido por 30 minutos.", "cor": "#70c8f0"},
-	"relogio3": {"nome": "Relógio Maluco", "desc": "Baús abrem 3x mais rápido por 15 minutos.", "cor": "#b080ff"},
+	"relogio2": {"nome": "Caixote Surpresa", "desc": "Ganha na hora um Caixote da Feira.", "cor": "#70c8f0"},
+	"relogio3": {"nome": "Baú Surpresa", "desc": "Ganha na hora um Baú do Celeiro.", "cor": "#b080ff"},
 	"ouro2": {"nome": "Bolso Furado ao Contrário", "desc": "Ouro em dobro nas próximas 5 partidas.", "cor": "#ffd23c"},
 	"xp2": {"nome": "Café Forte", "desc": "XP em dobro nas próximas 5 partidas.", "cor": "#c08050"},
 	"sorte": {"nome": "Ferradura da Sorte", "desc": "Os baús das próximas 3 vitórias vêm um nível melhor.", "cor": "#a0e080"},
-	"chave": {"nome": "Chave Mestra", "desc": "Abre na hora um baú que está esperando.", "cor": "#ff9060"},
+	"chave": {"nome": "Chave Mestra", "desc": "Ganha na hora um Baú Lendário.", "cor": "#ff9060"},
 }
-const POWER_WEIGHTS = {"relogio2": 25, "relogio3": 12, "ouro2": 22, "xp2": 18, "sorte": 13, "chave": 10}
+const POWER_WEIGHTS = {"relogio2": 25, "relogio3": 12, "ouro2": 22, "xp2": 18, "sorte": 13, "chave": 5}
 
 
 func power_count(id: String) -> int:
@@ -1096,31 +1108,14 @@ func use_power(id: String) -> String:
 		return "Você não tem esse poder."
 	var now = Time.get_unix_time_from_system()
 	match id:
-		"relogio2", "relogio3":
-			if clock_boost_left() > 0:
-				return "Já tem um relógio ligado."
-			# guarda no baú o que o relógio ANTIGO já tinha adiantado -- senão,
-			# ao ligar um novo, o baú que ainda estava abrindo "voltava no tempo"
-			var old: Dictionary = d["ativos"].get("relogio", {})
-			if !old.is_empty():
-				for ch in d["chests"]:
-					if float(ch["inicio"]) > 0.0:
-						var ov = minf(now, float(old["ate"])) - maxf(float(ch["inicio"]), float(old["inicio"]))
-						ch["pulado"] = float(ch["pulado"]) + maxf(0.0, ov) * (float(old["mult"]) - 1.0)
-			d["ativos"]["relogio"] = {"inicio": now, "ate": now + (1800.0 if id == "relogio2" else 900.0), "mult": 2 if id == "relogio2" else 3}
+		"relogio2", "relogio3", "chave":
+			# os baús agora abrem na hora, então estes poderes viraram baú de presente
+			var gift = {"relogio2": 1, "relogio3": 2, "chave": 3}[id]
+			_push({"tipo": "bau", "bau": gift, "itens": roll_chest(gift)})
 		"ouro2", "xp2":
 			d["ativos"][id] = power_battles(id) + 5
 		"sorte":
 			d["ativos"][id] = power_battles(id) + 3
-		"chave":
-			var idx = unlocking_index()
-			if idx == -1 and !d["chests"].is_empty():
-				idx = 0
-			if idx == -1 or chest_ready(idx):
-				return "Nenhum baú esperando pra abrir."
-			if float(d["chests"][idx]["inicio"]) <= 0.0:
-				d["chests"][idx]["inicio"] = now
-			d["chests"][idx]["pulado"] = 999999.0
 	d["poderes"][id] = power_count(id) - 1
 	_commit()
 	return ""

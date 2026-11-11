@@ -59,9 +59,16 @@ func _mastery() -> int:
 	return Progresso.mastery(card) if card != null and !locked else 0
 
 
+var _redraw_wait := 0.0
+
+
 func _process(delta):
 	_t += delta
-	queue_redraw()
+	# brilho a ~12 quadros por segundo: redesenhar a carta inteira todo quadro pesava
+	_redraw_wait += delta
+	if _redraw_wait >= 0.08:
+		_redraw_wait = 0.0
+		queue_redraw()
 
 
 func _gui_input(event):

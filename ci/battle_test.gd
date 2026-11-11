@@ -801,9 +801,9 @@ func _abilities_audit():
 	# investida (bezerro corre e bate em dobro)
 	await _wipe()
 	var d = await _dummy(E, mid + Vector2(0, -60))
-	await _put("bezerro", P, mid + Vector2(0, 150))
+	await _put("cavalo_coiceiro", P, mid + Vector2(0, 150))
 	var hit = await _first_hit(d, 8.0)
-	_check("investida", hit >= 100, "1º golpe %d, normal 55" % int(hit))
+	_check("investida", hit >= 250, "1º golpe %d, normal 150" % int(hit))
 
 	# primeira mordida do jacaré (dobro)
 	await _wipe()
@@ -837,7 +837,7 @@ func _abilities_audit():
 	# roubo de vida (mosquito)
 	await _wipe()
 	d = await _dummy(E, mid + Vector2(0, -30))
-	var mosq = (await _put("mosquitada", P, mid))
+	var mosq = (await _put_card(_make({"lifesteal_percent": 0.5, "unit_count": 3, "hp": 200}), P, mid))
 	for m in mosq:
 		m.current_hp = 5
 	await get_tree().create_timer(4.0).timeout
@@ -866,7 +866,7 @@ func _abilities_audit():
 
 	# capivaras ligadas dividem o dano
 	await _wipe()
-	var caps = await _put("capivarada", P, mid)
+	var caps = await _put_card(_make({"unit_count": 4, "is_linked": true, "link_share_percent": 0.3}), P, mid)
 	await get_tree().create_timer(0.8).timeout
 	caps[0].take_damage(300)
 	var shared = caps.slice(1).filter(func(c): return c.current_hp < c.stats.hp).size()
@@ -1015,7 +1015,7 @@ func _abilities_audit():
 	# caramelo: dano sobe no mesmo alvo
 	await _wipe()
 	d = await _dummy(E, mid + Vector2(0, -34))
-	await _put("caramelo", P, mid)
+	await _put_card(_make({"attack_speed": 0.8, "same_target_ramping_damage": true, "same_target_ramping_damage_per_hit": 0.15, "same_target_ramping_damage_max_multiplier": 2.5}), P, mid)
 	var first = await _first_hit(d, 5.0)
 	await get_tree().create_timer(4.0).timeout
 	var last_hp = d.current_hp

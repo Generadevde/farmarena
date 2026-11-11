@@ -781,6 +781,13 @@ static func design_card(rng: RandomNumberGenerator, turma: String, role: int, st
 	return out
 
 
+static func _unit_score(st: UnitData) -> int:
+	var total = 0
+	for pair in Catalogo.unit_abilities(st):
+		total += int(pair[1])
+	return total
+
+
 static func _roll_extra(rng: RandomNumberGenerator) -> int:
 	var total = 0
 	for w in EXTRA_WEIGHTS:
@@ -833,7 +840,7 @@ static func describe_unit(stats: UnitData, role: int) -> Dictionary:
 # habilidades extras que o gerador pode somar a uma carta (todas passam na
 # auditoria automática). Quanto mais habilidades, mais rara a carta -- e um
 # pouco menos de vida/dano, pra força total continuar na mesma régua.
-const EXTRA_WEIGHTS = [50, 27, 14, 7, 2]  # 0, 1, 2, 3 ou 4 extras
+const EXTRA_WEIGHTS = [34, 26, 25, 11, 4]  # raridade alvo: Normal, Rara, Épica, Lendária, Mística
 const EXTRA_POOL = ["escudo", "roubo", "casca", "regen", "primeiro", "furia_entrada", "onda", "investida", "executa", "furia_morte", "cresce",
 	"cura_matar", "devolve", "inabalavel", "explode", "clone", "contra", "ouro_matar", "rouba", "corrente", "longe", "mais_um", "avanco", "levanta", "efeito"]
 
@@ -964,7 +971,7 @@ static func add_extras(st: UnitData, rng: RandomNumberGenerator, n: int) -> Arra
 						st.dash_duration = 0.4
 						labels.append("Dá um bote no primeiro alvo")
 					"levanta":
-						if n < 3 or st.unit_count > 1: continue
+						if n < 3 or st.unit_count > 1: continue  # só nas Místicas
 						st.can_resurrect = true
 						st.resurrect_hp_percent = 0.35
 						labels.append("Levanta uma vez depois de morrer")
@@ -1025,19 +1032,57 @@ static func generate_def(seed_value: int, turma: String = "", kind: int = 0, rol
 	# quando as regras de habilidade mudarem
 	var art_rng = RandomNumberGenerator.new()
 	art_rng.seed = hash("arte%d" % seed_value)
+	# RARIDADE 3.0: sorteia a raridade ALVO primeiro. Normal e Rara saem sem
+	# habilidade nenhuma; Épica, Lendária e Mística ganham habilidades até
+	# somar os pontos da faixa (ver Catalogo.rarity_from_score).
+	var target = _roll_extra(rng)
 	if stats != null:
-		var extras = add_extras(stats, rng, _roll_extra(rng))
-		if !extras.is_empty():
-			text["pros"] = (extras + text["pros"]).slice(0, 3)
-	elif spell != null and spell.damage > 0 and spell.status_effect == UnitData.OnHitEffect.NONE and rng.randf() < 0.35:
-		spell.status_effect = [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.KNOCKBACK][rng.randi() % 2]
-		spell.status_effect_strength = 0.6
-		spell.status_effect_duration = 2.0
-		spell.knockback_distance = 40.0
-		spell.damage = int(spell.damage * 0.9)
-		text["pros"] = (["E ainda: %s" % CustomContent.EFFECT_NAMES[spell.status_effect]] + text["pros"]).slice(0, 3)
+		if target <= Catalogo.RARA:
+			Catalogo.strip_abilities(stats)
+			text = describe_unit(stats, role)
+			if target == Catalogo.RARA:
+				# Rara: sem habilidade, mas números um pouco melhores
+				stats.hp = int(round(stats.hp * 1.07 / 10.0)) * 10
+				if stats.damage > 0:
+					stats.damage = int(round(stats.damage * 1.07 / 5.0)) * 5
+		else:
+			var want = [1, 3, 5][target - Catalogo.EPICA]
+			var all_extras: Array = []
+			var guard = 0
+			while _unit_score(stats) < want and guard < 6:
+				guard += 1
+				all_extras += add_extras(stats, rng, 1 if target < Catalogo.MISTICA else 3)
+			if !all_extras.is_empty():
+				text["pros"] = (all_extras + text["pros"]).slice(0, 3)
+	elif spell != null:
+		if target <= Catalogo.RARA:
+			# feitiço simples: só a função (dano, cura ou escudo), sem efeito
+			if spell.damage <= 0 and spell.heal_amount <= 0 and spell.shield_amount <= 0:
+				spell.damage = int(cost * 9.0)
+				text = {"pros": ["Dano na hora, em área"], "cons": ["Fraco contra torre"]}
+			spell.status_effect = UnitData.OnHitEffect.NONE
+			spell.cleanses = false
+			spell.rage_damage_mult = 1.0
+			spell.rage_speed_mult = 1.0
+			spell.rage_attack_speed_mult = 1.0
+			spell.summon_count = 0
+			if text["pros"].size() > 0 and str(text["pros"][0]).begins_with("Atrapalha"):
+				text = {"pros": ["Dano na hora, em área"], "cons": ["Fraco contra torre"]}
+		elif spell.status_effect == UnitData.OnHitEffect.NONE and spell.rage_damage_mult <= 1.0 and spell.summon_count <= 0:
+			var options = [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.KNOCKBACK]
+			if target == Catalogo.LENDARIA:
+				options = [UnitData.OnHitEffect.STUN, UnitData.OnHitEffect.PULL]
+			elif target == Catalogo.MISTICA:
+				options = [UnitData.OnHitEffect.FREEZE]
+			spell.status_effect = options[rng.randi() % options.size()]
+			spell.status_effect_strength = 0.6
+			spell.status_effect_duration = 2.0 if target < Catalogo.MISTICA else 2.5
+			spell.knockback_distance = 40.0
+			if spell.damage > 0:
+				spell.damage = int(spell.damage * 0.9)
+			text["pros"] = (["E ainda: %s" % CustomContent.EFFECT_NAMES[spell.status_effect]] + text["pros"]).slice(0, 3)
 	var design = design_card(art_rng, turma, role, stats, spell)
-	var rarity = Progresso._weighted([45, 35, 17, 3])
+	var rarity = mini(target, Catalogo.RARA)
 	var def = {"nome": design["nome"], "turma": turma, "custo": cost, "papel": role, "raridade": rarity, "arena": 0,
 		"perigo": clampi(int(cost / 10.0) + 1, 1, 10), "desc": "", "pros": text["pros"], "cons": text["cons"],
 		"receita": design["receita"], "paleta": design["paleta"], "proj": design["proj"]}

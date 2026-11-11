@@ -158,6 +158,7 @@ func _go_tab(i: int):
 	_tab = i
 	last_tab = i
 	_cancel_placing()
+	_build_page(i)
 	var tw = create_tween()
 	tw.tween_property(_pages_root, "position:x", -i * _w(), 0.18).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_style_tabs()
@@ -191,6 +192,11 @@ func _input(event):
 
 
 func _process(delta):
+	_lazy_timer += delta
+	if _lazy_timer >= 0.25:
+		_lazy_timer = 0.0
+		if _drag_card == null:
+			_build_one_lazy_page()
 	_second_timer += delta
 	if _second_timer >= 0.5:
 		_second_timer = 0.0
@@ -202,7 +208,10 @@ func _process(delta):
 	if _clan_timer >= 5.0:
 		_clan_timer = 0.0
 		if Cla.tick():
-			_queue_refresh()
+			_dirty[4] = true
+			if _tab == 4:
+				_build_page(4)
+			_refresh_dots()
 
 
 var _ready_state := ""
@@ -231,16 +240,59 @@ func _do_refresh():
 	_rebuild_all()
 
 
+## DESEMPENHO: antes, qualquer mudança refazia as 6 abas inteiras de uma vez
+## (centenas de cartas desenhadas de novo) e a coleção engasgava. Agora só a
+## aba que está na tela é refeita na hora; as outras ficam marcadas como
+## "sujas" e são refeitas uma por vez, com calma, ou quando você entra nelas.
+var _dirty: Array = [true, true, true, true, true, true]
+var _lazy_timer := 0.0
+
+
 func _rebuild_all():
-	_live_labels.clear()
 	_refresh_top()
-	_build_feira(_clear(_pages[0]))
-	_build_cartas(_clear(_pages[1]))
-	_build_batalha(_clear(_pages[2]))
-	_build_trofeus(_clear(_pages[3]))
-	_build_cla(_clear(_pages[4]))
-	_build_sitio(_clear(_pages[5]))
+	for i in _dirty.size():
+		_dirty[i] = true
+	_build_page(_tab)
 	_refresh_dots()
+
+
+func _build_page(i: int):
+	if i < 0 or i >= _pages.size() or !_dirty[i]:
+		return
+	_dirty[i] = false
+	var scroll = _pages_root.get_child(i)
+	var keep_scroll = scroll.scroll_vertical if scroll is ScrollContainer else 0
+	var box = _clear(_pages[i])
+	_live_labels = _live_labels.filter(func(pair): return is_instance_valid(pair[0]) and pair[0].is_inside_tree())
+	match i:
+		0:
+			_build_feira(box)
+		1:
+			_build_cartas(box)
+		2:
+			_build_batalha(box)
+		3:
+			_build_trofeus(box)
+		4:
+			_build_cla(box)
+		5:
+			_build_sitio(box)
+	if scroll is ScrollContainer and keep_scroll > 0:
+		_restore_scroll.call_deferred(scroll, keep_scroll)
+
+
+func _restore_scroll(scroll: ScrollContainer, value: int):
+	if is_instance_valid(scroll):
+		await get_tree().process_frame
+		if is_instance_valid(scroll):
+			scroll.scroll_vertical = value
+
+
+func _build_one_lazy_page():
+	for i in _dirty.size():
+		if _dirty[i]:
+			_build_page(i)
+			return
 
 
 func _refresh_top():
@@ -266,7 +318,7 @@ func _refresh_dots():
 	_dots[1].visible = up
 	var chest_ready = false
 	for i in Progresso.chests().size():
-		if Progresso.chest_ready(i):
+		if i >= 0:
 			chest_ready = true
 	var mission_ready = false
 	for m in PlayerProfile.daily_missions:
@@ -426,7 +478,7 @@ func _build_batalha(box: Node):
 
 	# baús de colheita
 	var chest_panel = _panel(box)
-	chest_panel.add_child(_label("🎁 Baús de colheita  (vença pra ganhar · cada partida adianta 1 min)", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	chest_panel.add_child(_label("🎁 Baús de colheita  (vença pra ganhar · toque pra abrir na hora)", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var crow = HBoxContainer.new()
 	crow.add_theme_constant_override("separation", 10)
 	chest_panel.add_child(crow)
@@ -480,21 +532,11 @@ func _chest_slot(i: int) -> Control:
 	b.add_child(art)
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	var name_text = "\n\n\n\n%s\n" % def["nome"]
-	if Progresso.chest_ready(i):
-		b.text = name_text + "ABRIR!"
-		b.modulate = Color(1.0, 1.0, 0.7)
-		art.bouncing = true
-		b.pressed.connect(_open_chest.bind(i))
-	elif Progresso.unlocking_index() == i:
-		_live(b, func(): return name_text + "⏳ " + _clock(Progresso.chest_remaining(i)))
-		b.pressed.connect(_toast.bind("Abrindo... cada partida jogada adianta 1 minuto."))
-	else:
-		b.text = name_text + "tocar pra abrir (%s)" % _clock(def["tempo"])
-		if Progresso.unlocking_index() == -1:
-			b.pressed.connect(_start_chest.bind(i))
-		else:
-			b.pressed.connect(_toast.bind("Só um baú abre por vez."))
+	# sem espera: tocou, abriu
+	b.text = "\n\n\n\n%s\nABRIR!" % def["nome"]
+	b.modulate = Color(1.0, 1.0, 0.7)
+	art.bouncing = true
+	b.pressed.connect(_open_chest.bind(i))
 	return b
 
 
@@ -504,7 +546,7 @@ func _start_chest(i: int):
 
 func _open_chest(i: int):
 	var def = Progresso.CHESTS[int(Progresso.chests()[i]["tipo"])]
-	var loot = Progresso.open_chest(i)
+	var loot = Progresso.open_chest_now(i)
 	if !loot.is_empty():
 		_show_loot(def["nome"], loot, Color.html(def["cor"]))
 
@@ -658,6 +700,9 @@ func _build_torres(box: Node):
 		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(side)
 		side.add_child(_label(b.base_name + ("   ✔ EM USO" if b == equipped else ""), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
+		var brar = Catalogo.base_rarity(b)
+		var bab = Catalogo.base_ability(b)
+		side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[brar], "Habilidade: " + str(bab[0]) if !bab.is_empty() else "sem habilidade"], 15, Catalogo.RARITY_COLORS[brar]))
 		side.add_child(_label(_base_summary(b), 15, Color(0.8, 0.95, 1.0)))
 		for t in b.pros:
 			side.add_child(_wrap("✔ " + t, 15, Color(0.6, 1.0, 0.6)))
@@ -768,6 +813,26 @@ func _build_cartas(box: Node):
 		cb.modulate = n.color.lightened(0.35) if _filter_turma == n.nation_name else Color(0.62, 0.6, 0.56)
 		chips.add_child(cb)
 
+	# ordem + filtro por tipo
+	var sort_row = HFlowContainer.new()
+	sort_row.add_theme_constant_override("h_separation", 6)
+	box.add_child(sort_row)
+	sort_row.add_child(_label("Ordem:", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	for i in SORT_NAMES.size():
+		var ob = _button(SORT_NAMES[i], _set_sort.bind(i), 15)
+		ob.custom_minimum_size.y = 44
+		ob.modulate = Color(1, 1, 0.75) if _sort_mode == i else Color(0.62, 0.6, 0.56)
+		sort_row.add_child(ob)
+	var kind_row = HFlowContainer.new()
+	kind_row.add_theme_constant_override("h_separation", 6)
+	box.add_child(kind_row)
+	kind_row.add_child(_label("Tipo:", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	for i in KIND_NAMES.size():
+		var kb = _button(KIND_NAMES[i], _set_kind.bind(i), 15)
+		kb.custom_minimum_size.y = 44
+		kb.modulate = Color(1, 1, 0.75) if _filter_kind == i else Color(0.62, 0.6, 0.56)
+		kind_row.add_child(kb)
+
 	var owned: Array = []
 	var missing: Array = []
 	for c in CardDatabase.all_cards:
@@ -775,12 +840,14 @@ func _build_cartas(box: Node):
 			continue
 		if _filter_turma != "" and c.get_nation_name() != _filter_turma:
 			continue
+		if _filter_kind != 0 and _card_kind(c) != _filter_kind:
+			continue
 		if Progresso.is_owned(c):
 			owned.append(c)
 		else:
 			missing.append(c)
-	owned.sort_custom(func(a, b): return a.cost < b.cost if a.cost != b.cost else a.card_name < b.card_name)
-	missing.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena if a.unlock_arena != b.unlock_arena else a.cost < b.cost)
+	owned.sort_custom(_sort_cards)
+	missing.sort_custom(_sort_cards if _sort_mode != 0 else func(a, b): return a.unlock_arena < b.unlock_arena if a.unlock_arena != b.unlock_arena else a.cost < b.cost)
 
 	box.add_child(_title("Coleção  %d/%d" % [owned.size(), owned.size() + missing.size()]))
 	var og = _grid(box, 3)
@@ -803,6 +870,58 @@ func _build_cartas(box: Node):
 			mg.add_child(_collection_entry(c, true, "Arena %d" % c.unlock_arena if is_locked else "nos baús", Color(1, 0.9, 0.5), is_locked))
 	_build_place_bar()
 
+
+
+const SORT_NAMES = ["Mais barata", "Mais cara", "Raridade", "Nível", "Nome"]
+const KIND_NAMES = ["Tudo", "Tropa", "Voador", "Construção", "Feitiço"]
+var _sort_mode := 0
+var _filter_kind := 0
+
+
+func _set_sort(i: int):
+	_sort_mode = i
+	_queue_refresh()
+
+
+func _set_kind(i: int):
+	_filter_kind = i
+	_queue_refresh()
+
+
+## 1 tropa do chão, 2 voador, 3 construção, 4 feitiço
+func _card_kind(c: CardData) -> int:
+	if c.is_spell():
+		return 4
+	var st = DeckBuilder.get_unit_stats(c)
+	if st == null:
+		return 1
+	if st.unit_type == UnitData.UnitType.AIR:
+		return 2
+	if st.unit_type == UnitData.UnitType.BUILDING:
+		return 3
+	return 1
+
+
+func _sort_cards(a: CardData, b: CardData) -> bool:
+	match _sort_mode:
+		1:
+			if a.cost != b.cost:
+				return a.cost > b.cost
+		2:
+			var ra = Catalogo.rarity_of(a)
+			var rb = Catalogo.rarity_of(b)
+			if ra != rb:
+				return ra > rb
+		3:
+			var la = Progresso.level(a)
+			var lb = Progresso.level(b)
+			if la != lb:
+				return la > lb
+		4:
+			return a.card_name < b.card_name
+	if a.cost != b.cost:
+		return a.cost < b.cost
+	return a.card_name < b.card_name
 
 
 ## uma carta da coleção: grande, com os dados dentro dela
@@ -1034,6 +1153,14 @@ const ABILITY_HELP = {
 	"Cura ao matar": "recupera vida a cada inimigo derrotado.",
 	"Levanta de novo": "volta à vida uma vez depois de morrer.",
 	"Inabalável": "não é empurrado nem puxado.",
+	"Tiro em corrente": "o tiro pula de um inimigo pro outro.",
+	"Clone ao morrer": "deixa uma cópia mais fraca quando morre.",
+	"Revida": "às vezes devolve o golpe quando apanha.",
+	"Recurso ao matar": "ganha recurso a cada inimigo derrotado.",
+	"Rouba recurso": "tira recurso do rival quando bate na torre.",
+	"Golpe duplo": "cada golpe acerta mais um inimigo ao lado.",
+	"Bote": "dá um salto rápido no primeiro alvo.",
+	"Mais dano de longe": "quanto mais longe o alvo, mais forte o tiro.",
 	"Acompanhantes": "vem com outras unidades diferentes junto.",
 }
 
@@ -1206,14 +1333,14 @@ func _show_card_popup(card: CardData, deck_index: int = -1):
 		v.add_child(_wrap(target_line, 16, Color(1.0, 0.85, 0.55)))
 
 	# habilidades, uma por linha, explicadas
-	var skills = Catalogo.abilities(card)
+	var skills = Catalogo.abilities_detail(card)
 	var sk_panel = _panel(v)
-	sk_panel.add_child(_label("Habilidades (%d) -- carta %s" % [skills.size(), Catalogo.RARITY_NAMES[rarity]], 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
+	sk_panel.add_child(_label("Carta %s" % Catalogo.RARITY_NAMES[rarity], 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
 	if skills.is_empty():
-		sk_panel.add_child(_wrap("Nenhuma: é só vida e pancada.", 15))
-	for skill in skills:
-		var help_text = _ability_help(str(skill))
-		sk_panel.add_child(_wrap("• %s%s" % [skill, ": " + help_text if help_text != "" else ""], 15))
+		sk_panel.add_child(_wrap("Sem habilidade: é só vida e pancada. (Normal e Rara nunca têm habilidade; Épica, Lendária e Mística têm, cada vez mais forte.)", 15))
+	for pair in skills:
+		var help_text = _ability_help(str(pair[0]))
+		sk_panel.add_child(_wrap("%s %s%s" % ["★".repeat(int(pair[1])), pair[0], ": " + help_text if help_text != "" else ""], 15))
 
 	if !card.pros.is_empty() or !card.cons.is_empty():
 		var pc = _panel(v)
@@ -1627,7 +1754,7 @@ func _use_power(id: String):
 		_toast(problem)
 	else:
 		Sfx.play("nivel")
-		_toast("%s ligado!" % Progresso.POWERS[id]["nome"])
+		_toast("%s usado!" % Progresso.POWERS[id]["nome"])
 
 
 # ================================================================ ABA: CLÃ
@@ -2149,7 +2276,8 @@ func _show_loot(title_text: String, loot: Array, color: Color):
 	art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	v.add_child(art)
 	var g = _grid(v, 4)
-	var delay = 0.15
+	var delay = 0.05
+	var reveal: Array = []
 	for item in loot:
 		var w: Control
 		if str(item.get("tipo", "")) == "poder":
@@ -2195,10 +2323,25 @@ func _show_loot(title_text: String, loot: Array, color: Color):
 		g.add_child(w)
 		var tw = w.create_tween()
 		tw.tween_interval(delay)
-		tw.tween_callback(Sfx.play.bind("carta" if str(item.get("tipo", "")) != "ouro" else "moeda", 0.1, 0.0))
-		tw.tween_property(w, "modulate:a", 1.0, 0.18)
-		delay += 0.14
+		tw.tween_property(w, "modulate:a", 1.0, 0.08)
+		reveal.append([w, tw])
+		delay += 0.05
+	Sfx.play("carta", 0.1, 0.0)
+	# tocar em qualquer lugar mostra tudo de uma vez
+	var overlay: Node = v.get_meta("overlay")
+	var bg = overlay.get_child(0)
+	if bg is Control:
+		bg.gui_input.connect(_reveal_all.bind(reveal))
 	v.add_child(_button("Boa!", _close_loot.bind(v), 22))
+
+
+func _reveal_all(event: InputEvent, reveal: Array):
+	if event is InputEventMouseButton and event.pressed:
+		for pair in reveal:
+			if is_instance_valid(pair[0]):
+				if pair[1] != null and pair[1].is_valid():
+					pair[1].kill()
+				pair[0].modulate.a = 1.0
 
 
 func _close_loot(v: Node):
