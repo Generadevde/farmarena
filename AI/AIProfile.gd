@@ -97,6 +97,14 @@ func get_card_level(card: CardData) -> int:
 	return card_levels.get(card.resource_path, 1)
 
 
+## estrelas (carta lapidada com cristal) -- mesma regra do jogador
+@export var card_stars: Dictionary = {}
+
+
+func get_stars(card: CardData) -> int:
+	return int(card_stars.get(card.resource_path, 0)) if card != null else 0
+
+
 func get_archetype_name() -> String:
 	return ARCHETYPE_NAMES.get(archetype, "Desconhecido")
 

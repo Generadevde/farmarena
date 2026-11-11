@@ -1469,6 +1469,15 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 			mult = ai_profile.get_stat_multiplier(card_data)
 			level = ai_profile.get_card_level(card_data)
 
+	# estrelas (carta lapidada com cristal): +3% cada, pra você e pro bot
+	if card_data != null:
+		if level_profile != null:
+			mult *= 1.0 + Progresso.STAR_BOOST * level_profile.get_stars(card_data)
+		elif team == GameManager.Team.PLAYER:
+			mult *= Progresso.star_mult(card_data)
+		elif ai_profile != null:
+			mult *= 1.0 + Progresso.STAR_BOOST * ai_profile.get_stars(card_data)
+
 	if MatchSetup.tournament:
 		level = MatchSetup.TOURNAMENT_LEVEL  # torneio: todo mundo no mesmo nível
 		mult = PlayerProfile.compute_stat_multiplier(level)
@@ -2252,6 +2261,11 @@ func cast_spell(spell_data: SpellData, position: Vector2, caster_team, source_ca
 			sp_level = ai_profile.get_card_level(sp_card)
 	effect.level = sp_level
 	effect.power = PlayerProfile.compute_stat_multiplier(sp_level)
+	if sp_card != null and !MatchSetup.tournament:
+		if caster_team == GameManager.Team.PLAYER:
+			effect.power *= Progresso.star_mult(sp_card)
+		elif ai_profile != null:
+			effect.power *= 1.0 + Progresso.STAR_BOOST * ai_profile.get_stars(sp_card)
 	# posiciona ANTES de entrar na cena: o SpellEffect aplica o efeito já no
 	# _ready -- antes ele "explodia" na posição (0,0) e só depois era movido,
 	# então feitiço instantâneo (raio, gelo...) não acertava onde você mirou

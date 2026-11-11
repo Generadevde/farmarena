@@ -20,6 +20,7 @@ var selected := false
 var show_stats := false
 var mastery_override := -1   # -1 = usa a do jogador
 var level_override := -1
+var stars_override := -1   # -1 = as estrelas do jogador; 0+ = mostra esse número (carta de bot)
 var _t := 0.0
 var _press_pos := Vector2.ZERO
 var _pressing := false
@@ -145,6 +146,12 @@ func _draw():
 	draw_string(font, cc + Vector2(-cw * 0.5, cfs * 0.36), cost, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs, Color.WHITE)
 	# nível
 	if show_level and !locked:
+		# estrelas (carta lapidada): cristaizinhos embaixo do nível
+		var n_stars = stars_override if stars_override >= 0 else (Progresso.stars(card) if level_override <= 0 else 0)
+		for si in n_stars:
+			var sc = Vector2(w - (12 + si * 13) * u, 33 * u)
+			draw_colored_polygon(PackedVector2Array([sc + Vector2(0, -7) * u, sc + Vector2(6, 0) * u, sc + Vector2(0, 7) * u, sc + Vector2(-6, 0) * u]), Color("#12324a"))
+			draw_colored_polygon(PackedVector2Array([sc + Vector2(0, -5) * u, sc + Vector2(4, 0) * u, sc + Vector2(0, 5) * u, sc + Vector2(-4, 0) * u]), Color("#7ff0ff"))
 		var lv = level_override if level_override > 0 else PlayerProfile.get_card_level(card)
 		var txt = "Nv %d" % lv
 		var lfs = int(13 * u)

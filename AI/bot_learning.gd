@@ -132,6 +132,7 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 	profile.preferred_role = data.get("preferred_role", CardData.CardRole.VERSATIL)
 	profile.preferred_base_category = data.get("preferred_base_category", BaseData.BaseCategory.DEFENSIVO)
 	profile.card_levels = data.get("card_levels", {})
+	profile.card_stars = data.get("card_stars", {})
 
 	var base_path = data.get("equipped_base_path", "")
 	var base_just_rolled = false
@@ -1043,6 +1044,7 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 		data["current_loss_streak"] = 0  # quebrou a má fase, começa a contar de novo
 		_catch_up_copies(data, bot_arena)
 		_bot_open_chest(data, bot_arena)
+		_bot_crystals(data)
 	else:
 		data["total_losses"] = data.get("total_losses", 0) + 1
 		data["gold"] = data.get("gold", 0) + reward["gold"]
@@ -1263,6 +1265,34 @@ func _bot_open_chest(data: Dictionary, bot_arena: int, forced_type: int = -1):
 		var range_q = Progresso.COPIES_PER_ROLL[Catalogo.rarity_of(card)]
 		copies[card.resource_path] = mini(400, int(copies.get(card.resource_path, 0)) + randi_range(range_q[0], range_q[1]))
 	data["card_copies"] = copies
+
+
+## CRISTAL do bot: raro igual pra você (1 a cada ~25 vitórias). Quando junta o
+## bastante, lapida a carta de nível mais alto do baralho (até 3 estrelas).
+const BOT_CRYSTAL_CHANCE = 0.04
+
+
+func _bot_crystals(data: Dictionary):
+	if randf() < BOT_CRYSTAL_CHANCE:
+		data["crystals"] = int(data.get("crystals", 0)) + 1
+	var have = int(data.get("crystals", 0))
+	if have < Progresso.STAR_COST[0]:
+		return
+	var stars_by_card: Dictionary = data.get("card_stars", {})
+	var levels: Dictionary = data.get("card_levels", {})
+	var best_path = ""
+	for path in data.get("deck_paths", []):
+		var st = int(stars_by_card.get(path, 0))
+		if st >= Progresso.STAR_MAX or have < int(Progresso.STAR_COST[st]):
+			continue
+		if best_path == "" or int(levels.get(path, 1)) > int(levels.get(best_path, 1)):
+			best_path = path
+	if best_path == "":
+		return
+	var now_stars = int(stars_by_card.get(best_path, 0))
+	data["crystals"] = have - int(Progresso.STAR_COST[now_stars])
+	stars_by_card[best_path] = now_stars + 1
+	data["card_stars"] = stars_by_card
 
 
 ## MESMA regra do jogador: pra subir uma carta o bot precisa das CÓPIAS dela

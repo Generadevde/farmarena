@@ -89,6 +89,13 @@ func _ready():
 	await _shot("ranking")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	Progresso.add_crystals(40)
+	print("SHOT cristal: lapidou? ", Progresso.polish(Progresso.deck_cards(0)[3]), " estrelas=", Progresso.stars(Progresso.deck_cards(0)[3]), " cristais=", Progresso.crystals())
+	hub._show_modes()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("modos")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._show_daily()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("diario")

@@ -72,7 +72,7 @@ func _blank() -> Dictionary:
 		"owned": {}, "copies": {}, "uses": {}, "xp": 0,
 		"chests": [], "shop": {}, "road": [], "decks": [], "active_deck": 0,
 		"streak": 0, "best_streak": 0, "mascate": {}, "pending": [],
-		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {}, "gazeta": {}, "diario": {},
+		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {}, "gazeta": {}, "diario": {}, "cristais": 0, "estrelas": {},
 	}
 
 
@@ -316,7 +316,8 @@ func add_xp(amount: int):
 	for lv in range(before + 1, after + 1):
 		var gold = 80 + 40 * lv
 		PlayerProfile.add_coins(gold)
-		_push({"tipo": "nivel", "nivel": lv, "ouro": gold})
+		add_crystals(1)
+		_push({"tipo": "nivel", "nivel": lv, "ouro": gold, "cristais": 1})
 		_push_chest_open(mini(1 + lv / 6, 3))
 	save()
 
@@ -977,6 +978,7 @@ func _challenge_result(won: bool) -> String:
 			text += "  ·  🎁 %s" % CHESTS[chest]["nome"]
 		if mode == "sobrev" and w % 5 == 0:
 			grant_power()
+			add_crystals(1)
 		var recs: Dictionary = t.get("recordes", {})
 		if w > int(recs.get(mode, 0)):
 			recs[mode] = w
@@ -986,7 +988,8 @@ func _challenge_result(won: bool) -> String:
 			t["tacas"] = tournament_cups() + 1
 			add_xp(300 if mode == "dez" else 150)
 			grant_power()
-			text = "COMPLETOU o %s! 🏆 taça nº %d" % [def["nome"], tournament_cups()]
+			add_crystals(5 if mode == "dez" else 3)
+			text = "COMPLETOU o %s! 🏆 taça nº %d  ·  💎 +%d" % [def["nome"], tournament_cups(), 5 if mode == "dez" else 3]
 			Gazeta.add_event("TORNEIO", "#c8a020", "%s completou o %s" % [PlayerProfile.player_name, def["nome"]], "Foram %d vitórias. É a taça nº %d da estante." % [w, tournament_cups()])
 	else:
 		var l = tournament_losses() + 1
@@ -1024,7 +1027,8 @@ func tournament_result(won: bool) -> String:
 			t["ativo"] = false
 			t["tacas"] = tournament_cups() + 1
 			add_xp(150)
-			text = "CAMPEÃO! 🏆 taça nº %d" % tournament_cups()
+			add_crystals(3)
+			text = "CAMPEÃO! 🏆 taça nº %d  ·  💎 +3" % tournament_cups()
 			var deck_turma = Gazeta._turma_of_deck(deck_paths(active_deck()))
 			Gazeta.add_event("CAMPEONATO", "#c8a020", ("A turma %s conquistou o Torneio da Roça" % deck_turma) if deck_turma != "" else "%s conquistou o Torneio da Roça" % PlayerProfile.player_name, "%s venceu quartas, semi e final. Taça nº %d." % [PlayerProfile.player_name, tournament_cups()])
 		else:
@@ -1039,6 +1043,77 @@ func tournament_result(won: bool) -> String:
 	t["ultimo"] = text
 	_commit()
 	return text
+
+
+# ================================================================ CRISTAIS (recurso raro) e ESTRELAS
+## Cristal vem bem pouquinho: subir de nível, completar o Desafio do Dia e
+## ganhar torneio. Serve pra LAPIDAR uma carta (até 3 estrelas, +3% de vida e
+## dano cada) e pro Balcão de Cristal da Feira (carta à escolha, Baú Lendário).
+## No torneio as estrelas não valem (lá é todo mundo igual). Os bots seguem a
+## mesma regra: ganham cristal raramente e lapidam as cartas do baralho.
+const STAR_MAX = 3
+const STAR_COST = [10, 20, 35]
+const STAR_BOOST = 0.03
+const CRYSTAL_CARD_PRICE = 8
+const CRYSTAL_CHEST_PRICE = 15
+const CRYSTAL_CARD_COPIES = [20, 10, 4, 2, 1]
+
+
+func crystals() -> int:
+	return int(d.get("cristais", 0))
+
+
+func add_crystals(amount: int):
+	if amount > 0:
+		d["cristais"] = crystals() + amount
+
+
+func stars(c: CardData) -> int:
+	if c == null or !d.has("estrelas") or !(d["estrelas"] is Dictionary):
+		return 0
+	return int(d["estrelas"].get(c.resource_path, 0))
+
+
+func star_mult(c: CardData) -> float:
+	return 1.0 + STAR_BOOST * stars(c)
+
+
+func star_cost(c: CardData) -> int:
+	return int(STAR_COST[clampi(stars(c), 0, STAR_MAX - 1)])
+
+
+func can_polish(c: CardData) -> bool:
+	return is_owned(c) and stars(c) < STAR_MAX and crystals() >= star_cost(c)
+
+
+func polish(c: CardData) -> bool:
+	if !can_polish(c):
+		return false
+	d["cristais"] = crystals() - star_cost(c)
+	if !d.has("estrelas") or !(d["estrelas"] is Dictionary):
+		d["estrelas"] = {}
+	d["estrelas"][c.resource_path] = stars(c) + 1
+	_commit()
+	return true
+
+
+## Balcão de Cristal: carta À ESCOLHA (qualquer uma da sua arena)
+func buy_crystal_card(c: CardData) -> Dictionary:
+	if c == null or crystals() < CRYSTAL_CARD_PRICE:
+		return {}
+	d["cristais"] = crystals() - CRYSTAL_CARD_PRICE
+	var result = give_card(c, int(CRYSTAL_CARD_COPIES[Catalogo.rarity_of(c)]))
+	_commit()
+	return result
+
+
+func buy_crystal_chest() -> Array:
+	if crystals() < CRYSTAL_CHEST_PRICE:
+		return []
+	d["cristais"] = crystals() - CRYSTAL_CHEST_PRICE
+	var loot = roll_chest(3)
+	_commit()
+	return loot
 
 
 # ================================================================ DESAFIO DO DIA
@@ -1127,7 +1202,8 @@ func daily_result(won: bool) -> String:
 			_push({"tipo": "bau", "bau": DAILY_CHEST, "itens": roll_chest(DAILY_CHEST)})
 			if randf() < 0.25:
 				grant_power()
-			text = "DESAFIO DO DIA COMPLETO!  🎁 %s" % CHESTS[DAILY_CHEST]["nome"]
+			add_crystals(2)
+			text = "DESAFIO DO DIA COMPLETO!  🎁 %s  ·  💎 +2" % CHESTS[DAILY_CHEST]["nome"]
 			Gazeta.add_event("DESAFIO", "#58a040", "%s completou o Desafio do Dia" % PlayerProfile.player_name, "Três vitórias com o baralho emprestado (turma %s)." % daily_theme())
 	elif won:
 		text = "Vitória! (o prêmio de hoje você já pegou)"

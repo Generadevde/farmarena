@@ -334,7 +334,7 @@ func _refresh_top():
 	_xp_bar.max_value = prog[1]
 	_xp_bar.value = prog[0]
 	_name_label.text = PlayerProfile.player_name
-	_coins_label.text = "💰 %d" % PlayerProfile.coins
+	_coins_label.text = "💰 %d   💎 %d" % [PlayerProfile.coins, Progresso.crystals()]
 	_trophy_label.text = "🏆 %d" % ArenaManager.get_trophies(PlayerProfile.player_name)
 
 
@@ -587,17 +587,62 @@ func _build_batalha(box: Node):
 	battle.modulate = Color(1.0, 0.92, 0.6)
 	banner.add_child(battle)
 
-	# ---------------- opções em quadradinhos
+	# ---------------- mais modos (2x2, torneios, desafios) num botão só
 	var pending = 0
 	for m in PlayerProfile.daily_missions:
 		if !m["claimed"] and m["progress"] >= m["target"]:
 			pending += 1
-	var tiles = _grid(box, 4)
-	var t_note = "em andamento" if Progresso.tournament_active() else ("grátis hoje" if Progresso.tournament_free_today() else "")
-	_tile(tiles, "🏟", "Torneios", _show_tournament, Progresso.tournament_active() or Progresso.tournament_free_today(), t_note)
-	_tile(tiles, "📅", "Desafio do dia", _show_daily, !Progresso.daily_done(), "feito ✔" if Progresso.daily_done() else "%d de %d" % [Progresso.daily_wins(), Progresso.DAILY_WINS])
-	_tile(tiles, "👥", "2 contra 2", _start_2v2)
-	_tile(tiles, "🏆", "Ranking", _show_ranking)
+	var mode_note = ""
+	if Progresso.tournament_active():
+		mode_note = "torneio em andamento"
+	elif !Progresso.daily_done():
+		mode_note = "Desafio do Dia: %d de %d" % [Progresso.daily_wins(), Progresso.DAILY_WINS]
+	elif Progresso.tournament_free_today():
+		mode_note = "torneio grátis hoje"
+	var mrow = HBoxContainer.new()
+	mrow.add_theme_constant_override("separation", 8)
+	box.add_child(mrow)
+	var mb = _button("🎮 MAIS MODOS" + ("\n" + mode_note if mode_note != "" else ""), _show_modes, 22)
+	mb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mb.custom_minimum_size.y = 78
+	if mode_note != "":
+		mb.modulate = Color(0.8, 0.9, 1.0)
+	mrow.add_child(mb)
+	var rb = _button("🏆 Ranking", _show_ranking, 18)
+	rb.custom_minimum_size = Vector2(190, 78)
+	mrow.add_child(rb)
+
+	# ---------------- seu baralho
+	var deck_panel = _panel(box)
+	var head = HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	deck_panel.add_child(head)
+	var dl = _label("🃏 Seu baralho  ·  custo médio %.0f" % Progresso.deck_average_cost(Progresso.active_deck()), 17, ThemeBuilder.COLOR_GOLD)
+	dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	dl.clip_text = true
+	head.add_child(dl)
+	for i in Progresso.DECK_SLOTS:
+		var b = _button(str(i + 1), _pick_active_deck.bind(i), 17)
+		b.custom_minimum_size = Vector2(50, 40)
+		b.modulate = Color(1, 1, 1) if i == Progresso.active_deck() else Color(0.65, 0.62, 0.58)
+		head.add_child(b)
+	var deck_now = Progresso.deck_cards(Progresso.active_deck())
+	var drow: HBoxContainer = null
+	for i in deck_now.size():
+		if i % 4 == 0:
+			drow = HBoxContainer.new()
+			drow.alignment = BoxContainer.ALIGNMENT_CENTER
+			drow.add_theme_constant_override("separation", 8)
+			deck_panel.add_child(drow)
+		var v = CardView.make(deck_now[i], 136)
+		if Progresso.can_upgrade(deck_now[i]):
+			v.badge = "SUBIR"
+			v.badge_color = Color(0.5, 1, 0.6)
+		v.tapped.connect(_show_card_popup)
+		drow.add_child(v)
+	var eb = _button("✏ Editar baralho", _go_tab.bind(1), 20)
+	eb.custom_minimum_size.y = 58
+	deck_panel.add_child(eb)
 
 	# ---------------- baús
 	var chest_panel = _panel(box)
@@ -607,44 +652,6 @@ func _build_batalha(box: Node):
 	chest_panel.add_child(crow)
 	for i in Progresso.CHEST_SLOTS:
 		crow.add_child(_chest_slot(i))
-
-	# ---------------- baralho em uso, embaixo
-	var deck_panel = _panel(box)
-	var head = HBoxContainer.new()
-	head.add_theme_constant_override("separation", 6)
-	deck_panel.add_child(head)
-	var dl = _label("🃏 Baralho %d  ·  custo médio %.0f" % [Progresso.active_deck() + 1, Progresso.deck_average_cost(Progresso.active_deck())], 16)
-	dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	dl.clip_text = true
-	head.add_child(dl)
-	for i in Progresso.DECK_SLOTS:
-		var b = _button(str(i + 1), _pick_active_deck.bind(i), 17)
-		b.custom_minimum_size = Vector2(50, 40)
-		b.modulate = Color(1, 1, 1) if i == Progresso.active_deck() else Color(0.65, 0.62, 0.58)
-		head.add_child(b)
-	var drow = HBoxContainer.new()
-	drow.alignment = BoxContainer.ALIGNMENT_CENTER
-	drow.add_theme_constant_override("separation", 3)
-	deck_panel.add_child(drow)
-	for c in Progresso.deck_cards(Progresso.active_deck()):
-		var v = CardView.make(c, 92)
-		if Progresso.can_upgrade(c):
-			v.badge = "SUBIR"
-			v.badge_color = Color(0.5, 1, 0.6)
-		v.tapped.connect(_show_card_popup)
-		drow.add_child(v)
-	var check = DeckDoctor.analyze(Progresso.deck_cards(Progresso.active_deck()))
-	var drow2 = HBoxContainer.new()
-	drow2.add_theme_constant_override("separation", 8)
-	deck_panel.add_child(drow2)
-	var cb = _button("🔍 Analisar  (%s · %d)" % [check["veredito"], int(check["nota"])], _show_deck_check, 16)
-	cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cb.custom_minimum_size.y = 50
-	drow2.add_child(cb)
-	var sb = _button("💡 Sugerir baralho", _show_deck_suggest, 16)
-	sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sb.custom_minimum_size.y = 50
-	drow2.add_child(sb)
 
 	_build_powers(box)
 
@@ -666,6 +673,52 @@ func _build_batalha(box: Node):
 		cv.tapped.connect(_show_card_popup)
 		h.add_child(cv)
 		h.add_child(_wrap("⭐ Carta do dia: %s\nHoje ela ganha MAESTRIA EM DOBRO cada vez que você jogar." % cod.card_name, 17))
+
+
+# ================================================================ Balcão de Cristal
+func _pick_crystal_card():
+	var v = _popup(660, true)
+	v.add_child(_title("💎 Qual carta você quer?"))
+	v.add_child(_wrap("Qualquer carta da sua arena. Se você não tem, ela é liberada; se já tem, vêm cópias (quanto mais rara, menos cópias).", 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var cards: Array = Progresso.pool()
+	cards.sort_custom(func(a, b): return Catalogo.rarity_of(a) > Catalogo.rarity_of(b) if Catalogo.rarity_of(a) != Catalogo.rarity_of(b) else a.cost < b.cost)
+	var g = _grid(v, 4)
+	for c in cards:
+		var cv = CardView.make(c, 146)
+		cv.locked = false
+		cv.show_level = Progresso.is_owned(c)
+		cv.badge = "x%d" % int(Progresso.CRYSTAL_CARD_COPIES[Catalogo.rarity_of(c)]) if Progresso.is_owned(c) else "LIBERAR"
+		cv.badge_color = Color(0.6, 0.95, 1.0)
+		cv.tapped.connect(_buy_crystal_card.bind(v))
+		g.add_child(cv)
+	v.add_child(_button("Cancelar", _close.bind(v)))
+
+
+func _buy_crystal_card(card: CardData, popup_box: Node):
+	var result = Progresso.buy_crystal_card(card)
+	_close(popup_box)
+	if !result.is_empty():
+		_show_loot("💎 Carta à escolha", [result], Color(0.5, 0.9, 1.0))
+
+
+func _buy_crystal_chest():
+	var loot = Progresso.buy_crystal_chest()
+	if !loot.is_empty():
+		_show_loot("💎 Baú Lendário", loot, Color.html(Progresso.CHESTS[3]["cor"]))
+
+
+# ================================================================ MAIS MODOS
+func _show_modes():
+	var v = _popup(660)
+	v.add_child(_title("🎮 Modos de jogo"))
+	var g = _grid(v, 2)
+	_tile(g, "📅", "Desafio do Dia", _swap_popup.bind(v, _show_daily), !Progresso.daily_done(), "feito ✔" if Progresso.daily_done() else "baralho pronto · %d de %d vitórias" % [Progresso.daily_wins(), Progresso.DAILY_WINS])
+	_tile(g, "🏟", "Torneios e Desafios", _swap_popup.bind(v, _show_tournament), Progresso.tournament_active() or Progresso.tournament_free_today(), Progresso.tournament_stage_text() if Progresso.tournament_active() else ("entrada grátis hoje" if Progresso.tournament_free_today() else "chave, 10 vitórias, maluco, sobrevivência"))
+	_tile(g, "👥", "2 contra 2", _start_2v2, false, "você + um bot contra dois · não vale troféu")
+	_tile(g, "🤝", "Amistoso de clã", _swap_popup.bind(v, _go_tab.bind(4)), false, "na aba Clã · não vale troféu")
+	for t in g.get_children():
+		t.custom_minimum_size = Vector2(318, 132)
+	v.add_child(_button("Voltar", _close.bind(v)))
 
 
 # ================================================================ DESAFIO DO DIA
@@ -714,6 +767,31 @@ func _deck_report(v: Node, cards: Array):
 	bar.show_percentage = false
 	bar.custom_minimum_size.y = 18
 	v.add_child(bar)
+	# a nota é de COBERTURA: uma barra pra cada tipo de ameaça
+	var lp = _panel(v)
+	lp.add_child(_wrap("A nota mede se o baralho aguenta de tudo. Um ponto cego derruba a nota, mesmo com carta forte.", 13, ThemeBuilder.COLOR_STAT_LABEL))
+	for line in r["linhas"]:
+		var lr = HBoxContainer.new()
+		lr.add_theme_constant_override("separation", 8)
+		lp.add_child(lr)
+		var ln = _label(str(line[0]), 14)
+		ln.add_theme_font_override("font", ThemeDB.fallback_font)
+		ln.custom_minimum_size.x = 230
+		lr.add_child(ln)
+		var lb = ProgressBar.new()
+		lb.max_value = 100
+		lb.value = float(line[1])
+		lb.show_percentage = false
+		lb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		lb.custom_minimum_size.y = 16
+		lb.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		lb.modulate = Color(0.5, 1.0, 0.55) if line[1] >= 75.0 else (Color(1.0, 0.85, 0.4) if line[1] > 45.0 else Color(1.0, 0.5, 0.45))
+		lr.add_child(lb)
+		var lv2 = _label(str(int(line[1])), 14)
+		lv2.add_theme_font_override("font", ThemeDB.fallback_font)
+		lv2.custom_minimum_size.x = 34
+		lv2.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		lr.add_child(lv2)
 	for block in [["✔ Pontos fortes", r["fortes"], Color(0.6, 1.0, 0.6)], ["✖ Pontos fracos", r["fracos"], Color(1.0, 0.65, 0.55)], ["⚠ Quem ganha desse baralho", r["counters"], Color(1.0, 0.85, 0.5)]]:
 		if block[1].is_empty():
 			continue
@@ -756,15 +834,24 @@ func _show_deck_suggest():
 	var tabs = HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 6)
 	v.add_child(tabs)
-	var scope_names = ["Com as minhas cartas", "Com tudo da Arena %d" % ArenaManager.get_player_arena()]
-	for i in 2:
-		var tb = _button(scope_names[i], _set_suggest_scope.bind(v, i), 16)
+	var scope_names = ["Minhas cartas", "Tudo da Arena %d" % ArenaManager.get_player_arena(), "🎲 Aleatório"]
+	for i in 3:
+		var tb = _button(scope_names[i], _set_suggest_scope.bind(v, i), 15)
 		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tb.custom_minimum_size.y = 52
 		tb.modulate = Color(1, 1, 0.75) if i == _suggest_scope else Color(0.62, 0.6, 0.56)
 		tabs.add_child(tb)
-	var pool: Array = Progresso.owned_cards() if _suggest_scope == 0 else Progresso.pool()
-	var deck = DeckDoctor.suggest(pool, Progresso.DECK_SIZE)
+	var pool: Array = Progresso.pool() if _suggest_scope == 1 else Progresso.owned_cards()
+	var deck: Array = []
+	if _suggest_scope == 2:
+		# aleatório de verdade: 7 cartas suas sorteadas, sem pensar em nada
+		v.add_child(_wrap("Sete cartas suas sorteadas no escuro. Pode sair uma maravilha ou uma bagunça: a nota embaixo diz qual.", 14, ThemeBuilder.COLOR_STAT_LABEL))
+		deck = pool.duplicate()
+		deck.shuffle()
+		deck = deck.slice(0, Progresso.DECK_SIZE)
+		deck.sort_custom(func(a, b): return a.cost < b.cost)
+	else:
+		deck = DeckDoctor.suggest(pool, Progresso.DECK_SIZE)
 	if deck.size() < Progresso.DECK_SIZE:
 		v.add_child(_wrap("Ainda não tem carta suficiente pra montar uma sugestão.", 16))
 	else:
@@ -789,8 +876,13 @@ func _show_deck_suggest():
 		else:
 			cb.modulate = Color(1.0, 0.92, 0.6)
 		v.add_child(cb)
-	v.add_child(_button("🎲 Outra sugestão", _swap_popup.bind(v, _show_deck_suggest)))
+	v.add_child(_button("🎲 Sortear de novo" if _suggest_scope == 2 else "🔁 Outra sugestão", _swap_popup.bind(v, _show_deck_suggest)))
 	v.add_child(_button("Voltar", _close.bind(v)))
+
+
+func _open_suggest(scope: int):
+	_suggest_scope = scope
+	_show_deck_suggest()
 
 
 func _set_suggest_scope(popup_box: Node, scope: int):
@@ -1246,14 +1338,23 @@ func _build_cartas(box: Node):
 	tools.add_theme_constant_override("separation", 6)
 	box.add_child(tools)
 	var chk = DeckDoctor.analyze(Progresso.deck_cards(_deck_slot))
-	var ab = _button("🔍 Analisar (%s · %d)" % [chk["veredito"], int(chk["nota"])], _show_deck_check, 15)
+	var ab = _button("🔍 Nota %d" % int(chk["nota"]), _show_deck_check, 15)
+	ab.modulate = chk["cor"].lightened(0.3)
 	ab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ab.custom_minimum_size.y = 46
 	tools.add_child(ab)
-	var sgb = _button("💡 Sugerir baralho", _show_deck_suggest, 15)
+	var sgb = _button("💡 Sugerir", _open_suggest.bind(0), 15)
 	sgb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sgb.custom_minimum_size.y = 46
 	tools.add_child(sgb)
+	var rdb = _button("🎲 Aleatório", _open_suggest.bind(2), 15)
+	rdb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rdb.custom_minimum_size.y = 46
+	tools.add_child(rdb)
+	var mtb = _button("🔥 Meta", _show_meta_decks, 15)
+	mtb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mtb.custom_minimum_size.y = 46
+	tools.add_child(mtb)
 
 	var in_deck: Array = Progresso.deck_paths(_deck_slot)
 	var owned: Array = []
@@ -1775,8 +1876,9 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 			foot.add_child(_label("⭐ Nível máximo!", 18, ThemeBuilder.COLOR_GOLD))
 
 	# números em quadradinhos (em verde, o ganho do próximo nível)
-	var mult = PlayerProfile.compute_stat_multiplier(lv)
-	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) if can_level else mult
+	var star_factor = Progresso.star_mult(card) if level_view <= 0 else 1.0
+	var mult = PlayerProfile.compute_stat_multiplier(lv) * star_factor
+	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) * star_factor if can_level else mult
 	if can_level:
 		v.add_child(_label("Números no nível %d   (em verde: o que ganha no nível %d)" % [lv, lv + 1], 14, ThemeBuilder.COLOR_STAT_LABEL))
 	var g = _grid(v, 3)
@@ -1819,6 +1921,16 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 		hist.add_child(_wrap("Na temporada: ainda sem partidas registradas.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	hist.add_child(_wrap("Libera na Arena %d (%s)" % [maxi(1, card.unlock_arena), ArenaManager.get_arena_info(maxi(1, card.unlock_arena)).get("name", "")], 15, ThemeBuilder.COLOR_STAT_LABEL))
 
+	if owned:
+		var n_stars = Progresso.stars(card)
+		if n_stars < Progresso.STAR_MAX:
+			var pol = _button("💎 LAPIDAR  (%d cristais · você tem %d)   +3%% vida e dano" % [Progresso.star_cost(card), Progresso.crystals()], _polish.bind(card, v, deck_index), 16)
+			pol.disabled = !Progresso.can_polish(card)
+			if !pol.disabled:
+				pol.modulate = Color(0.6, 0.95, 1.0)
+			foot.add_child(pol)
+		if n_stars > 0:
+			side.add_child(_label("💎 Lapidada %d de %d  (+%d%% vida e dano)" % [n_stars, Progresso.STAR_MAX, int(round(n_stars * Progresso.STAR_BOOST * 100))], 15, Color(0.6, 0.95, 1.0)))
 	var btn_row = HBoxContainer.new()
 	btn_row.add_theme_constant_override("separation", 8)
 	foot.add_child(btn_row)
@@ -1963,6 +2075,14 @@ func _show_compare(a: CardData, b: CardData):
 	v.add_child(_button("Voltar", _close.bind(v), 20))
 
 
+func _polish(card: CardData, popup_box: Node, deck_index: int = -1):
+	if Progresso.polish(card):
+		_close(popup_box)
+		_queue_refresh()
+		await _celebrate(card, "LAPIDADA!", "💎 %d de %d  ·  +3%% de vida e de dano" % [Progresso.stars(card), Progresso.STAR_MAX], Color(0.5, 0.95, 1.0))
+		_show_card_popup(card, deck_index)
+
+
 func _begin_swap(index: int, popup_box: Node):
 	_close(popup_box)
 	if _tab != 1:
@@ -2089,6 +2209,23 @@ func _build_feira(box: Node):
 	if !s["gratis"]:
 		gift.modulate = Color(1, 1, 0.7)
 	box.add_child(gift)
+
+	var kp = _panel(box)
+	kp.add_child(_label("💎 Balcão de Cristal  ·  você tem %d" % Progresso.crystals(), 19, Color(0.6, 0.95, 1.0)))
+	kp.add_child(_wrap("Cristal é raro: vem ao subir de nível (+1), completar o Desafio do Dia (+2) e ganhar torneio (+3 a +5). Também serve pra LAPIDAR uma carta (segure a carta e toque em Lapidar).", 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var krow = HBoxContainer.new()
+	krow.add_theme_constant_override("separation", 8)
+	kp.add_child(krow)
+	var kc = _button("🃏 Carta à escolha\n💎 %d" % Progresso.CRYSTAL_CARD_PRICE, _pick_crystal_card, 17)
+	kc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	kc.custom_minimum_size.y = 76
+	kc.disabled = Progresso.crystals() < Progresso.CRYSTAL_CARD_PRICE
+	krow.add_child(kc)
+	var kb = _button("🎁 Baú Lendário\n💎 %d" % Progresso.CRYSTAL_CHEST_PRICE, _buy_crystal_chest, 17)
+	kb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	kb.custom_minimum_size.y = 76
+	kb.disabled = Progresso.crystals() < Progresso.CRYSTAL_CHEST_PRICE
+	krow.add_child(kb)
 
 	if Progresso.mascate_active():
 		var mp = _panel(box)
@@ -2629,6 +2766,7 @@ func _show_bot(who: String):
 			continue
 		var cv = CardView.make(c, 140, true)
 		cv.level_override = prof.get_card_level(c)
+		cv.stars_override = prof.get_stars(c)
 		cv.mastery_override = 0
 		cv.tapped.connect(_show_card_popup.bind(-1, prof.get_card_level(c), who))
 		g.add_child(cv)
@@ -2749,7 +2887,12 @@ func _build_meta(v: Node):
 		var cost = 0.0
 		for c in cards:
 			cost += c.cost
-		p.add_child(_label("Usado por %d de %d jogadores (%d%%)  ·  custo médio %.0f  ·  você tem %d/%d" % [int(m["usam"]), total, int(round(100.0 * int(m["usam"]) / total)), cost / maxf(1.0, cards.size()), have, cards.size()], 14, ThemeBuilder.COLOR_STAT_LABEL))
+		var mcheck = DeckDoctor.analyze(cards)
+		p.add_child(_label("Nota %d (%s)  ·  usado por %d de %d (%d%%)  ·  custo %.0f  ·  você tem %d/%d" % [int(mcheck["nota"]), mcheck["veredito"], int(m["usam"]), total, int(round(100.0 * int(m["usam"]) / total)), cost / maxf(1.0, cards.size()), have, cards.size()], 14, mcheck["cor"]))
+		if !mcheck["fracos"].is_empty():
+			var weak = _wrap("Ponto fraco: " + str(mcheck["fracos"][0]), 13, Color(1.0, 0.75, 0.6))
+			weak.add_theme_font_override("font", ThemeDB.fallback_font)
+			p.add_child(weak)
 		var g = _grid(p, 4)
 		for c in cards:
 			var cv = CardView.make(c, 140)
@@ -2766,6 +2909,15 @@ func _build_meta(v: Node):
 		if cb.disabled:
 			cb.text = "Copiar (faltam %d cartas)" % (Progresso.DECK_SIZE - have)
 		p.add_child(cb)
+
+
+## aba "Baralhos do Meta": os mais jogados, com nota, pra copiar
+func _show_meta_decks():
+	var v = _popup(660, true)
+	v.add_child(_title("🔥 Baralhos do Meta"))
+	v.add_child(_wrap("Os baralhos mais jogados agora (pelos bots e por você). Copie um pra testar; a nota mostra se ele aguenta de tudo ou só é popular.", 14, ThemeBuilder.COLOR_STAT_LABEL))
+	_build_meta(v)
+	v.add_child(_button("Voltar", _close.bind(v)))
 
 
 func _copy_meta(cards: Array, popup_box: Node):
@@ -3314,7 +3466,10 @@ func _show_pending():
 			return
 		match str(r.get("tipo", "")):
 				"nivel":
-					_show_loot("⬆ NÍVEL %d!" % int(r["nivel"]), [{"tipo": "ouro", "ouro": int(r["ouro"])}], Color(0.5, 1, 0.6))
+					var lv_items: Array = [{"tipo": "ouro", "ouro": int(r["ouro"])}]
+					if int(r.get("cristais", 0)) > 0:
+						lv_items.append({"tipo": "cristal", "qtd": int(r["cristais"])})
+					_show_loot("⬆ NÍVEL %d!" % int(r["nivel"]), lv_items, Color(0.5, 1, 0.6))
 					return
 				"bau":
 					_show_loot("🎁 " + Progresso.CHESTS[int(r["bau"])]["nome"], r["itens"], Color.html(Progresso.CHESTS[int(r["bau"])]["cor"]))
@@ -3381,6 +3536,18 @@ func _show_loot(title_text: String, loot: Array, color: Color):
 			pd.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			pb.add_child(pd)
 			w = pb
+		elif str(item.get("tipo", "")) == "cristal":
+			var cb = VBoxContainer.new()
+			cb.custom_minimum_size = Vector2(140, 150)
+			cb.alignment = BoxContainer.ALIGNMENT_CENTER
+			var gem = _label("💎", 54)
+			gem.add_theme_font_override("font", ThemeDB.fallback_font)
+			gem.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cb.add_child(gem)
+			var gamt = _label("+%d cristal" % int(item["qtd"]), 20, Color(0.6, 0.95, 1.0))
+			gamt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cb.add_child(gamt)
+			w = cb
 		elif str(item.get("tipo", "")) == "ouro":
 			var b = VBoxContainer.new()
 			b.custom_minimum_size = Vector2(140, 150)
