@@ -108,11 +108,13 @@ func ensure_rivals() -> int:
 		if abs(ArenaManager.get_trophies(n) - mine) <= RIVAL_RANGE:
 			near += 1
 	var born = 0
+	var newborn: Array = []
 	while near < MIN_RIVALS and extra_bots.size() < MAX_EXTRA_BOTS:
 		var n = _new_bot_name()
 		roster_names.append(n)
 		extra_bots.append(n)
 		ArenaManager.trophies[n] = maxi(0, mine + randi_range(-110, 110))
+		newborn.append(n)
 		near += 1
 		born += 1
 	if born > 0:
@@ -121,7 +123,41 @@ func ensure_rivals() -> int:
 		if f != null:
 			f.store_string(JSON.stringify(extra_bots))
 		print("BotSimulator: nasceram ", born, " bots novos perto de ", mine, " troféus")
+		# quem nasce já no meio da tabela vem com a "história" de quem chegou até
+		# ali (cartas e torre evoluídas de acordo), pra não ser saco de pancada
+		for nb in newborn:
+			BotLearning.seed_history(str(nb), ArenaManager.get_trophies(str(nb)))
 	return born
+
+
+## ZERA TODOS OS BOTS: troféus, vitórias, cartas, torres e os bots gerados.
+## O jogador não perde nada. Depois disso eles sobem do zero, pela simulação.
+func reset_all_bots():
+	if PlayerProfile.active_profile_id < 0:
+		return
+	var me = PlayerProfile.player_name
+	var dir = DirAccess.open(BotLearning.SAVE_DIR)
+	if dir != null:
+		var prefix = "profile_%d_" % PlayerProfile.active_profile_id
+		for f in dir.get_files():
+			if f.begins_with(prefix):
+				dir.remove(f)
+	if _base_roster.is_empty():
+		_base_roster = roster_names.duplicate()
+	extra_bots = []
+	if FileAccess.file_exists(_extra_path()):
+		DirAccess.remove_absolute(_extra_path())
+	roster_names.assign(_base_roster)
+	for book in [ArenaManager.trophies, Leaderboard.scores, Leaderboard.season_points, Leaderboard.win_streaks, Leaderboard.records]:
+		for k in book.keys():
+			if str(k) != me:
+				book.erase(k)
+	ArenaManager._save()
+	Leaderboard._save()
+	Assembleia._deck_cache_time = -100.0
+	Assembleia._deck_cache = []
+	print("BotSimulator: todos os bots voltaram pro zero")
+	ensure_rivals()
 
 
 func on_profile_loaded():

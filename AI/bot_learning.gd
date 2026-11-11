@@ -934,6 +934,23 @@ func _enforce_arena_on_deck(profile: AIProfile, data: Dictionary, cap: int, know
 	return changed
 
 
+## bot que nasce no meio da tabela: ganha o histórico de vitórias de quem chegou
+## naquele número de troféus, e com ele as cópias, o ouro e os níveis.
+func seed_history(bot_name: String, trophies: int):
+	get_or_create_profile(bot_name)
+	var data = _load_raw(bot_name)
+	if data.is_empty():
+		return
+	var wins = int(trophies / 12.0)
+	if wins <= 0:
+		return
+	data["total_wins"] = wins
+	data["base_matches_played"] = wins * 2
+	data["copies_v"] = 0
+	_catch_up_copies(data, ArenaManager.get_participant_arena(bot_name))
+	_save_raw(bot_name, data)
+
+
 ## passa por todos os bots uma vez, pra arrumar baralho e torre fora da arena
 func enforce_arena_everywhere():
 	for n in BotSimulator.roster_names:
@@ -1217,7 +1234,7 @@ func _catch_up_copies(data: Dictionary, bot_arena: int):
 		copies[path] = mini(400, int(copies.get(path, 0)) + gained)
 	data["card_copies"] = copies
 	# ouro dos baús que ele teria aberto
-	data["gold"] = int(data.get("gold", 0)) + wins * 30
+	data["gold"] = int(data.get("gold", 0)) + wins * 60
 	for i in 8:
 		_maybe_upgrade_cards(data)
 		_maybe_upgrade_base(data)
