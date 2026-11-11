@@ -171,10 +171,20 @@ func sync_profile():
 	var cards = current_cards()
 	if cards.is_empty():
 		return
-	var result = Progresso.give_card(cards[0], 1)
 	s["missao"] = {"periodo": p, "prog": 0, "pego": false}
-	Progresso._push({"tipo": "safra", "itens": [result]})
+	# carta de safra nasce BLOQUEADA na arena dela. Só no DIA DO LANÇAMENTO
+	# (as primeiras 24h da safra) ela vem liberada, como amostra. Depois disso
+	# é só em baú, Feira e afins, pra quem já chegou na arena da carta.
+	if is_launch_day():
+		var result = Progresso.give_card(cards[0], 1)
+		Progresso._push({"tipo": "safra", "itens": [result]})
 	Progresso.save()
+
+
+## estamos nas primeiras 24h da safra atual?
+func is_launch_day() -> bool:
+	var period_len = SafraTempo.PERIOD_DAYS * 86400.0
+	return fmod(Time.get_unix_time_from_system(), period_len) < 86400.0
 
 
 func mission() -> Dictionary:

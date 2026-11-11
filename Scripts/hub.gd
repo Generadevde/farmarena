@@ -919,12 +919,13 @@ func _build_cartas(box: Node):
 	if !news.is_empty() and _filter_turma == "" and _filter_kind == 0:
 		var np = _panel(box)
 		np.add_child(_label("🆕 Novidades desta safra", 19, Color(0.5, 1, 0.6)))
+		np.add_child(_wrap("Liberada só no dia do lançamento. Depois, aparece nos baús e na Feira de quem já chegou na arena dela.", 13, ThemeBuilder.COLOR_STAT_LABEL))
 		var ng = _grid(np, 4)
 		for c in news:
 			var nv = CardView.make(c, 150, true)
 			nv.show_level = Progresso.is_owned(c)
-			nv.badge = "NOVIDADE"
-			nv.badge_color = Color(0.5, 1, 0.6)
+			nv.badge = "NOVIDADE" if Progresso.is_owned(c) else "🔒 Arena %d" % maxi(1, c.unlock_arena)
+			nv.badge_color = Color(0.5, 1, 0.6) if Progresso.is_owned(c) else Color(1, 0.85, 0.5)
 			nv.tapped.connect(_show_card_popup)
 			ng.add_child(nv)
 	box.add_child(_label("Fora do baralho: %d carta(s)   ·   coleção %d/%d" % [owned.size(), owned.size() + in_deck.size(), owned.size() + in_deck.size() + missing.size()], 16, ThemeBuilder.COLOR_GOLD))
@@ -2852,7 +2853,7 @@ func _show_pending():
 					_show_loot("🎁 " + Progresso.CHESTS[int(r["bau"])]["nome"], r["itens"], Color.html(Progresso.CHESTS[int(r["bau"])]["cor"]))
 					return
 				"safra":
-					_show_loot("🌱 Safra nova! Amostra grátis", r["itens"], Color(0.5, 0.9, 0.4))
+					_show_loot("🌱 Dia de lançamento! Carta da safra liberada", r["itens"], Color(0.5, 0.9, 0.4))
 					return
 				"poder":
 					_show_loot("⚡ PODER RARO!", [{"tipo": "poder", "id": str(r["id"])}], Color.html(Progresso.POWERS[str(r["id"])]["cor"]))
