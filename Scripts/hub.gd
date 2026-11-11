@@ -319,7 +319,7 @@ func _refresh_dots():
 	_dots[1].visible = up
 	var chest_ready = false
 	for i in Progresso.chests().size():
-		if i >= 0:
+		if Progresso.chest_ready(i):
 			chest_ready = true
 	var mission_ready = false
 	for m in PlayerProfile.daily_missions:
@@ -479,7 +479,7 @@ func _build_batalha(box: Node):
 
 	# baús de colheita
 	var chest_panel = _panel(box)
-	chest_panel.add_child(_label("🎁 Baús de colheita  (vença pra ganhar · toque pra abrir na hora)", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	chest_panel.add_child(_label("🎁 Baús de colheita  (vença pra ganhar · cada partida adianta 1 min)", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var crow = HBoxContainer.new()
 	crow.add_theme_constant_override("separation", 10)
 	chest_panel.add_child(crow)
@@ -533,11 +533,21 @@ func _chest_slot(i: int) -> Control:
 	b.add_child(art)
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.vertical_icon_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	# sem espera: tocou, abriu
-	b.text = "\n\n\n\n%s\nABRIR!" % def["nome"]
-	b.modulate = Color(1.0, 1.0, 0.7)
-	art.bouncing = true
-	b.pressed.connect(_open_chest.bind(i))
+	var name_text = "\n\n\n\n%s\n" % def["nome"]
+	if Progresso.chest_ready(i):
+		b.text = name_text + "ABRIR!"
+		b.modulate = Color(1.0, 1.0, 0.7)
+		art.bouncing = true
+		b.pressed.connect(_open_chest.bind(i))
+	elif Progresso.unlocking_index() == i:
+		_live(b, func(): return name_text + "⏳ " + _clock(Progresso.chest_remaining(i)))
+		b.pressed.connect(_toast.bind("Abrindo... cada partida jogada adianta 1 minuto."))
+	else:
+		b.text = name_text + "tocar pra abrir (%s)" % _clock(def["tempo"])
+		if Progresso.unlocking_index() == -1:
+			b.pressed.connect(_start_chest.bind(i))
+		else:
+			b.pressed.connect(_toast.bind("Só um baú abre por vez."))
 	return b
 
 
@@ -547,7 +557,7 @@ func _start_chest(i: int):
 
 func _open_chest(i: int):
 	var def = Progresso.CHESTS[int(Progresso.chests()[i]["tipo"])]
-	var loot = Progresso.open_chest_now(i)
+	var loot = Progresso.open_chest(i)
 	if !loot.is_empty():
 		_show_loot(def["nome"], loot, Color.html(def["cor"]))
 
