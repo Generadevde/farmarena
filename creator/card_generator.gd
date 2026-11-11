@@ -1114,8 +1114,11 @@ static func _generate_once(seed_value: int, turma: String, kind: int, role: int,
 	elif spell != null:
 		if target <= Catalogo.RARA:
 			# feitiço simples: só a função (dano, cura ou escudo), sem efeito
-			if spell.damage <= 0 and spell.heal_amount <= 0 and spell.shield_amount <= 0:
-				spell.damage = int(cost * 9.0)
+			# feitiço de controle sem o efeito ficava fraco e sem graça (dano baixinho
+			# que durava uns segundos): vira dano cheio, na hora
+			if spell.heal_amount <= 0 and spell.shield_amount <= 0 and (spell.damage <= 0 or spell.duration > 0.0 or spell.status_effect != UnitData.OnHitEffect.NONE):
+				spell.damage = int(cost / 10.0 * rng.randf_range(70.0, 100.0))
+				spell.duration = 0.0
 				text = {"pros": ["Dano na hora, em área"], "cons": ["Fraco contra torre"]}
 			spell.status_effect = UnitData.OnHitEffect.NONE
 			spell.cleanses = false
@@ -1125,6 +1128,16 @@ static func _generate_once(seed_value: int, turma: String, kind: int, role: int,
 			spell.summon_count = 0
 			if text["pros"].size() > 0 and str(text["pros"][0]).begins_with("Atrapalha"):
 				text = {"pros": ["Dano na hora, em área"], "cons": ["Fraco contra torre"]}
+		elif spell.damage <= 0 and (spell.heal_amount > 0 or spell.shield_amount > 0):
+			# feitiço de ajuda: a habilidade também é de ajuda (nada de empurrar aliado)
+			spell.cleanses = true
+			text["pros"] = (["E ainda tira efeitos ruins dos aliados"] + text["pros"]).slice(0, 3)
+			if target >= Catalogo.LENDARIA:
+				spell.rage_damage_mult = 1.25
+				spell.rage_speed_mult = 1.2
+				spell.rage_attack_speed_mult = 1.2
+				spell.buff_duration = 5.0
+				text["pros"] = (["E ainda deixa os aliados em fúria"] + text["pros"]).slice(0, 3)
 		elif spell.status_effect == UnitData.OnHitEffect.NONE and spell.rage_damage_mult <= 1.0 and spell.summon_count <= 0:
 			var options = [UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.KNOCKBACK]
 			if target == Catalogo.LENDARIA:
