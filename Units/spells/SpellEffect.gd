@@ -9,6 +9,7 @@ var source_card_path: String = ""  # pra reportar dano na base por carta, igual 
 
 var _tick_timer: float = 0.0
 var _elapsed: float = 0.0
+var _summon_timer: float = 0.0
 
 
 func _ready():
@@ -35,6 +36,13 @@ func _process(delta):
 	if _elapsed >= spell.duration:
 		queue_free()
 		return
+
+	if spell.summon_interval > 0.0 and spell.summon_scene != null:
+		_summon_timer += delta
+		if _summon_timer >= spell.summon_interval:
+			_summon_timer = 0.0
+			var ang = randf() * TAU
+			_spawn_one(Vector2.RIGHT.rotated(ang) * randf_range(0.2, 0.9) * spell.radius)
 
 	_tick_timer -= delta
 	if _tick_timer <= 0:
@@ -122,22 +130,25 @@ func _apply_effect(body):
 func _summon_units():
 	if spell.summon_scene == null or spell.summon_count <= 0:
 		return
-	var battle = get_tree().get_first_node_in_group("battle_scene")
 	for i in spell.summon_count:
-		var u = spell.summon_scene.instantiate()
-		u.team = caster_team
-		if "card_level" in u:
-			u.card_level = level
-		if power != 1.0 and "stats" in u and u.stats != null:
-			u.stats = u.stats.duplicate()
-			u.stats.hp = round(u.stats.hp * power)
-			u.stats.damage = round(u.stats.damage * power)
-		var offset = Vector2.ZERO if spell.summon_count == 1 else Vector2.RIGHT.rotated(TAU * i / spell.summon_count) * min(spell.radius * 0.5, 28.0)
-		if battle != null:
-			battle.add_child(u)
-		else:
-			get_parent().add_child(u)
-		u.global_position = global_position + offset
+		_spawn_one(Vector2.ZERO if spell.summon_count == 1 else Vector2.RIGHT.rotated(TAU * i / spell.summon_count) * min(spell.radius * 0.5, 28.0))
+
+
+func _spawn_one(offset: Vector2):
+	var battle = get_tree().get_first_node_in_group("battle_scene")
+	var u = spell.summon_scene.instantiate()
+	u.team = caster_team
+	if "card_level" in u:
+		u.card_level = level
+	if power != 1.0 and "stats" in u and u.stats != null:
+		u.stats = u.stats.duplicate()
+		u.stats.hp = round(u.stats.hp * power)
+		u.stats.damage = round(u.stats.damage * power)
+	if battle != null:
+		battle.add_child(u)
+	else:
+		get_parent().add_child(u)
+	u.global_position = global_position + offset
 
 
 # mesma ideia de unit.gd/projectile.gd -- avisa a cena de batalha pra

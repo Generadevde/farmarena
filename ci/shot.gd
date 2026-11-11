@@ -89,6 +89,16 @@ func _ready():
 	await _shot("ranking")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	hub._show_ranking(3)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("temporada")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	hub._show_card_stats()
+	await get_tree().create_timer(0.5).timeout
+	await _shot("meta")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._show_bot(BotSimulator.roster_names[3])
 	await get_tree().create_timer(0.4).timeout
 	await _shot("bot")

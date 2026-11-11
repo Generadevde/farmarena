@@ -55,7 +55,28 @@ func _save():
 		f.store_string(JSON.stringify({"periods": periods}))
 
 
+var _sigs: Dictionary = {}  # período -> ["raridade|papel", "especial:x"] das cartas dele
+
+
+## "tipo" da carta gerada: raridade + papel (e a receita especial, se for uma)
+func _signature(gen: Dictionary) -> Array:
+	var def: Dictionary = gen["def"]
+	var score = 0
+	for pair in (Catalogo.spell_abilities(gen["spell"]) if gen["spell"] != null else Catalogo.unit_abilities(gen["stats"])):
+		score += int(pair[1])
+	var out: Array = ["%d|%s" % [Catalogo.rarity_from_score(score, int(def.get("raridade", 0))), str(def.get("papel", ""))]]
+	if str(def.get("especial", "")) != "":
+		out.append("especial:" + str(def["especial"]))
+	return out
+
+
+## é carta da safra ATUAL? (novidade)
+func is_novelty(c: CardData) -> bool:
+	return c != null and current_cards().has(c)
+
+
 func _build_period(p: int):
+	_sigs[p] = []
 	var list: Array = []
 	var used_turmas: Array = []
 	CardGenerator.fixed_power = 15.0  # força fixa: carta de safra antiga não muda quando o jogo ganha carta nova
@@ -66,9 +87,24 @@ func _build_period(p: int):
 		if used_turmas.has(turma):
 			turma = CardGenerator.random_turma(rng)
 		used_turmas.append(turma)
-		var kind = 2 if (n == 1 and rng.randf() < 0.35) else 1
-		var role = ROLES[rng.randi() % ROLES.size()]
-		var gen = CardGenerator.generate_def(rng.randi(), turma, kind, role, 0)
+		# NÃO REPETE: se saiu, por exemplo, uma "Normal de enxame", as próximas 3
+		# safras não trazem outra Normal de enxame (nem a mesma receita especial)
+		var recent: Array = []
+		for back in range(1, 4):
+			recent.append_array(_sigs.get(p - back, []))
+		recent.append_array(_sigs.get(p, []))
+		var gen: Dictionary = {}
+		var sig: Array = []
+		for attempt in 14:
+			var kind = 2 if (n == 1 and rng.randf() < 0.35) else 1
+			var role = ROLES[rng.randi() % ROLES.size()]
+			gen = CardGenerator.generate_def(rng.randi(), turma, kind, role, 0)
+			sig = _signature(gen)
+			if !sig.any(func(x): return recent.has(x)):
+				break
+		if !_sigs.has(p):
+			_sigs[p] = []
+		_sigs[p].append_array(sig)
 		var def: Dictionary = gen["def"]
 		for existing in CardDatabase.all_cards:
 			if existing != null and existing.card_name == def["nome"]:

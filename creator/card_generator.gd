@@ -1032,11 +1032,25 @@ static func generate_def(seed_value: int, turma: String = "", kind: int = 0, rol
 	# quando as regras de habilidade mudarem
 	var art_rng = RandomNumberGenerator.new()
 	art_rng.seed = hash("arte%d" % seed_value)
+	# RECEITAS ESPECIAIS (3 em cada 10): cartas de "formato" diferente, tipo
+	# atiradora de longe, barril de tropa, cemitério, tornado, voador que vira
+	# filhotes... Elas já vêm prontas, então pulam o sorteio de habilidade.
+	var special: Dictionary = {}
+	if rng.randf() < 0.3 and Catalogo.card("abelha") != null:
+		special = _special_spell(rng, turma, cost) if is_spell else _special_unit(rng, turma, cost)
+	if !special.is_empty():
+		stats = special.get("stats", null)
+		spell = special.get("spell", null)
+		cost = int(special["custo"])
+		role = int(special["papel"])
+		text = {"pros": special["pros"], "cons": special["cons"]}
 	# RARIDADE 3.0: sorteia a raridade ALVO primeiro. Normal e Rara saem sem
 	# habilidade nenhuma; Épica, Lendária e Mística ganham habilidades até
 	# somar os pontos da faixa (ver Catalogo.rarity_from_score).
 	var target = _roll_extra(rng)
-	if stats != null:
+	if !special.is_empty():
+		target = Catalogo.RARA  # sem habilidade = Rara; com habilidade, a raridade sai dos pontos
+	elif stats != null:
 		if target <= Catalogo.RARA:
 			Catalogo.strip_abilities(stats)
 			text = describe_unit(stats, role)
@@ -1082,8 +1096,180 @@ static func generate_def(seed_value: int, turma: String = "", kind: int = 0, rol
 				spell.damage = int(spell.damage * 0.9)
 			text["pros"] = (["E ainda: %s" % CustomContent.EFFECT_NAMES[spell.status_effect]] + text["pros"]).slice(0, 3)
 	var design = design_card(art_rng, turma, role, stats, spell)
+	if special.has("nome"):
+		design["nome"] = special["nome"]
 	var rarity = mini(target, Catalogo.RARA)
 	var def = {"nome": design["nome"], "turma": turma, "custo": cost, "papel": role, "raridade": rarity, "arena": 0,
 		"perigo": clampi(int(cost / 10.0) + 1, 1, 10), "desc": "", "pros": text["pros"], "cons": text["cons"],
-		"receita": design["receita"], "paleta": design["paleta"], "proj": design["proj"]}
+		"receita": design["receita"], "paleta": design["paleta"], "proj": design["proj"], "especial": str(special.get("id", ""))}
 	return {"def": def, "stats": stats, "spell": spell}
+
+
+# ---------------------------------------------------------------- receitas especiais
+const TURMA_TOKEN = {"Curral": "bezerro", "Galinheiro": "pintinho", "Brejo": "sapinho", "Roçado": "aboborinha", "Peões": "moleque", "Coisa Estranha": "abelha"}
+const SMALL_TOKENS = ["pintinho", "sapinho", "abelha"]
+const SPECIAL_UNITS = ["longe", "voador_filhotes", "mineiro", "balao", "bruxa", "corredor"]
+const SPECIAL_SPELLS = ["barril", "cemiterio", "tornado"]
+
+
+static func _token_plural(token: String) -> String:
+	var c = Catalogo.card(token)
+	return (c.card_name + "s") if c != null else "Bichos"
+
+
+static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int) -> Dictionary:
+	var k = power_per_cost() / DEFAULT_POWER_PER_COST * rng.randf_range(0.93, 1.07)
+	var token = str(TURMA_TOKEN.get(turma, "moleque"))
+	var st = UnitData.new()
+	st.unit_count = 1
+	st.attack_range = 15.0
+	st.push_weight = 1.0
+	st.unit_type = UnitData.UnitType.GROUND
+	st.target_type = UnitData.TargetType.GROUND
+	var hp_v := 100.0
+	var dmg_v := 10.0
+	var which = SPECIAL_UNITS[rng.randi() % SPECIAL_UNITS.size()]
+	var c = cost
+	var role = CardData.CardRole.VERSATIL
+	var pros: Array = []
+	var cons: Array = []
+	match which:
+		"longe":  # atira de MUITO longe, em área
+			c = clampi(cost, 25, 40)
+			st.is_ranged = true
+			st.attack_range = 240.0
+			st.is_aoe = true
+			st.aoe_radius = 45.0
+			st.target_type = UnitData.TargetType.ALL
+			hp_v = 7.5 * c * k
+			dmg_v = 3.6 * c * k
+			st.attack_speed = 3.0
+			st.move_speed = 40.0
+			role = CardData.CardRole.CERCO
+			pros = ["Alcance enorme: atira de fora do alcance das torres", "Dano em área"]
+			cons = ["Vida de papel", "Atira devagar"]
+		"voador_filhotes":  # tanque voador que só quer torre e vira filhotes
+			c = clampi(cost, 55, 70)
+			st.unit_type = UnitData.UnitType.AIR
+			st.target_type = UnitData.TargetType.BUILDING
+			hp_v = 42.0 * c * k
+			dmg_v = 0.9 * c * k
+			st.attack_speed = 1.5
+			st.move_speed = 30.0
+			st.unit_scale = 1.5
+			st.push_weight = 3.0
+			st.spawns_on_death = true
+			st.death_spawn_scene = Catalogo.card("abelha").unit_scene
+			st.death_spawn_count = 6
+			role = CardData.CardRole.TANQUE
+			pros = ["Tanque que voa direto pra torre", "Quando morre vira 6 abelhas"]
+			cons = ["Quase não causa dano", "Caro"]
+		"mineiro":  # nasce em qualquer lugar
+			c = clampi(cost, 25, 35)
+			st.can_spawn_anywhere = true
+			hp_v = 21.0 * c * k
+			dmg_v = 3.0 * c * k
+			st.attack_speed = 1.2
+			st.move_speed = 60.0
+			role = CardData.CardRole.PUNICAO
+			pros = ["Nasce em QUALQUER lugar do campo", "Bom pra pegar quem fica atrás"]
+			cons = ["Dano baixo"]
+		"balao":  # voador lento que só quer torre e explode
+			c = clampi(cost, 40, 55)
+			st.unit_type = UnitData.UnitType.AIR
+			st.target_type = UnitData.TargetType.BUILDING
+			hp_v = 15.0 * c * k
+			dmg_v = 7.5 * c * k
+			st.attack_speed = 3.0
+			st.move_speed = 38.0
+			st.unit_scale = 1.3
+			st.explodes_on_death = true
+			st.death_explosion_damage = int(4.0 * c * k)
+			st.death_explosion_radius = 60.0
+			role = CardData.CardRole.FINALIZADOR
+			pros = ["Voa direto pra torre", "Pancada enorme", "Explode ao cair"]
+			cons = ["Lento", "Ignora as tropas"]
+		"bruxa":  # anda atirando e chamando tropa
+			c = clampi(cost, 45, 55)
+			st.is_ranged = true
+			st.attack_range = 110.0
+			st.is_aoe = true
+			st.aoe_radius = 35.0
+			st.target_type = UnitData.TargetType.ALL
+			hp_v = 13.0 * c * k
+			dmg_v = 2.2 * c * k
+			st.attack_speed = 1.4
+			st.move_speed = 40.0
+			st.spawns_units = true
+			st.spawn_unit_scene = Catalogo.card(token).unit_scene
+			st.spawn_interval = 7.0
+			st.spawn_count = 2 if token in SMALL_TOKENS else 1
+			role = CardData.CardRole.INVOCADOR
+			pros = ["Chama %s enquanto anda" % _token_plural(token).to_lower(), "Tiro em área"]
+			cons = ["Frágil de perto"]
+		_:  # corredor: rápido e só quer torre
+			c = clampi(cost, 35, 45)
+			st.target_type = UnitData.TargetType.BUILDING
+			hp_v = 17.0 * c * k
+			dmg_v = 5.0 * c * k
+			st.attack_speed = 1.5
+			st.move_speed = 85.0
+			role = CardData.CardRole.FINALIZADOR
+			pros = ["Muito rápido", "Corre direto pra torre"]
+			cons = ["Ignora as tropas"]
+	st.hp = max(30, int(round(hp_v / 10.0)) * 10)
+	st.damage = max(5, int(round(dmg_v / 5.0)) * 5)
+	st.detection_range = max(110.0, st.attack_range + 20.0)
+	st.role = role
+	return {"id": which, "stats": st, "custo": c, "papel": role, "pros": pros, "cons": cons}
+
+
+static func _special_spell(rng: RandomNumberGenerator, turma: String, cost: int) -> Dictionary:
+	var token = str(TURMA_TOKEN.get(turma, "moleque"))
+	var small = token in SMALL_TOKENS
+	var sp = SpellData.new()
+	var which = SPECIAL_SPELLS[rng.randi() % SPECIAL_SPELLS.size()]
+	var c = cost
+	var role = CardData.CardRole.CONTROLE
+	var pros: Array = []
+	var cons: Array = []
+	var nm = ""
+	match which:
+		"barril":  # joga tropa em qualquer lugar
+			c = clampi(cost, 25, 35)
+			sp.radius = 45.0
+			sp.damage = 0
+			sp.affects_enemies = false
+			sp.summon_scene = Catalogo.card(token).unit_scene
+			sp.summon_count = (5 if small else 3) if c >= 30 else (4 if small else 2)
+			role = CardData.CardRole.INVOCADOR
+			nm = "Barril de %s" % _token_plural(token)
+			pros = ["Joga %d tropas em QUALQUER lugar" % sp.summon_count, "Ótimo em cima da torre"]
+			cons = ["Morre fácil pra dano em área"]
+		"cemiterio":  # fica brotando tropa na área
+			c = clampi(cost, 45, 55)
+			sp.radius = 85.0
+			sp.damage = 0
+			sp.affects_enemies = false
+			sp.duration = 8.0
+			sp.tick_interval = 1.0
+			sp.summon_scene = Catalogo.card(token).unit_scene
+			sp.summon_count = 1
+			sp.summon_interval = 1.0 if small else 1.7
+			role = CardData.CardRole.INVOCADOR
+			nm = ["Terra Mexida", "Cova Rasa", "Ninho Sem Fim", "Brotação"][rng.randi() % 4]
+			pros = ["Fica brotando %s por 8 segundos" % _token_plural(token).to_lower(), "Dá pra jogar em cima da torre"]
+			cons = ["Caro", "Dano em área limpa tudo"]
+		_:  # tornado: puxa todo mundo pro meio
+			c = clampi(cost, 25, 35)
+			sp.radius = 105.0
+			sp.duration = 3.5
+			sp.tick_interval = 0.25
+			sp.damage = 8
+			sp.status_effect = UnitData.OnHitEffect.PULL
+			sp.knockback_distance = 22.0
+			sp.base_damage_multiplier = 0.1
+			nm = ["Pé de Vento", "Rodamoinho", "Ventania"][rng.randi() % 3]
+			pros = ["Puxa todo mundo pro meio", "Junta os inimigos pra um dano em área"]
+			cons = ["Quase não causa dano"]
+	return {"id": which, "spell": sp, "custo": c, "papel": role, "pros": pros, "cons": cons, "nome": nm}

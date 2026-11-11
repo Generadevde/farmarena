@@ -60,6 +60,9 @@ class_name SpellData
 ## unidade que nasce no lugar onde o feitiço caiu (time de quem lançou)
 @export var summon_scene: PackedScene
 @export var summon_count: int = 0
+## Se > 0 (e o feitiço dura um tempo), nasce MAIS UMA unidade a cada tantos
+## segundos, num ponto aleatório da área (estilo "cemitério").
+@export var summon_interval: float = 0.0
 
 @export_group("Visual")
 ## cor do efeito no chão/partículas (o jogo escolhe uma se ficar transparente)

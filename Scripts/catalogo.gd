@@ -621,7 +621,9 @@ static func spell_abilities(sp: SpellData) -> Array:
 		out.append(["Purifica", 1])
 	if sp.rage_damage_mult > 1.0 or sp.rage_speed_mult > 1.0:
 		out.append(["Fúria", 2])
-	if sp.summon_count > 0:
+	if sp.summon_interval > 0.0 and sp.duration > 0.0:
+		out.append(["Invoca sem parar", 3])
+	elif sp.summon_count > 0:
 		out.append(["Invoca tropas", 2])
 	return out
 
@@ -699,6 +701,8 @@ static func unit_abilities(st: UnitData) -> Array:
 		out.append(["Bote", 1])
 	if st.distance_damage_bonus_per_100px > 0:
 		out.append(["Mais dano de longe", 1])
+	if st.can_spawn_anywhere:
+		out.append(["Nasce em qualquer lugar", 2])
 	return out
 
 
