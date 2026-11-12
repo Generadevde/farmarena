@@ -1125,6 +1125,7 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 	_current_style = DeckBuilder.style_for_bot(bot_name, data.get("archetype", 0), data.get("preferred_role", CardData.CardRole.VERSATIL))
 	data["deck_paths"] = _evolve_deck(deck_paths, card_stats, data.get("card_levels", {}), known_cards, stubbornness)
 	_current_style = {}
+	_experiment_deck(data, bot_arena)
 
 	_save_raw(bot_name, data)
 
@@ -1367,6 +1368,69 @@ func _maybe_upgrade_cards(data: Dictionary):
 	data["card_copies"] = copies
 	data["card_levels"] = card_levels
 	data["gold"] = gold
+
+
+## EXPERIMENTAR: de vez em quando o bot testa uma carta nova da arena dele,
+## mesmo sem estar perdendo -- senão ele chegava no topo com o baralho do
+## primeiro dia. A troca só acontece se o baralho ficar MELHOR: mais bem
+## coberto (nota do Doutor do Baralho) e/ou com carta que está vencendo mais
+## na temporada. Largar carta muito evoluída custa caro, e a favorita não sai.
+const EXPERIMENT_CHANCE = 0.08
+const EXPERIMENT_CANDIDATES = 6
+const EXPERIMENT_MIN_GAIN = 3.0
+
+
+func _experiment_deck(data: Dictionary, bot_arena: int):
+	if randf() > EXPERIMENT_CHANCE:
+		return
+	var paths: Array = data.get("deck_paths", [])
+	var deck: Array = _load_deck(paths)
+	if deck.size() < 7 or deck.size() != paths.size():
+		return
+	var pool: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and !CustomContent.is_spawn_only(c) and c.unlock_arena <= bot_arena and !deck.has(c):
+			pool.append(c)
+	if pool.is_empty():
+		return
+	var levels: Dictionary = data.get("card_levels", {})
+	var trending = _get_trending_win_rates()
+	var favorite = str(data.get("favorite_card_path", ""))
+	var base_note = float(DeckDoctor.analyze(deck)["nota"])
+	var best_gain = EXPERIMENT_MIN_GAIN
+	var best_card: CardData = null
+	var best_slot = -1
+	for k in EXPERIMENT_CANDIDATES:
+		var cand: CardData = pool[randi() % pool.size()]
+		for i in deck.size():
+			if deck[i].resource_path == favorite:
+				continue
+			var trial: Array = deck.duplicate()
+			trial[i] = cand
+			var gain = float(DeckDoctor.analyze(trial)["nota"]) - base_note
+			gain += (float(trending.get(cand.resource_path, 0.5)) - float(trending.get(deck[i].resource_path, 0.5))) * 30.0
+			gain -= (int(levels.get(deck[i].resource_path, 1)) - 1) * 2.0
+			if gain > best_gain:
+				best_gain = gain
+				best_card = cand
+				best_slot = i
+	if best_card == null:
+		return
+	var old_path = str(paths[best_slot])
+	paths[best_slot] = best_card.resource_path
+	data["deck_paths"] = paths
+	# a carta nova entra um pouco abaixo da que saiu (ele já vinha juntando cópias dela nos baús)
+	if !levels.has(best_card.resource_path):
+		levels[best_card.resource_path] = maxi(1, int(levels.get(old_path, 1)) - 1)
+	data["card_levels"] = levels
+	var stats: Dictionary = data.get("card_stats", {})
+	stats.erase(old_path)
+	data["card_stats"] = stats
+	var known: Array = data.get("known_card_paths", [])
+	if !known.has(best_card.resource_path):
+		known.append(best_card.resource_path)
+		data["known_card_paths"] = known
+	data["deck_changes"] = int(data.get("deck_changes", 0)) + 1
 
 
 func _evolve_deck(deck_paths: Array, card_stats: Dictionary, card_levels: Dictionary, known_cards: Array[CardData], stubbornness: float) -> Array:

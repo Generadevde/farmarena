@@ -255,22 +255,54 @@ const MATCHUP_WEIGHT = 0.15
 const AFFINITY_BONUS_PER_PAIR = 0.5
 
 
+const RATING_SPREAD = 22.0     # quanto maior, mais zebra (22 de diferença = ~73% de chance)
+const RATING_MATCHUP = 0.8     # peso do confronto carta a carta
+var _note_cache: Dictionary = {}
+
+
+## nota de simulação de um bot (por volta de 40 a 160)
+func _rating(profile: AIProfile) -> float:
+	if profile.deck.is_empty():
+		return 0.0
+	# 1) baralho bem montado: a mesma nota de cobertura que o jogador vê
+	var key = ",".join(profile.deck.map(func(c): return c.resource_path if c != null else ""))
+	if !_note_cache.has(key):
+		if _note_cache.size() > 400:
+			_note_cache.clear()
+		_note_cache[key] = float(DeckDoctor.analyze(profile.deck)["nota"])
+	var total = float(_note_cache[key]) * 0.6
+	# 2) nível das cartas (+15% de força por nível) e estrelas
+	var mult = 0.0
+	for card in profile.deck:
+		if card != null:
+			mult += profile.get_stat_multiplier(card) * (1.0 + Progresso.STAR_BOOST * profile.get_stars(card))
+	mult /= profile.deck.size()
+	total += (mult - 1.0) * 90.0
+	# 3) torre
+	total += (Progresso.bot_tower_level(profile) - 1) * 3.0
+	# 4) ritmo: quem decide mais rápido põe mais carta em campo
+	var turns = MATCH_DURATION_SECONDS / max(profile.decision_interval, 0.5)
+	total += (clamp(turns / (MATCH_DURATION_SECONDS / REFERENCE_DECISION_INTERVAL), 0.6, 1.6) - 1.0) * 20.0
+	# 5) cartas que combinam entre si
+	total += _count_affinity_pairs(profile.deck) * 1.5
+	return total
+
+
 func simulate_match(bot_a_name: String, bot_b_name: String):
 	var profile_a = BotLearning.get_or_create_profile(bot_a_name)
 	var profile_b = BotLearning.get_or_create_profile(bot_b_name)
 
-	var power_a = _estimate_power(profile_a) + randf_range(-1.5, 1.5)
-	var power_b = _estimate_power(profile_b) + randf_range(-1.5, 1.5)
-
-	# em vez de só comparar a categoria MAIS comum de cada deck, compara
-	# TODA carta de A contra TODA carta de B na teia de afinidade -- um
-	# retrato bem mais granular do confronto real do que um resumo de
-	# "categoria dominante", que jogava fora a informação das outras 6 cartas
+	# CONTA NOVA. A antiga somava vida e dano bruto das cartas (centenas de
+	# pontos) e sorteava só +-1,5 em cima: na prática o mais forte ganhava
+	# SEMPRE, e um bot disparou pra 8000 troféus sem nunca mexer no baralho.
+	# Agora cada bot tem uma NOTA (baralho bem coberto, nível das cartas e da
+	# torre, ritmo, casamento entre as cartas e confronto direto) e a nota vira
+	# CHANCE de vitória: quem é melhor ganha mais, mas zebra acontece.
 	var matchup_net = _compute_matchup_net(profile_a.deck, profile_b.deck)
-	power_a += matchup_net * MATCHUP_WEIGHT
-	power_b -= matchup_net * MATCHUP_WEIGHT
-
-	var a_won = power_a >= power_b
+	var rating_a = _rating(profile_a) + matchup_net * RATING_MATCHUP
+	var rating_b = _rating(profile_b) - matchup_net * RATING_MATCHUP
+	var chance_a = 1.0 / (1.0 + exp(-(rating_a - rating_b) / RATING_SPREAD))
+	var a_won = randf() < chance_a
 
 	# passa [] de cartas do "jogador" -- essa é uma partida entre bots, não
 	# queremos poluir a estatística de "carta que o jogador mais usa"

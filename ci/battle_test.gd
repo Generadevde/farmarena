@@ -1207,6 +1207,14 @@ func _simulation_audit():
 	print("RESULTADO simulação após 60 rodadas (2h de jogo aberto): ", _trophy_summary(), " | tempo por rodada=", ms / 60, "ms")
 	var top: Array = BotSimulator.roster_names.duplicate()
 	top.sort_custom(func(a, b): return ArenaManager.get_trophies(a) > ArenaManager.get_trophies(b))
+	var changes_total = 0
+	var changed_bots = 0
+	for bn in BotSimulator.roster_names:
+		var ch = int(BotLearning._load_raw(str(bn)).get("deck_changes", 0))
+		changes_total += ch
+		if ch > 0:
+			changed_bots += 1
+	print("RESULTADO simulação baralhos: ", changed_bots, " de ", BotSimulator.roster_names.size(), " bots experimentaram carta nova; ", changes_total, " trocas no total em 2h")
 	print("RESULTADO simulação top 5: ", top.slice(0, 5).map(func(n): return "%s %d" % [n, ArenaManager.get_trophies(n)]),
 		" | arenas: ", range(1, 8).map(func(a): return top.filter(func(n): return ArenaManager.get_participant_arena(n) == a).size()))
 

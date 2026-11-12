@@ -165,7 +165,7 @@ func get_arena_ranking(arena_index: int) -> Array:
 ## simulated = partida de bot contra bot (simulação). Nela o perdedor perde
 ## quase o mesmo que o vencedor ganha -- senão o elenco inteiro subia ~12
 ## troféus a cada 2 minutos e disparava na frente do jogador.
-const SIMULATED_LOSS_RATIO = 0.85
+const SIMULATED_LOSS_RATIO = 1.0   # partida simulada é soma zero: o que um ganha o outro perde (0.85 inflava o topo)
 
 
 ## quantos troféus o perdedor perderia nessa partida (sem aplicar nada)
