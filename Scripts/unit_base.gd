@@ -361,7 +361,10 @@ func _process_building(delta):
 	if target == null:
 		return
 
-	if _in_attack_range(target):
+	# construção também TRAVA no alvo enquanto ele estiver no alcance (igual às
+	# torres): sem isso ela largava o tanque assim que algo chegava mais perto
+	_is_actively_attacking = _in_attack_range(target)
+	if _is_actively_attacking:
 		_try_attack(delta)
 
 

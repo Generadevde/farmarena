@@ -186,8 +186,24 @@ func _apply_cannon_damage(target, dmg):
 		_apply_base_effect_to(target)
 
 
-# Procura o inimigo mais próximo dentro do alcance do canhão.
+var _locked_target = null   # alvo travado da torre
+
+
+## A torre TRAVA no alvo: continua atirando no mesmo até ele morrer ou sair do
+## alcance. Antes ela escolhia "o mais perto" a cada tiro, então quando a
+## tropa fraca passava na frente do tanque a torre largava o tanque -- e o
+## combo "tanque na frente, apoio atrás" não funcionava.
 func _find_cannon_target():
+	if _locked_target != null and is_instance_valid(_locked_target) and !_locked_target.is_queued_for_deletion() \
+			and _locked_target.is_inside_tree() and ("team" in _locked_target) and _locked_target.team != team \
+			and global_position.distance_to(_locked_target.global_position) <= base_data.attack_range:
+		return _locked_target
+	_locked_target = _find_closest_enemy()
+	return _locked_target
+
+
+# Procura o inimigo mais próximo dentro do alcance do canhão.
+func _find_closest_enemy():
 	var closest = null
 	var closest_dist = INF
 
