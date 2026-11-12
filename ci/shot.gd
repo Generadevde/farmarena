@@ -97,6 +97,12 @@ func _ready():
 	hub._queue_refresh()
 	await get_tree().create_timer(0.5).timeout
 	await _shot("dourada")
+	hub._show_pass()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("passe")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	print("SHOT passe: pronto? ", Progresso.pass_ready(), " pegou=", Progresso.claim_pass().size(), " degrau=", Progresso.pass_step(), " pronto de novo? ", Progresso.pass_ready())
 	hub._show_modes()
 	await get_tree().create_timer(0.4).timeout
 	await _shot("modos")

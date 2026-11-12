@@ -72,7 +72,7 @@ func _blank() -> Dictionary:
 		"owned": {}, "copies": {}, "uses": {}, "xp": 0,
 		"chests": [], "shop": {}, "road": [], "decks": [], "active_deck": 0,
 		"streak": 0, "best_streak": 0, "mascate": {}, "pending": [],
-		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {}, "gazeta": {}, "diario": {}, "cristais": 0, "estrelas": {},
+		"season": 0, "season_uses": {}, "new": {}, "safra": {}, "torneio": {}, "cla": {}, "poderes": {}, "ativos": {}, "assembleia": {}, "gazeta": {}, "diario": {}, "cristais": 0, "estrelas": {}, "passe": {},
 	}
 
 
@@ -1118,6 +1118,63 @@ func buy_crystal_chest() -> Array:
 		return []
 	d["cristais"] = crystals() - CRYSTAL_CHEST_PRICE
 	var loot = roll_chest(3)
+	_commit()
+	return loot
+
+
+# ================================================================ PASSE DA ROÇA (prêmio por entrar todo dia)
+## Cada dia que você abre o jogo libera o PRÓXIMO degrau do passe. São 10
+## degraus por temporada e o último é o melhor. Trocou a temporada, recomeça.
+const PASS_STEPS = [
+	{"icone": "💰", "nome": "50 de ouro", "ouro": 50},
+	{"icone": "🎁", "nome": "Saco de Milho", "bau": 0},
+	{"icone": "💰", "nome": "120 de ouro", "ouro": 120},
+	{"icone": "🎁", "nome": "Caixote da Feira", "bau": 1},
+	{"icone": "💎", "nome": "1 cristal", "cristais": 1},
+	{"icone": "💰", "nome": "250 de ouro", "ouro": 250},
+	{"icone": "🎁", "nome": "Baú do Celeiro", "bau": 2},
+	{"icone": "💎", "nome": "2 cristais", "cristais": 2},
+	{"icone": "⚡", "nome": "Poder surpresa", "poder": true},
+	{"icone": "👑", "nome": "Baú Lendário + 5 cristais", "bau": 3, "cristais": 5},
+]
+
+
+func _pass_state() -> Dictionary:
+	if !d.has("passe") or !(d["passe"] is Dictionary) or int(d["passe"].get("temporada", -1)) != SeasonManager.season_number:
+		d["passe"] = {"temporada": SeasonManager.season_number, "passo": 0, "dia": ""}
+	return d["passe"]
+
+
+## quantos degraus já foram pegos nesta temporada
+func pass_step() -> int:
+	return int(_pass_state()["passo"])
+
+
+## tem degrau pra pegar HOJE?
+func pass_ready() -> bool:
+	var st = _pass_state()
+	return int(st["passo"]) < PASS_STEPS.size() and str(st["dia"]) != Time.get_date_string_from_system()
+
+
+## pega o degrau de hoje; devolve a lista do que veio (pra tela de prêmio)
+func claim_pass() -> Array:
+	if !pass_ready():
+		return []
+	var st = _pass_state()
+	var step: Dictionary = PASS_STEPS[int(st["passo"])]
+	st["passo"] = int(st["passo"]) + 1
+	st["dia"] = Time.get_date_string_from_system()
+	var loot: Array = []
+	if step.has("ouro"):
+		PlayerProfile.add_coins(int(step["ouro"]))
+		loot.append({"tipo": "ouro", "ouro": int(step["ouro"])})
+	if step.has("cristais"):
+		add_crystals(int(step["cristais"]))
+		loot.append({"tipo": "cristal", "qtd": int(step["cristais"])})
+	if step.has("poder"):
+		loot.append({"tipo": "poder", "id": grant_power("", false)})
+	if step.has("bau"):
+		loot.append_array(roll_chest(int(step["bau"])))
 	_commit()
 	return loot
 

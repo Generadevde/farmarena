@@ -44,6 +44,9 @@ func _ready():
 	_build_shell()
 	_rebuild_all()
 	MatchSetup.clear_special()
+	if Progresso.pass_ready() and !_pass_offered:
+		_pass_offered = true
+		_show_pass.call_deferred()
 	Progresso._apply_active_deck()   # devolve o seu baralho (o Desafio do Dia empresta outro)
 	Safra.sync_profile()
 	Assembleia.sync()
@@ -608,8 +611,13 @@ func _build_batalha(box: Node):
 	if mode_note != "":
 		mb.modulate = Color(0.8, 0.9, 1.0)
 	mrow.add_child(mb)
-	var rb = _button("🏆 Ranking", _show_ranking, 18)
-	rb.custom_minimum_size = Vector2(190, 78)
+	var pass_b = _button("🎟 Passe\n%d de %d%s" % [Progresso.pass_step(), Progresso.PASS_STEPS.size(), " · PEGAR!" if Progresso.pass_ready() else ""], _show_pass, 16)
+	pass_b.custom_minimum_size = Vector2(170, 78)
+	if Progresso.pass_ready():
+		pass_b.modulate = Color(1.0, 0.95, 0.55)
+	mrow.add_child(pass_b)
+	var rb = _button("🏆\nRanking", _show_ranking, 16)
+	rb.custom_minimum_size = Vector2(120, 78)
 	mrow.add_child(rb)
 
 	# ---------------- seu baralho
@@ -705,6 +713,61 @@ func _buy_crystal_chest():
 	var loot = Progresso.buy_crystal_chest()
 	if !loot.is_empty():
 		_show_loot("💎 Baú Lendário", loot, Color.html(Progresso.CHESTS[3]["cor"]))
+
+
+# ================================================================ PASSE DA ROÇA
+func _show_pass():
+	var v = _popup(660)
+	v.add_child(_title("🎟 Passe da Roça"))
+	v.add_child(_wrap("Cada dia que você entra no jogo libera o próximo prêmio. São %d por temporada e o último é o melhor. Faltam %.0f dia(s) pra temporada %d acabar; quando acabar, o passe recomeça." % [Progresso.PASS_STEPS.size(), SeasonManager.get_days_remaining(), SeasonManager.season_number], 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var done = Progresso.pass_step()
+	var ready = Progresso.pass_ready()
+	var g = _grid(v, 5)
+	for i in Progresso.PASS_STEPS.size():
+		var step: Dictionary = Progresso.PASS_STEPS[i]
+		var p = PanelContainer.new()
+		p.custom_minimum_size = Vector2(120, 132)
+		var sb = StyleBoxFlat.new()
+		sb.set_corner_radius_all(8)
+		sb.set_border_width_all(3)
+		sb.bg_color = Color("#3a5a2a") if i < done else (Color("#b8862a") if (i == done and ready) else Color("#4a3424"))
+		sb.border_color = Color("#8fe070") if i < done else (Color("#ffe27a") if (i == done and ready) else (Color("#c8a020") if i == Progresso.PASS_STEPS.size() - 1 else Color("#2a1a12")))
+		p.add_theme_stylebox_override("panel", sb)
+		g.add_child(p)
+		var col = VBoxContainer.new()
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_theme_constant_override("separation", 0)
+		p.add_child(col)
+		var dl = _label("Dia %d" % (i + 1), 12, Color(1, 0.95, 0.8))
+		dl.add_theme_font_override("font", ThemeDB.fallback_font)
+		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(dl)
+		var il = _label("✔" if i < done else str(step["icone"]), 34)
+		il.add_theme_font_override("font", ThemeDB.fallback_font)
+		il.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(il)
+		var nl = _wrap(str(step["nome"]), 12, Color(1, 1, 1) if i <= done else Color(0.8, 0.76, 0.7))
+		nl.add_theme_font_override("font", ThemeDB.fallback_font)
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(nl)
+	if ready:
+		var cb = _button("🎁 PEGAR o prêmio de hoje: %s" % str(Progresso.PASS_STEPS[done]["nome"]), _claim_pass.bind(v), 21)
+		cb.custom_minimum_size.y = 76
+		cb.modulate = Color(1.0, 0.95, 0.55)
+		v.add_child(cb)
+	elif done >= Progresso.PASS_STEPS.size():
+		v.add_child(_label("✔ Passe completo! Na próxima temporada tem outro.", 17, Color(0.6, 1, 0.6)))
+	else:
+		v.add_child(_label("O prêmio de hoje você já pegou. Amanhã: %s" % str(Progresso.PASS_STEPS[done]["nome"]), 16, Color(1, 0.9, 0.6)))
+	v.add_child(_button("Voltar", _close.bind(v)))
+
+
+func _claim_pass(popup_box: Node):
+	var step_name = str(Progresso.PASS_STEPS[Progresso.pass_step()]["nome"])
+	var loot = Progresso.claim_pass()
+	_close(popup_box)
+	if !loot.is_empty():
+		_show_loot("🎟 Passe: " + step_name, loot, Color(1.0, 0.85, 0.3))
 
 
 # ================================================================ MAIS MODOS
@@ -3650,6 +3713,7 @@ func _show_pending():
 
 
 var _loot_busy := false
+static var _pass_offered := false   # o passe se oferece sozinho uma vez por abertura do jogo
 
 
 func _show_loot(title_text: String, loot: Array, color: Color):
