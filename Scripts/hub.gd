@@ -1806,6 +1806,150 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 
 
 ## level_view > 0: só olhar a carta no nível de OUTRA pessoa (ex.: carta de um bot)
+## nome da carta/filhote dono de uma cena de unidade
+func _scene_name(scene: PackedScene) -> String:
+	if scene == null:
+		return "tropas"
+	for c in CardDatabase.all_cards + Catalogo.tokens():
+		if c != null and c.unit_scene == scene:
+			return c.card_name
+	return "tropas"
+
+
+func _effect_detail(effect: int, strength: float, duration: float, tick: float, knock: float) -> String:
+	var n = CustomContent.EFFECT_NAMES[effect]
+	match effect:
+		UnitData.OnHitEffect.SLOW, UnitData.OnHitEffect.FREEZE:
+			return "%s: deixa %d%% mais lento por %.1fs" % [n, int(round((1.0 - strength) * 100)) if strength <= 1.0 else int(strength), duration]
+		UnitData.OnHitEffect.WEAKNESS:
+			return "%s: alvo causa %d%% menos dano por %.1fs" % [n, int(round((1.0 - strength) * 100)) if strength <= 1.0 else int(strength), duration]
+		UnitData.OnHitEffect.POISON:
+			return "%s: %d de dano a cada %.1fs, por %.1fs" % [n, int(strength), tick, duration]
+		UnitData.OnHitEffect.STUN:
+			return "%s: trava o alvo por %.1fs" % [n, duration]
+		UnitData.OnHitEffect.KNOCKBACK:
+			return "%s: joga o alvo %d pra trás" % [n, int(knock)]
+		UnitData.OnHitEffect.PULL:
+			return "%s: puxa o alvo %d pra perto" % [n, int(knock)]
+		UnitData.OnHitEffect.MARK:
+			return "%s: alvo leva %d%% a mais de dano de tudo por %.1fs" % [n, int(round((strength - 1.0) * 100)), duration]
+	return "%s por %.1fs" % [n, duration]
+
+
+## linhas com TODOS os números das habilidades e características da carta
+func _card_details(card: CardData, mult: float) -> Array:
+	var out: Array = []
+	if card.is_spell():
+		var sp: SpellData = card.spell_data
+		if sp.duration > 0 and sp.damage > 0:
+			out.append("Dano: %d a cada %.1fs, durante %.1fs (total ~%d)" % [int(round(sp.damage * mult)), sp.tick_interval, sp.duration, int(round(sp.damage * mult * maxf(1.0, sp.duration / maxf(0.05, sp.tick_interval))))])
+		if sp.damage > 0 and sp.base_damage_multiplier != 1.0:
+			out.append("Contra torre causa só %d%% do dano" % int(round(sp.base_damage_multiplier * 100)))
+		if sp.status_effect != UnitData.OnHitEffect.NONE:
+			out.append(_effect_detail(sp.status_effect, sp.status_effect_strength, sp.status_effect_duration, sp.tick_interval, sp.knockback_distance))
+		if sp.rage_damage_mult > 1.0 or sp.rage_speed_mult > 1.0:
+			out.append("Fúria: +%d%% dano e +%d%% velocidade por %.1fs" % [int(round((sp.rage_damage_mult - 1.0) * 100)), int(round((sp.rage_speed_mult - 1.0) * 100)), sp.buff_duration])
+		if sp.shield_amount > 0:
+			out.append("Escudo dura %.1fs" % sp.buff_duration)
+		if sp.cleanses:
+			out.append("Tira efeitos ruins dos aliados na área")
+		if sp.summon_interval > 0.0 and sp.duration > 0.0:
+			out.append("Brota 1 x %s a cada %.1fs durante %.1fs" % [_scene_name(sp.summon_scene), sp.summon_interval, sp.duration])
+		elif sp.summon_count > 0:
+			out.append("Invoca %d x %s onde você jogar" % [sp.summon_count, _scene_name(sp.summon_scene)])
+		return out
+	var st: UnitData = DeckBuilder.get_unit_stats(card)
+	if st == null:
+		return out
+	if st.is_aoe:
+		var shape = "em volta do alvo"
+		if st.spin_attack:
+			shape = "girando, em tudo ao redor dela"
+		elif st.frontal_cone_attack:
+			shape = "num leque de %d° pra frente" % int(st.cone_angle_degrees)
+		out.append("Dano em ÁREA: raio %d, %s" % [int(st.aoe_radius), shape])
+	if st.explodes_on_death:
+		out.append("Explode ao morrer: %d de dano, raio %d" % [st.death_explosion_damage, int(st.death_explosion_radius)])
+	if st.kamikaze:
+		out.append("Kamikaze: explode ao encostar no alvo e some")
+	if st.entrance_shockwave_damage > 0:
+		out.append("Onda de choque ao entrar: %d de dano, raio %d" % [st.entrance_shockwave_damage, int(st.entrance_shockwave_radius)])
+	if st.deals_arrival_damage:
+		out.append("Dano ao chegar: %d, raio %d" % [st.arrival_damage, int(st.arrival_damage_radius)])
+	if st.spawns_on_death:
+		out.append("Ao morrer solta %d x %s" % [st.death_spawn_count, _scene_name(st.death_spawn_scene)])
+	if st.spawns_units:
+		out.append("Invoca %d x %s a cada %.1fs" % [st.spawn_count, _scene_name(st.spawn_unit_scene), st.spawn_interval])
+	if st.summons_on_attack:
+		out.append("Ao atacar, %d%% de chance de invocar 1 x %s" % [int(round(st.attack_summon_chance * 100)), _scene_name(st.attack_summon_scene)])
+	if st.charge_attack:
+		out.append("Investida: depois de correr %d, o golpe sai x%.1f e empurra %d" % [int(st.charge_distance_needed), st.charge_damage_multiplier, int(st.charge_knockback_distance)])
+	if st.first_attack_bonus:
+		out.append("1º golpe: x%.1f de dano" % st.first_attack_multiplier)
+	if st.on_hit_effect != UnitData.OnHitEffect.NONE:
+		out.append("Cada golpe aplica " + _effect_detail(st.on_hit_effect, st.on_hit_effect_strength, st.on_hit_effect_duration, st.on_hit_effect_tick_interval, st.knockback_distance))
+	if st.projectile_splits:
+		out.append("Tiro se divide em %d ao acertar" % st.projectile_split_count)
+	if st.projectile_pierces:
+		out.append("Tiro atravessa até %d alvos" % st.projectile_max_targets)
+	if st.projectile_chains:
+		out.append("Tiro pula entre até %d alvos" % st.projectile_chain_max_targets)
+	if st.can_heal_allies:
+		out.append("Cura aliados: %d a cada %.1fs, raio %d" % [st.heal_aura_amount, st.heal_aura_interval, int(st.heal_aura_radius)])
+	if st.lifesteal_percent > 0:
+		out.append("Roubo de vida: recupera %d%% do dano que causa" % int(round(st.lifesteal_percent * 100)))
+	if st.damage_reduction_percent > 0:
+		out.append("Casca dura: leva %d%% menos dano" % int(round(st.damage_reduction_percent * 100)))
+	if st.has_shield:
+		out.append("Escudo: %d de vida extra%s" % [st.shield_amount, " (recarrega em %.0fs)" % st.shield_recharge_time if st.shield_recharge_time > 0 else ""])
+	if st.passive_regen:
+		out.append("Regenera %d de vida a cada %.1fs" % [st.regen_amount, st.regen_interval])
+	if st.reflects_damage:
+		out.append("Devolve %d%% do dano que leva" % int(round(st.reflect_damage_percent * 100)))
+	if st.heals_on_kill:
+		out.append("Cura %d de vida a cada inimigo derrotado" % st.heal_on_kill_amount)
+	if st.execute_threshold > 0:
+		out.append("Executa: x%.1f de dano em alvo com menos de %d%% de vida" % [st.execute_damage_mult, int(round(st.execute_threshold * 100))])
+	if st.low_hp_rage_threshold > 0:
+		out.append("Fúria na beira da morte: x%.1f de dano abaixo de %d%% de vida" % [st.low_hp_rage_damage_mult, int(round(st.low_hp_rage_threshold * 100))])
+	if st.same_target_ramping_damage:
+		out.append("No mesmo alvo: +%d%% de dano por golpe, até x%.1f" % [int(round(st.same_target_ramping_damage_per_hit * 100)), st.same_target_ramping_damage_max_multiplier])
+	if st.ramping_damage:
+		out.append("A cada golpe: +%d%% de dano, até x%.1f" % [int(round(st.ramping_damage_per_hit * 100)), st.ramping_damage_max_multiplier])
+	if st.ramping_attack_speed:
+		out.append("A cada golpe bate %d%% mais rápido (até o dobro)" % int(round(st.attack_speed_ramp_per_hit * 100)))
+	if st.entrance_rage_duration > 0:
+		out.append("Entra em fúria por %.1fs: x%.1f dano, x%.1f velocidade" % [st.entrance_rage_duration, st.entrance_rage_damage_mult, st.entrance_rage_speed_mult])
+	if st.forces_aggro:
+		out.append("Provoca: inimigos num raio de %d são obrigados a bater nela" % int(st.taunt_radius))
+	if st.is_linked:
+		out.append("Grupo divide %d%% do dano que cada um leva" % int(round(st.link_share_percent * 100)))
+	if st.can_resurrect:
+		out.append("Levanta uma vez com %d%% da vida" % int(round(st.resurrect_hp_percent * 100)))
+	if st.can_stealth:
+		out.append("Furtiva: inimigo só enxerga a menos de %d; aparece depois de atacar" % int(st.stealth_reveal_range))
+	if st.immune_while_moving:
+		out.append("Não leva dano enquanto anda")
+	if st.immune_to_knockback or st.immune_to_pull:
+		out.append("Não é empurrada nem puxada")
+	if st.generates_resource:
+		out.append("Gera %d de recurso a cada %.1fs" % [st.resource_per_tick, st.resource_tick_interval])
+	if st.can_spawn_anywhere:
+		out.append("Pode ser jogada em qualquer lugar do campo")
+	if st.distance_damage_bonus_per_100px > 0:
+		out.append("+%d%% de dano a cada 100 de distância do alvo" % int(round(st.distance_damage_bonus_per_100px * 100)))
+	if st.counter_attack_chance > 0:
+		out.append("%d%% de chance de revidar quando apanha" % int(round(st.counter_attack_chance * 100)))
+	if st.duration > 0:
+		out.append("Some sozinha depois de %.0fs em campo" % st.duration)
+	if st.is_ranged:
+		out.append("Enxerga inimigos a até %d de distância" % int(maxf(st.detection_range, st.attack_range + 20.0)))
+	for comp in card.companions:
+		if comp.get("scene", null) != null:
+			out.append("Vem junto: %d x %s" % [int(comp.get("count", 1)), _scene_name(comp["scene"])])
+	return out
+
+
 func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0, whose: String = ""):
 	if card == null:
 		return
@@ -1890,6 +2034,15 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var target_line = _target_text(card)
 	if target_line != "":
 		v.add_child(_wrap(target_line, 16, Color(1.0, 0.85, 0.55)))
+	# DETALHES: todos os números que não cabem nos quadradinhos
+	var details = _card_details(card, mult)
+	if !details.is_empty():
+		var dp = _panel(v)
+		dp.add_child(_label("🔎 Detalhes", 16, ThemeBuilder.COLOR_GOLD))
+		for line in details:
+			var dl = _wrap("• " + str(line), 14)
+			dl.add_theme_font_override("font", ThemeDB.fallback_font)
+			dp.add_child(dl)
 
 	# habilidades, uma por linha, explicadas
 	var skills = Catalogo.abilities_detail(card)
