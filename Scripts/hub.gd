@@ -47,8 +47,8 @@ func _ready():
 	Progresso._apply_active_deck()   # devolve o seu baralho (o Desafio do Dia empresta outro)
 	Safra.sync_profile()
 	Assembleia.sync()
-	if int(Progresso.d.get("bots_arena_v", 0)) < 2:
-		Progresso.d["bots_arena_v"] = 2
+	if int(Progresso.d.get("bots_arena_v", 0)) < 3:
+		Progresso.d["bots_arena_v"] = 3
 		BotLearning.enforce_arena_everywhere()
 		Progresso.save()
 	Progresso.changed.connect(_queue_refresh)

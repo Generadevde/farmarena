@@ -202,6 +202,11 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 	if _learn_custom_cards(bot_name, data, profile, style, known_paths):
 		known_changed = true
 
+	if _apply_level_cap(data, bot_name):
+		profile.card_levels = data.get("card_levels", {})
+		profile.base_level = data.get("base_level", 1)
+		profile.card_stars = data.get("card_stars", {})
+		known_changed = true
 	if int(data.get("copies_v", 0)) < 1 and !is_new:
 		_catch_up_copies(data, bot_arena_now)
 		profile.card_levels = data.get("card_levels", {})
@@ -1036,6 +1041,7 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 		return  # bot ainda não existe por algum motivo -- nada a registrar
 
 	var bot_arena = ArenaManager.get_participant_arena(bot_name)
+	_apply_level_cap(data, bot_name)
 	var reward = ArenaManager.get_match_reward(bot_arena, bot_won)
 
 	if bot_won:
@@ -1191,8 +1197,45 @@ func _maybe_upgrade_base(data: Dictionary):
 ## Vitória do bot rende um baú, igual pra você: cópias de cartas da arena dele
 ## (pelos mesmos pesos de raridade) e um pouco de ouro. Nem toda vitória rende,
 ## porque você também espera o baú abrir e tem limite de espaço.
-const BOT_CHEST_CHANCE = 1.0        # toda vitória rende baú (você ainda tem Feira, presentes, clã e torneio)
-const BOT_LOSS_CHEST_CHANCE = 0.3   # e de vez em quando um Saco mesmo perdendo, pra não empacar
+# O bot joga MUITO mais partida que você (a simulação roda sozinha, até com o
+# jogo fechado), então baú em toda vitória fez todo mundo chegar no nível 9.
+# Agora: baú em 1 de cada 3 vitórias, nada na derrota, e um TETO de nível
+# pelo número de troféus (ver level_cap_for).
+const BOT_CHEST_CHANCE = 0.35
+const BOT_LOSS_CHEST_CHANCE = 0.0
+
+var _level_cap := 9   # teto de nível do bot que está sendo processado agora
+
+
+## TETO de nível das cartas de um bot, pelos troféus dele. É o que mantém o
+## bot na mesma faixa de um jogador com aqueles troféus:
+##   0 troféus = nível 2 · 320 = 4 · 480 = 5 · 640 = 6 · 800 = 7 · 960 = 8 · 1120+ = 9
+static func level_cap_for(trophies: int) -> int:
+	return clampi(2 + int(trophies / 160.0), 2, PlayerProfile.MAX_CARD_LEVEL)
+
+
+## põe o teto em vigor pro bot e, UMA vez, abaixa quem passou dele
+func _apply_level_cap(data: Dictionary, bot_name: String) -> bool:
+	_level_cap = level_cap_for(ArenaManager.get_trophies(bot_name))
+	if int(data.get("levels_v", 0)) >= 1:
+		return false
+	data["levels_v"] = 1
+	var levels: Dictionary = data.get("card_levels", {})
+	for path in levels.keys():
+		levels[path] = mini(int(levels[path]), _level_cap)
+	data["card_levels"] = levels
+	data["base_level"] = mini(int(data.get("base_level", 1)), _level_cap + 1)
+	var stars: Dictionary = data.get("card_stars", {})
+	for path in stars.keys():
+		if int(levels.get(path, 1)) < PlayerProfile.MAX_CARD_LEVEL:
+			stars.erase(path)
+	data["card_stars"] = stars
+	var copies: Dictionary = data.get("card_copies", {})
+	for path in copies.keys():
+		copies[path] = mini(int(copies[path]), 12)
+	data["card_copies"] = copies
+	data["gold"] = mini(int(data.get("gold", 0)), 400)
+	return true
 
 
 ## ACERTO DE CONTAS (uma vez por bot): a regra de cópias começou agora, então
@@ -1232,11 +1275,11 @@ func _catch_up_copies(data: Dictionary, bot_arena: int):
 		if pool_count[r] <= 0:
 			continue
 		var avg_copies = (Progresso.COPIES_PER_ROLL[r][0] + Progresso.COPIES_PER_ROLL[r][1]) * 0.5
-		var gained = int(round(wins * rolls_per_win[r] / pool_count[r] * avg_copies))
+		var gained = int(round(mini(wins, 60) * rolls_per_win[r] / pool_count[r] * avg_copies))
 		copies[path] = mini(400, int(copies.get(path, 0)) + gained)
 	data["card_copies"] = copies
 	# ouro dos baús que ele teria aberto
-	data["gold"] = int(data.get("gold", 0)) + wins * 60
+	data["gold"] = int(data.get("gold", 0)) + mini(wins, 60) * 30
 	for i in 8:
 		_maybe_upgrade_cards(data)
 		_maybe_upgrade_base(data)
@@ -1306,8 +1349,8 @@ func _maybe_upgrade_cards(data: Dictionary):
 
 	for path in deck_paths:
 		var level = int(card_levels.get(path, 1))
-		if level >= PlayerProfile.MAX_CARD_LEVEL:
-			continue
+		if level >= mini(PlayerProfile.MAX_CARD_LEVEL, _level_cap):
+			continue  # nível máximo, ou já no teto pros troféus que ele tem
 		var card = Catalogo.find_card(str(path))
 		if card == null:
 			continue
