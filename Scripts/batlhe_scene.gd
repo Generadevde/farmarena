@@ -628,7 +628,9 @@ func _resolve_time_up():
 		return
 	var mine = _tower_health_fraction(GameManager.Team.PLAYER)
 	var bot = _tower_health_fraction(GameManager.Team.ENEMY)
-	if abs(mine - bot) < 0.01:
+	# empate SÓ se a vida for igual de verdade. Antes, diferença de até 1%
+	# (uns 30 de vida) já virava empate, mesmo com os números diferentes na tela
+	if abs(mine - bot) < 0.0005:
 		_end_match_as_draw()
 	else:
 		_end_match(GameManager.Team.ENEMY if bot < mine else GameManager.Team.PLAYER)
