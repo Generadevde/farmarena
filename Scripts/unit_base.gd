@@ -1649,6 +1649,14 @@ func _process_poison(delta):
 		_poison_ticks_left -= 1
 
 
+## atordoar/congelar ZERA o alvo: quando a tropa volta, escolhe de novo quem
+## está mais perto (igual no Clash: um choque "reseta" o agro)
+func _reset_aggro():
+	target = null
+	_is_actively_attacking = false
+	_retarget_check_cooldown = 0.0
+
+
 func apply_on_hit_effect(effect, strength: float, duration: float, tick_interval: float, knockback_dist: float, from_position: Vector2):
 	if stats.immune_to_effect == effect:
 		return
@@ -1669,8 +1677,10 @@ func apply_on_hit_effect(effect, strength: float, duration: float, tick_interval
 				return
 			apply_incapacitate(duration)
 			_frozen_until = now + duration
+			_reset_aggro()
 		UnitData.OnHitEffect.STUN:
 			apply_incapacitate(duration)
+			_reset_aggro()
 		UnitData.OnHitEffect.ROOT:
 			apply_root(duration)
 		UnitData.OnHitEffect.POISON:

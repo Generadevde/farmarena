@@ -189,6 +189,15 @@ func _apply_cannon_damage(target, dmg):
 var _locked_target = null   # alvo travado da torre
 
 
+## Efeitos na TORRE: só atordoar/congelar fazem algo -- ela solta o alvo
+## travado, fica um instante sem atirar e depois escolhe de novo o inimigo
+## mais perto. É o jeito de "resetar o agro" da torre (igual o choque do Clash).
+func apply_on_hit_effect(effect, _strength: float, duration: float, _tick_interval: float = 1.0, _knockback_dist: float = 0.0, _from_position: Vector2 = Vector2.ZERO):
+	if effect == UnitData.OnHitEffect.STUN or effect == UnitData.OnHitEffect.FREEZE:
+		_locked_target = null
+		_base_cooldown = maxf(_base_cooldown, minf(duration, 1.0))
+
+
 ## A torre TRAVA no alvo: continua atirando no mesmo até ele morrer ou sair do
 ## alcance. Antes ela escolhia "o mais perto" a cada tiro, então quando a
 ## tropa fraca passava na frente do tanque a torre largava o tanque -- e o
