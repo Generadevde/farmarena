@@ -1810,9 +1810,10 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 func _scene_name(scene: PackedScene) -> String:
 	if scene == null:
 		return "tropas"
-	for c in CardDatabase.all_cards + Catalogo.tokens():
-		if c != null and c.unit_scene == scene:
-			return c.card_name
+	for list in [CardDatabase.all_cards, Catalogo.tokens()]:
+		for c in list:
+			if c != null and c.unit_scene == scene:
+				return c.card_name
 	return "tropas"
 
 

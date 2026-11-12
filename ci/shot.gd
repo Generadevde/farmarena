@@ -197,6 +197,13 @@ func _ready():
 		n.queue_free()
 	hub._go_tab(1)
 	await get_tree().create_timer(0.3).timeout
+	for det_id in ["sapo_rei", "robo_balde", "geada", "cavalo_coiceiro"]:
+		print("SHOT detalhes ", det_id, ": ", hub._card_details(Catalogo.card(det_id), 1.0))
+	hub._show_card_popup(Catalogo.card("robo_balde"), -1)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("detalhes")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._show_card_popup(Progresso.deck_cards(0)[0], 0)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("carta_baralho")
