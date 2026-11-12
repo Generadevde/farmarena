@@ -1123,18 +1123,16 @@ func buy_crystal_chest() -> Array:
 
 
 # ================================================================ PASSE DA ROÇA (prêmio por entrar todo dia)
-## Cada dia que você abre o jogo libera o PRÓXIMO degrau do passe. São 10
-## degraus por temporada e o último é o melhor. Trocou a temporada, recomeça.
+## Cada dia que você abre o jogo libera o PRÓXIMO degrau do passe. São 7
+## degraus por temporada (a temporada dura 7 dias, então dá um por dia) e o
+## último é o melhor. Trocou a temporada, recomeça.
 const PASS_STEPS = [
 	{"icone": "💰", "nome": "50 de ouro", "ouro": 50},
 	{"icone": "🎁", "nome": "Saco de Milho", "bau": 0},
-	{"icone": "💰", "nome": "120 de ouro", "ouro": 120},
-	{"icone": "🎁", "nome": "Caixote da Feira", "bau": 1},
 	{"icone": "💎", "nome": "1 cristal", "cristais": 1},
-	{"icone": "💰", "nome": "250 de ouro", "ouro": 250},
-	{"icone": "🎁", "nome": "Baú do Celeiro", "bau": 2},
-	{"icone": "💎", "nome": "2 cristais", "cristais": 2},
+	{"icone": "🎁", "nome": "Caixote da Feira", "bau": 1},
 	{"icone": "⚡", "nome": "Poder surpresa", "poder": true},
+	{"icone": "🎁", "nome": "Baú do Celeiro", "bau": 2},
 	{"icone": "👑", "nome": "Baú Lendário + 5 cristais", "bau": 3, "cristais": 5},
 ]
 

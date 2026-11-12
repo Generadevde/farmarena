@@ -722,11 +722,11 @@ func _show_pass():
 	v.add_child(_wrap("Cada dia que você entra no jogo libera o próximo prêmio. São %d por temporada e o último é o melhor. Faltam %.0f dia(s) pra temporada %d acabar; quando acabar, o passe recomeça." % [Progresso.PASS_STEPS.size(), SeasonManager.get_days_remaining(), SeasonManager.season_number], 14, ThemeBuilder.COLOR_STAT_LABEL))
 	var done = Progresso.pass_step()
 	var ready = Progresso.pass_ready()
-	var g = _grid(v, 5)
+	var g = _grid(v, 4)
 	for i in Progresso.PASS_STEPS.size():
 		var step: Dictionary = Progresso.PASS_STEPS[i]
 		var p = PanelContainer.new()
-		p.custom_minimum_size = Vector2(120, 132)
+		p.custom_minimum_size = Vector2(150, 132)
 		var sb = StyleBoxFlat.new()
 		sb.set_corner_radius_all(8)
 		sb.set_border_width_all(3)
