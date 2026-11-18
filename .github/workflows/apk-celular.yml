@@ -85,6 +85,9 @@ jobs:
           sudo apt-get install -y xvfb libgl1-mesa-dri mesa-utils >/dev/null 2>&1 || true
           timeout 240 xvfb-run -a -s "-screen 0 720x1600x24" ./godot --rendering-driver opengl3 --resolution 720x1600 res://ci/shot.tscn 2>&1 | grep -E "SHOT|SCRIPT ERROR|at: |ERROR" | head -60 || true
           mkdir -p ci_out && cp "$HOME/.local/share/godot/app_userdata/Farm Arena/"shot_*.png ci_out/ || true
+          timeout 300 xvfb-run -a -s "-screen 0 540x1200x24" ./godot --rendering-driver opengl3 --resolution 540x1200 --write-movie "$PWD/ci_out/filme.avi" --fixed-fps 15 res://ci/filme.tscn 2>&1 | grep -E "FILMELOG|SCRIPT ERROR|at: " | head -120 || true
+          (ffmpeg -loglevel error -y -i ci_out/filme.avi -vf scale=360:-2 -c:v libx264 -preset veryfast -crf 28 ci_out/filme.mp4 && rm -f ci_out/filme.avi) || true
+          ls -la ci_out | tail -3
 
       - uses: actions/upload-artifact@v4
         with:
