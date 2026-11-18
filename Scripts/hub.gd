@@ -1790,6 +1790,110 @@ func _stat_tile(grid: Node, label_text: String, value: String, plus: String = ""
 		h.add_child(plus_l)
 
 
+const TILE_PX = 31.0  # 1 "quadrado" do campo (576 px de largura ≈ 18 quadrados, igual ao Clash)
+
+
+## pra que a carta serve, em uma frase -- toda carta tem função, mesmo sem habilidade
+func _role_job(card: CardData) -> String:
+	match card.role:
+		CardData.CardRole.ENXAME:
+			return "Cerca o inimigo com vários de uma vez. Ótima pra derrubar quem bate forte num alvo só e pra distrair a torre."
+		CardData.CardRole.TANQUE:
+			return "Aguenta o tiro na frente enquanto o resto do ataque vem atrás. Jogue com apoio."
+		CardData.CardRole.PUNICAO:
+			return "Golpe pesado: apaga tanque e carta cara rapidinho. Cuidado com bando."
+		CardData.CardRole.CONTROLE:
+			return "Atrapalha o outro lado: segura, atrasa ou desmonta o ataque."
+		CardData.CardRole.CONTRA_ATAQUE:
+			return "Defende barato e já sai atacando do outro lado com o que sobrou."
+		CardData.CardRole.SUPORTE:
+			return "Deixa os aliados melhores. Brilha atrás de um tanque."
+		CardData.CardRole.FINALIZADOR:
+			return "Foco em torre: tira os últimos pontos de vida ou força o rival a gastar pra defender."
+		CardData.CardRole.CONSTRUCAO:
+			return "Fica parada no seu lado e puxa as tropas inimigas pra longe da torre."
+		CardData.CardRole.AEREO:
+			return "Voa por cima do rio e das tropas de chão. Só quem acerta voador para."
+		CardData.CardRole.INVOCADOR:
+			return "Vai soltando ajudantes com o tempo. Quanto mais fica viva, mais rende."
+		CardData.CardRole.CERCO:
+			return "Bate na torre de longe, sem precisar chegar perto."
+		CardData.CardRole.VERSATIL:
+			return "Serve um pouco pra tudo: defende e ataca."
+	return ""
+
+
+## [boa contra, sofre contra]: nomes de cartas de verdade, tirados dos números
+func _matchups(card: CardData) -> Array:
+	var good: Array = []
+	var bad: Array = []
+	var me = _profile_of(card)
+	if me.is_empty():
+		return [good, bad]
+	var pool: Array = []
+	var toks = Catalogo.tokens()
+	for c in CardDatabase.all_cards:
+		if c == null or c == card or toks.has(c):
+			continue
+		pool.append(c)
+	pool.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena)
+	for c in pool:
+		var o = _profile_of(c)
+		if o.is_empty():
+			continue
+		var w = _beats(me, o)
+		var l = _beats(o, me)
+		if w and !l and good.size() < 3:
+			good.append(c.card_name)
+		elif l and !w and bad.size() < 3:
+			bad.append(c.card_name)
+	return [good, bad]
+
+
+## resumo do que a carta faz em campo, pra comparar com outra
+func _profile_of(c: CardData) -> Dictionary:
+	if c.is_spell():
+		var sp = c.spell_data
+		if sp.damage <= 0 or !sp.affects_enemies:
+			return {}
+		return {"spell": true, "area": true, "air_hit": true, "big": sp.damage >= 400}
+	var st: UnitData = DeckBuilder.get_unit_stats(c)
+	if st == null:
+		return {}
+	var n = maxi(1, st.unit_count)
+	return {
+		"spell": false,
+		"swarm": n >= 3 and st.hp <= 400,
+		"air": st.unit_type == UnitData.UnitType.AIR,
+		"air_hit": st.damage > 0 and st.target_type in [UnitData.TargetType.ALL, UnitData.TargetType.AIR],
+		"ground_hit": st.damage > 0 and st.target_type != UnitData.TargetType.AIR,
+		"area": st.is_aoe,
+		"heavy_hit": st.damage >= 250 and !st.is_aoe,
+		"tank": st.hp * n >= 1300,
+		"tower_only": st.target_type == UnitData.TargetType.BUILDING,
+		"building": st.unit_type == UnitData.UnitType.BUILDING,
+	}
+
+
+## regra simples de quem leva vantagem (a vence b?)
+func _beats(a: Dictionary, b: Dictionary) -> bool:
+	if a.get("spell", false):
+		return b.get("swarm", false) and !a.get("big", false)
+	if b.get("spell", false):
+		return false
+	if b.get("air", false) and !a.get("air_hit", false):
+		return false
+	if a.get("air", false) and !b.get("air_hit", false) and !b.get("building", false) and !b.get("tower_only", false):
+		return true
+	if a.get("area", false) and b.get("swarm", false):
+		return true
+	if a.get("swarm", false) and (b.get("heavy_hit", false) or b.get("tower_only", false)) and !b.get("area", false):
+		return true
+	if a.get("heavy_hit", false) and b.get("tank", false):
+		return true
+	return false
+
+
 static func _speed_name(sp: float) -> String:
 	if sp <= 0:
 		return "Parado"
@@ -1819,7 +1923,7 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 		if sp.shield_amount > 0:
 			var s0 = int(round(sp.shield_amount * mult))
 			_stat_tile(g, "🛡 Escudo", str(s0), "+%d" % (int(round(sp.shield_amount * next_mult)) - s0) if up else "")
-		_stat_tile(g, "⭕ Raio", str(int(sp.radius)))
+		_stat_tile(g, "⭕ Raio", ("%.1f quadrados" % (sp.radius / TILE_PX)).replace(".", ","))
 		if sp.duration > 0:
 			_stat_tile(g, "⏱ Duração", "%.1fs" % sp.duration)
 		if sp.summon_count > 0:
@@ -1839,10 +1943,10 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 			var dps0 = int(round(st.damage * mult / st.attack_speed))
 			_stat_tile(g, "🔥 Dano por segundo", str(dps0), "+%d" % (int(round(st.damage * next_mult / st.attack_speed)) - dps0) if up else "")
 			_stat_tile(g, "⏱ Vel. de ataque", "%.1fs" % st.attack_speed)
-		_stat_tile(g, "📏 Alcance", str(int(st.attack_range)) if st.is_ranged else "Corpo a corpo")
+		_stat_tile(g, "📏 Alcance", ("%.1f quadrados" % (st.attack_range / TILE_PX)).replace(".", ",") if st.is_ranged else "Corpo a corpo")
 	else:
 		_stat_tile(g, "⚔ Dano", "não ataca")
-	_stat_tile(g, "👟 Velocidade", "%s (%d)" % [_speed_name(st.move_speed), int(st.move_speed)] if st.move_speed > 0 else "Parado")
+	_stat_tile(g, "👟 Velocidade", _speed_name(st.move_speed))
 	var targets = "Chão"
 	match st.target_type:
 		UnitData.TargetType.BUILDING:
@@ -1864,7 +1968,7 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 	if st.unit_count > 1 or !card.companions.is_empty():
 		_stat_tile(g, "👥 Quantidade", count_text)
 	if st.is_aoe:
-		_stat_tile(g, "⭕ Área do golpe", str(int(st.aoe_radius)))
+		_stat_tile(g, "⭕ Dano em área", ("%.1f quadrados" % (st.aoe_radius / TILE_PX)).replace(".", ","))
 	_stat_tile(g, "💧 Custo", str(card.cost))
 
 
@@ -2057,7 +2161,12 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	if adj_text != "":
 		side.add_child(_wrap("⚖ Ajustada pela Assembleia: " + adj_text, 15, Color(0.8, 0.95, 1.0)))
 	side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[rarity], card.get_nation_name() if card.get_nation_name() != "" else "Coringa"], 17, Catalogo.RARITY_COLORS[rarity]))
-	side.add_child(_label("%s  ·  %s" % [CardData.role_name(card.role), ("Nível %d de %s" % [lv, whose] if level_view > 0 else "Nível %d" % lv) if (owned or level_view > 0) else "não liberada"], 17))
+	var role_line = CardData.role_name(card.role)
+	if level_view > 0:
+		role_line += "  ·  nível %d de %s" % [lv, whose]
+	elif !owned:
+		role_line += "  ·  não liberada"
+	side.add_child(_label(role_line, 17))
 	if card.description != "":
 		side.add_child(_wrap("“%s”" % card.description, 16, Color(0.95, 0.9, 0.78)))
 
@@ -2092,7 +2201,7 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var mult = PlayerProfile.compute_stat_multiplier(lv) * star_factor
 	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) * star_factor if can_level else mult
 	if can_level:
-		v.add_child(_label("Números no nível %d   (em verde: o que ganha no nível %d)" % [lv, lv + 1], 14, ThemeBuilder.COLOR_STAT_LABEL))
+		v.add_child(_label("Em verde: quanto melhora no nível %d" % (lv + 1), 13, ThemeBuilder.COLOR_STAT_LABEL))
 	var g = _grid(v, 3)
 	_fill_stat_tiles(g, card, mult, next_mult)
 	var target_line = _target_text(card)
@@ -2110,20 +2219,31 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 
 	# habilidades, uma por linha, explicadas
 	var skills = Catalogo.abilities_detail(card)
-	var sk_panel = _panel(v)
-	sk_panel.add_child(_label("Carta %s" % Catalogo.RARITY_NAMES[rarity], 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
-	if skills.is_empty():
-		sk_panel.add_child(_wrap("Sem habilidade: é só vida e pancada. (Normal e Rara nunca têm habilidade; Épica, Lendária e Mística têm, cada vez mais forte.)", 15))
-	for pair in skills:
-		var help_text = _ability_help(str(pair[0]))
-		sk_panel.add_child(_wrap("%s %s%s" % ["★".repeat(int(pair[1])), pair[0], ": " + help_text if help_text != "" else ""], 15))
+	if !skills.is_empty():
+		var sk_panel = _panel(v)
+		sk_panel.add_child(_label("✨ Habilidades", 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
+		for pair in skills:
+			var help_text = _ability_help(str(pair[0]))
+			sk_panel.add_child(_wrap("%s %s%s" % ["★".repeat(int(pair[1])), pair[0], ": " + help_text if help_text != "" else ""], 15))
 
-	if !card.pros.is_empty() or !card.cons.is_empty():
+	# FUNÇÃO: pra que a carta serve (toda carta tem uma, com ou sem habilidade)
+	var job = _role_job(card)
+	if job != "" or !card.pros.is_empty() or !card.cons.is_empty():
 		var pc = _panel(v)
+		pc.add_child(_label("🧭 Função", 17, ThemeBuilder.COLOR_GOLD))
+		if job != "":
+			pc.add_child(_wrap(job, 15))
 		for p in card.pros:
 			pc.add_child(_wrap("✔ " + p, 15, Color(0.6, 1.0, 0.6)))
 		for p in card.cons:
 			pc.add_child(_wrap("✖ " + p, 15, Color(1.0, 0.62, 0.55)))
+	var mu = _matchups(card)
+	if !mu[0].is_empty() or !mu[1].is_empty():
+		var mp_panel = _panel(v)
+		if !mu[0].is_empty():
+			mp_panel.add_child(_wrap("👍 Boa contra: " + ", ".join(mu[0]), 15, Color(0.6, 1.0, 0.6)))
+		if !mu[1].is_empty():
+			mp_panel.add_child(_wrap("👎 Sofre contra: " + ", ".join(mu[1]), 15, Color(1.0, 0.62, 0.55)))
 
 	# histórico
 	var hist = _panel(v)
@@ -2138,8 +2258,6 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var played = int(season.get("wins", 0)) + int(season.get("losses", 0))
 	if played > 0:
 		hist.add_child(_wrap("Na temporada (todo mundo): jogada em %d partidas, vence %d%%" % [played, int(round(100.0 * int(season.get("wins", 0)) / played))], 15, ThemeBuilder.COLOR_STAT_LABEL))
-	else:
-		hist.add_child(_wrap("Na temporada: ainda sem partidas registradas.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	hist.add_child(_wrap("Libera na Arena %d (%s)" % [maxi(1, card.unlock_arena), ArenaManager.get_arena_info(maxi(1, card.unlock_arena)).get("name", "")], 15, ThemeBuilder.COLOR_STAT_LABEL))
 
 	if owned:

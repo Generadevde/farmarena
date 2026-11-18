@@ -47,10 +47,29 @@ O tempo de recarga do ataque corre mesmo andando, então a tropa bate na hora
 que encosta. No Clash há um "primeiro golpe" com pequeno atraso e animação de
 preparo — dá pra ver o golpe vindo.
 
+### 6b. Sem tempo de entrada
+Tropa solta já anda e bate no mesmo instante (landing_duration = 0 em todas).
+No Clash toda tropa leva ~1 s pra entrar em campo: dá tempo de ver a jogada
+do outro e responder, e defender em cima da hora tem custo.
+
 ### 7. Nível pesa muito (o João achou que NÃO é o principal)
 +15% de vida E dano por nível (nível 9 = 2,2×). Clash ≈ 10% e pareia níveis.
 
+## O que a partida gravada mostrou (18/11)
+Partida normal na Arena 1, com um "jogador robô" soltando cartas do baralho
+inicial sem pensar (commit com [filme] grava de novo).
+- **Acabou em 51 s**: as duas torres do jogador caíram antes de 1 minuto.
+  Uma torre ia de 845 a 0 em ~6–8 s com 2–3 tropas pequenas batendo.
+- **Tropas minúsculas no campo**: um Peão ocupa ~20 px numa tela de 720.
+  O campo fica quase vazio e verde; tudo vira "pontinho" e as cartas perdem
+  identidade. No Clash as tropas são 2–3× maiores em relação à arena.
+- O baralho inicial tem 7 cartas (Clash: 8) e a mão mostra 3 (Clash: 4).
+
 ## Informação das cartas
+(18/11: primeira rodada feita — sem nível repetido, alcance e área em
+quadrados, velocidade só em palavra, painel "Função" no lugar de "só vida e
+pancada", "Boa contra / Sofre contra" com cartas de verdade.)
+
 
 - Números soltos sem referência: "2300 de vida" não diz se é muito. Ideia:
   mostrar "aguenta X s na torre", "derruba torre em Y s" e barras comparando
