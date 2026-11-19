@@ -43,6 +43,9 @@ static func build(battle: Node):
 	_towers(battle)
 	_spawn_areas(battle)
 	_camera(battle)
+	# tropas maiores: quem está mais embaixo na tela é desenhado na frente
+	if battle is Node2D:
+		battle.y_sort_enabled = Regras.on("visual")
 
 
 static func _clear_old(battle: Node):

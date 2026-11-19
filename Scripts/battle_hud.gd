@@ -8,6 +8,26 @@ class_name BattleHud
 ## procura por nome.
 
 const HAND_BUTTON = preload("res://Scenes/button.tscn")
+
+
+class BarTicks extends Control:
+	var bar: ProgressBar
+	var _last_max := -1.0
+
+	func _process(_delta):
+		if bar != null and bar.max_value != _last_max:
+			_last_max = bar.max_value
+			queue_redraw()
+
+	func _draw():
+		if bar == null or bar.max_value <= 0:
+			return
+		var v = 10.0
+		while v < bar.max_value - 0.5:
+			var x = size.x * v / bar.max_value
+			draw_line(Vector2(x, 3), Vector2(x, size.y - 3), Color(0.05, 0.12, 0.2, 0.55), 2.0)
+			v += 10.0
+
 const CARD_W = 178.0
 
 var _money_label: Label
@@ -128,6 +148,13 @@ func _ready():
 	fill.set_corner_radius_all(6)
 	_bar.add_theme_stylebox_override("fill", fill)
 	res_row.add_child(_bar)
+	if Regras.on("visual"):
+		# gomos de 10 em 10: dá pra ler de relance quantas cartas cabem
+		var ticks = BarTicks.new()
+		ticks.bar = _bar
+		ticks.set_anchors_preset(Control.PRESET_FULL_RECT)
+		ticks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_bar.add_child(ticks)
 
 	DeckManager.hand_changed.connect(_refresh_next)
 	_refresh_next()

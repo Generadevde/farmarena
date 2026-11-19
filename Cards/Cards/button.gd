@@ -49,9 +49,16 @@ func _ready():
 
 
 func _refresh():
+	var before = card
 	card = DeckManager.hand[hand_index]
 	if card == null:
 		return
+	if before != null and before != card and _view != null and Regras.on("visual") and is_inside_tree():
+		# carta nova chegando na mão: entra com um pulinho (a troca não é mais um corte seco)
+		_view.pivot_offset = _view.size / 2.0
+		_view.scale = Vector2(0.72, 0.72)
+		var tw = create_tween()
+		tw.tween_property(_view, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	$Name.text = card.card_name
 	$Cost.text = str(card.cost)
 	$Icon.texture = card.icon

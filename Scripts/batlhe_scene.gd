@@ -52,6 +52,8 @@ func _get_formation_offset(i: int, count: int, unit_radius: float = 14.0, format
 	# frame até elas se afastarem sozinhas, travando o jogo inteiro por um
 	# tempo. É exatamente esse cálculo dinâmico que faltava antes.
 	var spacing = max(FORMATION_SPACING, unit_radius * 2.2)
+	if Regras.on("visual"):
+		spacing *= 1.22  # tropas maiores: a leva nasce um pouco mais aberta
 
 	# 1 = Linha (espalhada na horizontal, todas lado a lado)
 	if formation == 1:
@@ -487,7 +489,7 @@ func _install_base_data_on(group_name: String, base_data: BaseData, level: int =
 	# as DUAS torres do lado usam a base equipada; cada uma com uma fração da vida
 	for base_node in get_tree().get_nodes_in_group(group_name):
 		base_node.install_base_data(base_data, level)
-		base_node.scale_hp(ArenaBuilder.TOWER_HP_FRACTION * (0.6 if MatchSetup.rule == 2 else 1.0))
+		base_node.scale_hp(Regras.tower_hp_fraction() * (0.6 if MatchSetup.rule == 2 else 1.0))
 
 
 func _show_opponent_name():
@@ -1084,7 +1086,78 @@ func _save_match_replay(player_won: bool):
 	out_file.store_string(JSON.stringify(replays))
 
 
+# ---------------------------------------------------------------- zona de quem está posicionando
+## Enquanto você escolhe onde soltar uma tropa: o lado do adversário fica
+## avermelhado (ali não dá pra soltar) e aparece até onde as torres dele atiram.
+class PlaceGuide extends Node2D:
+	var battle: Node
+	var enemy_half := Rect2()
+
+	func _draw():
+		draw_rect(enemy_half, Color(1.0, 0.2, 0.15, 0.13), true)
+		draw_line(Vector2(enemy_half.position.x, enemy_half.end.y), enemy_half.end, Color(1.0, 0.35, 0.3, 0.55), 2.0)
+		if !Regras.on("torres"):
+			return
+		for t in get_tree().get_nodes_in_group("enemy_base"):
+			if !is_instance_valid(t) or t.is_queued_for_deletion() or t.base_data == null or !Regras.tower_shoots(t.base_data):
+				continue
+			var c = to_local(t.global_position)
+			var r = Regras.tower_range(t.base_data)
+			draw_arc(c, r, 0.0, TAU, 48, Color(1.0, 0.4, 0.3, 0.5), 2.0, true)
+			draw_circle(c, r, Color(1.0, 0.3, 0.2, 0.05))
+
+
+var _place_guide: PlaceGuide = null
+
+
+func _update_place_guide():
+	var want = Regras.on("visual") and !preview_units.is_empty() and selected_card != null and !_card_allows_spawn_anywhere(selected_card)
+	if !want:
+		if _place_guide != null:
+			_place_guide.queue_free()
+			_place_guide = null
+		return
+	if _place_guide == null:
+		_place_guide = PlaceGuide.new()
+		_place_guide.battle = self
+		_place_guide.z_index = 5
+		add_child(_place_guide)
+		var r = ArenaBuilder.spawn_rect(GameManager.Team.ENEMY)
+		var a = to_local(r.position)
+		var b = to_local(Vector2(r.end.x, ArenaBuilder.CENTER.y + ArenaBuilder.RIVER_HALF + 6.0))
+		_place_guide.enemy_half = Rect2(a, b - a)
+		_place_guide.queue_redraw()
+
+
+# ---------------------------------------------------------------- tremor de tela (golpe pesado, torre caindo)
+var _shake_left := 0.0
+var _shake_total := 0.2
+var _shake_power := 0.0
+
+
+func shake(power: float, time: float = 0.2):
+	if !Regras.on("peso"):
+		return
+	_shake_power = maxf(_shake_power if _shake_left > 0.0 else 0.0, power)
+	_shake_left = maxf(_shake_left, time)
+	_shake_total = maxf(time, 0.05)
+
+
+func _process_shake(delta):
+	var cam: Camera2D = get_node_or_null("Camera2D")
+	if cam == null:
+		return
+	if _shake_left > 0.0:
+		_shake_left -= delta
+		var k = clampf(_shake_left / _shake_total, 0.0, 1.0)
+		cam.offset = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * _shake_power * k
+	elif cam.offset != Vector2.ZERO:
+		cam.offset = Vector2.ZERO
+
+
 func _process(delta):
+	_process_shake(delta)
+	_update_place_guide()
 	_update_resource_bar()
 	_update_battle_timer(delta)
 	_poll_ai_defense(delta)
@@ -1491,6 +1564,7 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 	for i in count:
 		var unit = first_unit if i == 0 else unit_scene.instantiate()
 		unit.team = team
+		unit.deploy_clock = i == 0
 		unit.card_level = level
 		if card_data != null:
 			unit.card_role = card_data.role
@@ -1916,6 +1990,12 @@ func _setup_2v2():
 		_extra_ai_controllers.append(c2)
 
 	for group in ["player_base", "enemy_base"]:
+		if Regras.on("torres"):
+			# torres novas já aguentam bem: no 2v2 as DUAS ganham só um reforço leve
+			for tw in get_tree().get_nodes_in_group(group):
+				if tw.has_method("scale_hp"):
+					tw.scale_hp(1.25)
+			continue
 		var b = get_tree().get_first_node_in_group(group)
 		if b != null and b.has_method("scale_hp"):
 			b.scale_hp(TWO_V_TWO_BASE_HP_MULT)

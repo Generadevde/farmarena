@@ -50,6 +50,10 @@ func _ready():
 		await _towers_test()
 		get_tree().quit()
 		return
+	if mode == "regras":
+		await _rules_test()
+		get_tree().quit()
+		return
 	if mode == "tornado":
 		await _tornado_and_air_test()
 		get_tree().quit()
@@ -369,6 +373,97 @@ func _towers_test():
 	await get_tree().process_frame
 	print("RESULTADO vitória: acabou com 1 torre? ", after_one, " (esperado false) | acabou com 2? ", battle.match_over, " (esperado true)")
 	get_tree().paused = false
+
+
+# BATALHA 2.5 (Scripts/regras.gd): a torre defende de verdade, a tropa leva
+# 1 s pra entrar, o golpe tem preparo e a tropa tem cor de time
+func _rules_test():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	var P = GameManager.Team.PLAYER
+	var E = GameManager.Team.ENEMY
+	var mid = ArenaBuilder.CENTER
+	var tower = get_tree().get_nodes_in_group("player_base")[0]
+	var forte: BaseData = null
+	var celeiro: BaseData = null
+	for b in Catalogo.bases():
+		if b.base_type == BaseData.BaseType.HP and forte == null:
+			forte = b
+		if b.base_type == BaseData.BaseType.CANNON and celeiro == null:
+			celeiro = b
+
+	# 1) torre que não é "de tiro" também atira
+	tower.install_base_data(forte, 1)
+	tower.scale_hp(Regras.tower_hp_fraction())
+	var foe = await _dummy(E, tower.global_position + Vector2(0, -150))
+	await get_tree().create_timer(3.0).timeout
+	_check("toda torre atira", foe.current_hp < 99999, "o Forte tirou %d em 3 s" % int(99999 - foe.current_hp))
+
+	# 2) números e chave
+	var hp_new = Regras.tower_hp(celeiro)
+	var range_new = Regras.tower_range(celeiro)
+	Regras.forced["torres"] = false
+	var off_ok = !Regras.tower_shoots(forte) and Regras.tower_hp(celeiro) == int(round(celeiro.base_hp * 0.65)) and Regras.tower_range(celeiro) == celeiro.attack_range
+	Regras.forced.erase("torres")
+	_check("vida e alcance novos", hp_new == int(round(celeiro.base_hp * Regras.TOWER_HP_FRACTION)) and range_new > 200.0, "Celeiro: %d de vida, alcance %d" % [hp_new, int(range_new)])
+	_check("chave 'torres' desligada volta ao antigo", off_ok)
+
+	# 3) VANTAGEM DE QUEM DEFENDE: tropa sozinha não derruba torre
+	for spec in [["peao_forcado", 0.6, 45.0], ["pintaiada", 0.75, 30.0]]:
+		await _wipe()
+		tower.install_base_data(celeiro, 1)
+		tower.scale_hp(Regras.tower_hp_fraction())
+		var hp0 = tower.hp
+		var squad = await _put(str(spec[0]), E, tower.global_position + Vector2(0, -320))
+		var waited = 0.0
+		while waited < float(spec[2]) and squad.any(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion()):
+			await get_tree().create_timer(0.5).timeout
+			waited += 0.5
+		var all_dead = !squad.any(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion())
+		_check("%s sozinha não derruba a torre" % str(spec[0]), all_dead and tower.hp >= hp0 * float(spec[1]), "morreu? %s | torre ficou com %d%% (mínimo %d%%) em %ds" % [str(all_dead), int(100.0 * tower.hp / hp0), int(float(spec[1]) * 100), int(waited)])
+
+	# 4) 1 s pra entrar em campo
+	await _wipe()
+	var u = (await _put("peao_forcado", P, mid + Vector2(0, 220)))[0]
+	var p0 = u.global_position
+	await get_tree().create_timer(0.8).timeout
+	var still = u.global_position.distance_to(p0) < 2.0
+	await get_tree().create_timer(0.9).timeout
+	var moved = u.global_position.distance_to(p0) > 10.0
+	_check("1 s pra entrar em campo", still and moved, "parado aos 0,8 s? %s | andando aos 1,7 s? %s" % [str(still), str(moved)])
+
+	# 5) o golpe tem preparo (o primeiro não é mais instantâneo)
+	await _wipe()
+	var d = await _dummy(E, mid + Vector2(0, 100))
+	u = (await _put("peao_forcado", P, mid + Vector2(0, 150)))[0]
+	var t_ready = -1.0
+	var t_hit = -1.0
+	for k in 120:
+		await get_tree().physics_frame
+		if t_ready < 0.0 and !u._is_incapacitated() and u._in_attack_range(d):
+			t_ready = GameManager.game_time
+		if d.current_hp < 99999:
+			t_hit = GameManager.game_time
+			break
+		if k % 3 == 0:
+			await get_tree().create_timer(0.05).timeout
+	var windup = Regras.windup_time(u.stats)
+	var lag = t_hit - t_ready
+	_check("golpe tem preparo", t_ready >= 0.0 and t_hit >= 0.0 and lag >= windup - 0.12 and lag <= windup + 0.5, "preparo esperado %.2f s, medido %.2f s" % [windup, lag])
+
+	# 6) tropa maior e com cor de time
+	var sp: Sprite2D = u.get_node("Sprite2D")
+	var bar: ProgressBar = u.get_node("ProgressBar")
+	_check("tropa grande com cor de time", sp.scale.x >= 1.6 and sp.material != null and !bar.visible, "escala %.2f, contorno? %s, barra escondida com vida cheia? %s" % [sp.scale.x, str(sp.material != null), str(!bar.visible)])
+	u.take_damage(50)
+	_check("barra aparece quando apanha", bar.visible)
+
+	print("RESULTADO regras OK (", _aud_ok.size(), "): ", _aud_ok)
+	print("RESULTADO regras COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
 
 
 func _find_card(fn: Callable) -> CardData:
@@ -1407,7 +1502,7 @@ func _legacy_audit():
 	var walker = (await _put("peao_forcado", P, ArenaBuilder.CENTER + Vector2(-75, 70)))[0]
 	walker.stats = walker.stats.duplicate()
 	walker.stats.move_speed = 70.0
-	await get_tree().create_timer(2.05).timeout
+	await get_tree().create_timer(1.55 + Regras.deploy_time(u.stats)).timeout
 	_check("atravessa o rio", is_instance_valid(u) and u.global_position.y < ArenaBuilder.CENTER.y - 20 and walker.global_position.y > ArenaBuilder.CENTER.y - 20,
 		"com a habilidade y=%d, sem ela y=%d (rio em y=%d)" % [int(u.global_position.y), int(walker.global_position.y), int(ArenaBuilder.CENTER.y)])
 

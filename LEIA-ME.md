@@ -28,8 +28,12 @@ Jogo de cartas e torres offline (estilo Clash Royale, tema roça), feito em Godo
 | Menu | `Scripts/hub.gd` |
 | Safra e gerador de cartas | `Scripts/safra.gd`, `creator/card_generator.gd` |
 | Efeitos visuais | `Scripts/fx.gd` |
+| Regras da batalha (torres, tamanho das tropas, peso do golpe) | `Scripts/regras.gd` |
 
 Os testes automáticos (partidas sem tela e capturas de tela) rodam no GitHub Actions a cada envio.
+
+## Batalha 2.5 (nov/2026)
+A torre passou a defender de verdade (toda torre atira, com mais vida, dano e alcance), as tropas ficaram maiores e com cor de time, e o golpe ganhou peso (1 s pra entrar em campo, preparo antes de bater). Tudo fica em `Scripts/regras.gd` e pode ser ligado/desligado em **Configurações → Laboratório da batalha**. O porquê e os números estão em `DIAGNOSTICO.md`; as ferramentas pra medir de novo, em `ci/lab/`.
 
 ## Raridade 3.0
 - **Normal** e **Rara**: sem habilidade (a Rara é só uma carta um pouco melhor ou diferente).

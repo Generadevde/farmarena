@@ -1,91 +1,105 @@
-# Diagnóstico — "perdeu a fluidez / a graça"
+# Diagnóstico — "perdeu a fluidez / a graça" (18–19/11/2026)
 
-Lista viva de coisas que deixam o Farm Arena diferente do Clash Royale na
-sensação de jogo. Nada aqui foi mudado ainda: é a lista pra decidir junto.
-(Números medidos no código em 18/11/2026; 1 quadrado ≈ 31 px, campo 576×960
-≈ 18×31 quadrados, igual ao Clash 18×32.)
+O João sentia que "toda unidade é igual, ou morre ou não morre", que faltava
+"conexão", "fluidez" e "estratégia" — e que no Clash Royale isso existe até
+nas cartas sem habilidade. Este arquivo guarda o que foi medido e o que mudou.
 
-## Batalha
+## A causa: não existia vantagem de quem defende
 
-### 1. Torre fraca demais (principal suspeito)
-No Clash uma tropa sozinha quase nunca derruba a torre: a torre aguenta e mata
-antes, então o jogo é defender e contra-atacar. Aqui é o contrário — quem
-chega na torre ganha, por isso a luta vira "ou passa ou morre".
+No Clash a torre é perigosa. É ela que dá papel às cartas: o tanque existe
+pra segurar o tiro, o apoio precisa de alguém na frente, o bando morre se
+chegar sozinho, o feitiço termina o serviço. Defender sai mais barato que
+atacar, e o que sobra da defesa vira contra-ataque — esse vai e volta é a
+"fluidez".
 
-| Carta | Derruba a torre em | Torre mata ela em |
+Aqui a torre não defendia:
+
+- **4 dos 6 tipos de torre nem atiravam** (Moinho, Caixa d'Água, Forte, Armazém).
+- O Celeiro (o que atira) tinha 845 de vida e 32 de dano/s, com alcance
+  menor que o de TODOS os atiradores: Galinhas, Molecada, Milho, Vovô e Cacto
+  batiam nele de fora, sem levar um tiro.
+- Medido com cada carta **sozinha contra um Celeiro sem defesa**: **40 das 48
+  cartas derrubavam a torre inteira**, inclusive as de custo 15 (Pintaiada,
+  Vira-lata) e 20 (Peão). A maioria ainda sobrava viva.
+- Duas cartas baratas sem resposta (Peão 20 + Pintaiada 15) = **derrota em 16 s**.
+
+Sem torre perigosa, a partida é corrida ("ou passa ou morre") e toda carta
+vira a mesma coisa: um saco de dano.
+
+### Partidas bot x bot (mesmo robô dos dois lados, mesmo nível, 60 de cada)
+
+| | Antes | Agora |
 |---|---|---|
-| Galo Rei | 6 s | 31 s |
-| Cavalo Coiceiro | 9 s | 24 s |
-| Bode Cabeçudo | 8 s | 42 s |
-| Vaca Brava | 15 s | 72 s |
-| Robô Balde | 10 s | 112 s |
+| Duração (mediana, de 300 s) | 74 s | 300 s |
+| Acabaram em menos de 1 min | 18 de 60 | 0 de 60 |
+| Acabaram em menos de 2 min | 39 de 60 | 4 de 60 |
+| Nocaute (as 2 torres) | 57 de 60 | 28 de 60 |
+| Decididas na vida das torres, no fim do tempo | 3 de 60 | 32 de 60 |
 
-Clash (referência aproximada): Cavaleiro derruba em ~18 s e morre em ~13 s;
-Gigante derruba em ~18 s e morre em ~30 s.
-Torre Celeiro: 845 de vida (65% de 1300), 32 de dano por segundo.
+Ressalva: bot contra bot continua sendo jogo de um lado só na maioria das
+vezes (um ataca, o outro só defende) — isso é do jeito dos bots, não mudou.
 
-### 2. Alcance da torre curto
-Celeiro alcança 125 px (~4 quadrados). No Clash a torre de princesa alcança
-~7,5 e cobre a saída da ponte — a defesa começa antes da tropa chegar.
+### Cada carta sozinha contra uma torre (quanto ela tira)
 
-### 3. Tropas rápidas demais
-Mais rápida do Clash ("muito rápida") ≈ 2 quadrados/s. Aqui várias passam disso:
-Moda de Viola 3,1 · Cavalo 2,7 · Mosquitada 2,7 · Abóbora 2,7 · Pintaiada 2,6 ·
-Bezerrada 2,4 · Pato Ninja 2,4 · Abelhas 2,4. Atravessam o campo antes de dar
-tempo de reagir.
+(A coluna do Clash é conta aproximada com os números da torre e das cartas
+de lá, não medição.)
 
-### 4. Ritmo da partida
-- Começa com 5 de 100 de recurso (Clash começa com metade: 5 de 10).
-- Partida de 5 min (Clash: 3 min + prorrogação).
-- Recurso: 4/s (≈ 1 elixir a cada 2,5 s; Clash 2,8 s) — ok.
+| Carta (custo) | Antes | Agora | Clash, pra comparar |
+|---|---|---|---|
+| Pintaiada (15) | 100% | 9% | Esqueletos: ~2% |
+| Peão do Forcado (20) | 100% | 25% | Cavaleiro: ~35% |
+| Bezerrada (25) | 100% | 44% | |
+| Molecada do Estilingue (30) | 100% | 27% | |
+| Vaca Brava (40) | 100% | 82% | Gigante: derruba por pouco |
+| cartas de 50+ | 100% | 90–100% | P.E.K.K.A, Golem: derrubam |
+| **Derrubam sozinhas** | **40 de 48** | **10 de 48** | só as caras |
 
-### 5. Só 3 cartas na mão
-Clash tem 4 na mão + a próxima. Com 3 há menos escolha a cada momento.
+## O que mudou — Batalha 2.5 (`Scripts/regras.gd`)
 
-### 6. Primeiro golpe instantâneo
-O tempo de recarga do ataque corre mesmo andando, então a tropa bate na hora
-que encosta. No Clash há um "primeiro golpe" com pequeno atraso e animação de
-preparo — dá pra ver o golpe vindo.
+Três chaves em **Configurações → Laboratório da batalha** (todas ligadas;
+dá pra desligar uma por uma e comparar):
 
-### 6b. Sem tempo de entrada
-Tropa solta já anda e bate no mesmo instante (landing_duration = 0 em todas).
-No Clash toda tropa leva ~1 s pra entrar em campo: dá tempo de ver a jogada
-do outro e responder, e defender em cima da hora tem custo.
+1. **🏰 Torres de verdade** — toda torre atira (as "de tiro" atiram mais
+   forte), com 2,2× a vida, 2,3× o dano e alcance de 6,9 quadrados
+   (passa de todo atirador comum). Calibrado pelo Clash: lá a torre nível 11
+   tem 3052 de vida e 109 de dano a cada 0,8 s; o Cavaleiro tem 1766 de vida
+   e 168 de dano/s. A proporção torre × Peão ficou a mesma.
+2. **👀 Tropas grandes e cor de time** — desenho ~55% maior (as pequenas
+   crescem mais), contorno e roda no chão azul (seu) ou vermelho (do bot),
+   barra de vida na cor do time e só em quem apanhou, quem está embaixo
+   aparece na frente, gomos de 10 na barra de recurso, lado do adversário
+   avermelhado e alcance das torres dele enquanto você posiciona.
+3. **🔨 Golpe com peso** — 1 s pra entrar em campo (com reloginho), a tropa
+   arma o golpe antes de bater (o primeiro golpe não é mais instantâneo; o
+   intervalo entre golpes é o mesmo), pisca branco e amassa ao apanhar,
+   some com um "fantasma" em vez de corte seco, tela treme em pancada forte.
 
-### 7. Nível pesa muito (o João achou que NÃO é o principal)
-+15% de vida E dano por nível (nível 9 = 2,2×). Clash ≈ 10% e pareia níveis.
+De quebra: explosão conta até a borda do alvo (com os corpos maiores a
+abóbora-bomba errava), e o avanço estilo Bandida não é mais gasto enquanto a
+tropa ainda está entrando em campo.
 
-## O que a partida gravada mostrou (18/11)
-Partida normal na Arena 1, com um "jogador robô" soltando cartas do baralho
-inicial sem pensar (commit com [filme] grava de novo).
-- **Acabou em 51 s**: as duas torres do jogador caíram antes de 1 minuto.
-  Uma torre ia de 845 a 0 em ~6–8 s com 2–3 tropas pequenas batendo.
-- **Tropas minúsculas no campo**: um Peão ocupa ~20 px numa tela de 720.
-  O campo fica quase vazio e verde; tudo vira "pontinho" e as cartas perdem
-  identidade. No Clash as tropas são 2–3× maiores em relação à arena.
-- O baralho inicial tem 7 cartas (Clash: 8) e a mão mostra 3 (Clash: 4).
+## Como medir de novo — `ci/lab/`
 
-## Informação das cartas
-(18/11: primeira rodada feita — sem nível repetido, alcance e área em
-quadrados, velocidade só em palavra, painel "Função" no lugar de "só vida e
-pancada", "Boa contra / Sofre contra" com cartas de verdade.)
+O Godot roda aqui sem celular (baixar o binário 4.7 do GitHub). Ver o
+cabeçalho de `ci/lab/rodar.sh`:
 
+- `rodar.sh cena` — monta uma situação e grava vídeo na proporção do Moto G75
+- `rodar.sh lote` — N partidas bot x bot justas, com resumo
+- `rodar.sh solo` — cada carta sozinha contra uma torre
+- `REGRAS_OFF=torres,visual,peso` na frente = regras antigas, pra comparar
 
-- Números soltos sem referência: "2300 de vida" não diz se é muito. Ideia:
-  mostrar "aguenta X s na torre", "derruba torre em Y s" e barras comparando
-  com a média das cartas do mesmo custo.
-- Comum/Rara dizem "Sem habilidade: é só vida e pancada" — desvaloriza a carta.
-  Trocar pela FUNÇÃO dela ("puxa o tiro da torre enquanto o resto bate").
-- Falta "bom contra / fraco contra" com cartas de verdade.
-- Nível aparece 3 vezes (selo Nv, "Nível 1", "Números no nível 1").
-- Duas fontes misturadas (pixel + normal), rótulos minúsculos nos quadrinhos.
-- Velocidade "Muito lenta (28)": número sem unidade; alcance "perto".
-- Faltam: tempo de entrada em campo, primeiro golpe, quantidade (x3) nos números.
-- Maestria e "na temporada: sem partidas" ocupam espaço sem ajudar a decidir.
-- Bug: popup do baú abre POR CIMA da carta aberta.
+O teste `CI_MODE=regras` (em `ci/battle_test.gd`) garante no GitHub que a
+torre continua defendendo.
 
-## Ainda a investigar
-- Gravar uma partida (vídeo) no CI e olhar quadro a quadro: amontoamento na
-  ponte, tropas se empurrando, troca de alvo.
-- Sons e peso do golpe (todos usam o mesmo "bote" e flash).
-- Visual do campo: área vazia atrás das torres, torres longe do rio.
+## Ficou pra depois (não mexido)
+
+- Partidas agora costumam ir até o fim dos 5 min. Se cansar, dá pra encurtar.
+- Cartas que sozinhas ainda rendem demais pro custo: Assombração (20 → 38%),
+  Abóboras (25 → 41%), Bezerrada (25 → 44%), Cavalo (35 → 56%).
+- Nível pesa 15% em vida E dano por nível (Clash ≈ 10%). O João achou que
+  não é o principal.
+- Mão de 3 cartas e baralho de 7 (Clash: 4 e 8) — é do projeto original.
+- Começa a partida com 5 de 100 de recurso (Clash começa com metade).
+- Bug antigo: popup do baú abre por cima da carta aberta.
+- As artes vêm todas do mesmo molde de corpo (SpriteForge): maiores elas se
+  distinguem bem melhor, mas poses diferentes por carta ajudariam mais ainda.

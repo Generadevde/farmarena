@@ -10,8 +10,10 @@ signal damaged(amount)
 
 var hp: int
 var base_data: BaseData = null
-var _base_cooldown: float = 0.0
+var _base_cooldown: float = 0.0   # cura / aura
+var _shot_cooldown: float = 0.0   # tiro (toda torre atira nas regras novas)
 var _level_multiplier: float = 1.0
+var _basic_proj: Texture2D = null
 
 
 func _ready():
@@ -41,6 +43,8 @@ func _ready():
 func install_base_data(new_base_data: BaseData, level: int = 1):
 	base_data = new_base_data
 	_base_cooldown = 0.0
+	_shot_cooldown = 0.0
+	_basic_proj = null
 
 	var mult = PlayerProfile.compute_base_stat_multiplier(level)
 	_level_multiplier = mult
@@ -62,6 +66,13 @@ func install_base_data(new_base_data: BaseData, level: int = 1):
 			$Sprite2D.position = Vector2(0, -14)
 		if team == GameManager.Team.ENEMY:
 			$Sprite2D.self_modulate = Color(1.0, 0.82, 0.82)  # torres inimigas levemente avermelhadas
+	if Regras.on("visual"):
+		# barra da torre na cor do time (azul = sua, vermelha = do adversário)
+		var fill = StyleBoxFlat.new()
+		fill.bg_color = Regras.team_color(team == GameManager.Team.PLAYER).darkened(0.12)
+		fill.set_corner_radius_all(4)
+		$ProgressBar.add_theme_stylebox_override("fill", fill)
+		$Sprite2D.material = Regras.outline_material(team == GameManager.Team.PLAYER)
 
 
 # multiplica a vida máxima (usado no 2v2, onde 2 bots atacam a mesma base)
@@ -77,10 +88,12 @@ func _process(delta):
 	if base_data == null:
 		return
 
-	match base_data.base_type:
-		BaseData.BaseType.CANNON:
-			_process_cannon(delta)
+	# regras novas: TODA torre atira (as "de tiro" atiram melhor); o tipo
+	# continua dando o bônus dele (cura, aura, produção, capacidade, vida)
+	if Regras.tower_shoots(base_data):
+		_process_cannon(delta)
 
+	match base_data.base_type:
 		BaseData.BaseType.HEAL:
 			_process_heal(delta)
 
@@ -95,10 +108,24 @@ func _process(delta):
 # CANHÃO
 # ============================================================
 
-func _process_cannon(delta):
-	_base_cooldown -= delta
+func _shot_range() -> float:
+	return Regras.tower_range(base_data)
 
-	if _base_cooldown > 0:
+
+func _shot_texture() -> Texture2D:
+	if base_data.projectile_texture != null:
+		return base_data.projectile_texture
+	if !Regras.on("torres"):
+		return null
+	if _basic_proj == null:
+		_basic_proj = SpriteForge.projectile("milho", {})
+	return _basic_proj
+
+
+func _process_cannon(delta):
+	_shot_cooldown -= delta
+
+	if _shot_cooldown > 0:
 		return
 
 	var target = _find_cannon_target()
@@ -106,35 +133,46 @@ func _process_cannon(delta):
 	if target == null:
 		return
 
-	var dmg = int(round(base_data.attack_damage * _level_multiplier))
+	var is_cannon = base_data.base_type == BaseData.BaseType.CANNON
+	var dmg = int(round(Regras.tower_damage(base_data) * _level_multiplier))
+	var shot_tex = _shot_texture()
+	_recoil()
 
 	# --------------------------------------------------------
 	# COM PROJÉTIL VISUAL
 	# --------------------------------------------------------
 
-	if base_data.projectile_texture != null:
+	if shot_tex != null:
 		var proj = Projectile.new()
 
 		proj.target = target
 		proj.damage = dmg
-		proj.speed = base_data.projectile_speed
-		proj.texture = base_data.projectile_texture
+		proj.speed = maxf(base_data.projectile_speed, 380.0) if Regras.on("torres") else base_data.projectile_speed
+		proj.texture = shot_tex
 
-		# Ataque em área
-		proj.is_aoe = base_data.is_aoe
+		# Ataque em área (só torre "de tiro")
+		proj.is_aoe = base_data.is_aoe and is_cannon
 		proj.aoe_radius = base_data.aoe_radius
 
 		proj.attacker_team = team
 
-		# Efeitos
-		proj.on_hit_effect = base_data.effect
-		proj.on_hit_effect_duration = base_data.effect_duration
-		proj.on_hit_effect_strength = base_data.effect_strength
-		proj.on_hit_effect_tick_interval = base_data.effect_tick_interval
-		proj.knockback_distance = base_data.knockback_distance
+		# Efeitos: o tiro básico das outras torres é só dano (o efeito delas é a aura)
+		if is_cannon:
+			proj.on_hit_effect = base_data.effect
+			proj.on_hit_effect_duration = base_data.effect_duration
+			proj.on_hit_effect_strength = base_data.effect_strength
+			proj.on_hit_effect_tick_interval = base_data.effect_tick_interval
+			proj.knockback_distance = base_data.knockback_distance
 
+		if Regras.on("visual"):
+			proj.scale = Vector2(1.9, 1.9)  # tiro da torre bem visível
 		get_parent().add_child(proj)
 		proj.global_position = global_position
+		if Regras.on("torres"):
+			# sai do alto da torre, com um estalinho: dá pra ver e ouvir a torre defendendo
+			proj.global_position = global_position + Vector2(0, -26)
+			Fx.burst(get_parent(), position + Vector2(0, -30), Color(1.0, 0.9, 0.5), 3, 60.0, 2.5)
+			Sfx.play("tiro", 0.12, -7.0)
 
 	# --------------------------------------------------------
 	# SEM PROJÉTIL VISUAL
@@ -143,7 +181,7 @@ func _process_cannon(delta):
 	else:
 		_apply_cannon_damage(target, dmg)
 
-	_base_cooldown = base_data.attack_speed
+	_shot_cooldown = Regras.tower_interval(base_data)
 
 
 # Aplica o dano do canhão quando não existe projétil visual.
@@ -195,7 +233,7 @@ var _locked_target = null   # alvo travado da torre
 func apply_on_hit_effect(effect, _strength: float, duration: float, _tick_interval: float = 1.0, _knockback_dist: float = 0.0, _from_position: Vector2 = Vector2.ZERO):
 	if effect == UnitData.OnHitEffect.STUN or effect == UnitData.OnHitEffect.FREEZE:
 		_locked_target = null
-		_base_cooldown = maxf(_base_cooldown, minf(duration, 1.0))
+		_shot_cooldown = maxf(_shot_cooldown, minf(duration, 1.0))
 
 
 ## A torre TRAVA no alvo: continua atirando no mesmo até ele morrer ou sair do
@@ -205,7 +243,7 @@ func apply_on_hit_effect(effect, _strength: float, duration: float, _tick_interv
 func _find_cannon_target():
 	if _locked_target != null and is_instance_valid(_locked_target) and !_locked_target.is_queued_for_deletion() \
 			and _locked_target.is_inside_tree() and ("team" in _locked_target) and _locked_target.team != team \
-			and global_position.distance_to(_locked_target.global_position) <= base_data.attack_range:
+			and global_position.distance_to(_locked_target.global_position) <= _shot_range():
 		return _locked_target
 	_locked_target = _find_closest_enemy()
 	return _locked_target
@@ -215,6 +253,7 @@ func _find_cannon_target():
 func _find_closest_enemy():
 	var closest = null
 	var closest_dist = INF
+	var shot_range = _shot_range()
 
 	for body in get_tree().get_nodes_in_group("damageable"):
 
@@ -232,7 +271,7 @@ func _find_closest_enemy():
 
 		var dist = global_position.distance_to(body.global_position)
 
-		if dist <= base_data.attack_range and dist < closest_dist:
+		if dist <= shot_range and dist < closest_dist:
 			closest_dist = dist
 			closest = body
 
@@ -360,6 +399,20 @@ func _update_label():
 # ============================================================
 
 var _shaking := false
+var _recoiling := false
+
+
+## tranquinho da torre a cada tiro (dá pra VER que ela está defendendo)
+func _recoil():
+	if _recoiling or _shaking or !has_node("Sprite2D") or !Regras.on("torres"):
+		return
+	_recoiling = true
+	var sprite = $Sprite2D
+	var base_scale = sprite.scale
+	var tw = create_tween()
+	tw.tween_property(sprite, "scale", base_scale * Vector2(1.06, 0.94), 0.05)
+	tw.tween_property(sprite, "scale", base_scale, 0.09)
+	tw.tween_callback(func(): _recoiling = false)
 
 
 func _shake():
@@ -382,5 +435,8 @@ func die():
 	Fx.burst(parent, position, Color(0.75, 0.5, 0.3), 22, 200.0, 5.0)
 	Fx.text(parent, position + Vector2(0, -30), "TORRE CAIU!", Color(1, 0.85, 0.3), 1.6)
 	Sfx.play("torre_cai", 0.0, 3.0)
+	var bs = get_tree().get_first_node_in_group("battle_scene")
+	if bs != null and bs.has_method("shake"):
+		bs.shake(9.0, 0.45)
 	destroyed.emit(team)
 	queue_free()

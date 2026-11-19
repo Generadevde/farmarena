@@ -979,6 +979,24 @@ func _show_settings():
 		p.add_child(slider)
 		value_label.text = "%d%%" % int(round(slider.value * 100)) if slider.value > 0.01 else "mudo"
 		slider.value_changed.connect(_on_volume.bind(str(spec[1]), value_label))
+	# LABORATÓRIO: as três mudanças da Batalha 2.5, pra ligar/desligar e sentir a diferença
+	var lab = _panel(v)
+	lab.add_child(_label("🧪 Laboratório da batalha", 18, ThemeBuilder.COLOR_GOLD))
+	lab.add_child(_wrap("Ligue e desligue pra comparar. Vale a partir da próxima partida.", 14, ThemeBuilder.COLOR_STAT_LABEL))
+	for spec in [
+			["torres", "🏰 Torres de verdade", "Toda torre atira, com mais vida, dano e alcance. Defender passa a valer a pena."],
+			["visual", "👀 Tropas grandes e cor de time", "Tropa maior, contorno azul (seu) ou vermelho (do bot), barra de vida só em quem apanhou."],
+			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."]]:
+		var cb = CheckButton.new()
+		cb.text = str(spec[1])
+		cb.button_pressed = Regras.on(str(spec[0]))
+		cb.add_theme_font_size_override("font_size", 18)
+		cb.custom_minimum_size.y = 52
+		cb.toggled.connect(_on_rule_toggled.bind(str(spec[0])))
+		lab.add_child(cb)
+		var hint = _wrap(str(spec[2]), 13, ThemeBuilder.COLOR_STAT_LABEL)
+		hint.add_theme_font_override("font", ThemeDB.fallback_font)
+		lab.add_child(hint)
 	var row = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	v.add_child(row)
@@ -996,6 +1014,13 @@ func _on_volume(value: float, key: String, value_label: Label):
 	value_label.text = "%d%%" % int(round(value * 100)) if value > 0.01 else "mudo"
 	if key == "efeitos":
 		Sfx.play("carta")
+
+
+func _on_rule_toggled(pressed: bool, key: String):
+	Regras.set_on(key, pressed)
+	Config.save()
+	Sfx.play("carta")
+	_queue_refresh()
 
 
 func _close_settings(popup_box: Node):
@@ -1236,9 +1261,9 @@ func _build_torres(box: Node):
 		side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[brar], "Habilidade: " + str(bab[0]) if !bab.is_empty() else "sem habilidade"], 15, Catalogo.RARITY_COLORS[brar]))
 		side.add_child(_label(_base_summary(b), 15, Color(0.8, 0.95, 1.0)))
 		for t in b.pros:
-			side.add_child(_wrap("✔ " + t, 15, Color(0.6, 1.0, 0.6)))
+			side.add_child(_wrap("✔ " + Regras.tower_pro_text(t), 15, Color(0.6, 1.0, 0.6)))
 		for t in b.cons:
-			side.add_child(_wrap("✖ " + t, 15, Color(1.0, 0.62, 0.55)))
+			side.add_child(_wrap("✖ " + Regras.tower_con_text(t), 15, Color(1.0, 0.62, 0.55)))
 		if b.description != "":
 			p.add_child(_wrap("“%s”" % b.description, 15, Color(0.95, 0.9, 0.78)))
 		if !unlocked:
@@ -1250,11 +1275,14 @@ func _build_torres(box: Node):
 
 func _base_summary(b: BaseData) -> String:
 	var tmult = PlayerProfile.compute_base_stat_multiplier(Progresso.tower_level())
-	var hp = int(round(b.base_hp * tmult * ArenaBuilder.TOWER_HP_FRACTION))
+	var hp = Regras.tower_hp(b, tmult)
 	var txt = "❤ %d cada" % hp
+	if Regras.tower_shoots(b):
+		txt += "  ·  ⚔ %d a cada %.1fs  ·  alcance %s%s" % [int(round(Regras.tower_damage(b) * tmult)), Regras.tower_interval(b),
+			("%.1f quadrados" % (Regras.tower_range(b) / TILE_PX)).replace(".", ","), "  ·  em área" if (b.is_aoe and b.base_type == BaseData.BaseType.CANNON) else ""]
 	match b.base_type:
 		BaseData.BaseType.CANNON:
-			txt += "  ·  ⚔ %d a cada %.1fs  ·  alcance %d%s" % [int(round(b.attack_damage * tmult)), b.attack_speed, int(b.attack_range), "  ·  em área" if b.is_aoe else ""]
+			pass
 		BaseData.BaseType.PRODUCTION:
 			txt += "  ·  recurso +%d%% mais rápido" % int(round(b.production_speed_boost * 100))
 		BaseData.BaseType.HEAL:
@@ -1264,7 +1292,7 @@ func _base_summary(b: BaseData) -> String:
 		BaseData.BaseType.AURA:
 			txt += "  ·  aura: %s (raio %d)" % [CustomContent.EFFECT_NAMES[b.effect], int(b.aura_radius)]
 		_:
-			txt += "  ·  só resistência"
+			txt += "  ·  a mais resistente" if Regras.on("torres") else "  ·  só resistência"
 	return txt
 
 
@@ -2521,11 +2549,12 @@ func _show_base_popup(b: BaseData):
 	v.add_child(_title(b.base_name))
 	if b.description != "":
 		v.add_child(_wrap("“%s”" % b.description, 16))
-	v.add_child(_label("❤ %d por torre (são 2)" % int(round(b.base_hp * ArenaBuilder.TOWER_HP_FRACTION)), 17))
+	v.add_child(_label("❤ %d por torre (são 2)" % Regras.tower_hp(b, PlayerProfile.compute_base_stat_multiplier(Progresso.tower_level())), 17))
+	v.add_child(_wrap(_base_summary(b), 15, ThemeBuilder.COLOR_STAT_LABEL))
 	for p in b.pros:
-		v.add_child(_wrap("✔ " + p, 16, Color(0.6, 1.0, 0.6)))
+		v.add_child(_wrap("✔ " + Regras.tower_pro_text(p), 16, Color(0.6, 1.0, 0.6)))
 	for p in b.cons:
-		v.add_child(_wrap("✖ " + p, 16, Color(1.0, 0.62, 0.55)))
+		v.add_child(_wrap("✖ " + Regras.tower_con_text(p), 16, Color(1.0, 0.62, 0.55)))
 	if PlayerProfile.is_base_unlocked(b):
 		if PlayerProfile.get_equipped_base() != b:
 			v.add_child(_button("Usar esta torre", _equip_base.bind(b, v)))

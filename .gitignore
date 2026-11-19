@@ -9,3 +9,4 @@
 *.pck
 export_credentials.cfg
 __pycache__/
+override.cfg

@@ -35,7 +35,7 @@ func _ready():
 	get_tree().node_added.connect(_on_node_added)
 
 
-func play(sound: String, pitch_spread: float = 0.08, volume_offset: float = 0.0):
+func play(sound: String, pitch_spread: float = 0.08, volume_offset: float = 0.0, pitch_base: float = 1.0):
 	if !enabled or !_streams.has(sound):
 		return
 	var now = Time.get_ticks_msec() / 1000.0
@@ -45,7 +45,7 @@ func play(sound: String, pitch_spread: float = 0.08, volume_offset: float = 0.0)
 	var p: AudioStreamPlayer = _players[_next]
 	_next = (_next + 1) % VOICES
 	p.stream = _streams[sound]
-	p.pitch_scale = 1.0 + randf_range(-pitch_spread, pitch_spread)
+	p.pitch_scale = maxf(0.3, pitch_base + randf_range(-pitch_spread, pitch_spread))
 	p.volume_db = VOLUME_DB + volume_offset
 	p.play()
 

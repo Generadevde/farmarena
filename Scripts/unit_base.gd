@@ -62,6 +62,35 @@ var _charge_distance_accumulated: float = 0.0  # distância andada desde o últi
 var _has_dashed: bool = false  # se já usou o avanço estilo Bandida (só acontece 1 vez na vida)
 var _dash_time_remaining: float = 0.0  # quanto tempo ainda falta do avanço em andamento
 
+# BATALHA 2.5 (ver Scripts/regras.gd)
+var _deploy_until: float = 0.0     # entrando em campo: aparece, mas ainda não anda nem bate
+var _windup_left: float = -1.0     # preparo do golpe em andamento (<0 = não está preparando)
+var _windup_total: float = 0.0
+var _aim_dir := Vector2.ZERO
+var _hit_squash := 0.0             # "amassada" rápida ao levar golpe
+var _base_sprite_scale := Vector2.ONE
+var deploy_clock := true           # numa leva (6 pintinhos), só o primeiro mostra o relógio
+
+
+## relógio de entrada em campo (o arco vai sumindo)
+class DeployClock extends Node2D:
+	var total := 1.0
+	var left := 1.0
+	var col := Color.WHITE
+	var r := 9.0
+
+	func _process(delta):
+		left -= delta
+		if left <= 0.0:
+			queue_free()
+			return
+		queue_redraw()
+
+	func _draw():
+		var f = clampf(left / total, 0.0, 1.0)
+		draw_arc(Vector2.ZERO, r, -PI / 2.0, -PI / 2.0 + TAU * f, 24, Color(0, 0, 0, 0.55), 5.0, true)
+		draw_arc(Vector2.ZERO, r, -PI / 2.0, -PI / 2.0 + TAU * f, 24, col, 3.0, true)
+
 
 # troca a textura da unidade pelo ícone de uma carta aleatória qualquer do
 # banco -- guarda a textura verdadeira pra devolver depois, no primeiro
@@ -108,6 +137,10 @@ func _ready():
 		set_process(false)
 		$Area2D.monitoring = false
 		$CollisionShape2D.disabled = true
+		if Regras.on("visual"):
+			$ProgressBar.visible = false
+			$LevelLabel.visible = false
+			$DurationBar.visible = false
 		return
 
 	add_to_group("units")  # usado pela separação macia (_apply_soft_separation)
@@ -119,13 +152,17 @@ func _ready():
 	$LevelLabel.text = "Nv%d" % card_level
 	$LevelLabel.visible = card_level > 1 and !MatchSetup.tournament  # nível 1 (e torneio, tudo igual) não polui a tela
 	$LevelLabel.add_theme_font_size_override("font_size", 11)
+	_setup_bar()
 	add_to_group("damageable")
 
 	if stats.spawn_invulnerability_duration > 0:
 		_spawn_invulnerable_until = GameManager.game_time + stats.spawn_invulnerability_duration
 
-	if stats.initial_stun_duration > 0:
-		apply_incapacitate(stats.initial_stun_duration)
+	var deploy = Regras.deploy_time(stats)
+	if deploy > 0:
+		apply_incapacitate(deploy)
+		if Regras.on("peso"):
+			_begin_deploy(deploy)
 
 	if stats.deals_arrival_damage:
 		_deal_area_damage(global_position, stats.arrival_damage_radius, stats.arrival_damage)
@@ -184,27 +221,111 @@ var _is_air_visual := false
 
 func _setup_visuals():
 	var sprite: Sprite2D = $Sprite2D
-	_visual_scale = stats.unit_scale
+	_visual_scale = stats.unit_scale * Regras.sprite_factor(stats.unit_scale)
+	_base_sprite_scale = sprite.scale
 	_is_air_visual = stats.unit_type == UnitData.UnitType.AIR
 	_anim_t = randf() * 10.0
-	if stats.unit_type != UnitData.UnitType.BUILDING:
+	var team_look = Regras.on("visual") and !is_preview
+	if stats.unit_type != UnitData.UnitType.BUILDING or team_look:
 		var shadow = Polygon2D.new()
 		var pts := PackedVector2Array()
-		for i in 12:
-			var a = TAU * i / 12.0
-			pts.append(Vector2(cos(a) * 10.0, sin(a) * 4.0) * _visual_scale)
+		var rx = 10.0 if !team_look else 12.5
+		var ry = 4.0 if !team_look else 5.5
+		for i in 16:
+			var a = TAU * i / 16.0
+			pts.append(Vector2(cos(a) * rx, sin(a) * ry) * _visual_scale)
 		shadow.polygon = pts
 		shadow.color = Color(0, 0, 0, 0.22)
-		shadow.position = Vector2(0, 14.0 * _visual_scale)
+		shadow.position = Vector2(0, (20.0 if team_look else 14.0) * _visual_scale)
 		shadow.z_index = -1
 		shadow.name = "Sombra"
 		add_child(shadow)
 		move_child(shadow, 0)
+		if team_look:
+			# COR DE TIME: roda no chão + contorno do desenho. Azul = seu, vermelho = do adversário
+			var tc = Regras.team_color(team == GameManager.Team.PLAYER)
+			shadow.color = Color(tc.r, tc.g, tc.b, 0.45)
+			var ring = Line2D.new()
+			ring.points = pts
+			ring.closed = true
+			ring.width = 2.0
+			ring.default_color = Color(tc.r, tc.g, tc.b, 0.95)
+			ring.name = "AnelTime"
+			shadow.add_child(ring)
+			sprite.material = Regras.outline_material(team == GameManager.Team.PLAYER)
 	if _is_air_visual:
 		sprite.position.y -= 16.0 * _visual_scale
+		if team_look:
+			sprite.z_index = 2  # voador sempre por cima de quem está no chão
 	_sprite_home = sprite.position
 	if !is_preview:
 		_spawn_fx.call_deferred()
+
+
+## altura da cabeça acima do centro (pra barra de vida ficar em cima dela)
+func _head_height() -> float:
+	var h = 24.0 * absf($Sprite2D.scale.y) * 0.86
+	if _is_air_visual:
+		h += 16.0 * _visual_scale
+	return h
+
+
+## VISUAL 2.5: barra do tamanho da tropa, azul (sua) ou vermelha (do
+## adversário), e só aparece depois que a tropa apanha -- campo limpo
+func _setup_bar():
+	if !Regras.on("visual"):
+		return
+	var bar: ProgressBar = $ProgressBar
+	var tc = Regras.team_color(team == GameManager.Team.PLAYER)
+	var w = clampf(18.0 + 16.0 * _visual_scale, 26.0, 64.0)
+	var h = 5.0 if stats.unit_scale < 0.75 else 7.0
+	var top = -_head_height() - h - 3.0
+	var fill = StyleBoxFlat.new()
+	fill.bg_color = tc
+	fill.set_corner_radius_all(2)
+	var bg = StyleBoxFlat.new()
+	bg.bg_color = Color(0.07, 0.05, 0.05, 0.9)
+	bg.border_color = Color(0, 0, 0, 0.95)
+	bg.set_border_width_all(1)
+	bg.set_corner_radius_all(2)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar.add_theme_stylebox_override("background", bg)
+	bar.custom_minimum_size = Vector2(w, h)
+	bar.set_deferred("size", Vector2(w, h))
+	bar.position = Vector2(-w / 2.0, top)
+	bar.visible = false
+	var lv: Label = $LevelLabel
+	lv.position = Vector2(w / 2.0 + 2.0, top - 6.0)
+	lv.add_theme_color_override("font_color", tc.lightened(0.45))
+	lv.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+	lv.add_theme_constant_override("outline_size", 3)
+	var db: ProgressBar = $DurationBar
+	db.custom_minimum_size = Vector2(w, 3)
+	db.set_deferred("size", Vector2(w, 3))
+	db.position = Vector2(-w / 2.0, top - 5.0)
+
+
+func _refresh_bar():
+	if Regras.on("visual"):
+		$ProgressBar.visible = current_hp < stats.hp or current_shield > 0
+
+
+## ENTRADA EM CAMPO: cai do alto, quica e mostra o reloginho. Enquanto o
+## relógio roda a tropa já pode apanhar, mas não anda nem bate.
+func _begin_deploy(seconds: float):
+	_deploy_until = GameManager.game_time + seconds
+	var drop = 26.0 * minf(_visual_scale, 1.8)
+	_lunge = Vector2(0, -drop)  # a própria "volta do bote" faz a queda
+	if !is_inside_tree() or !deploy_clock:
+		return
+	var clock = DeployClock.new()
+	clock.total = seconds
+	clock.left = seconds
+	clock.col = Regras.team_color(team == GameManager.Team.PLAYER).lightened(0.3)
+	clock.r = clampf(7.0 + 3.0 * _visual_scale, 8.0, 14.0)
+	clock.position = Vector2(0, -_head_height() - 14.0)
+	clock.z_index = 20
+	add_child(clock)
 
 
 const SPAWN_LINES = {
@@ -253,6 +374,22 @@ func _process(delta):
 	if _lunge.length_squared() > 0.05:
 		pos += _lunge
 		_lunge = _lunge.lerp(Vector2.ZERO, minf(1.0, delta * 11.0))
+	# PESO: preparo do golpe (recua e "arma") e amassada ao apanhar
+	var squash = Vector2.ONE
+	if _windup_left >= 0.0 and _windup_total > 0.0:
+		var k = clampf(1.0 - _windup_left / _windup_total, 0.0, 1.0)
+		var reach = minf(_visual_scale, 1.8) * (3.0 if stats.is_ranged else 7.0)
+		pos -= _aim_dir * reach * k
+		rot -= signf(_aim_dir.x if absf(_aim_dir.x) > 0.15 else 1.0) * 0.16 * k
+		squash = Vector2(1.0 + 0.07 * k, 1.0 - 0.07 * k)
+	if _hit_squash > 0.01:
+		squash *= Vector2(1.0 + 0.16 * _hit_squash, 1.0 - 0.14 * _hit_squash)
+		_hit_squash = lerpf(_hit_squash, 0.0, minf(1.0, delta * 14.0))
+	if _deploy_until > GameManager.game_time:
+		var left = _deploy_until - GameManager.game_time
+		sprite.self_modulate.a = minf(sprite.self_modulate.a, 0.78)
+		squash *= Vector2(1.0, 1.0 + 0.05 * sin(left * 14.0))
+	sprite.scale = _base_sprite_scale * squash
 	sprite.position = pos
 	sprite.rotation = rot
 
@@ -264,13 +401,19 @@ func _attack_anim():
 	if absf(dir.x) > 0.2:
 		$Sprite2D.flip_h = dir.x < 0
 	_lunge = dir * (-4.0 if stats.is_ranged else 9.0) * minf(_visual_scale, 1.6)
+	if Regras.on("peso") and !stats.is_ranged:
+		_lunge *= 1.35  # o bote sai do recuo do preparo: mais curso, mais peso
 
 
 func _apply_unit_scale():
-	if stats.unit_scale == 1.0:
-		return
-	$Sprite2D.scale *= stats.unit_scale
-	$CollisionShape2D.scale *= stats.unit_scale
+	# VISUAL 2.5: desenho bem maior (as pequenas crescem mais que as gigantes)
+	# e corpo um pouco maior -- dá pra reconhecer a carta no campo
+	var sprite_mult = stats.unit_scale * Regras.sprite_factor(stats.unit_scale)
+	var body_mult = stats.unit_scale * Regras.body_factor(stats.unit_scale)
+	if sprite_mult != 1.0:
+		$Sprite2D.scale *= sprite_mult
+	if body_mult != 1.0:
+		$CollisionShape2D.scale *= body_mult
 
 
 # "andando de verdade" = a posição mudou neste quadro. NÃO dá pra usar a
@@ -343,6 +486,7 @@ func _physics_process(delta):
 
 	if target == null or !is_instance_valid(target):
 		target = null
+		_windup_left = -1.0
 		find_target()
 		if target != null and stats.pre_attack_speed_boost:
 			apply_speed_multiplier(stats.pre_attack_boost_multiplier, stats.pre_attack_boost_duration)
@@ -366,6 +510,8 @@ func _process_building(delta):
 	_is_actively_attacking = _in_attack_range(target)
 	if _is_actively_attacking:
 		_try_attack(delta)
+	else:
+		_windup_left = -1.0
 
 
 func _configure_detection_area():
@@ -677,6 +823,8 @@ func _move_towards_base():
 func _process_combat(delta):
 	var target_is_base = _is_base(target)
 	_is_actively_attacking = _in_attack_range(target)
+	if stats.bandit_dash and !_has_dashed and !_is_actively_attacking:
+		_start_bandit_dash()  # achou o alvo enquanto entrava em campo: avança agora
 
 	# Clash Royale de verdade NÃO usa desvio inteligente (RVO) entre
 	# unidades -- cada uma trava no alvo e anda RETO até ele; o empurrão
@@ -695,6 +843,7 @@ func _process_combat(delta):
 		pass
 
 	if !_is_actively_attacking:
+		_windup_left = -1.0  # o alvo saiu do alcance: desarma o golpe
 		if _is_rooted():
 			_set_nav_velocity(Vector2.ZERO)
 		else:
@@ -897,11 +1046,32 @@ func _get_min_contact_range(body) -> float:
 
 # ---------- COMBATE ----------
 
-func _try_attack(_delta):
-	if attack_cooldown <= 0:
-		if is_instance_valid(target):
-			_perform_attack()
-		attack_cooldown = stats.attack_speed * _attack_speed_ramp_multiplier / _rage_mult(_rage_attack_speed)
+func _try_attack(delta):
+	var period = stats.attack_speed * _attack_speed_ramp_multiplier / _rage_mult(_rage_attack_speed)
+	var windup = Regras.windup_time(stats)
+	if windup <= 0.0:
+		if attack_cooldown <= 0:
+			if is_instance_valid(target):
+				_perform_attack()
+			attack_cooldown = period
+		return
+	# PESO: o golpe tem preparo. A tropa "arma" o ataque (dá pra ver) e só
+	# então acerta. O intervalo entre golpes continua o mesmo.
+	windup = minf(windup, period * 0.6)
+	if _windup_left >= 0.0:
+		_windup_left -= delta
+		if _windup_left <= 0.0:
+			_windup_left = -1.0
+			if is_instance_valid(target):
+				_perform_attack()
+			attack_cooldown = maxf(period - _windup_total, 0.05)
+		return
+	if attack_cooldown <= 0 and is_instance_valid(target):
+		_windup_total = windup
+		_windup_left = windup
+		_aim_dir = (target.global_position - global_position).normalized() if "global_position" in target else Vector2.UP
+		if absf(_aim_dir.x) > 0.2:
+			$Sprite2D.flip_h = _aim_dir.x < 0
 
 
 func _perform_continuous_attack(delta):
@@ -992,6 +1162,8 @@ func _perform_attack():
 		proj.chain_max_targets = stats.projectile_chain_max_targets
 		proj.chain_range = stats.projectile_chain_range
 		proj.source_card_path = card_data.resource_path if card_data != null else ""
+		if Regras.on("visual"):
+			proj.scale = Vector2.ONE * clampf(_visual_scale * 0.95, 1.25, 2.2)  # projétil acompanha o tamanho da tropa
 		get_parent().add_child(proj)
 		proj.global_position = global_position
 	elif stats.spin_attack:
@@ -1217,7 +1389,10 @@ func _deal_area_damage(center: Vector2, radius: float, damage: int):
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body == self or !("team" in body) or body.team == team:
 			continue
-		if body.global_position.distance_to(center) <= radius:
+		# com os corpos maiores (visual 2.5) a área conta até a BORDA do alvo:
+		# senão a abóbora-bomba encostava no alvo e a explosão não chegava no centro dele
+		var dist = center.distance_to(_closest_surface_point(body, center)) if Regras.on("visual") else body.global_position.distance_to(center)
+		if body.global_position.distance_to(center) <= radius or dist <= radius:
 			body.take_damage(damage)
 			_report_base_damage(body, damage)
 
@@ -1264,7 +1439,9 @@ func find_target():
 	# avanço estilo Bandida -- dispara na hora que acha um alvo pela
 	# primeira vez (não tinha nenhum antes, achou agora), uma vez só na
 	# vida da unidade
-	if stats.bandit_dash and !_has_dashed and previous_target == null and target != null:
+	# (não começa enquanto ainda está entrando em campo/atordoada: o avanço
+	# acabava antes de ela poder andar -- aí quem dispara é o _process_combat)
+	if stats.bandit_dash and !_has_dashed and previous_target == null and target != null and !_is_incapacitated():
 		_start_bandit_dash()
 
 
@@ -1377,7 +1554,10 @@ func take_damage(amount, _is_shared_damage: bool = false):
 		return
 
 	if amount > 0:
-		_flash_color(Color(1, 0.35, 0.35))  # flash vermelho rápido de "levou hit"
+		if Regras.on("visual"):
+			_flash_white()  # pisca BRANCO (vermelho confundia com a cor do time inimigo)
+		else:
+			_flash_color(Color(1, 0.35, 0.35))  # flash vermelho rápido de "levou hit"
 
 	# marca de vulnerabilidade: multiplica o dano recebido de QUALQUER fonte
 	if _marked_until > GameManager.game_time:
@@ -1400,7 +1580,19 @@ func take_damage(amount, _is_shared_damage: bool = false):
 
 	current_hp = clamp(current_hp - amount, 0, stats.hp)
 	$ProgressBar.value = current_hp
-	if amount >= 15:
+	_refresh_bar()
+	if amount > 0 and Regras.on("peso"):
+		_hit_squash = clampf(_hit_squash + clampf(amount / maxf(stats.hp, 1.0) * 4.0, 0.35, 1.0), 0.0, 1.0)
+	# número de dano: com o visual novo só golpe de verdade ganha número
+	# (6 pintinhos bicando enchiam a tela de "25 25 25")
+	var number_floor = 15.0
+	if Regras.on("visual"):
+		number_floor = maxf(45.0, stats.hp * 0.06)
+	if amount >= 260.0 and Regras.on("peso"):
+		var bs = get_tree().get_first_node_in_group("battle_scene")
+		if bs != null and bs.has_method("shake"):
+			bs.shake(clampf(amount / 110.0, 2.5, 6.0))
+	if amount >= number_floor:
 		var hit_at = position + Vector2(0, -18.0 * _visual_scale)
 		Fx.number(get_parent(), hit_at, amount, Color(1, 0.93, 0.8) if team == GameManager.Team.ENEMY else Color(1, 0.55, 0.5))
 		Fx.burst(get_parent(), position, Color(1, 0.95, 0.85), 4, 70.0, 2.5)
@@ -1432,11 +1624,32 @@ func heal(amount):
 	var before = current_hp
 	current_hp = clamp(current_hp + amount, 0, stats.hp)
 	$ProgressBar.value = current_hp
+	_refresh_bar()
 	if current_hp - before >= 8:
 		Fx.number(get_parent(), position + Vector2(0, -18.0 * _visual_scale), current_hp - before, Color(0.45, 1.0, 0.5))
 
 
 var _flash_active: bool = false
+var _white_until := 0.0
+
+
+## pisca branco por um instante: troca o material do desenho pelo "aceso"
+## do mesmo time e devolve logo depois
+func _flash_white():
+	var sprite: Sprite2D = $Sprite2D
+	var mine = team == GameManager.Team.PLAYER
+	var now = Time.get_ticks_msec() / 1000.0
+	var already = _white_until > now
+	_white_until = now + 0.07
+	if already:
+		return
+	sprite.material = Regras.outline_material(mine, true)
+	var tw = create_tween()
+	tw.tween_interval(0.07)
+	tw.tween_callback(func():
+		_white_until = 0.0
+		sprite.material = Regras.outline_material(mine, false)
+	)
 
 
 # pisca rapidamente numa cor e depois volta pra cor "de base" atual (que pode
@@ -1461,6 +1674,8 @@ const FREEZE_IMMUNITY = 1.0
 func _get_status_base_color() -> Color:
 	if _frozen_until > GameManager.game_time:
 		return Color(0.45, 0.75, 1.0)  # azul-gelo -- congelada
+	if _deploy_until > GameManager.game_time:
+		return Color(1, 1, 1)  # entrando em campo: não é atordoamento, não empalidece
 	if _is_incapacitated():
 		return Color(0.75, 0.9, 1.0)
 	if _rage_until > GameManager.game_time:
@@ -1655,6 +1870,7 @@ func _reset_aggro():
 	target = null
 	_is_actively_attacking = false
 	_retarget_check_cooldown = 0.0
+	_windup_left = -1.0
 
 
 func apply_on_hit_effect(effect, strength: float, duration: float, tick_interval: float, knockback_dist: float, from_position: Vector2):
@@ -1841,8 +2057,32 @@ func _spawn_clone():
 		clone.get_node("ProgressBar").value = clone.current_hp
 
 
+## a tropa não some num corte seco: um "fantasma" do desenho cresce e apaga
+func _death_ghost():
+	var parent = get_parent()
+	var src: Sprite2D = $Sprite2D
+	if parent == null or src.texture == null or !(parent is Node2D):
+		return
+	var ghost = Sprite2D.new()
+	ghost.texture = src.texture
+	ghost.texture_filter = src.texture_filter
+	ghost.flip_h = src.flip_h
+	ghost.scale = _base_sprite_scale
+	ghost.position = position + _sprite_home
+	ghost.z_index = 3
+	ghost.modulate = Color(1.0, 1.0, 1.0, 0.85)
+	parent.add_child(ghost)
+	var tw = ghost.create_tween().set_parallel(true)
+	tw.tween_property(ghost, "scale", _base_sprite_scale * Vector2(1.25, 0.6), 0.22).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ghost, "position:y", ghost.position.y + 10.0 * _visual_scale, 0.22)
+	tw.tween_property(ghost, "modulate:a", 0.0, 0.22)
+	tw.chain().tween_callback(ghost.queue_free)
+
+
 func die():
 	died.emit(team, card_data)
+	if Regras.on("peso") and is_inside_tree():
+		_death_ghost()
 	Fx.puff(get_parent(), position, clampf(_visual_scale, 0.6, 2.2))
 	Sfx.play("morte", 0.2)
 	if _visual_scale >= 1.0 and randf() < 0.12:
