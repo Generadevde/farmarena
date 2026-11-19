@@ -2038,10 +2038,11 @@ func _setup_2v2():
 
 	for group in ["player_base", "enemy_base"]:
 		if Regras.on("torres"):
-			# torres novas já aguentam bem: no 2v2 as DUAS ganham só um reforço leve
+			# 2v2 tem o dobro de recurso batendo em cada lado: as DUAS torres ganham
+			# o reforço (antes só a primeira ganhava)
 			for tw in get_tree().get_nodes_in_group(group):
 				if tw.has_method("scale_hp"):
-					tw.scale_hp(1.25)
+					tw.scale_hp(TWO_V_TWO_BASE_HP_MULT)
 			continue
 		var b = get_tree().get_first_node_in_group(group)
 		if b != null and b.has_method("scale_hp"):
