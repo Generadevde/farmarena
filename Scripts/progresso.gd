@@ -346,9 +346,12 @@ func roll_win_chest_type() -> int:
 	return type
 
 
+## o baú que está CONTANDO o tempo agora. Baú que já ficou pronto (esperando
+## você tocar pra pegar) não conta -- senão ele travava a fila e você era
+## obrigado a abrir ele antes de botar o próximo pra contar
 func unlocking_index() -> int:
 	for i in d["chests"].size():
-		if float(d["chests"][i]["inicio"]) > 0.0:
+		if float(d["chests"][i]["inicio"]) > 0.0 and chest_remaining(i) > 0.0:
 			return i
 	return -1
 
@@ -1385,8 +1388,12 @@ func use_power(id: String) -> String:
 			d["ativos"][id] = power_battles(id) + 3
 		"chave":
 			var idx = unlocking_index()
-			if idx == -1 and !d["chests"].is_empty():
-				idx = 0
+			if idx == -1:
+				# nenhum contando: pega o primeiro que ainda não ficou pronto
+				for i in d["chests"].size():
+					if !chest_ready(i):
+						idx = i
+						break
 			if idx == -1 or chest_ready(idx):
 				return "Nenhum baú esperando pra abrir."
 			if float(d["chests"][idx]["inicio"]) <= 0.0:

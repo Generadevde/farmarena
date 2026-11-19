@@ -9,6 +9,7 @@ signal damaged(amount)
 @export var team: GameManager.Team
 
 var hp: int
+var is_gate := false   # o PORTÃO: a torre da frente (regra "portao"), mais fraca que as de trás
 var base_data: BaseData = null
 var _base_cooldown: float = 0.0   # cura / aura
 var _shot_cooldown: float = 0.0   # tiro (toda torre atira nas regras novas)
@@ -66,6 +67,10 @@ func install_base_data(new_base_data: BaseData, level: int = 1):
 			$Sprite2D.position = Vector2(0, -14)
 		if team == GameManager.Team.ENEMY:
 			$Sprite2D.self_modulate = Color(1.0, 0.82, 0.82)  # torres inimigas levemente avermelhadas
+	if is_gate:
+		# o portão é menor que as torres de trás: dá pra ver de longe quem é quem
+		$Sprite2D.scale *= 0.82
+		$Sprite2D.position.y *= 0.82
 	if Regras.on("visual"):
 		# barra da torre na cor do time (azul = sua, vermelha = do adversário)
 		var fill = StyleBoxFlat.new()
@@ -109,7 +114,7 @@ func _process(delta):
 # ============================================================
 
 func _shot_range() -> float:
-	return Regras.tower_range(base_data)
+	return Regras.tower_range(base_data) * (Regras.gate_range_share() if is_gate else 1.0)
 
 
 func _shot_texture() -> Texture2D:
@@ -134,7 +139,7 @@ func _process_cannon(delta):
 		return
 
 	var is_cannon = base_data.base_type == BaseData.BaseType.CANNON
-	var dmg = int(round(Regras.tower_damage(base_data) * _level_multiplier))
+	var dmg = int(round(Regras.tower_damage(base_data) * _level_multiplier * (Regras.gate_damage_share() if is_gate else 1.0)))
 	var shot_tex = _shot_texture()
 	_recoil()
 

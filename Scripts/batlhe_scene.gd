@@ -249,7 +249,7 @@ func _ready():
 
 	add_to_group("battle_scene")
 
-	# arena 2.0: campo simétrico, 2 torres por lado, caminhos, câmera
+	# arena 2.0: campo simétrico, torres (2 atrás + o portão na frente), caminhos, câmera
 	ArenaBuilder.build(self)
 	BattleHud.install(self)  # HUD 2.0 preso na tela (mão, recurso, relógio, adversário)
 	_show_intro.call_deferred()
@@ -366,10 +366,8 @@ func _setup_replay_mode():
 	# esconde a mão normal de cartas -- não dá pra jogar carta durante um
 	# replay, só assistir. No lugar, mostra o deck completo dos dois lados
 	# (bot em cima, jogador embaixo) só como referência visual
-	for hand_name in ["Button", "Button2", "Button3"]:
-		var hand_button = find_child(hand_name, true, false)
-		if hand_button != null:
-			hand_button.visible = false
+	for hand_button in get_tree().get_nodes_in_group("hand_card_button"):
+		hand_button.visible = false
 
 	_build_replay_deck_row(data.get("bot_deck_paths", []), true)
 	_build_replay_deck_row(data.get("player_deck_paths", []), false)
@@ -486,10 +484,15 @@ func _apply_initial_boost(production_timer: Timer, base_data: BaseData, is_playe
 
 
 func _install_base_data_on(group_name: String, base_data: BaseData, level: int = 1):
-	# as DUAS torres do lado usam a base equipada; cada uma com uma fração da vida
+	# todas as torres do lado usam a base equipada; cada uma com uma fração da
+	# vida -- e o portão (a da frente) com menos ainda
+	var full = 0.0
 	for base_node in get_tree().get_nodes_in_group(group_name):
 		base_node.install_base_data(base_data, level)
-		base_node.scale_hp(Regras.tower_hp_fraction() * (0.6 if MatchSetup.rule == 2 else 1.0))
+		var share = Regras.gate_hp_share() if base_node.is_gate else 1.0
+		base_node.scale_hp(Regras.tower_hp_fraction() * (0.6 if MatchSetup.rule == 2 else 1.0) * share)
+		full += base_node.max_hp
+	_side_full_hp[group_name] = full
 
 
 func _show_opponent_name():
@@ -511,10 +514,11 @@ func _apply_ai_decision_speed():
 	$Timer.wait_time = ai_profile.decision_interval
 
 
-# embaralha o deck do bot numa mão de 3 + fila de 4, igual o jogador --
+# embaralha o deck do bot numa mão (4 cartas; 3 na regra antiga) + fila, igual o jogador --
 # sem isso, o bot escolhia direto do deck inteiro toda vez, podendo repetir
 # a mesma carta em ticks seguidos sem nenhuma rotação
 func _start_ai_hand():
+	ai_hand.resize(Regras.hand_size())
 	ai_draw_queue = ai_profile.deck.duplicate()
 	ai_draw_queue.shuffle()
 	for i in ai_hand.size():
@@ -571,10 +575,12 @@ func _connect_base_signals():
 
 
 # ---------------------------------------------------------------- torres
-# 2 torres por lado: ganha quem derrubar AS DUAS. Se o tempo acabar, ganha
-# quem derrubou mais torres; empatou nisso, ganha quem tirou mais vida no
-# total (soma da vida que sobrou nas torres de cada um)
+# 3 torres por lado (portão na frente + 2 atrás; 2 com a regra "portao"
+# desligada). Derrubou TODAS, acabou na hora. Se o tempo acabar, ganha quem
+# derrubou MAIS torres -- uma só já basta. Empatou nisso (inclusive 0 a 0),
+# ganha quem está com mais vida sobrando nas torres; igual de verdade = empate
 var towers_destroyed = {GameManager.Team.PLAYER: 0, GameManager.Team.ENEMY: 0}
+var _side_full_hp: Dictionary = {}   # grupo -> soma da vida cheia de todas as torres do lado
 
 
 func _alive_towers(team) -> Array:
@@ -583,12 +589,19 @@ func _alive_towers(team) -> Array:
 
 
 func _tower_health_fraction(team) -> float:
+	# vida que sobrou no lado inteiro, sobre a vida cheia do lado inteiro (o
+	# portão pesa menos que uma torre de trás porque tem menos vida)
 	var group = "player_base" if team == GameManager.Team.PLAYER else "enemy_base"
-	var total = 0.0
+	var left = 0.0
+	var seen = 0.0
 	for t in get_tree().get_nodes_in_group(group):
 		if is_instance_valid(t) and !t.is_queued_for_deletion() and t.max_hp > 0:
-			total += float(t.hp) / t.max_hp
-	return total / 2.0
+			left += maxf(float(t.hp), 0.0)
+			seen += float(t.max_hp)
+	var full = float(_side_full_hp.get(group, 0.0))
+	if full <= 0.0:
+		full = seen
+	return left / full if full > 0.0 else 0.0
 
 
 func _on_base_destroyed(team):
@@ -623,19 +636,28 @@ func _show_tower_down_banner(team):
 
 # tempo acabou: decide pelas torres derrubadas e depois pela vida
 func _resolve_time_up():
+	var loser = time_up_loser()
+	if loser == -1:
+		_end_match_as_draw()
+	else:
+		_end_match(loser)
+
+
+## quem PERDE se o tempo acabar agora (GameManager.Team), ou -1 se empata.
+## 1º torres derrubadas (quem derrubou mais ganha, uma já basta);
+## 2º vida sobrando nas torres; igual de verdade = empate
+func time_up_loser() -> int:
 	var down_mine = towers_destroyed[GameManager.Team.PLAYER]
 	var down_bot = towers_destroyed[GameManager.Team.ENEMY]
 	if down_bot != down_mine:
-		_end_match(GameManager.Team.ENEMY if down_bot > down_mine else GameManager.Team.PLAYER)
-		return
+		return GameManager.Team.ENEMY if down_bot > down_mine else GameManager.Team.PLAYER
 	var mine = _tower_health_fraction(GameManager.Team.PLAYER)
 	var bot = _tower_health_fraction(GameManager.Team.ENEMY)
 	# empate SÓ se a vida for igual de verdade. Antes, diferença de até 1%
 	# (uns 30 de vida) já virava empate, mesmo com os números diferentes na tela
 	if abs(mine - bot) < 0.0005:
-		_end_match_as_draw()
-	else:
-		_end_match(GameManager.Team.ENEMY if bot < mine else GameManager.Team.PLAYER)
+		return -1
+	return GameManager.Team.ENEMY if bot < mine else GameManager.Team.PLAYER
 
 
 # ativa o "modo vingança" por um tempo, se o bot tiver essa estratégia ligada
@@ -2101,6 +2123,8 @@ func _setup_2v2():
 			for tw in get_tree().get_nodes_in_group(group):
 				if tw.has_method("scale_hp"):
 					tw.scale_hp(TWO_V_TWO_BASE_HP_MULT)
+			# a "vida cheia do lado" (desempate no fim do tempo) cresce junto
+			_side_full_hp[group] = float(_side_full_hp.get(group, 0.0)) * TWO_V_TWO_BASE_HP_MULT
 			continue
 		var b = get_tree().get_first_node_in_group(group)
 		if b != null and b.has_method("scale_hp"):

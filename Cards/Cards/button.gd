@@ -1,6 +1,7 @@
 extends Button
 
-@export var hand_index: int = 0  # 0, 1 ou 2 -- qual posição da mão esse botão representa
+@export var hand_index: int = 0  # qual posição da mão esse botão representa (0 a 2, ou 0 a 3 com 4 na mão)
+var card_w: float = 178.0        # largura da carta (o HUD diminui quando são 4 na mão)
 var card: CardData
 var _view: CardView
 
@@ -32,7 +33,7 @@ func _ready():
 	add_theme_stylebox_override("focus", no_margin_style)
 
 	# 2.0: a carta inteira é desenhada pelo CardView (moldura, custo, nível, maestria)
-	_view = CardView.make(null, 178, true)
+	_view = CardView.make(null, card_w, true)
 	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_view.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_view)
@@ -50,6 +51,8 @@ func _ready():
 
 func _refresh():
 	var before = card
+	if hand_index >= DeckManager.hand.size():
+		return
 	card = DeckManager.hand[hand_index]
 	if card == null:
 		return

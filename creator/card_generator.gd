@@ -110,7 +110,8 @@ static func _fill_spell(sp: SpellData, role: int, cost: int, rng: RandomNumberGe
 
 # cabeça de bicho -> corpo de quatro patas que combina (ver SpriteForge / pecas.py)
 const QUATRO_BY_HEAD = {"vaca": "vaca", "boi": "casco", "cavalo": "cavalo", "bode": "bode", "burro": "jegue", "ovelha": "casco",
-	"porco": "porco", "cachorro": "cachorro", "capivara": "capivara", "gato": "gato", "jacare": "rasteiro", "tatu": "casca", "sapo": "sapo"}
+	"porco": "porco", "cachorro": "cachorro", "capivara": "capivara", "gato": "gato", "jacare": "rasteiro", "tatu": "casca", "sapo": "sapo",
+	"onca": "onca", "tartaruga": "casca", "siri": "caranguejo"}
 
 
 static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGenerator):
@@ -171,6 +172,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			st.move_speed = rng.randf_range(30.0, 40.0)
 			st.attack_speed = 2.2
 			hp_share = 0.5
+			budget *= 0.8  # só bate em torre, e de longe: com a força cheia derrubava uma sozinha custando 45
 		CardData.CardRole.SUPORTE:
 			st.is_ranged = true
 			st.attack_range = 100.0
@@ -230,7 +232,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 	match role:
 		CardData.CardRole.ENXAME:    # bando: frágil, mas junto bate muito
 			st.hp = max(30, int(round(st.hp * 0.9 / 10.0)) * 10)
-			st.damage = max(5, int(round(st.damage * 1.8 / 5.0)) * 5)
+			st.damage = max(5, int(round(st.damage * 2.1 / 5.0)) * 5)
 		CardData.CardRole.PUNICAO:   # matador: golpe grande e espaçado
 			st.damage = max(5, int(round(st.damage * 1.3 * 1.7 / maxf(st.attack_speed, 0.1) / 5.0)) * 5)
 			st.attack_speed = 1.7
@@ -691,8 +693,12 @@ const HEAD_NAMES = {"vaca": "Vaca", "boi": "Boi", "cavalo": "Cavalo", "ovelha": 
 	"sapo": "Sapo", "capivara": "Capivara", "gato": "Gato", "milho": "Milho", "abobora": "Abóbora", "cebola": "Cebola", "espantalho": "Espantalho",
 	"humano": "Peão", "velho": "Vovô", "porco": "Porco", "et": "ET", "balde": "Robô", "abelha": "Abelha",
 	"cachorro": "Caramelo", "burro": "Jegue", "tatu": "Tatu", "jacare": "Jacaré", "urubu": "Urubu", "tomate": "Tomate", "cacto": "Cacto", "caveira": "Caveira",
-	"tubarao": "Tubarão", "peixe": "Peixe", "polvo": "Polvo", "saci": "Saci", "medusa": "Medusa", "chama": "Fogo-fátuo", "onca": "Onça"}
-const HEAD_FEMININE = ["vaca", "ovelha", "galinha", "coruja", "capivara", "abobora", "cebola", "abelha", "caveira", "medusa", "onca"]
+	"tubarao": "Tubarão", "peixe": "Peixe", "polvo": "Polvo", "saci": "Saci", "medusa": "Medusa", "chama": "Fogo-fátuo", "onca": "Onça",
+	"siri": "Siri", "baleia": "Baleia", "cavalo_marinho": "Cavalo-marinho", "tartaruga": "Tartaruga", "macaco": "Macaco", "arara": "Arara",
+	"tamandua": "Tamanduá", "preguica": "Preguiça", "cobra": "Cobra", "ciclope": "Ciclope", "elmo": "Guerreiro", "lobisomem": "Lobisomem",
+	"curupira": "Curupira", "marciano": "Marciano"}
+const HEAD_FEMININE = ["vaca", "ovelha", "galinha", "coruja", "capivara", "abobora", "cebola", "abelha", "caveira", "medusa", "onca",
+	"baleia", "tartaruga", "arara", "preguica", "cobra"]
 const WEAPON_TITLES = {"forcado": ["do Forcado", "do Forcado"], "machado": ["Lenhador", "Lenhadora"], "marreta": ["Marreteiro", "Marreteira"], "foice": ["Ceifador", "Ceifadora"],
 	"enxada": ["da Enxada", "da Enxada"], "frigideira": ["Cozinheiro", "Cozinheira"], "porrete": ["Brigão", "Brigona"], "motosserra": ["da Motosserra", "da Motosserra"],
 	"estilingue": ["Atirador", "Atiradora"], "lampiao": ["do Lampião", "do Lampião"], "viola": ["Violeiro", "Violeira"], "escudo": ["Blindado", "Blindada"],
@@ -711,21 +717,33 @@ const BUILDING_SUFFIX = ["Nervoso", "Blindado", "Assombrado", "Turbinado", "da D
 const ACCENTS = ["#c8483c", "#3c6cb8", "#e8a020", "#8048a0", "#40a060", "#e06080", "#30303c", "#50c0e0"]
 
 
-# TEMAS NOVOS (19/11): mar e lendas. Só entram no sorteio quando `new_themes`
-# está ligado -- a Safra liga a partir do período NEW_THEMES_FROM, pra que as
-# cartas de safra que já existem continuem saindo iguaizinhas.
+# TEMAS NOVOS (19/11): mar, lendas, mata e mitos -- e cabeças novas nas turmas
+# antigas. Só valem quando `new_themes` está ligado: a Safra liga a partir do
+# período NEW_THEMES_FROM (as safras que já existem continuam saindo
+# iguaizinhas) e o Catálogo liga pra criar as cartas de arena.
 const NEW_THEMES = {
-	"Mar": {"cabeca": ["tubarao", "peixe", "polvo", "sapo"], "pernas": ["bota", "patinha"], "corpo": ["redondo", "armadura", "listrado"], "bracos": ["patas"],
+	"Mar": {"cabeca": ["tubarao", "peixe", "polvo", "siri", "baleia", "cavalo_marinho", "tartaruga"], "pernas": ["bota", "patinha"], "corpo": ["redondo", "armadura", "listrado"], "bracos": ["patas"],
 		"cores": ["#6a8aa8", "#f08030", "#b060c0", "#2c9ad0", "#70c8e8", "#d84a30"], "proj": "gota"},
-	"Lendas": {"cabeca": ["saci", "medusa", "caveira", "chama", "onca"], "pernas": ["bota", "fantasma"], "corpo": ["poncho", "saco", "terno", "colete"], "bracos": ["humanos"],
-		"cores": ["#8a5638", "#58a850", "#d8e8f0", "#e8a838", "#9a5cd0", "#c84828"], "proj": "fogo"},
+	"Lendas": {"cabeca": ["saci", "chama", "caveira", "lobisomem", "curupira"], "pernas": ["bota", "fantasma"], "corpo": ["poncho", "saco", "colete", "saci"], "bracos": ["humanos"],
+		"cores": ["#8a5638", "#5a5868", "#d8e8f0", "#e8a838", "#9a5cd0", "#c84828"], "proj": "fogo"},
+	"Mata": {"cabeca": ["onca", "macaco", "arara", "tamandua", "preguica", "cobra"], "pernas": ["patinha", "bota"], "corpo": ["redondo", "colete", "poncho"], "bracos": ["patas"],
+		"cores": ["#e8a838", "#8a5a34", "#d83030", "#58a840", "#a89878", "#2e8a48"], "proj": "espinho"},
+	"Mitos": {"cabeca": ["medusa", "ciclope", "elmo", "boi", "bode", "caveira"], "pernas": ["bota"], "corpo": ["poncho", "armadura", "terno"], "bracos": ["humanos"],
+		"cores": ["#d0a848", "#e8e0d0", "#58a850", "#b8a8e8", "#c83030", "#8890a0"], "proj": "raio"},
 }
+# cabeças a mais pras turmas antigas (só com new_themes ligado)
+const WIDE_HEADS = {"Coisa Estranha": ["marciano"], "Brejo": ["cobra"], "Curral": ["burro"]}
 const NEW_THEMES_FROM = 6926
+const SAFRA_POWER = 16.5   # força fixa das cartas criadas (Safra e cartas de arena)
 static var new_themes := false
 
 
 static func theme_of(turma: String) -> Dictionary:
 	if TURMA_THEMES.has(turma):
+		if new_themes and WIDE_HEADS.has(turma):
+			var wide: Dictionary = TURMA_THEMES[turma].duplicate()
+			wide["cabeca"] = TURMA_THEMES[turma]["cabeca"] + WIDE_HEADS[turma]
+			return wide
 		return TURMA_THEMES[turma]
 	return NEW_THEMES.get(turma, TURMA_THEMES["Peões"])
 
@@ -1232,7 +1250,8 @@ static func _generate_once(seed_value: int, turma: String, kind: int, role: int,
 
 
 # ---------------------------------------------------------------- receitas especiais
-const TURMA_TOKEN = {"Curral": "bezerro", "Galinheiro": "pintinho", "Brejo": "sapinho", "Roçado": "aboborinha", "Peões": "moleque", "Coisa Estranha": "abelha"}
+const TURMA_TOKEN = {"Curral": "bezerro", "Galinheiro": "pintinho", "Brejo": "sapinho", "Roçado": "aboborinha", "Peões": "moleque", "Coisa Estranha": "abelha",
+	"Mar": "sapinho", "Mata": "abelha", "Lendas": "aboborinha", "Mitos": "moleque"}
 const SMALL_TOKENS = ["pintinho", "sapinho", "abelha"]
 const SPECIAL_UNITS = ["longe", "voador_filhotes", "mineiro", "balao", "bruxa", "corredor", "morteiro", "besta", "exercito", "torre_bomba", "tesla", "coletor", "inferno", "gigante_bomba", "ariete"]
 const SPECIAL_SPELLS = ["barril", "cemiterio", "tornado"]

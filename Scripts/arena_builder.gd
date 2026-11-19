@@ -22,9 +22,15 @@ const CAMERA_OFFSET_Y = 95.0             # câmera um pouco abaixo do meio (espa
 const BG_PATH = "res://Resources/arena/arena_bg.png"
 
 
+## as 2 torres de trás (esquerda, direita) e, com a regra "portao" ligada,
+## o PORTÃO por último: no meio e bem mais perto do rio
 static func tower_positions(team) -> Array:
-	var y = CENTER.y + (TOWER_DY if team == GameManager.Team.PLAYER else -TOWER_DY)
-	return [Vector2(CENTER.x - TOWER_DX, y), Vector2(CENTER.x + TOWER_DX, y)]
+	var side = 1.0 if team == GameManager.Team.PLAYER else -1.0
+	var y = CENTER.y + TOWER_DY * side
+	var out = [Vector2(CENTER.x - TOWER_DX, y), Vector2(CENTER.x + TOWER_DX, y)]
+	if Regras.three_towers():
+		out.append(Vector2(CENTER.x, CENTER.y + Regras.GATE_DY * side))
+	return out
 
 
 # área onde cada lado pode soltar tropa (a sua metade inteira, sem o rio)
@@ -60,7 +66,7 @@ static func _background(battle: Node):
 	# torneio sorteia um cenário qualquer
 	var arena_i = MatchSetup.arena_override if MatchSetup.arena_override > 0 else ArenaManager.get_player_arena()
 	var tex: Texture2D = ArenaManager.get_background(arena_i) if MatchSetup.arena_override <= 0 else null
-	var themed = "res://Resources/arena/arena_bg_%d.png" % clampi(arena_i, 1, 7)
+	var themed = "res://Resources/arena/arena_bg_%d.png" % clampi(arena_i, 1, 12)
 	if tex == null and ResourceLoader.exists(themed):
 		tex = load(themed)
 	if tex == null and ResourceLoader.exists(BG_PATH):
@@ -154,6 +160,12 @@ static func _towers(battle: Node):
 		second.name = ("Torre_Jogador_" if team == GameManager.Team.PLAYER else "Torre_Bot_") + "2"
 		battle.add_child(second)
 		second.position = battle.to_local(pos[1])
+		if pos.size() > 2:
+			var gate = first.duplicate()
+			gate.name = "Portao_Jogador" if team == GameManager.Team.PLAYER else "Portao_Bot"
+			gate.is_gate = true
+			battle.add_child(gate)
+			gate.position = battle.to_local(pos[2])
 
 
 static func _spawn_areas(battle: Node):

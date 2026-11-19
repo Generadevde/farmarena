@@ -1049,7 +1049,8 @@ func _apply_soft_separation():
 
 # ---------- MOVIMENTO ----------
 
-# 2 torres por lado: anda pra torre inimiga MAIS PERTO (a da "sua" rota) e
+# anda pra torre inimiga MAIS PERTO: com o portão de pé é ele (fica no meio
+# e na frente); depois que ele cai, a torre de trás da "sua" rota. E
 # troca sozinha quando ela cai
 func _refresh_enemy_tower():
 	var group = "enemy_base" if team == GameManager.Team.PLAYER else "player_base"

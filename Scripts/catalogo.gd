@@ -34,7 +34,9 @@ const TURMAS = {
 	"Peões": {"cor": "#3c6cb8", "desc": "O povo da roça: equilíbrio, cura e pinga."},
 	"Coisa Estranha": {"cor": "#9a5cd0", "desc": "ET, robô e assombração: ninguém sabe de onde veio."},
 	"Mar": {"cor": "#2c9ad0", "desc": "Bicho do mar em terra firme: casco duro, tinta e choque."},
-	"Lendas": {"cor": "#d09a28", "desc": "Assombro de mata e mito antigo: fogo, bote e olhar de pedra."},
+	"Lendas": {"cor": "#d09a28", "desc": "Assombração e lenda da mata: saci, mula sem cabeça, mapinguari."},
+	"Mata": {"cor": "#2e8a48", "desc": "Bicho do mato: onça, formiga, abelha. Rápidos, em bando e de bote."},
+	"Mitos": {"cor": "#b8a8e8", "desc": "Mitologia antiga: dragão, medusa e o cão de três cabeças."},
 }
 
 # paletas reaproveitadas
@@ -71,7 +73,7 @@ const CARTAS = [
 	{"id": "bezerro", "nome": "Bezerro", "turma": "Curral", "custo": 10, "papel": "ENXAME", "raridade": COMUM, "ficha": true,
 		"receita": {"quatro": "bezerro", "cabeca": "vaca"}, "paleta": P_BEZERRO,
 		"u": {"hp": 90, "damage": 50, "attack_speed": 0.7, "move_speed": 82.0, "unit_scale": 0.8}},
-	{"id": "cavalo_coiceiro", "nome": "Cavalo Coiceiro", "turma": "Curral", "custo": 35, "papel": "CONTRA_ATAQUE", "raridade": RARA, "arena": 1, "perigo": 5,
+	{"id": "cavalo_coiceiro", "nome": "Cavalo Coiceiro", "turma": "Curral", "custo": 35, "papel": "CONTRA_ATAQUE", "raridade": RARA, "arena": 2, "perigo": 5,
 		"desc": "Nunca fique atrás dele. Nem na frente. Nem do lado.",
 		"pros": ["Rápido", "Coice joga o inimigo longe"], "cons": ["Vida mediana"],
 		"receita": {"quatro": "cavalo", "cabeca": "cavalo"}, "paleta": {"P": "#b87848", "S": "#3a2820", "K": "#e0c0a0"},
@@ -82,12 +84,12 @@ const CARTAS = [
 		"receita": {"pernas": "casco", "corpo": "la", "bracos": "patas", "cabeca": "ovelha", "arma": "viola"}, "paleta": {"P": "#4a4048", "S": "#f4f0e8", "K": "#4a4048", "W": "#b07038", "A": "#e06080"},
 		"proj": "nota",
 		"u": {"hp": 620, "damage": 28, "attack_speed": 1.2, "move_speed": 45.0, "is_ranged": true, "attack_range": 110.0, "target_type": "ALL", "can_heal_allies": true, "heal_aura_amount": 28, "heal_aura_radius": 95.0, "heal_aura_interval": 1.0}},
-	{"id": "bode_cabecudo", "nome": "Bode Cabeçudo", "turma": "Curral", "custo": 45, "papel": "FINALIZADOR", "raridade": RARA, "arena": 3, "perigo": 7,
+	{"id": "bode_cabecudo", "nome": "Bode Cabeçudo", "turma": "Curral", "custo": 45, "papel": "FINALIZADOR", "raridade": RARA, "arena": 2, "perigo": 7,
 		"desc": "Viu uma torre? Ele já foi. Ignora todo o resto.",
 		"pros": ["Só mira em torre e construção", "Dano alto em torre"], "cons": ["Não se defende de tropa"],
 		"receita": {"quatro": "bode", "cabeca": "bode", "chapeu": "cowboy"}, "paleta": {"P": "#c8c0b0", "S": "#e8e0d0", "A": "#b8402c", "K": "#e8d8c0", "M": "#e0d8c0", "W": "#6a4428"},
 		"u": {"hp": 1350, "damage": 190, "attack_speed": 1.8, "move_speed": 62.0, "unit_scale": 1.25, "push_weight": 2.5, "target_type": "BUILDING"}},
-	{"id": "boi_marretao", "nome": "Boi Marretão", "turma": "Curral", "custo": 70, "papel": "PUNICAO", "raridade": EPICA, "arena": 4, "perigo": 9,
+	{"id": "boi_marretao", "nome": "Boi Marretão", "turma": "Curral", "custo": 70, "papel": "PUNICAO", "raridade": EPICA, "arena": 12, "perigo": 9,
 		"desc": "Uma marretada só. Quem sobrar em pé, voa.",
 		"pros": ["Dano em área gigantesco", "Empurra todo mundo"], "cons": ["Ataque muito lento", "Caro"],
 		"receita": {"pernas": "casco", "corpo": "armadura", "bracos": "patas", "cabeca": "boi", "arma": "marreta"}, "paleta": P_BOI,
@@ -108,7 +110,7 @@ const CARTAS = [
 		"receita": {"pernas": "ave", "corpo": "penas", "bracos": "asas", "cabeca": "galinha", "costas": "rabo_galo"}, "paleta": P_GALINHA,
 		"proj": "ovo",
 		"u": {"hp": 150, "damage": 72, "attack_speed": 0.9, "move_speed": 55.0, "unit_scale": 0.85, "unit_count": 2, "is_ranged": true, "attack_range": 115.0, "target_type": "ALL"}},
-	{"id": "pato_ninja", "nome": "Pato Ninja", "turma": "Galinheiro", "custo": 30, "papel": "PUNICAO", "raridade": RARA, "arena": 1, "perigo": 6,
+	{"id": "pato_ninja", "nome": "Pato Ninja", "turma": "Galinheiro", "custo": 30, "papel": "PUNICAO", "raridade": RARA, "arena": 3, "perigo": 6,
 		"desc": "Quack. Foi a última coisa que a torre ouviu.",
 		"pros": ["Invisível até chegar perto", "Golpe fortíssimo"], "cons": ["Vida de papel", "Ataque lento"],
 		"receita": {"pernas": "ave", "corpo": "penas", "bracos": "asas", "cabeca": "pato", "chapeu": "bandana"}, "paleta": {"P": "#f0e8a0", "A": "#30303c", "K": "#f09030"},
@@ -118,25 +120,25 @@ const CARTAS = [
 		"pros": ["Chega em fúria", "Golpe pesadíssimo: apaga tropa de vida alta"], "cons": ["Golpe demorado: bando cerca e derruba", "Não acerta voador"],
 		"receita": {"pernas": "ave", "corpo": "penas", "bracos": "asas", "cabeca": "galinha", "chapeu": "coroa", "costas": "rabo_galo"}, "paleta": {"P": "#b84828", "A": "#e8a020", "K": "#f0c040"},
 		"u": {"hp": 820, "damage": 285, "attack_speed": 1.7, "move_speed": 60.0, "unit_scale": 1.25, "push_weight": 1.8, "entrance_rage_duration": 4.0, "entrance_rage_damage_mult": 1.3, "entrance_rage_speed_mult": 1.4, "first_attack_bonus": true, "first_attack_multiplier": 1.5}},
-	{"id": "corujao", "nome": "Corujão Bombardeiro", "turma": "Galinheiro", "custo": 50, "papel": "AEREO", "raridade": RARA, "arena": 4, "perigo": 8,
+	{"id": "corujao", "nome": "Corujão Bombardeiro", "turma": "Galinheiro", "custo": 50, "papel": "AEREO", "raridade": RARA, "arena": 3, "perigo": 8,
 		"desc": "Voa devagar, solta pedra do céu e não pede desculpa.",
 		"pros": ["Voa", "Dano em área no chão"], "cons": ["Lento", "Não ataca outros voadores"],
 		"receita": {"pernas": "ave", "corpo": "penas", "bracos": "asas", "cabeca": "coruja"}, "paleta": {"P": "#8a6848", "K": "#e8d8b0", "M": "#f0a030"},
 		"proj": "pedra",
 		"u": {"hp": 950, "damage": 210, "attack_speed": 3.0, "move_speed": 36.0, "unit_scale": 1.35, "unit_type": "AIR", "is_ranged": true, "attack_range": 60.0, "is_aoe": true, "aoe_radius": 55.0, "target_type": "GROUND"}},
-	{"id": "galinheiro", "nome": "Galinheiro", "turma": "Galinheiro", "custo": 40, "papel": "INVOCADOR", "raridade": RARA, "arena": 2, "perigo": 5,
+	{"id": "galinheiro", "nome": "Galinheiro", "turma": "Galinheiro", "custo": 40, "papel": "INVOCADOR", "raridade": RARA, "arena": 3, "perigo": 5,
 		"desc": "De dentro sai pintinho sem parar. Ninguém sabe quantos cabem.",
 		"pros": ["Solta pintinhos o tempo todo", "Distrai o inimigo"], "cons": ["Não ataca", "Some com o tempo"],
 		"receita": {"objeto": "galinheiro"}, "paleta": {"W": "#8a5a34", "A": "#c8483c", "K": "#f0d060"}, "filho": "pintinho",
 		"u": {"hp": 650, "damage": 0, "attack_speed": 0.0, "move_speed": 0.0, "attack_range": 0.0, "unit_scale": 1.5, "unit_type": "BUILDING", "duration": 40.0, "spawns_units": true, "spawn_interval": 7.0, "spawn_count": 2}},
-	{"id": "chocadeira", "nome": "Chocadeira", "turma": "Galinheiro", "custo": 20, "papel": "INVOCADOR", "raridade": RARA, "arena": 2, "perigo": 3,
+	{"id": "chocadeira", "nome": "Chocadeira", "turma": "Galinheiro", "custo": 20, "papel": "INVOCADOR", "raridade": RARA, "arena": 3, "perigo": 3,
 		"desc": "Joga um ovo em qualquer lugar da arena. Nascem cinco problemas.",
 		"pros": ["Invoca em qualquer lugar", "Ótimo pra distrair"], "cons": ["Pintinhos são fracos"],
 		"receita": {"icone": "ovo"}, "paleta": {"K": "#f8ecc8"}, "invoca": "pintinho",
 		"f": {"radius": 45.0, "damage": 0, "summon_count": 5, "affects_enemies": false, "fx_color": "#f8dc50"}},
 
 	# ============================== BREJO
-	{"id": "sapo_linguarudo", "nome": "Sapo Linguarudo", "turma": "Brejo", "custo": 30, "papel": "CONTROLE", "raridade": COMUM, "arena": 1, "perigo": 4,
+	{"id": "sapo_linguarudo", "nome": "Sapo Linguarudo", "turma": "Brejo", "custo": 30, "papel": "CONTROLE", "raridade": COMUM, "arena": 5, "perigo": 4,
 		"desc": "Estica a língua, gruda e puxa. Higiene duvidosa.",
 		"pros": ["Puxa o inimigo pra perto", "Acerta voador"], "cons": ["Dano baixo"],
 		"receita": {"quatro": "sapo", "cabeca": "sapo"}, "paleta": P_SAPO,
@@ -145,17 +147,17 @@ const CARTAS = [
 	{"id": "sapinho", "nome": "Sapinho", "turma": "Brejo", "custo": 5, "papel": "ENXAME", "raridade": COMUM, "ficha": true,
 		"receita": {"quatro": "sapo", "cabeca": "sapo"}, "paleta": P_SAPO,
 		"u": {"hp": 160, "damage": 45, "attack_speed": 1.0, "move_speed": 70.0, "unit_scale": 0.6, "initial_stun_duration": 0.2}},
-	{"id": "mosquitada", "nome": "Nuvem de Mosquito", "turma": "Brejo", "custo": 15, "papel": "ENXAME", "raridade": RARA, "arena": 1, "perigo": 3,
+	{"id": "mosquitada", "nome": "Nuvem de Mosquito", "turma": "Brejo", "custo": 15, "papel": "ENXAME", "raridade": RARA, "arena": 5, "perigo": 3,
 		"desc": "Bzzzzzzzzz. Não adianta abanar.",
 		"pros": ["Voam", "Seis de uma vez"], "cons": ["Um espirro mata todos"],
 		"receita": {"pernas": "inseto", "corpo": "listrado", "cabeca": "abelha", "costas": "asas_inseto"}, "paleta": {"P": "#6a7080", "M": "#30303c"},
 		"u": {"hp": 35, "damage": 22, "attack_speed": 1.0, "move_speed": 85.0, "unit_scale": 0.5, "unit_count": 6, "unit_type": "AIR", "target_type": "ALL", "push_weight": 0.3}},
-	{"id": "capivara_zen", "nome": "Capivara Zen", "turma": "Brejo", "custo": 35, "papel": "TANQUE", "raridade": RARA, "arena": 2, "perigo": 5,
+	{"id": "capivara_zen", "nome": "Capivara Zen", "turma": "Brejo", "custo": 35, "papel": "TANQUE", "raridade": RARA, "arena": 5, "perigo": 5,
 		"desc": "Tão tranquila que todo mundo quer bater nela. Ela nem liga.",
 		"pros": ["Chama a atenção dos inimigos", "Leva menos dano e se regenera"], "cons": ["Quase não causa dano", "Só bate em torre e construção"],
 		"receita": {"quatro": "capivara", "cabeca": "capivara", "chapeu": "flor"}, "paleta": P_CAPI,
 		"u": {"hp": 1750, "damage": 40, "attack_speed": 1.5, "move_speed": 35.0, "unit_scale": 1.3, "push_weight": 3.0, "forces_aggro": true, "taunt_radius": 130.0, "damage_reduction_percent": 0.2, "passive_regen": true, "regen_amount": 25, "regen_interval": 1.5, "target_type": "BUILDING"}},
-	{"id": "capivarada", "nome": "Capivarada", "turma": "Brejo", "custo": 55, "papel": "TANQUE", "raridade": RARA, "arena": 3, "perigo": 7,
+	{"id": "capivarada", "nome": "Capivarada", "turma": "Brejo", "custo": 55, "papel": "TANQUE", "raridade": RARA, "arena": 5, "perigo": 7,
 		"desc": "Quatro capivaras andando juntas, sem pressa nenhuma.",
 		"pros": ["Grupo resistente", "Quatro batendo junto"], "cons": ["Lentas", "Dano em área machuca"],
 		"receita": {"quatro": "capivara", "cabeca": "capivara"}, "paleta": {"P": "#8a6038", "K": "#b88858"},
@@ -165,19 +167,19 @@ const CARTAS = [
 		"pros": ["Quando morre, viram 4 sapinhos", "Forte e gordo"], "cons": ["Lento"],
 		"receita": {"quatro": "sapo", "cabeca": "sapo", "chapeu": "coroa"}, "paleta": {"P": "#3c8848", "K": "#c8e080", "A": "#d83c30", "S": "#40a0d8"}, "filho_morte": "sapinho",
 		"u": {"hp": 1800, "damage": 170, "attack_speed": 2.2, "move_speed": 30.0, "unit_scale": 1.7, "push_weight": 3.5, "spawns_on_death": true, "death_spawn_count": 4, "is_aoe": true, "aoe_radius": 40.0}},
-	{"id": "lamacal", "nome": "Lamaçal", "turma": "Brejo", "custo": 25, "papel": "CONTROLE", "raridade": COMUM, "arena": 1, "perigo": 3,
+	{"id": "lamacal", "nome": "Lamaçal", "turma": "Brejo", "custo": 25, "papel": "CONTROLE", "raridade": COMUM, "arena": 5, "perigo": 3,
 		"desc": "Uma poça de lama de respeito. Ninguém sai correndo dali.",
 		"pros": ["Deixa todo mundo lento", "Dura bastante"], "cons": ["Quase não causa dano"],
 		"receita": {"icone": "lama"}, "paleta": {"W": "#7a5030"},
 		"f": {"radius": 95.0, "duration": 5.0, "tick_interval": 0.5, "damage": 10, "status_effect": "SLOW", "status_effect_strength": 0.45, "status_effect_duration": 1.0, "fx_color": "#7a5030"}},
-	{"id": "tornado", "nome": "Redemoinho", "turma": "Brejo", "custo": 30, "papel": "CONTROLE", "raridade": EPICA, "arena": 4, "perigo": 4,
+	{"id": "tornado", "nome": "Redemoinho", "turma": "Brejo", "custo": 30, "papel": "CONTROLE", "raridade": EPICA, "arena": 5, "perigo": 4,
 		"desc": "Junta todo mundo no meio. Perfeito pra soltar uma melancia depois.",
 		"pros": ["Puxa os inimigos pro centro", "Combina com dano em área"], "cons": ["Dano fraco sozinho"],
 		"receita": {"icone": "tornado"}, "paleta": {"M": "#a8b4c0", "W": "#7a5030"},
 		"f": {"radius": 110.0, "duration": 4.0, "tick_interval": 0.25, "damage": 8, "status_effect": "PULL", "knockback_distance": 22.0, "fx_color": "#c8d4e0"}},
 
 	# ============================== ROÇADO
-	{"id": "espantalho", "nome": "Espantalho Ceifador", "turma": "Roçado", "custo": 40, "papel": "PUNICAO", "raridade": RARA, "arena": 1, "perigo": 6,
+	{"id": "espantalho", "nome": "Espantalho Ceifador", "turma": "Roçado", "custo": 40, "papel": "PUNICAO", "raridade": RARA, "arena": 4, "perigo": 6,
 		"desc": "Cansou de espantar corvo. Agora espanta exército.",
 		"pros": ["Gira a foice e acerta todos em volta", "Ótimo contra enxame"], "cons": ["Não acerta voador"],
 		"receita": {"pernas": "fantasma", "corpo": "saco", "bracos": "humanos", "cabeca": "espantalho", "chapeu": "palha", "arma": "foice"}, "paleta": {"P": "#c8a860", "S": "#8a6a40", "A": "#a03c30", "K": "#d8b870", "M": "#b0b8c0", "W": "#5a4028"},
@@ -188,12 +190,12 @@ const CARTAS = [
 		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "milho"}, "paleta": {"P": "#f4d040", "S": "#68b048", "A": "#3c5c98", "K": "#e8b088"},
 		"proj": "milho",
 		"u": {"hp": 340, "damage": 105, "attack_speed": 1.4, "move_speed": 45.0, "is_ranged": true, "attack_range": 150.0, "target_type": "ALL", "projectile_splits": true, "projectile_split_count": 3, "projectile_split_range": 90.0}},
-	{"id": "abobora_explosiva", "nome": "Abóboras Explosivas", "turma": "Roçado", "custo": 25, "papel": "PUNICAO", "raridade": RARA, "arena": 2, "perigo": 6,
+	{"id": "abobora_explosiva", "nome": "Abóboras Explosivas", "turma": "Roçado", "custo": 25, "papel": "PUNICAO", "raridade": RARA, "arena": 4, "perigo": 6,
 		"desc": "Correm sorrindo na direção do inimigo. O sorriso é o último aviso.",
 		"pros": ["Explodem em área", "Rápidas"], "cons": ["Morrem ao explodir"],
 		"receita": {"pernas": "bota", "corpo": "poncho", "bracos": "humanos", "cabeca": "abobora"}, "paleta": {"P": "#f08828", "S": "#58a040", "A": "#503868", "K": "#e8b088", "W": "#5a4028"},
 		"u": {"hp": 220, "damage": 60, "attack_speed": 1.0, "move_speed": 85.0, "unit_scale": 0.8, "unit_count": 2, "kamikaze": true, "explodes_on_death": true, "death_explosion_damage": 330, "death_explosion_radius": 60.0}},
-	{"id": "cebola_chorona", "nome": "Cebola Chorona", "turma": "Roçado", "custo": 25, "papel": "CONTROLE", "raridade": COMUM, "arena": 2, "perigo": 4,
+	{"id": "cebola_chorona", "nome": "Cebola Chorona", "turma": "Roçado", "custo": 25, "papel": "CONTROLE", "raridade": COMUM, "arena": 4, "perigo": 4,
 		"desc": "Chora e faz chorar. Inimigo de olho ardendo bate mais fraco.",
 		"pros": ["Enfraquece quem está na frente", "Ataque em cone"], "cons": ["Dano baixo"],
 		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "cebola"}, "paleta": {"P": "#c880c0", "S": "#e8e0d0", "A": "#8048a0", "K": "#e8d0e0"},
@@ -204,12 +206,12 @@ const CARTAS = [
 		"receita": {"objeto": "canhao_milho"}, "paleta": {"W": "#8a5a34", "M": "#8890a0", "A": "#c8483c", "K": "#f8ecc8"},
 		"proj": "milho",
 		"u": {"hp": 720, "damage": 115, "attack_speed": 1.3, "move_speed": 0.0, "unit_scale": 1.4, "unit_type": "BUILDING", "duration": 35.0, "is_ranged": true, "attack_range": 185.0, "target_type": "ALL"}},
-	{"id": "melancia_bomba", "nome": "Melancia-Bomba", "turma": "Roçado", "custo": 40, "papel": "PUNICAO", "raridade": RARA, "arena": 3, "perigo": 6,
+	{"id": "melancia_bomba", "nome": "Melancia-Bomba", "turma": "Roçado", "custo": 40, "papel": "PUNICAO", "raridade": RARA, "arena": 4, "perigo": 6,
 		"desc": "Madura, docinha e com pavio.",
 		"pros": ["Dano alto em área"], "cons": ["Fraca contra torre"],
 		"receita": {"icone": "melancia"}, "paleta": {"S": "#3c9848", "W": "#6a4428"},
 		"f": {"radius": 75.0, "damage": 400, "base_damage_multiplier": 0.3, "fx_color": "#e84848"}},
-	{"id": "fornalha", "nome": "Forno a Lenha", "turma": "Roçado", "custo": 50, "papel": "INVOCADOR", "raridade": EPICA, "arena": 5, "perigo": 6,
+	{"id": "fornalha", "nome": "Forno a Lenha", "turma": "Roçado", "custo": 50, "papel": "INVOCADOR", "raridade": EPICA, "arena": 4, "perigo": 6,
 		"desc": "Assa abóbora explosiva fresquinha de 9 em 9 segundos.",
 		"pros": ["Fábrica de abóbora-bomba", "Pressão constante"], "cons": ["Caro", "Não se defende"],
 		"receita": {"objeto": "fornalha"}, "paleta": {"A": "#b85840", "M": "#585c68"}, "filho": "aboborinha",
@@ -230,45 +232,45 @@ const CARTAS = [
 		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "humano", "chapeu": "bandana", "arma": "estilingue"}, "paleta": {"S": "#e8c040", "A": "#c84838", "K": "#d89868", "W": "#6a4428", "M": "#888890"},
 		"proj": "pedra",
 		"u": {"hp": 90, "damage": 62, "attack_speed": 0.9, "move_speed": 55.0, "unit_scale": 0.8, "unit_count": 3, "is_ranged": true, "attack_range": 125.0, "target_type": "ALL"}},
-	{"id": "vovo_lampiao", "nome": "Vovô do Lampião", "turma": "Peões", "custo": 35, "papel": "SUPORTE", "raridade": RARA, "arena": 1, "perigo": 5,
+	{"id": "vovo_lampiao", "nome": "Vovô do Lampião", "turma": "Peões", "custo": 35, "papel": "SUPORTE", "raridade": RARA, "arena": 6, "perigo": 5,
 		"desc": "No tempo dele isso tudo era mato. E ele botava fogo.",
 		"pros": ["Tiro de fogo queima com o tempo", "Alcance longo"], "cons": ["Anda devagar"],
 		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "velho", "chapeu": "palha", "arma": "lampiao"}, "paleta": {"S": "#58a050", "A": "#705038", "K": "#d8a078", "M": "#606878", "W": "#6a4428"},
 		"proj": "fogo",
 		"u": {"hp": 460, "damage": 65, "attack_speed": 1.4, "move_speed": 38.0, "is_ranged": true, "attack_range": 150.0, "target_type": "ALL", "on_hit_effect": "POISON", "on_hit_effect_strength": 26.0, "on_hit_effect_duration": 4.0, "on_hit_effect_tick_interval": 1.0}},
-	{"id": "porco_cozinheiro", "nome": "Porco Cozinheiro", "turma": "Peões", "custo": 45, "papel": "TANQUE", "raridade": RARA, "arena": 3, "perigo": 6,
+	{"id": "porco_cozinheiro", "nome": "Porco Cozinheiro", "turma": "Peões", "custo": 45, "papel": "TANQUE", "raridade": RARA, "arena": 6, "perigo": 6,
 		"desc": "Frigideira de ferro fundido. Serve pra fritar e pra atordoar.",
 		"pros": ["Frigideirada atordoa", "Bastante vida"], "cons": ["Lento"],
 		"receita": {"pernas": "patinha", "corpo": "redondo", "bracos": "patas", "cabeca": "porco", "chapeu": "cozinheiro", "arma": "frigideira"}, "paleta": {"P": "#f0a0a8", "K": "#f8c0c0", "M": "#5a606c", "W": "#4a3828"},
 		"u": {"hp": 1700, "damage": 140, "attack_speed": 1.8, "move_speed": 36.0, "unit_scale": 1.4, "push_weight": 3.0, "on_hit_effect": "STUN", "on_hit_effect_duration": 0.6}},
-	{"id": "lenhador", "nome": "Lenhador Furioso", "turma": "Peões", "custo": 50, "papel": "FINALIZADOR", "raridade": EPICA, "arena": 4, "perigo": 8,
+	{"id": "lenhador", "nome": "Lenhador Furioso", "turma": "Peões", "custo": 50, "papel": "FINALIZADOR", "raridade": EPICA, "arena": 6, "perigo": 8,
 		"desc": "Quanto mais bate, mais rápido bate. Não tente acalmar.",
 		"pros": ["Ataca cada vez mais rápido", "Fica mais forte quase morrendo"], "cons": ["Demora pra engrenar"],
 		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "velho", "chapeu": "bandana", "arma": "machado"}, "paleta": {"S": "#b83830", "A": "#3a3038", "K": "#d8a078", "M": "#a0a8b4", "W": "#6a4428"},
 		"u": {"hp": 1050, "damage": 125, "attack_speed": 1.2, "move_speed": 68.0, "unit_scale": 1.2, "push_weight": 2.0, "ramping_attack_speed": true, "attack_speed_ramp_per_hit": 0.08, "attack_speed_ramp_min_multiplier": 0.4, "low_hp_rage_threshold": 0.35, "low_hp_rage_damage_mult": 1.5}},
-	{"id": "trator", "nome": "Trator Desgovernado", "turma": "Peões", "custo": 55, "papel": "FINALIZADOR", "raridade": EPICA, "arena": 5, "perigo": 8,
+	{"id": "trator", "nome": "Trator Desgovernado", "turma": "Peões", "custo": 55, "papel": "FINALIZADOR", "raridade": EPICA, "arena": 12, "perigo": 8,
 		"desc": "Alguém esqueceu o freio de mão. Agora é problema da torre.",
 		"pros": ["Corre direto pra torre", "Bate muito forte na chegada"], "cons": ["Ignora tropas"],
 		"receita": {"objeto": "trator"}, "paleta": {"A": "#d84838", "M": "#484c58", "K": "#e8c040"},
 		"u": {"hp": 1400, "damage": 260, "attack_speed": 2.2, "move_speed": 70.0, "unit_scale": 1.3, "push_weight": 4.0, "target_type": "BUILDING", "charge_attack": true, "charge_distance_needed": 150.0, "charge_damage_multiplier": 2.0}},
-	{"id": "moda_de_viola", "nome": "Moda de Viola", "turma": "Peões", "custo": 30, "papel": "SUPORTE", "raridade": RARA, "arena": 2, "perigo": 3,
+	{"id": "moda_de_viola", "nome": "Moda de Viola", "turma": "Peões", "custo": 30, "papel": "SUPORTE", "raridade": RARA, "arena": 6, "perigo": 3,
 		"desc": "Uma música tão boa que cura. E tira qualquer efeito ruim.",
 		"pros": ["Cura em área por 4 segundos", "Remove lentidão, veneno, gelo..."], "cons": ["Não causa dano"],
 		"receita": {"icone": "nota"}, "paleta": {"A": "#40b868"},
 		"f": {"radius": 90.0, "duration": 4.0, "tick_interval": 0.5, "damage": 0, "heal_amount": 45, "affects_enemies": false, "affects_allies": true, "cleanses": true, "fx_color": "#60e088"}},
-	{"id": "pinga_braba", "nome": "Pinga da Braba", "turma": "Peões", "custo": 25, "papel": "SUPORTE", "raridade": RARA, "arena": 3, "perigo": 4,
+	{"id": "pinga_braba", "nome": "Pinga da Braba", "turma": "Peões", "custo": 25, "papel": "SUPORTE", "raridade": RARA, "arena": 6, "perigo": 4,
 		"desc": "Um gole e a tropa inteira fica valente. E rápida. E barulhenta.",
 		"pros": ["Fúria: mais dano e velocidade", "Vira qualquer briga"], "cons": ["Precisa de tropa em campo"],
 		"receita": {"icone": "pimenta"}, "paleta": {"A": "#e04030", "S": "#58a040"},
 		"f": {"radius": 100.0, "damage": 0, "affects_enemies": false, "affects_allies": true, "rage_damage_mult": 1.35, "rage_speed_mult": 1.3, "rage_attack_speed_mult": 1.3, "buff_duration": 6.0, "fx_color": "#ff6040"}},
-	{"id": "tampa_de_panela", "nome": "Tampa de Panela", "turma": "Peões", "custo": 20, "papel": "SUPORTE", "raridade": COMUM, "arena": 1, "perigo": 2,
+	{"id": "tampa_de_panela", "nome": "Tampa de Panela", "turma": "Peões", "custo": 20, "papel": "SUPORTE", "raridade": COMUM, "arena": 6, "perigo": 2,
 		"desc": "Escudo oficial da roça desde que a vó brigou com o vô.",
 		"pros": ["Dá escudo pros aliados", "Barato"], "cons": ["Escudo some depois de um tempo"],
 		"receita": {"icone": "escudo"}, "paleta": {"M": "#a8b4c0", "A": "#3c6cb8"},
 		"f": {"radius": 90.0, "damage": 0, "affects_enemies": false, "affects_allies": true, "shield_amount": 260, "buff_duration": 8.0, "fx_color": "#80c0ff"}},
 
 	# ============================== LOTE 2 (peças novas)
-	{"id": "caramelo", "nome": "Vira-lata Caramelo", "turma": "Peões", "custo": 15, "papel": "CONTRA_ATAQUE", "raridade": COMUM, "arena": 1, "perigo": 3,
+	{"id": "caramelo", "nome": "Vira-lata Caramelo", "turma": "Peões", "custo": 15, "papel": "CONTRA_ATAQUE", "raridade": COMUM, "arena": 6, "perigo": 3,
 		"desc": "Patrimônio nacional. Corre atrás de qualquer coisa que se mexa.",
 		"pros": ["O mais rápido do jogo", "Barato", "Alcança atirador antes que ele fuja"], "cons": ["Pouca vida"],
 		"receita": {"quatro": "cachorro", "cabeca": "cachorro"}, "paleta": {"P": "#d89848", "S": "#a86830", "K": "#f0d0a0", "A": "#f07080"},
@@ -278,12 +280,12 @@ const CARTAS = [
 		"pros": ["Gera recurso enquanto está em campo", "Aguenta bem"], "cons": ["Quase não bate", "Teimoso: anda devagar"],
 		"receita": {"quatro": "jegue", "cabeca": "burro", "chapeu": "palha", "costas": "cesto"}, "paleta": {"P": "#9a8878", "S": "#c8b8a0", "K": "#e8dcc8", "W": "#7a5030", "A": "#d04030"},
 		"u": {"hp": 1100, "damage": 40, "attack_speed": 1.6, "move_speed": 30.0, "unit_scale": 1.2, "push_weight": 2.5, "generates_resource": true, "resource_per_tick": 1, "resource_tick_interval": 1.6}},
-	{"id": "tatu_bola", "nome": "Tatu Bola", "turma": "Brejo", "custo": 30, "papel": "TANQUE", "raridade": COMUM, "arena": 2, "perigo": 4,
+	{"id": "tatu_bola", "nome": "Tatu Bola", "turma": "Brejo", "custo": 30, "papel": "TANQUE", "raridade": COMUM, "arena": 5, "perigo": 4,
 		"desc": "Fecha a casca e deixa bater. Devolve parte da pancada.",
 		"pros": ["Leva 35% menos dano", "Devolve dano em quem bate", "Não é empurrado"], "cons": ["Dano baixo"],
 		"receita": {"quatro": "casca", "cabeca": "tatu"}, "paleta": {"M": "#b09878", "K": "#d8c0a0"},
 		"u": {"hp": 900, "damage": 45, "attack_speed": 1.4, "move_speed": 42.0, "push_weight": 2.2, "damage_reduction_percent": 0.35, "reflects_damage": true, "reflect_damage_percent": 0.4, "immune_to_knockback": true}},
-	{"id": "jacare_acude", "nome": "Jacaré do Açude", "turma": "Brejo", "custo": 50, "papel": "PUNICAO", "raridade": EPICA, "arena": 4, "perigo": 8,
+	{"id": "jacare_acude", "nome": "Jacaré do Açude", "turma": "Brejo", "custo": 50, "papel": "PUNICAO", "raridade": EPICA, "arena": 5, "perigo": 8,
 		"desc": "Fica quietinho. Aí alguém chega perto demais.",
 		"pros": ["Primeira mordida vale em dobro", "Finaliza quem está com pouca vida", "Recupera vida mordendo"], "cons": ["Lento", "Não acerta voador"],
 		"receita": {"quatro": "rasteiro", "cabeca": "jacare"}, "paleta": {"P": "#4a8848", "K": "#c8d890", "S": "#2c6838"},
@@ -299,12 +301,12 @@ const CARTAS = [
 		"receita": {"pernas": "bota", "corpo": "poncho", "bracos": "humanos", "cabeca": "cacto", "chapeu": "cowboy"}, "paleta": {"S": "#58a858", "P": "#d8b060", "A": "#d04870", "K": "#58a858", "W": "#7a5030"},
 		"proj": "espinho",
 		"u": {"hp": 480, "damage": 130, "attack_speed": 1.8, "move_speed": 36.0, "is_ranged": true, "attack_range": 170.0, "target_type": "ALL", "projectile_pierces": true, "projectile_max_targets": 3, "reflects_damage": true, "reflect_damage_percent": 0.2}},
-	{"id": "tomate_podre", "nome": "Chuva de Tomate", "turma": "Roçado", "custo": 30, "papel": "CONTROLE", "raridade": COMUM, "arena": 3, "perigo": 4,
+	{"id": "tomate_podre", "nome": "Chuva de Tomate", "turma": "Roçado", "custo": 30, "papel": "CONTROLE", "raridade": COMUM, "arena": 4, "perigo": 4,
 		"desc": "A plateia não gostou. Os inimigos saem marcados: tudo dói mais neles.",
 		"pros": ["Marca os inimigos: levam 40% mais dano", "Área grande"], "cons": ["Dano próprio baixo"],
 		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "tomate"}, "paleta": {"A": "#e04030", "S": "#58a040", "K": "#e8b088"},
 		"f": {"radius": 95.0, "damage": 70, "base_damage_multiplier": 0.1, "status_effect": "MARK", "status_effect_strength": 1.4, "status_effect_duration": 6.0, "fx_color": "#e04030"}},
-	{"id": "caveira_boi", "nome": "Boi da Cara Preta", "turma": "Coisa Estranha", "custo": 55, "papel": "FINALIZADOR", "raridade": LENDARIA, "arena": 6, "perigo": 9,
+	{"id": "caveira_boi", "nome": "Boi da Cara Preta", "turma": "Lendas", "custo": 55, "papel": "FINALIZADOR", "raridade": LENDARIA, "arena": 10, "perigo": 9,
 		"desc": "Pega essa torre que tem medo de careta. Morre, levanta e continua.",
 		"pros": ["Levanta uma vez depois de morrer", "Cada golpe bate mais forte", "Rouba vida e enfurece quase morrendo"], "cons": ["Caro", "Vida mediana"],
 		"receita": {"pernas": "fantasma", "corpo": "saco", "bracos": "humanos", "cabeca": "caveira", "costas": "morcego", "arma": "foice"}, "paleta": {"M": "#e8e0d0", "P": "#584868", "K": "#584868", "W": "#3a2a30", "A": "#8048a0"},
@@ -319,25 +321,25 @@ const CARTAS = [
 		"receita": {"pernas": "bota", "corpo": "poncho", "bracos": "humanos", "cabeca": "velho", "chapeu": "cowboy"}, "paleta": {"P": "#a87848", "A": "#58a050", "K": "#d8a078", "W": "#5a4028"},
 		"proj": "nota",
 		"u": {"hp": 420, "damage": 45, "attack_speed": 1.5, "move_speed": 45.0, "is_ranged": true, "attack_range": 120.0, "target_type": "ALL", "on_hit_effect": "SLOW", "on_hit_effect_strength": 0.55, "on_hit_effect_duration": 2.0}},
-	{"id": "comitiva", "nome": "Comitiva", "turma": "Peões", "custo": 60, "papel": "VERSATIL", "raridade": RARA, "arena": 4, "perigo": 8,
+	{"id": "comitiva", "nome": "Comitiva", "turma": "Peões", "custo": 60, "papel": "VERSATIL", "raridade": RARA, "arena": 12, "perigo": 8,
 		"desc": "O cozinheiro vai na frente apanhando. A molecada vai atrás atirando pedra. Trabalho em equipe.",
 		"pros": ["Tanque + 2 atiradores numa carta só", "Avanço completo"], "cons": ["Cara", "Dano em área pega todos"],
 		"receita": {"pernas": "patinha", "corpo": "redondo", "bracos": "patas", "cabeca": "porco", "chapeu": "cowboy", "arma": "frigideira"}, "paleta": {"P": "#e89098", "K": "#f8c0c0", "M": "#5a606c", "W": "#6a4428", "A": "#c84838"},
 		"junto": [["moleque", 2]],
 		"u": {"hp": 1400, "damage": 130, "attack_speed": 1.8, "move_speed": 40.0, "unit_scale": 1.35, "push_weight": 3.0}},
-	{"id": "vaca_e_cria", "nome": "Vaca e Cria", "turma": "Curral", "custo": 55, "papel": "TANQUE", "raridade": RARA, "arena": 3, "perigo": 7,
+	{"id": "vaca_e_cria", "nome": "Vaca e Cria", "turma": "Curral", "custo": 55, "papel": "TANQUE", "raridade": RARA, "arena": 2, "perigo": 7,
 		"desc": "Mexeu com os bezerros, mexeu com a mãe. Mexeu com a mãe, bom... boa sorte.",
 		"pros": ["Tanque com 2 bezerros de investida", "Difícil de parar com uma carta só"], "cons": ["Lenta", "A mãe só bate em torre e construção"],
 		"receita": {"quatro": "vaca", "cabeca": "vaca", "chapeu": "flor"}, "paleta": P_VACA,
 		"junto": [["bezerro", 2]],
 		"u": {"hp": 1900, "damage": 100, "attack_speed": 2.0, "move_speed": 32.0, "unit_scale": 1.45, "push_weight": 3.6, "target_type": "BUILDING"}},
-	{"id": "galo_e_cia", "nome": "Galo e Cia", "turma": "Galinheiro", "custo": 45, "papel": "ENXAME", "raridade": RARA, "arena": 5, "perigo": 7,
+	{"id": "galo_e_cia", "nome": "Galo e Cia", "turma": "Galinheiro", "custo": 45, "papel": "ENXAME", "raridade": RARA, "arena": 3, "perigo": 7,
 		"desc": "O galo manda. Os quatro pintinhos obedecem. Mais ou menos.",
 		"pros": ["Galo forte + 4 pintinhos", "Cerca e bate"], "cons": ["Pintinhos morrem fácil"],
 		"receita": {"pernas": "ave", "corpo": "penas", "bracos": "asas", "cabeca": "galinha", "chapeu": "penacho", "costas": "rabo_galo"}, "paleta": {"P": "#c85830", "A": "#e8a020", "K": "#f0c040", "M": "#8890a0"},
 		"junto": [["pintinho", 4]],
 		"u": {"hp": 820, "damage": 160, "attack_speed": 1.4, "move_speed": 58.0, "unit_scale": 1.15, "push_weight": 1.6}},
-	{"id": "dupla_caipira", "nome": "Dupla Caipira", "turma": "Peões", "custo": 50, "papel": "SUPORTE", "raridade": EPICA, "arena": 5, "perigo": 6,
+	{"id": "dupla_caipira", "nome": "Dupla Caipira", "turma": "Peões", "custo": 50, "papel": "SUPORTE", "raridade": EPICA, "arena": 6, "perigo": 6,
 		"desc": "Um toca viola e cura. O outro toca berrante e deixa o inimigo lerdo. Sucesso nas rádios.",
 		"pros": ["Cura aliados + deixa inimigos lentos", "Os dois atacam de longe"], "cons": ["Dano baixo", "Frágeis"],
 		"receita": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "humano", "chapeu": "cowboy", "arma": "viola"}, "paleta": {"S": "#e8e0d0", "A": "#8a5a34", "K": "#e8b088", "W": "#b07038"},
@@ -345,126 +347,126 @@ const CARTAS = [
 		"u": {"hp": 520, "damage": 35, "attack_speed": 1.2, "move_speed": 45.0, "is_ranged": true, "attack_range": 120.0, "target_type": "ALL", "can_heal_allies": true, "heal_aura_amount": 30, "heal_aura_radius": 100.0, "heal_aura_interval": 1.0}},
 
 	# ============================== BICHARADA NOVA (19/11): tipos bem separados
-	{"id": "sauvas", "nome": "Correição de Saúva", "turma": "Roçado", "custo": 30, "papel": "ENXAME", "raridade": COMUM, "arena": 2, "perigo": 4,
+	{"id": "sauvas", "nome": "Correição de Saúva", "turma": "Mata", "custo": 30, "papel": "ENXAME", "raridade": COMUM, "arena": 8, "perigo": 4,
 		"desc": "Uma correição inteira. Cada uma leva um pedacinho seu embora.",
 		"pros": ["Nove de uma vez", "Engole quem bate num alvo só"], "cons": ["Qualquer golpe mata", "Dano em área varre todas"],
 		"receita": {"quatro": "formiga"}, "paleta": {"P": "#b03c28", "M": "#3a2420"},
 		"u": {"hp": 30, "damage": 14, "attack_speed": 0.6, "move_speed": 92.0, "unit_scale": 0.5, "unit_count": 9, "push_weight": 0.3}},
-	{"id": "vaqueiro_montado", "nome": "Vaqueiro Montado", "turma": "Peões", "custo": 50, "papel": "CONTRA_ATAQUE", "raridade": RARA, "arena": 3, "perigo": 8,
+	{"id": "vaqueiro_montado", "nome": "Vaqueiro Montado", "turma": "Peões", "custo": 50, "papel": "CONTRA_ATAQUE", "raridade": RARA, "arena": 12, "perigo": 8,
 		"desc": "Vem a galope com a vara de ferrão em riste. Freio é opcional.",
 		"pros": ["Investida: o 1º golpe vale em dobro e empurra", "Rápido pra uma tropa forte"], "cons": ["Não acerta voador", "Bando segura a investida"],
 		"receita": {"quatro": "montado", "cabeca": "humano", "chapeu": "bandana"}, "paleta": {"P": "#8a5a3c", "S": "#c84838", "A": "#3c5c98", "K": "#e8b088", "M": "#a0a8b4", "W": "#4a3020"},
 		"u": {"hp": 1250, "damage": 190, "attack_speed": 1.5, "move_speed": 80.0, "unit_scale": 1.35, "push_weight": 2.6, "charge_attack": true}},
-	{"id": "boitata", "nome": "Boitatá", "turma": "Lendas", "custo": 40, "papel": "CONTROLE", "raridade": RARA, "arena": 4, "perigo": 6,
+	{"id": "boitata", "nome": "Boitatá", "turma": "Lendas", "custo": 40, "papel": "CONTROLE", "raridade": RARA, "arena": 10, "perigo": 6,
 		"desc": "Cobra de fogo que guarda a mata. O fogo dela atravessa a fila inteira.",
 		"pros": ["Fogo atravessa até 4 inimigos", "Deixa o alvo queimando", "Acerta voador"], "cons": ["Pouca vida", "Lenta"],
 		"receita": {"quatro": "cobra"}, "paleta": {"P": "#c84828", "S": "#f0b030", "K": "#f8d878"},
 		"proj": "fogo",
 		"u": {"hp": 520, "damage": 85, "attack_speed": 1.5, "move_speed": 42.0, "unit_scale": 1.2, "is_ranged": true, "attack_range": 150.0, "target_type": "ALL", "projectile_pierces": true, "projectile_max_targets": 4, "on_hit_effect": "POISON", "on_hit_effect_strength": 22.0, "on_hit_effect_duration": 3.0, "on_hit_effect_tick_interval": 1.0}},
-	{"id": "onca_pintada", "nome": "Onça-Pintada", "turma": "Brejo", "custo": 45, "papel": "PUNICAO", "raridade": RARA, "arena": 5, "perigo": 8,
+	{"id": "onca_pintada", "nome": "Onça-Pintada", "turma": "Mata", "custo": 45, "papel": "PUNICAO", "raridade": RARA, "arena": 8, "perigo": 8,
 		"desc": "Você não viu a onça. A onça já viu você faz tempo.",
 		"pros": ["A mais rápida entre as fortes", "O bote (1º golpe) vale em dobro", "Finaliza quem está ferido"], "cons": ["Vida de caçadora, não de tanque", "Não acerta voador"],
 		"receita": {"quatro": "onca", "cabeca": "onca"}, "paleta": {"P": "#e8a838", "S": "#3a2818", "K": "#f8e8c0"},
 		"u": {"hp": 880, "damage": 150, "attack_speed": 1.0, "move_speed": 96.0, "unit_scale": 1.2, "push_weight": 1.6, "first_attack_bonus": true, "first_attack_multiplier": 2.0, "execute_threshold": 0.35, "execute_damage_mult": 1.8}},
 
 	# ============================== MAR / ET / LENDAS (19/11): temas além da roça
-	{"id": "tubarao_botas", "nome": "Tubarão de Botas", "turma": "Mar", "custo": 45, "papel": "PUNICAO", "raridade": RARA, "arena": 4, "perigo": 8,
+	{"id": "tubarao_botas", "nome": "Tubarão de Botas", "turma": "Mar", "custo": 45, "papel": "PUNICAO", "raridade": RARA, "arena": 7, "perigo": 8,
 		"desc": "Saiu do mar atrás de comida. Achou um par de botas no caminho e gostou.",
 		"pros": ["Sente cheiro de sangue: dobra o dano em quem já perdeu metade da vida", "Aguenta briga"], "cons": ["Não acerta voador", "Morde fraco em alvo de vida cheia"],
 		"receita": {"pernas": "bota", "corpo": "redondo", "bracos": "patas", "cabeca": "tubarao"}, "paleta": {"P": "#6a8aa8", "K": "#e8f0f4", "W": "#c8a030"},
 		"u": {"hp": 1000, "damage": 170, "attack_speed": 1.3, "move_speed": 62.0, "unit_scale": 1.25, "push_weight": 2.2, "execute_threshold": 0.5, "execute_damage_mult": 2.0}},
-	{"id": "caranguejo", "nome": "Caranguejo Gigante", "turma": "Mar", "custo": 40, "papel": "TANQUE", "raridade": COMUM, "arena": 3, "perigo": 6,
+	{"id": "caranguejo", "nome": "Caranguejo Gigante", "turma": "Mar", "custo": 40, "papel": "TANQUE", "raridade": COMUM, "arena": 7, "perigo": 6,
 		"desc": "Anda de lado, briga de frente. Cada pinça pega um.",
 		"pros": ["Casco duro: leva 30% menos dano", "Cada golpe acerta dois inimigos"], "cons": ["Lento", "Não acerta voador"],
 		"receita": {"quatro": "caranguejo"}, "paleta": {"P": "#d84a30", "K": "#f0c8a0"},
 		"u": {"hp": 1300, "damage": 95, "attack_speed": 1.6, "move_speed": 44.0, "unit_scale": 1.35, "push_weight": 3.2, "damage_reduction_percent": 0.3, "aoe_hits_extra_one": true}},
-	{"id": "polvo", "nome": "Polvo Tinteiro", "turma": "Mar", "custo": 35, "papel": "CONTROLE", "raridade": RARA, "arena": 3, "perigo": 5,
+	{"id": "polvo", "nome": "Polvo Tinteiro", "turma": "Mar", "custo": 35, "papel": "CONTROLE", "raridade": RARA, "arena": 7, "perigo": 5,
 		"desc": "Cospe tinta na cara de todo mundo. Ninguém enxerga, ninguém corre.",
 		"pros": ["A tinta acerta em área", "Deixa todo mundo mais lento", "Acerta voador"], "cons": ["Dano baixo", "Frágil"],
 		"receita": {"quatro": "polvo"}, "paleta": {"P": "#b060c0", "K": "#e8b8f0"},
 		"proj": "gota",
 		"u": {"hp": 520, "damage": 70, "attack_speed": 1.6, "move_speed": 40.0, "unit_scale": 1.1, "is_ranged": true, "attack_range": 135.0, "target_type": "ALL", "is_aoe": true, "aoe_radius": 42.0, "on_hit_effect": "SLOW", "on_hit_effect_strength": 0.5, "on_hit_effect_duration": 2.0}},
-	{"id": "agua_viva", "nome": "Água-viva Elétrica", "turma": "Mar", "custo": 30, "papel": "AEREO", "raridade": RARA, "arena": 2, "perigo": 5,
+	{"id": "agua_viva", "nome": "Água-viva Elétrica", "turma": "Mar", "custo": 30, "papel": "AEREO", "raridade": RARA, "arena": 7, "perigo": 5,
 		"desc": "Flutua devagar e dá choque em quem encostar. Não faz por mal.",
 		"pros": ["Voa", "Cada toque trava o alvo por um instante", "Acerta voador"], "cons": ["Dano baixo", "Lenta"],
 		"receita": {"quatro": "aguaviva"}, "paleta": {"P": "#70c8e8", "K": "#e0f4ff"},
 		"u": {"hp": 360, "damage": 60, "attack_speed": 1.4, "move_speed": 48.0, "unit_type": "AIR", "target_type": "ALL", "on_hit_effect": "STUN", "on_hit_effect_duration": 0.6}},
-	{"id": "marcianinhos", "nome": "Marcianinhos", "turma": "Coisa Estranha", "custo": 35, "papel": "ENXAME", "raridade": COMUM, "arena": 3, "perigo": 5,
+	{"id": "marcianinhos", "nome": "Marcianinhos", "turma": "Coisa Estranha", "custo": 35, "papel": "ENXAME", "raridade": COMUM, "arena": 9, "perigo": 5,
 		"desc": "Vieram em paz. A paz acabou quando viram a plantação.",
 		"pros": ["Quatro atirando junto", "Acertam voador"], "cons": ["Um golpe derruba cada um", "Dano em área varre todos"],
 		"receita": {"pernas": "bota", "corpo": "redondo", "bracos": "patas", "cabeca": "et", "arma": "espingarda"}, "paleta": {"P": "#78c878", "K": "#a8e0a0", "A": "#f04848", "M": "#b0b8c0", "W": "#484858"},
 		"proj": "raio",
 		"u": {"hp": 95, "damage": 48, "attack_speed": 1.0, "move_speed": 60.0, "unit_scale": 0.7, "unit_count": 4, "push_weight": 0.6, "is_ranged": true, "attack_range": 120.0, "target_type": "ALL"}},
-	{"id": "tripe_invasor", "nome": "Tripé Invasor", "turma": "Coisa Estranha", "custo": 55, "papel": "PUNICAO", "raridade": EPICA, "arena": 5, "perigo": 9,
+	{"id": "tripe_invasor", "nome": "Tripé Invasor", "turma": "Coisa Estranha", "custo": 55, "papel": "PUNICAO", "raridade": EPICA, "arena": 9, "perigo": 9,
 		"desc": "Três pernas, um olho e um raio que esquenta quanto mais tempo fica no mesmo alvo.",
 		"pros": ["O raio fica até 4x mais forte no mesmo alvo", "Derrete tanque", "Acerta voador"], "cons": ["Bando faz o raio recomeçar toda hora", "Lento"],
 		"receita": {"quatro": "tripe"}, "paleta": {"M": "#8890a0", "S": "#60d0e8", "K": "#d8f8ff", "A": "#e04848"},
 		"proj": "raio",
 		"u": {"hp": 950, "damage": 40, "attack_speed": 0.4, "move_speed": 30.0, "unit_scale": 1.6, "push_weight": 3.0, "is_ranged": true, "attack_range": 150.0, "target_type": "ALL", "same_target_ramping_damage": true, "same_target_ramping_damage_per_hit": 0.12, "same_target_ramping_damage_max_multiplier": 3.0}},
-	{"id": "dragao", "nome": "Dragão do Milharal", "turma": "Lendas", "custo": 55, "papel": "AEREO", "raridade": EPICA, "arena": 5, "perigo": 9,
+	{"id": "dragao", "nome": "Dragão do Milharal", "turma": "Mitos", "custo": 55, "papel": "AEREO", "raridade": EPICA, "arena": 11, "perigo": 9,
 		"desc": "Dragão pequeno, fogo grande. Mora no milharal e faz a própria pipoca.",
 		"pros": ["Voa", "Fogo em área", "Acerta chão e ar"], "cons": ["Dano baixo num alvo só", "Lento"],
 		"receita": {"quatro": "dragao"}, "paleta": {"P": "#48a058", "S": "#c84838", "K": "#f0e090", "A": "#c84838", "M": "#f0e8d0"},
 		"proj": "fogo",
 		"u": {"hp": 900, "damage": 105, "attack_speed": 1.6, "move_speed": 46.0, "unit_scale": 1.45, "push_weight": 2.5, "unit_type": "AIR", "is_ranged": true, "attack_range": 95.0, "target_type": "ALL", "is_aoe": true, "aoe_radius": 42.0}},
-	{"id": "medusa", "nome": "Medusa", "turma": "Lendas", "custo": 45, "papel": "CONTROLE", "raridade": EPICA, "arena": 4, "perigo": 7,
+	{"id": "medusa", "nome": "Medusa", "turma": "Mitos", "custo": 45, "papel": "CONTROLE", "raridade": EPICA, "arena": 11, "perigo": 7,
 		"desc": "Não olhe. Sério. Não olhe.",
 		"pros": ["O olhar vira o alvo em pedra por um instante", "Segura até tropa grande", "Acerta voador"], "cons": ["Dano baixo", "Frágil", "Bando passa por ela"],
 		"receita": {"pernas": "bota", "corpo": "poncho", "bracos": "humanos", "cabeca": "medusa"}, "paleta": {"P": "#58a850", "K": "#c8d8a0", "S": "#e8e0d0", "A": "#8048a0", "W": "#6a4428"},
 		"proj": "raio",
 		"u": {"hp": 680, "damage": 110, "attack_speed": 2.0, "move_speed": 40.0, "is_ranged": true, "attack_range": 140.0, "target_type": "ALL", "on_hit_effect": "STUN", "on_hit_effect_duration": 1.2}},
-	{"id": "cerbero", "nome": "Cérbero", "turma": "Lendas", "custo": 50, "papel": "PUNICAO", "raridade": EPICA, "arena": 5, "perigo": 8,
+	{"id": "cerbero", "nome": "Cérbero", "turma": "Mitos", "custo": 50, "papel": "PUNICAO", "raridade": EPICA, "arena": 11, "perigo": 8,
 		"desc": "Três cabeças, três mordidas, um osso só. Dá briga.",
 		"pros": ["Morde três de uma vez, num leque pra frente", "Rápido"], "cons": ["Não acerta voador", "Caro pra vida que tem"],
 		"receita": {"quatro": "cerbero"}, "paleta": {"P": "#4a4048", "A": "#c83030", "M": "#d8d8e0"},
 		"u": {"hp": 1250, "damage": 105, "attack_speed": 1.0, "move_speed": 74.0, "unit_scale": 1.4, "push_weight": 2.6, "frontal_cone_attack": true, "cone_angle_degrees": 110.0, "aoe_radius": 42.0}},
 
 	# ============================== COISA ESTRANHA
-	{"id": "saci", "nome": "Saci", "turma": "Lendas", "custo": 35, "papel": "PUNICAO", "raridade": RARA, "arena": 3, "perigo": 6,
+	{"id": "saci", "nome": "Saci", "turma": "Lendas", "custo": 35, "papel": "PUNICAO", "raridade": RARA, "arena": 10, "perigo": 6,
 		"desc": "Some num redemoinho e aparece em cima de você. Com uma perna só.",
 		"pros": ["Dá um bote que atravessa o campo", "Não leva dano durante o bote"], "cons": ["Pouca vida", "Não acerta voador"],
 		"receita": {"pernas": "saci", "corpo": "saci", "bracos": "humanos", "cabeca": "saci", "chapeu": "gorro"}, "paleta": {"K": "#8a5638", "S": "#8a5638", "A": "#d02c28", "W": "#5a3a20"},
 		"u": {"hp": 560, "damage": 135, "attack_speed": 1.1, "move_speed": 78.0, "unit_scale": 0.95, "bandit_dash": true}},
-	{"id": "mula_sem_cabeca", "nome": "Mula sem Cabeça", "turma": "Lendas", "custo": 40, "papel": "PUNICAO", "raridade": RARA, "arena": 4, "perigo": 7,
+	{"id": "mula_sem_cabeca", "nome": "Mula sem Cabeça", "turma": "Lendas", "custo": 40, "papel": "PUNICAO", "raridade": RARA, "arena": 10, "perigo": 7,
 		"desc": "Galopa soltando fogo pelo pescoço. Ninguém sabe como ela enxerga.",
 		"pros": ["Muito rápida", "O fogo queima todos em volta dela"], "cons": ["Vida mediana", "Não acerta voador"],
 		"receita": {"quatro": "cavalo", "cabeca": "chama"}, "paleta": {"P": "#3a3440", "S": "#f07028", "K": "#5a5460", "M": "#202028"},
 		"u": {"hp": 760, "damage": 105, "attack_speed": 1.0, "move_speed": 92.0, "unit_scale": 1.15, "push_weight": 1.8, "spin_attack": true, "aoe_radius": 46.0}},
-	{"id": "mapinguari", "nome": "Mapinguari", "turma": "Lendas", "custo": 75, "papel": "TANQUE", "raridade": EPICA, "arena": 5, "perigo": 10,
+	{"id": "mapinguari", "nome": "Mapinguari", "turma": "Lendas", "custo": 75, "papel": "TANQUE", "raridade": EPICA, "arena": 10, "perigo": 10,
 		"desc": "O bicho da mata: um olho só e a boca na barriga. Come o que alcançar.",
 		"pros": ["Vida de gigante", "Cada abocanhada acerta todos em volta", "Recupera vida mordendo"], "cons": ["Lentíssimo", "Não acerta voador", "Caro"],
 		"receita": {"quatro": "mapinguari"}, "paleta": {"P": "#8a5a34", "K": "#e8d090", "A": "#c84838", "M": "#e8e0d0"},
 		"u": {"hp": 3400, "damage": 280, "attack_speed": 2.4, "move_speed": 26.0, "unit_scale": 2.0, "push_weight": 5.5, "is_aoe": true, "aoe_radius": 45.0, "immune_to_knockback": true, "lifesteal_percent": 0.25}},
-	{"id": "assombracao", "nome": "Assombração", "turma": "Coisa Estranha", "custo": 20, "papel": "ENXAME", "raridade": RARA, "arena": 2, "perigo": 4,
+	{"id": "assombracao", "nome": "Assombração", "turma": "Lendas", "custo": 20, "papel": "ENXAME", "raridade": RARA, "arena": 10, "perigo": 4,
 		"desc": "Quatro almas penadas do antigo dono do sítio. Só dá pra bater quando param.",
 		"pros": ["Intocáveis enquanto andam", "Dano bom pelo preço"], "cons": ["Vida minúscula quando param"],
 		"receita": {"pernas": "fantasma", "corpo": "redondo", "bracos": "patas", "cabeca": "espantalho"}, "paleta": P_FANTASMA,
 		"u": {"hp": 70, "damage": 80, "attack_speed": 1.3, "move_speed": 45.0, "unit_scale": 0.8, "unit_count": 4, "immune_while_moving": true, "push_weight": 0.5}},
-	{"id": "abelhas", "nome": "Enxame de Abelha", "turma": "Coisa Estranha", "custo": 25, "papel": "AEREO", "raridade": RARA, "arena": 1, "perigo": 4,
+	{"id": "abelhas", "nome": "Enxame de Abelha", "turma": "Mata", "custo": 25, "papel": "AEREO", "raridade": RARA, "arena": 8, "perigo": 4,
 		"desc": "Mexeu com uma, mexeu com todas.",
 		"pros": ["Voam", "Ferroada forte pelo preço"], "cons": ["Pouca vida"],
 		"receita": {"pernas": "inseto", "corpo": "listrado", "cabeca": "abelha", "costas": "asas_inseto"}, "paleta": P_ABELHA,
 		"u": {"hp": 90, "damage": 44, "attack_speed": 0.9, "move_speed": 75.0, "unit_scale": 0.6, "unit_count": 4, "unit_type": "AIR", "target_type": "ALL", "push_weight": 0.4}},
-	{"id": "abelha", "nome": "Abelha", "turma": "Coisa Estranha", "custo": 5, "papel": "AEREO", "raridade": COMUM, "ficha": true,
+	{"id": "abelha", "nome": "Abelha", "turma": "Mata", "custo": 5, "papel": "AEREO", "raridade": COMUM, "ficha": true,
 		"receita": {"pernas": "inseto", "corpo": "listrado", "cabeca": "abelha", "costas": "asas_inseto"}, "paleta": P_ABELHA,
 		"u": {"hp": 90, "damage": 44, "attack_speed": 0.9, "move_speed": 75.0, "unit_scale": 0.6, "unit_type": "AIR", "target_type": "ALL", "push_weight": 0.4, "initial_stun_duration": 0.2}},
-	{"id": "colmeia", "nome": "Colmeia Nervosa", "turma": "Coisa Estranha", "custo": 45, "papel": "INVOCADOR", "raridade": RARA, "arena": 3, "perigo": 6,
+	{"id": "colmeia", "nome": "Colmeia Nervosa", "turma": "Mata", "custo": 45, "papel": "INVOCADOR", "raridade": RARA, "arena": 8, "perigo": 6,
 		"desc": "Não cutuque. Sério. Tarde demais.",
 		"pros": ["Solta abelhas voadoras", "Abelhas envenenam"], "cons": ["Não ataca sozinha"],
 		"receita": {"objeto": "colmeia"}, "paleta": {"P": "#e8b838", "W": "#6a4428", "M": "#30303c"}, "filho": "abelha",
 		"u": {"hp": 650, "damage": 0, "attack_speed": 0.0, "move_speed": 0.0, "attack_range": 0.0, "unit_scale": 1.4, "unit_type": "BUILDING", "duration": 35.0, "spawns_units": true, "spawn_interval": 6.0, "spawn_count": 2}},
-	{"id": "et_abdutor", "nome": "ET Abdutor", "turma": "Coisa Estranha", "custo": 45, "papel": "AEREO", "raridade": EPICA, "arena": 4, "perigo": 7,
+	{"id": "et_abdutor", "nome": "ET Abdutor", "turma": "Coisa Estranha", "custo": 45, "papel": "AEREO", "raridade": EPICA, "arena": 9, "perigo": 7,
 		"desc": "Veio buscar vaca. Achou a briga mais interessante.",
 		"pros": ["Voa", "Raio confunde: o inimigo anda pra trás"], "cons": ["Vida mediana"],
 		"receita": {"pernas": "bota", "corpo": "redondo", "bracos": "patas", "cabeca": "et", "costas": "foguete"}, "paleta": {"P": "#78c878", "K": "#a8e0a0", "A": "#f04848", "M": "#b0b8c0", "W": "#484858"},
 		"proj": "raio",
 		"u": {"hp": 600, "damage": 110, "attack_speed": 1.8, "move_speed": 50.0, "unit_type": "AIR", "is_ranged": true, "attack_range": 120.0, "target_type": "ALL", "on_hit_effect": "CONFUSE", "on_hit_effect_duration": 1.0}},
-	{"id": "robo_balde", "nome": "Robô Balde-3000", "turma": "Coisa Estranha", "custo": 80, "papel": "TANQUE", "raridade": LENDARIA, "arena": 6, "perigo": 10,
+	{"id": "robo_balde", "nome": "Robô Balde-3000", "turma": "Coisa Estranha", "custo": 80, "papel": "TANQUE", "raridade": LENDARIA, "arena": 9, "perigo": 10,
 		"desc": "Feito de balde, roda de carrinho de mão e uma motosserra. Funciona. Infelizmente.",
 		"pros": ["Vida absurda", "Chega dando onda de choque", "Blindado: devolve dano e ninguém empurra"], "cons": ["Lentíssimo", "Caríssimo", "Só bate em torre e construção"],
 		"receita": {"pernas": "rodas", "corpo": "armadura", "bracos": "humanos", "cabeca": "balde", "arma": "motosserra"}, "paleta": {"M": "#98a0ac", "S": "#787c88", "K": "#787c88", "A": "#e06030", "W": "#484858"},
 		"u": {"hp": 3600, "damage": 300, "attack_speed": 3.6, "move_speed": 14.0, "unit_scale": 2.3, "push_weight": 6.0, "immune_to_knockback": true, "immune_to_pull": true, "entrance_shockwave_damage": 150, "entrance_shockwave_radius": 70.0, "is_aoe": true, "aoe_radius": 40.0, "target_type": "BUILDING", "damage_reduction_percent": 0.15, "reflects_damage": true, "reflect_damage_percent": 0.15}},
-	{"id": "disco_voador", "nome": "Disco Voador", "turma": "Coisa Estranha", "custo": 65, "papel": "AEREO", "raridade": LENDARIA, "arena": 6, "perigo": 9,
+	{"id": "disco_voador", "nome": "Disco Voador", "turma": "Coisa Estranha", "custo": 65, "papel": "AEREO", "raridade": LENDARIA, "arena": 9, "perigo": 9,
 		"desc": "Aquela luz no céu do sítio que ninguém acredita quando você conta.",
 		"pros": ["Voa e ataca muito rápido", "Dano em área"], "cons": ["Alcance curto", "Caro"],
 		"receita": {"objeto": "ovni"}, "paleta": {"M": "#a0a8b8", "S": "#50c0e0", "A": "#f04848"},
@@ -475,12 +477,12 @@ const CARTAS = [
 		"pros": ["Dano na hora", "Barato"], "cons": ["Área pequena"],
 		"receita": {"icone": "raio"}, "paleta": {"K": "#f8e040"},
 		"f": {"radius": 48.0, "damage": 250, "base_damage_multiplier": 0.35, "fx_color": "#fff080"}},
-	{"id": "geada", "nome": "Geada", "turma": "Coisa Estranha", "custo": 35, "papel": "CONTROLE", "raridade": EPICA, "arena": 5, "perigo": 5,
+	{"id": "geada", "nome": "Geada", "turma": "Coisa Estranha", "custo": 35, "papel": "CONTROLE", "raridade": EPICA, "arena": 9, "perigo": 5,
 		"desc": "Geada fora de época. Congela tudo: tropa, plantação e esperança.",
 		"pros": ["Congela os inimigos por 3 segundos"], "cons": ["Dano baixo"],
 		"receita": {"icone": "floco"}, "paleta": {"S": "#70c8f0"},
 		"f": {"radius": 85.0, "damage": 60, "base_damage_multiplier": 0.1, "status_effect": "FREEZE", "status_effect_duration": 3.0, "fx_color": "#a0e0ff"}},
-	{"id": "vaca_cadente", "nome": "Vaca Cadente", "turma": "Coisa Estranha", "custo": 60, "papel": "PUNICAO", "raridade": LENDARIA, "arena": 6, "perigo": 8,
+	{"id": "vaca_cadente", "nome": "Vaca Cadente", "turma": "Coisa Estranha", "custo": 60, "papel": "PUNICAO", "raridade": LENDARIA, "arena": 12, "perigo": 8,
 		"desc": "O ET devolveu a vaca. De muito, muito alto. Ela sobrevive e ainda sai brigando.",
 		"pros": ["Dano enorme em área", "A vaca fica em campo depois"], "cons": ["Caro"],
 		"receita": {"icone": "vaca_caindo"}, "paleta": P_VACA, "invoca": "bezerro",
@@ -575,6 +577,70 @@ static func _ensure():
 		link_children(_by_id[def["id"]], def, _by_id)
 	for def in TORRES:
 		_bases.append(build_base(def, PATH_PREFIX + "torre_" + def["id"] + ".tres"))
+	_build_arena_cards()
+
+
+# ---------------------------------------------------------------- cartas de arena
+# São 12 ARENAS e cada uma tem 12 CARTAS do tema dela (ArenaManager diz o nome
+# e o tema). As que as tabelas acima não trazem são feitas pelo criador
+# automático com semente FIXA: saem sempre as mesmas, em qualquer aparelho, e
+# valem como carta oficial (baú, Feira, bots). Quem mede se saíram no preço
+# certo é o ci/lab/safra.tscn (LAB_ARENAS=1).
+const ARENA_SIZE = 12
+const ARENA_COUNT = 12
+const ARENA_TURMA = ["", "", "Curral", "Galinheiro", "Roçado", "Brejo", "Peões", "Mar", "Mata", "Coisa Estranha", "Lendas", "Mitos", ""]
+const ARENA_MIX = {1: ["Curral", "Galinheiro", "Roçado", "Peões"], 12: ["Curral", "Peões", "Mar", "Mata", "Lendas", "Mitos"]}
+# papéis na ordem em que vão sendo usados, pra arena não ficar com 5 cartas iguais
+# (9 Versátil, 2 Punição, 1 Tanque, 0 Enxame, 3 Controle, 8 Aéreo, 6 Finalizador, 4 Contra-ataque, 5 Suporte, 11 Cerco, 7 Construção)
+const ARENA_ROLES = [9, 2, 1, 0, 3, 8, 6, 4, 5, 11, 7]
+
+
+## de qual arena é a carta (as iniciais contam como da arena 1)
+static func arena_of(c: CardData) -> int:
+	return maxi(1, c.unlock_arena)
+
+
+static func _build_arena_cards():
+	var have := {}
+	var names := {}
+	for c in _cards:
+		have[arena_of(c)] = int(have.get(arena_of(c), 0)) + 1
+		names[c.card_name] = true
+	for t in _tokens:
+		names[t.card_name] = true
+	CardGenerator.fixed_power = CardGenerator.SAFRA_POWER
+	CardGenerator.new_themes = true
+	for a in range(1, ARENA_COUNT + 1):
+		var made = 0
+		var guard = 0
+		while int(have.get(a, 0)) < ARENA_SIZE and guard < 80:
+			guard += 1
+			var rng = RandomNumberGenerator.new()
+			rng.seed = hash("arena_%d_%d" % [a, guard])
+			var mix: Array = ARENA_MIX.get(a, [])
+			var turma = str(ARENA_TURMA[a]) if ARENA_TURMA[a] != "" else str(mix[rng.randi() % mix.size()])
+			var kind = 2 if made % 4 == 3 else 1          # 1 feitiço a cada 4 cartas
+			var role = int(ARENA_ROLES[(made + a) % ARENA_ROLES.size()])
+			var cost = 0
+			if a == 1:
+				cost = [15, 20, 25, 30][rng.randi() % 4]  # arena de começo: carta barata
+			elif a == ARENA_COUNT:
+				cost = [50, 55, 60, 65][rng.randi() % 4]  # arena dos campeões: carta cara
+			var gen: Dictionary = CardGenerator.generate_def(rng.randi(), turma, kind, role, cost)
+			var def: Dictionary = gen["def"]
+			if names.has(def["nome"]):
+				continue
+			names[def["nome"]] = true
+			def["arena"] = a
+			var id = "arena_%d_%d" % [a, made]
+			var card = build_card(def, PATH_PREFIX + id + ".tres", gen["stats"], gen["spell"])
+			card.set_meta("arena_card", true)
+			_by_id[id] = card
+			_cards.append(card)
+			have[a] = int(have.get(a, 0)) + 1
+			made += 1
+	CardGenerator.fixed_power = 0.0
+	CardGenerator.new_themes = false
 
 
 static func cards() -> Array:

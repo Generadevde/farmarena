@@ -35,6 +35,11 @@ func _ready():
 		MatchSetup.ally_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[1])
 		MatchSetup.second_enemy_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[2])
 
+	# os testes de mecânica (empurrão, congelar, efeitos...) foram montados no
+	# campo de 2 torres e medem a tropa, não o campo: o portão no meio só
+	# atrapalharia a medida. Torres, simulação e partidas usam o campo de verdade
+	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo"]:
+		Regras.forced["portao"] = false
 	Engine.time_scale = 3.0
 	battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(battle)
@@ -78,6 +83,7 @@ func _ready():
 		await _melee_test()
 		get_tree().quit()
 		return
+	_fake_player_on = true  # só nas partidas (1v1/2v2): nas auditorias ele gastava o recurso que o teste estava contando
 	await get_tree().create_timer(75.0).timeout  # ~75s de jogo (time_scale acelera)
 	_report()
 	get_tree().quit()
@@ -213,6 +219,19 @@ func _art_sheet():
 	print("RESULTADO clã: membros=", Cla.members(Cla.mine()).size(), " pediu? ", req_ok, " recebidas=", Cla.current_request().get("got", 0), " doação=", don,
 		" pontos=", Cla.harvest_points(), " clãs=", Cla.ranking().size(), " | poderes: chave->'", key_msg, "' baú pronto? ", Progresso.chest_ready(Progresso.chests().size() - 1),
 		" relógio->'", Progresso.use_power("relogio3"), "' mult=", Progresso.clock_boost_mult())
+	# FILA DE BAÚ (bug achado pelo João em 19/11): baú PRONTO esperando ser
+	# pego travava a fila -- tinha que abrir ele antes de botar outro pra contar
+	Progresso.d["chests"].clear()
+	Progresso.add_chest(0)
+	Progresso.add_chest(1)
+	var q_start = Progresso.start_chest(0)
+	var q_block = Progresso.start_chest(1)          # o 1º ainda está contando: só um por vez
+	Progresso.d["chests"][0]["pulado"] = 999999.0   # o 1º ficou pronto, mas NÃO foi aberto
+	var q_next = Progresso.start_chest(1)           # tem que deixar botar o 2º pra contar
+	print("RESULTADO fila de baú: começa o 1º? ", q_start, " | 2º enquanto o 1º conta? ", q_block, " (esperado false) | 2º com o 1º pronto e fechado? ", q_next,
+		" (esperado true) | 1º continua pronto? ", Progresso.chest_ready(0), " | contando agora=", Progresso.unlocking_index(), " (esperado 1)",
+		"" if (q_start and !q_block and q_next and Progresso.chest_ready(0) and Progresso.unlocking_index() == 1) else " ❌ FALHOU")
+	Progresso.d["chests"].clear()
 	BotSimulator._load_extra_bots()
 	ArenaManager.trophies[PlayerProfile.player_name] = 3300
 	var born = BotSimulator.ensure_rivals()
@@ -365,13 +384,48 @@ func _towers_test():
 	var path_mid = NavigationServer2D.map_get_path(map_rid, from_mid, to, true, 0b01)
 	var uses_center = Array(path_mid).any(func(pt): return abs(pt.y - c.y) <= ArenaBuilder.RIVER_HALF + 1 and abs(pt.x - c.x) <= ArenaBuilder.CENTER_BRIDGE_HALF + 1)
 	print("RESULTADO ponte do meio: tropa no meio usa a ponte central? ", uses_center)
-	# derruba uma torre do bot: partida continua; derruba a outra: acaba
-	bots[0].take_damage(999999)
+	# PORTÃO: 3 torres por lado, a da frente no meio e com menos vida
+	var gates = bots.filter(func(t): return t.is_gate)
+	var backs = bots.filter(func(t): return !t.is_gate)
+	var gate_ok = bots.size() == 3 and mine.size() == 3 and gates.size() == 1 and gates[0].max_hp < backs[0].max_hp \
+		and abs(gates[0].global_position.x - c.x) < 2.0 and abs(gates[0].global_position.y - c.y) < abs(backs[0].global_position.y - c.y)
+	print("RESULTADO portão: 3 torres por lado? ", bots.size() == 3 and mine.size() == 3, " | portão no meio, na frente e mais fraco? ", gate_ok,
+		" | vida portão/torre=", gates[0].max_hp if !gates.is_empty() else 0, "/", backs[0].max_hp, " | mão=", DeckManager.hand.size(), " cartas (esperado ", Regras.hand_size(), ")")
+	# tropa do jogador que atravessa pela ponte do lado vai no PORTÃO primeiro (é a torre mais perto)
+	var probe = Vector2(c.x + ArenaBuilder.BRIDGE_X, c.y - ArenaBuilder.RIVER_HALF - 4)
+	var nearest = bots[0]
+	for t in bots:
+		if probe.distance_to(t.global_position) < probe.distance_to(nearest.global_position):
+			nearest = t
+	var gate_first: bool = nearest.is_gate
+	print("RESULTADO alvo: saindo da ponte do lado, a torre mais perto é o portão? ", gate_first)
+	# PLACAR: fim do tempo sem nada derrubado e vida igual = empate (-1);
+	# arranhou uma torre minha = eu perco; derrubei UMA do bot = eu ganho mesmo assim
+	var tie = battle.time_up_loser()
+	mine[0].take_damage(50)
+	var by_hp = battle.time_up_loser()
+	gates[0].take_damage(999999)
 	await get_tree().process_frame
 	var after_one = battle.match_over
-	bots[1].take_damage(999999)
+	var by_count = battle.time_up_loser()
+	print("RESULTADO placar: tudo igual=", tie, " (esperado -1) | só vida, eu arranhado=", by_hp, " (esperado ", GameManager.Team.PLAYER,
+		") | derrubei 1=", by_count, " (esperado ", GameManager.Team.ENEMY, ") | placar=", battle.towers_destroyed[GameManager.Team.ENEMY], "x", battle.towers_destroyed[GameManager.Team.PLAYER])
+	# derruba as outras: só acaba na hora quando cai a ÚLTIMA
+	backs[0].take_damage(999999)
 	await get_tree().process_frame
-	print("RESULTADO vitória: acabou com 1 torre? ", after_one, " (esperado false) | acabou com 2? ", battle.match_over, " (esperado true)")
+	var after_two = battle.match_over
+	backs[1].take_damage(999999)
+	await get_tree().process_frame
+	print("RESULTADO vitória: acabou com 1 torre? ", after_one, " (esperado false) | com 2? ", after_two, " (esperado false) | com as 3? ", battle.match_over, " (esperado true)")
+	_check("espelhadas", mirror_ok)
+	_check("portão no meio, na frente e mais fraco", gate_ok)
+	_check("mão do tamanho da regra", DeckManager.hand.size() == Regras.hand_size(), "%d cartas" % DeckManager.hand.size())
+	_check("portão é o primeiro alvo", gate_first)
+	_check("placar: tudo igual empata", tie == -1, str(tie))
+	_check("placar: sem torre caída decide na vida", by_hp == GameManager.Team.PLAYER, str(by_hp))
+	_check("placar: uma torre derrubada já ganha", by_count == GameManager.Team.ENEMY, str(by_count))
+	_check("só acaba na hora com as 3 no chão", !after_one and !after_two and battle.match_over)
+	print("RESULTADO torres COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
 	get_tree().paused = false
 
 
@@ -724,8 +778,11 @@ func _melee_test():
 	print("RESULTADO corpo a corpo SEM DANO NA BASE: ", fail_list)
 
 
+var _fake_player_on := false
+
+
 func _process(delta):
-	if battle == null or !battle.is_inside_tree() or battle.match_over:
+	if !_fake_player_on or battle == null or !battle.is_inside_tree() or battle.match_over:
 		return
 	_player_accum += delta
 	if _player_accum < 3.0:

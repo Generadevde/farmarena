@@ -58,6 +58,8 @@ func start_deck():
 	draw_queue = full_deck.duplicate()
 	draw_queue.shuffle()
 
+	# 3 ou 4 cartas na mão (Regras "mao4"); o resto do baralho fica na fila
+	hand.resize(mini(Regras.hand_size(), maxi(full_deck.size() - 1, 1)))
 	for i in hand.size():
 		hand[i] = draw_queue.pop_front()
 

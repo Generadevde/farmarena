@@ -6,7 +6,6 @@ class_name BotController
 # próprios, e usa o mesmo cérebro tático (BattleBrain) do bot principal.
 # Compartilha a base e a área de spawn com o parceiro de time.
 
-const HAND_SIZE = 3
 const STARTING_MONEY = 5
 # mesmos valores da cena de batalha (batlhe_scene.gd) -- se mudar lá, muda aqui
 const MAX_MONEY = 100
@@ -47,8 +46,9 @@ func setup(p_battle: Node, p_profile: AIProfile, p_team, p_area: CollisionShape2
 func _ready():
 	var shuffled = profile.deck.duplicate()
 	shuffled.shuffle()
-	hand = shuffled.slice(0, HAND_SIZE)
-	queue = shuffled.slice(HAND_SIZE)
+	var n = mini(Regras.hand_size(), maxi(shuffled.size() - 1, 1))
+	hand = shuffled.slice(0, n)
+	queue = shuffled.slice(n)
 
 	_production = Timer.new()
 	_production.wait_time = PRODUCTION_INTERVAL

@@ -1773,6 +1773,178 @@ def cab_polvo():
     return fin(cv)
 
 
+# ---- CABEÇAS dos temas novos (19/11): pro criador de cartas ter com o que variar
+def cab_siri():
+    cv = _cabeca_base(rx=12, ry=8, cy=19)
+    for side in (-1, 1):                             # olhos no talo e pontas do casco
+        ex = 24 + side * 5
+        cv.rect(ex, 6, 1, 6, C("P", 2))
+        cv.rect(ex - 1, 3, 3, 3, EYE_W); cv.put(ex, 4, PUPIL)
+        cv.rect(24 + side * 12 - (1 if side > 0 else 0), 17, 2, 2, C("P", 0))
+    cv.rect(19, 22, 10, 1, OUT)
+    for x in (16, 20, 24, 28, 32):
+        cv.put(x, 14, C("P", 0))
+    return fin(cv)
+
+
+def cab_baleia():
+    cv = _cabeca_base(rx=12, ry=10)
+    cv.ellipse(24, 22, 10, 5, "K")                   # barrigão claro
+    for x in range(16, 33, 2):
+        cv.rect(x, 20, 1, 6, C("K", 2))
+    cv.rect(23, 3, 2, 4, (150, 220, 250, 255))       # esguicho
+    cv.rect(20, 1, 2, 3, (150, 220, 250, 255)); cv.rect(26, 1, 2, 3, (150, 220, 250, 255))
+    _olhos(cv, 13, 8, 2)
+    return fin(cv)
+
+
+def cab_cavalo_marinho():
+    cv = _cabeca_base(rx=8, ry=9, cy=15)
+    cv.blob_rect(19, 18, 10, 9, "P", 3)              # focinho comprido pra baixo
+    cv.rect(22, 26, 4, 2, C("P", 2))
+    for i in range(5):                               # crista
+        cv.rect(22 + i, 3 + (i % 2), 2, 3, C("A", 1))
+    for side in (-1, 1):                             # barbatana de orelha
+        cv.rect(24 + side * 9 - 1, 13, 3, 4, C("A", 1))
+    _olhos(cv, 12, 4, 3)
+    return fin(cv)
+
+
+def cab_tartaruga():
+    cv = _cabeca_base(slot="K", rx=10, ry=9, cy=18)
+    cv.rect(18, 23, 12, 1, OUT)                      # boca reta de velha sábia
+    cv.put(17, 22, OUT); cv.put(30, 22, OUT)
+    for (x, y) in ((16, 12), (31, 12), (24, 10)):
+        cv.put(x, y, C("K", 2))
+    _olhos(cv, 15, 5, 3, sono=True)
+    return fin(cv)
+
+
+def cab_macaco():
+    cv = _cabeca_base(rx=10, ry=9.5)
+    for side in (-1, 1):                             # orelhonas
+        cv.ellipse(24 + side * 11, 17, 3.5, 4, "P")
+        cv.ellipse(24 + side * 11, 17, 2, 2.5, "K")
+    cv.ellipse(24, 20, 7.5, 6, "K")                  # cara clara
+    cv.ellipse(24, 13, 6.5, 4, "K")
+    cv.rect(22, 20, 1, 1, OUT); cv.rect(25, 20, 1, 1, OUT)
+    cv.rect(20, 23, 8, 1, OUT)
+    _olhos(cv, 12, 4, 3)
+    return fin(cv)
+
+
+def cab_arara():
+    cv = _cabeca_base(rx=10, ry=10)
+    cv.ellipse(24, 16, 8, 6, "K", shade=False)       # máscara branca
+    cv.blob_rect(20, 17, 8, 9, "A", 3)               # bicão curvo
+    cv.rect(22, 24, 4, 3, C("A", 2))
+    cv.rect(23, 20, 2, 1, OUT)
+    for i in range(4):                               # penacho
+        cv.rect(21 + i * 2, 3 + (i % 2), 2, 4, C("S", 1))
+    _olhos(cv, 12, 6, 3)
+    return fin(cv)
+
+
+def cab_tamandua():
+    cv = _cabeca_base(rx=9, ry=8, cy=13)
+    cv.blob_rect(20, 15, 8, 14, "P", 3)              # focinhão comprido
+    cv.rect(22, 28, 4, 1, PUPIL)
+    cv.rect(21, 17, 6, 2, C("S", 1))                 # faixa escura
+    for side in (-1, 1):
+        cv.rect(24 + side * 8 - 1, 5, 3, 4, C("P", 2))
+    _olhos(cv, 11, 5, 2)
+    return fin(cv)
+
+
+def cab_preguica():
+    cv = _cabeca_base(rx=11, ry=10)
+    cv.ellipse(24, 18, 8, 7, "K")                    # cara clara
+    for side in (-1, 1):                             # olheira caída
+        ex = 24 + side * 5
+        cv.rect(ex - 2, 15, 5, 3, C("S", 1))
+        cv.rect(ex - 1, 16, 3, 1, PUPIL)
+    cv.rect(23, 20, 3, 2, PUPIL)                     # nariz
+    for x in range(20, 29):                          # sorriso tranquilo
+        cv.put(x, 23 + (1 if 22 <= x <= 26 else 0), OUT)
+    return fin(cv)
+
+
+def cab_cobra():
+    cv = new()
+    cv.ellipse(24, 16, 10, 9, "P")
+    cv.ellipse(24, 21, 7, 4, "K")
+    for (x, y) in ((18, 9), (24, 7), (30, 9), (21, 12), (27, 12)):   # losangos
+        cv.put(x, y, C("S", 1)); cv.put(x + 1, y, C("S", 1))
+    for side in (-1, 1):
+        ex = 24 + side * 5
+        cv.rect(ex - 1, 13, 3, 3, FIRE_I); cv.rect(ex, 13, 1, 3, PUPIL)
+    cv.rect(23, 25, 2, 4, (220, 60, 80, 255))        # língua bifurcada
+    cv.put(22, 29, (220, 60, 80, 255)); cv.put(25, 29, (220, 60, 80, 255))
+    return fin(cv)
+
+
+def cab_ciclope():
+    cv = _cabeca_base(slot="K", rx=11, ry=10)
+    cv.rect(20, 11, 8, 7, EYE_W)                     # olhão único
+    cv.rect(22, 13, 4, 4, PUPIL); cv.put(22, 13, SHINE)
+    cv.rect(17, 8, 14, 2, OUT)                       # sobrancelhão
+    cv.rect(19, 22, 10, 2, (60, 16, 24, 255))
+    for x in (20, 24, 27):
+        cv.put(x, 22, EYE_W)
+    cv.rect(23, 3, 3, 4, C("M", 0))                  # chifrinho
+    return fin(cv)
+
+
+def cab_elmo():
+    """guerreiro de elmo grego: crista vermelha, fenda nos olhos"""
+    cv = _cabeca_base(slot="M", rx=10.5, ry=10)
+    cv.rect(22, 12, 4, 14, (40, 30, 36, 255))        # fenda do nariz
+    cv.rect(15, 13, 18, 3, (40, 30, 36, 255))        # fenda dos olhos
+    for side in (-1, 1):
+        cv.rect(24 + side * 5 - 1, 14, 2, 1, EYE_W)
+    for i in range(11):                              # crista
+        cv.rect(18 + i, 2 + abs(5 - i) // 3, 2, 5, C("A", 1 if i % 2 else 0))
+    return fin(cv)
+
+
+def cab_lobisomem():
+    cv = _cabeca_base(rx=10, ry=9.5)
+    for side in (-1, 1):                             # orelha pontuda
+        for i in range(6):
+            cv.rect(24 + side * 8 - (1 if side > 0 else 0), 2 + i, 1 + i // 2, 1, C("P", 2))
+    cv.blob_rect(19, 17, 10, 9, "S", 3)              # focinho
+    cv.rect(22, 17, 4, 2, PUPIL)
+    cv.rect(20, 23, 8, 1, (60, 16, 24, 255))
+    for x in (20, 23, 26):                           # presas
+        cv.rect(x, 23, 1, 2, EYE_W)
+    for side in (-1, 1):
+        ex = 24 + side * 5
+        cv.rect(ex - 1, 12, 3, 2, FIRE_M); cv.put(ex, 12, PUPIL)
+    cv.rect(17, 10, 5, 1, OUT); cv.rect(26, 10, 5, 1, OUT)
+    return fin(cv)
+
+
+def cab_curupira():
+    cv = _cabeca_base(slot="K", rx=10, ry=9.5)
+    _flame(cv, 24, 11, 10, 9)                         # cabelo de fogo
+    _flame(cv, 17, 11, 6, 3); _flame(cv, 31, 11, 7, 3)
+    cv.rect(20, 22, 8, 1, OUT); cv.put(19, 21, OUT); cv.put(28, 21, OUT)
+    cv.put(17, 20, BLUSH); cv.put(30, 20, BLUSH)
+    _olhos(cv, 14, 5, 3)
+    return fin(cv)
+
+
+def cab_marciano():
+    cv = _cabeca_base(rx=11, ry=9, cy=16)
+    for ex in (17, 24, 31):                          # três olhos
+        cv.rect(ex - 1, 12, 3, 4, EYE_W); cv.rect(ex, 13, 1, 2, PUPIL)
+    for side in (-1, 1):                             # antenas de bolinha
+        cv.line(24 + side * 6, 8, 24 + side * 9, 2, C("P", 2))
+        cv.rect(24 + side * 9 - 1, 0, 3, 3, C("A", 0))
+    cv.rect(21, 21, 6, 1, OUT)
+    return fin(cv)
+
+
 PECAS["quatro"] = {"casco": quatro_casco, "malhado": quatro_malhado, "pata": quatro_pata, "rasteiro": quatro_rasteiro,
                    "casca": quatro_casca, "sapo": quatro_sapo,
                    "cavalo": quatro_cavalo, "bezerro": quatro_bezerro, "vaca": quatro_vaca, "bode": quatro_bode,
@@ -1785,7 +1957,10 @@ PECAS["quatro"] = {"casco": quatro_casco, "malhado": quatro_malhado, "pata": qua
 PECAS["pernas"]["saci"] = pernas_saci
 PECAS["corpo"]["saci"] = corpo_saci
 PECAS["cabeca"].update({"saci": cab_saci, "chama": cab_chama, "onca": cab_onca, "tubarao": cab_tubarao, "medusa": cab_medusa,
-                        "peixe": cab_peixe, "polvo": cab_polvo})
+                        "peixe": cab_peixe, "polvo": cab_polvo, "siri": cab_siri, "baleia": cab_baleia,
+                        "cavalo_marinho": cab_cavalo_marinho, "tartaruga": cab_tartaruga, "macaco": cab_macaco, "arara": cab_arara,
+                        "tamandua": cab_tamandua, "preguica": cab_preguica, "cobra": cab_cobra, "ciclope": cab_ciclope,
+                        "elmo": cab_elmo, "lobisomem": cab_lobisomem, "curupira": cab_curupira, "marciano": cab_marciano})
 PECAS["chapeu"]["gorro"] = chap_gorro
 # onde a cabeça (e o chapéu) encaixam em cada postura
 QUATRO_CABECA = {"casco": (10, 6), "malhado": (10, 6), "pata": (10, 8), "rasteiro": (11, 12), "casca": (11, 11), "sapo": (0, 9),

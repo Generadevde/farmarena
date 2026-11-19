@@ -2,7 +2,7 @@ extends CanvasLayer
 class_name BattleHud
 ## HUD 2.0 da batalha: fica PRESO NA TELA (CanvasLayer), não no mundo.
 ##   topo: nome do adversário · relógio
-##   embaixo: próxima carta · 3 cartas da mão · barra de recurso com número
+##   embaixo: próxima carta · cartas da mão (4, ou 3 na regra antiga) · barra de recurso com número
 ## Os nós mantêm os nomes antigos (ResourceBar, BattleTimerLabel,
 ## OpponentNameLabel, Button/Button2/Button3) porque a cena de batalha os
 ## procura por nome.
@@ -28,11 +28,13 @@ class BarTicks extends Control:
 			draw_line(Vector2(x, 3), Vector2(x, size.y - 3), Color(0.05, 0.12, 0.2, 0.55), 2.0)
 			v += 10.0
 
-const CARD_W = 178.0
+const CARD_W = 178.0          # carta da mão com 3 na mão
+const CARD_W_4 = 142.0        # com 4 na mão (cabe na tela de 720 junto com a "próxima")
 
 var _money_label: Label
 var _bar: ProgressBar
 var _next_view: CardView
+var _score: Label
 
 
 static func install(battle: Node) -> BattleHud:
@@ -92,6 +94,22 @@ func _ready():
 	timer.add_theme_constant_override("outline_size", 8)
 	top.add_child(timer)
 
+	# placar de torres derrubadas, logo abaixo do relógio: é ele que decide
+	# a partida quando o tempo acaba (quem derrubou mais, ganha)
+	_score = Label.new()
+	_score.name = "PlacarTorres"
+	_score.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_score.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_score.offset_right = -14
+	_score.offset_top = 56
+	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_score.add_theme_font_override("font", ThemeDB.fallback_font)
+	_score.add_theme_font_size_override("font_size", 22)
+	_score.add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
+	_score.add_theme_constant_override("outline_size", 6)
+	_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_score)
+
 	# ---------------- embaixo
 	var bottom = PanelContainer.new()
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -102,7 +120,9 @@ func _ready():
 	bottom.add_child(v)
 	var row = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
+	var hand_n = Regras.hand_size()
+	var card_w = CARD_W if hand_n <= 3 else CARD_W_4
+	row.add_theme_constant_override("separation", 10 if hand_n <= 3 else 7)
 	v.add_child(row)
 
 	var next_box = VBoxContainer.new()
@@ -113,17 +133,17 @@ func _ready():
 	nl.add_theme_font_size_override("font_size", 14)
 	nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	next_box.add_child(nl)
-	_next_view = CardView.make(null, 100)
+	_next_view = CardView.make(null, 100 if hand_n <= 3 else 84)
 	_next_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_next_view.show_level = false
 	next_box.add_child(_next_view)
 
-	var names = ["Button", "Button2", "Button3"]
-	for i in 3:
+	for i in hand_n:
 		var b = HAND_BUTTON.instantiate()
-		b.name = names[i]
+		b.name = "Button" if i == 0 else "Button%d" % (i + 1)
 		b.hand_index = i
-		b.custom_minimum_size = Vector2(CARD_W, CARD_W * 1.34 + CardView.FOOT * CARD_W / 132.0)
+		b.card_w = card_w
+		b.custom_minimum_size = Vector2(card_w, card_w * 1.34 + CardView.FOOT * card_w / 132.0)
 		row.add_child(b)
 
 	var res_row = HBoxContainer.new()
@@ -166,4 +186,11 @@ func _refresh_next():
 
 
 func _process(_delta):
+	var battle = get_parent()
+	if _score != null and battle != null and "towers_destroyed" in battle:
+		# torres que VOCÊ derrubou x torres que o bot derrubou
+		var mine = int(battle.towers_destroyed[GameManager.Team.ENEMY])
+		var bot = int(battle.towers_destroyed[GameManager.Team.PLAYER])
+		_score.text = "🏰 %d × %d" % [mine, bot]
+		_score.modulate = Color(0.6, 1.0, 0.6) if mine > bot else (Color(1.0, 0.6, 0.55) if bot > mine else Color.WHITE)
 	_money_label.text = str(int(GameManager.player_money))

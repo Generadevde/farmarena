@@ -217,6 +217,79 @@ O criador automático (Safra, `creator/card_generator.gd`) foi conferido com
   de verdade: acerta o vencedor em 93%, erra em média 4,6 pontos na % de
   vitórias e 4,5 pontos no dano em torre (`rodar.sh papel`).
 
+### Terceira leva (19/11, mais tarde) — 12 arenas, ataque na carta, 4 na mão, portão
+
+**"Coloca na carta se o ataque é aéreo, em área, tamanho da área, corpo a
+corpo. Deixa bem definido."** A carta ganhou o painel **🗡 Ataque** com quatro
+etiquetas: ELA (anda no chão / voa), DISTÂNCIA (corpo a corpo / de longe, com
+o número), FORMA (um alvo / área, com o tamanho) e ACERTA (chão, ar, os dois,
+só torre). Carta de área também troca a espadinha pelo ícone de área na
+miniatura.
+
+**"Em vez de 7 arenas arruma 12, cada uma com tema e as cartas dela, 12 cartas
+por arena. Liga o atualizador em todas."**
+
+- 12 arenas (`arenas/arena_manager.gd`), cada uma com cenário e tema: Pasto
+  Verde, Curral Velho, Terreiro, Milharal, Brejo, Vila da Feira, Praia da Maré,
+  Mata Fechada, Noite Estranha, Encruzilhada, Monte dos Mitos, Arena do Rodeio
+  (0 a 8000 troféus).
+- Toda carta foi pra arena do tema dela, e 2 turmas novas apareceram: **Mata**
+  (onça, saúvas, abelhas...) e **Mitos** (dragão, medusa, cérbero...).
+- São **144 cartas**: as 73 feitas à mão + 71 que o criador automático fez pra
+  completar 12 por arena (`Catalogo._build_arena_cards`, semente fixa: são
+  sempre as mesmas, em todo aparelho). Cada arena recebe papéis diferentes
+  (tanque, bando, matador, atirador, voador, controle...) pra não repetir.
+- Medido (`LAB_ARENAS=1 rodar.sh` → `ci/lab/safra.tscn`): as tropas geradas
+  ficam em média 1,0 ponto abaixo do normal pro preço (não tem carta de graça),
+  e nenhuma de custo menor que 50 derruba torre sozinha.
+- Safras novas (período 6926 em diante) sorteiam também Mata e Mitos, com os
+  bichos e cabeças novos dessas turmas; as safras anteriores não mudam.
+- **Não medido:** as 71 cartas geradas não passaram pelo duelo de verdade
+  contra todas as outras (a carta delas mostra "Força estimada"), e ninguém
+  jogou com elas.
+
+**"3 torres, uma na frente e duas atrás, o contrário do Clash. A da frente com
+menos vida. Quem derrubar mais ganha, não precisa derrubar todas; ninguém
+derrubou, empate ou ganha quem tem mais vida. E 4 cartas na mão."**
+
+- Regra `portao` (`Scripts/regras.gd`, liga/desliga em Configurações >
+  Laboratório): o **portão** fica no meio, a 196 do rio (as de trás a 380),
+  com 60% da vida de uma torre de trás, tiro 25% mais fraco e alcance 15%
+  menor. Como toda tropa anda pra torre mais perto, o portão é sempre o
+  primeiro alvo; depois que ele cai, cada rota vai na sua torre de trás.
+- Fim de partida (`batlhe_scene.time_up_loser`): 1º quem derrubou mais torres
+  (uma já basta); 2º quem tem mais vida sobrando somando as torres; igual de
+  verdade = empate. Derrubou as três, acaba na hora. O placar 🏰 fica embaixo
+  do relógio.
+- Regra `mao4`: 4 cartas na mão (baralho continua com 7), pro jogador e pro bot.
+- Medido entre bots iguais, mesmas cartas e nível (`rodar.sh lote` + `placar.py`):
+
+  | | 2 torres (24 partidas) | portão (48 partidas) |
+  |---|---|---|
+  | acabou sem NENHUMA torre cair | 15 (63%) | 3 (6%) |
+  | decidida no placar de torres | 4 | 35 (73%) |
+  | decidida só na vida | 15 | 9 |
+  | nocaute (todas as torres) | 5 | 3 |
+  | os dois lados perderam torre | 0 | 10 (21%) |
+  | 1ª torre cai (mediana) | 116 s | 101 s |
+  | viradas na vida, por partida | 0,38 | 0,33 |
+
+  Placares com portão: 1x0 em 29, 1x1 em 7, 2x0 em 5, 2x1 em 1, 3x0 em 1, 3x1
+  em 2, 0x0 em 3.
+- **O que isso diz:** com o portão quase toda partida tem torre caindo e é
+  decidida por torre, não por porcentagem de vida. **O que não melhorou:** 60%
+  acabam 1x0 e virada no placar é rara (3 em 48) — entre bots, quem derruba o
+  primeiro portão quase sempre leva. Portão com 45% ou 80% da vida não mudou
+  isso de forma que desse pra separar do acaso (24 partidas cada).
+- **Não medido:** partida de gente contra bot, e se 4 cartas na mão mudam a
+  partida (só foi conferido que funciona e cabe na tela).
+
+**"Não consigo abrir um baú sem abrir outro."** Bug: o baú que já tinha ficado
+PRONTO, mas ainda não tinha sido pego, continuava contando como "o baú que
+está abrindo" e travava a fila. Agora só trava quem está contando o tempo de
+verdade (`Progresso.unlocking_index`). A Chave também parou de escolher o baú
+pronto quando existe outro esperando.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro
@@ -229,14 +302,18 @@ O criador automático (Safra, `creator/card_generator.gd`) foi conferido com
   (20 → 38%), Abóboras (25 → 37%), Cavalo (35 → 56%).
 - Nível pesa 15% em vida E dano por nível (Clash ≈ 10%). O João achou que
   não é o principal.
-- Mão de 3 cartas e baralho de 7 (Clash: 4 e 8) — é do projeto original.
+- Baralho de 7 (Clash: 8). A mão passou pra 4 em 19/11.
 - Começa a partida com 5 de 100 de recurso (Clash começa com metade).
 - Bug antigo: popup do baú abre por cima da carta aberta.
 - Voadores dominam duelo (Mosquito, Abelha, Urubu, Boi da Cara Preta): tropa
   de chão sem tiro não encosta neles. É de propósito (no Clash também), mas
   vale olhar se enjoar.
 - Aves ainda dividem o mesmo corpo (pinto, galinha, galo, pato, coruja).
-- As 16 cartas novas e a info nova NÃO foram jogadas no celular: só medidas
-  aqui (duelos, torre, bateria de testes, fotos da tela).
+- As 16 cartas novas, a info nova, as 12 arenas com as 71 cartas geradas, o
+  portão e a mão de 4 NÃO foram jogados no celular: só medidos aqui (duelos,
+  torre, partidas entre bots, bateria de testes, fotos da tela).
+- O portão usa o mesmo desenho da torre, só menor. Um desenho próprio (uma
+  porteira) deixaria mais claro.
+- Replays gravados antes do portão não batem mais (o campo mudou).
 - Estimativa no papel não conta filhote que nasce na morte nem cura em área.
 - Som: cada tropa ainda usa os mesmos sons de golpe.

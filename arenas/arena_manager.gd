@@ -8,15 +8,22 @@ const SAVE_DIR = "user://profiles/"
 # vaga" de quem joga pouco -- não existe vaga, existe só o seu progresso
 const DEFAULT_ARENAS = [
 	{},  # índice 0 não existe, só de preenchimento
-	{"name": "Pasto Verde", "emoji": "🌱", "trophy_threshold": 0},
-	{"name": "Curral Velho", "emoji": "🐄", "trophy_threshold": 600},
-	{"name": "Milharal", "emoji": "🌽", "trophy_threshold": 1300},
-	{"name": "Brejo", "emoji": "🐸", "trophy_threshold": 2100},
-	{"name": "Vila da Feira", "emoji": "🎪", "trophy_threshold": 3000},
-	{"name": "Noite Estranha", "emoji": "🛸", "trophy_threshold": 4000},
-	{"name": "Arena do Rodeio", "emoji": "🏆", "trophy_threshold": 5000},
+	# 12 arenas (19/11; eram 7). Cada uma tem TEMA: o cenário, a turma das cartas
+	# que entram nos baús a partir dela (12 por arena) e o nome.
+	{"name": "Pasto Verde", "emoji": "🌱", "trophy_threshold": 0, "tema": "Começo da roça"},
+	{"name": "Curral Velho", "emoji": "🐄", "trophy_threshold": 500, "tema": "Curral"},
+	{"name": "Terreiro", "emoji": "🐔", "trophy_threshold": 1000, "tema": "Galinheiro"},
+	{"name": "Milharal", "emoji": "🌽", "trophy_threshold": 1600, "tema": "Roçado"},
+	{"name": "Brejo", "emoji": "🐸", "trophy_threshold": 2200, "tema": "Brejo"},
+	{"name": "Vila da Feira", "emoji": "🎪", "trophy_threshold": 2900, "tema": "Peões"},
+	{"name": "Praia da Maré", "emoji": "🌊", "trophy_threshold": 3600, "tema": "Mar"},
+	{"name": "Mata Fechada", "emoji": "🐆", "trophy_threshold": 4400, "tema": "Mata"},
+	{"name": "Noite Estranha", "emoji": "🛸", "trophy_threshold": 5200, "tema": "Coisa Estranha"},
+	{"name": "Encruzilhada", "emoji": "👻", "trophy_threshold": 6100, "tema": "Lendas"},
+	{"name": "Monte dos Mitos", "emoji": "⚡", "trophy_threshold": 7000, "tema": "Mitos"},
+	{"name": "Arena do Rodeio", "emoji": "🏆", "trophy_threshold": 8000, "tema": "Campeões"},
 ]
-const DEFAULT_MAX_ARENA = 7
+const DEFAULT_MAX_ARENA = 12
 
 # versão EDITÁVEL das arenas (o Criador de Arenas mexe aqui) -- começa igual
 # às padrões e o CustomContent aplica nome/emoji/troféu/recompensa/fundo

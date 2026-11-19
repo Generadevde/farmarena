@@ -7,7 +7,6 @@ extends Node
 ## partir do número do período (semente fixa). Só a lista de períodos é salva.
 
 const PERIOD_DAYS = 3
-const SAFRA_POWER = 16.5
 const SAVE_PATH = "user://safra.json"
 const MAX_PERIODS = 15           # guarda as últimas 15 safras (30 cartas)
 const MISSION_WINS = 3
@@ -90,7 +89,7 @@ func _build_period(p: int):
 	# força fixa: carta de safra antiga não muda quando o jogo ganha carta nova.
 	# (19/11: era 15 -- as de papel de apoio/controle saíam bem mais fracas que as
 	# oficiais do mesmo preço; conferido com ci/lab/safra.tscn)
-	CardGenerator.fixed_power = SAFRA_POWER
+	CardGenerator.fixed_power = CardGenerator.SAFRA_POWER
 	CardGenerator.new_themes = p >= CardGenerator.NEW_THEMES_FROM  # safra nova também sorteia Mar e Lendas
 	for n in 2:
 		var rng = RandomNumberGenerator.new()

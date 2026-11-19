@@ -979,14 +979,16 @@ func _show_settings():
 		p.add_child(slider)
 		value_label.text = "%d%%" % int(round(slider.value * 100)) if slider.value > 0.01 else "mudo"
 		slider.value_changed.connect(_on_volume.bind(str(spec[1]), value_label))
-	# LABORATÓRIO: as três mudanças da Batalha 2.5, pra ligar/desligar e sentir a diferença
+	# LABORATÓRIO: as mudanças da Batalha 2.5, pra ligar/desligar e sentir a diferença
 	var lab = _panel(v)
 	lab.add_child(_label("🧪 Laboratório da batalha", 18, ThemeBuilder.COLOR_GOLD))
 	lab.add_child(_wrap("Ligue e desligue pra comparar. Vale a partir da próxima partida.", 14, ThemeBuilder.COLOR_STAT_LABEL))
 	for spec in [
 			["torres", "🏰 Torres de verdade", "Toda torre atira, com mais vida, dano e alcance. Defender passa a valer a pena."],
 			["visual", "👀 Tropas grandes e cor de time", "Tropa maior, contorno azul (seu) ou vermelho (do bot), barra de vida só em quem apanhou. Cada bicho anda e bate do seu jeito."],
-			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."]]:
+			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."],
+			["mao4", "🃏 4 cartas na mão", "Em vez de 3. O baralho continua com 7: sobra menos carta escondida na fila."],
+			["portao", "🚪 Portão na frente (3 torres)", "Uma torre mais fraca no meio, na frente, e as duas de sempre atrás. Quem derrubar mais torres até o tempo acabar, ganha."]]:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		lab.add_child(line)

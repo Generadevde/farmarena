@@ -8,8 +8,8 @@
 #   GODOT=/caminho/godot ci/lab/rodar.sh papel nome              (o quanto a estimativa "no papel" acerta os duelos de verdade)
 #
 # PLANO_JSON = [[t, "P"|"E", "Nome da carta", x, y], ...]  (x,y a partir do meio do campo; y>0 = lado do jogador)
-# Regras antigas pra comparar:  REGRAS_OFF=torres,visual,peso  na frente do comando.
-# Ajuste fino sem recompilar:   REGRAS_TUNE="hp=1.3,dmg=2.0,range=80,basic=50"
+# Regras antigas pra comparar:  REGRAS_OFF=torres,visual,peso,mao4,portao  na frente do comando.
+# Ajuste fino sem recompilar:   REGRAS_TUNE="hp=1.3,dmg=2.0,range=80,basic=50,gatehp=0.6,gatedmg=0.75,gaterange=0.85"
 # Antes da primeira vez (ou depois de criar um arquivo com class_name): $GODOT --headless --import
 set -e
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -45,6 +45,7 @@ case "$modo" in
     export -f um; export GODOT OUT nome
     seq 1 "$n" | xargs -P 2 -I{} bash -c 'um {}'
     python3 "$REPO/ci/lab/resumo.py" "$OUT" "$nome"
+    python3 "$REPO/ci/lab/placar.py" "$OUT" "$nome"
     ;;
   solo)
     GODOT="$GODOT" python3 "$REPO/ci/lab/solo.py" "$OUT" "$nome"

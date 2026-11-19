@@ -8,9 +8,21 @@ func _ready():
 	var from = int(OS.get_environment("LAB_SAFRA_DE")) if OS.get_environment("LAB_SAFRA_DE") != "" else SafraTempo.current_period() + 1
 	var by_role := {}
 	var rows: Array = []
-	for p in range(from, from + n):
-		Safra._build_period(p)
-		for c in Safra._by_period.get(p, []):
+	var pool: Array = []
+	if OS.get_environment("LAB_ARENAS") != "":
+		# cartas de arena (as que o criador fez pra completar 12 por arena)
+		var per := {}
+		for c in Catalogo.cards():
+			per[Catalogo.arena_of(c)] = int(per.get(Catalogo.arena_of(c), 0)) + 1
+			if c.has_meta("arena_card"):
+				pool.append(c)
+		print("SAFRAARENAS cartas por arena: ", per, "  total ", Catalogo.cards().size())
+	else:
+		for p in range(from, from + n):
+			Safra._build_period(p)
+			pool.append_array(Safra._by_period.get(p, []))
+	for _i in 1:
+		for c in pool:
 			if c.is_spell():
 				continue
 			var st: UnitData = DeckBuilder.get_unit_stats(c)
@@ -27,7 +39,7 @@ func _ready():
 				by_role[role]["dif"] += float(e["v"]) - float(e["e"])
 			if int(e.get("t", 0)) >= 100 and c.cost < 50:
 				by_role[role]["kills"] += 1
-			rows.append("SAFRA %-26s %-13s %s custo %2d  vida %4d x%d  dano %3d/%.1f  vence %s (normal %s)  torre %s%%  %s" % [c.card_name.substr(0, 26), role, ["N", "R", "E", "L", "M"][Catalogo.rarity_of(c)], c.cost, st.hp, st.unit_count, st.damage, st.attack_speed,
+			rows.append("SAFRA A%-2d %-26s %-13s %s custo %2d  vida %4d x%d  dano %3d/%.1f  vence %s (normal %s)  torre %s%%  %s" % [Catalogo.arena_of(c), c.card_name.substr(0, 26), role, ["N", "R", "E", "L", "M"][Catalogo.rarity_of(c)], c.cost, st.hp, st.unit_count, st.damage, st.attack_speed,
 				str(e.get("v", "-")), str(e.get("e", "-")), str(e.get("t", "-")), c.get_nation_name()])
 	if OS.get_environment("LAB_QUIET") == "":
 		for r in rows:

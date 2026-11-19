@@ -16,8 +16,41 @@ class_name Regras
 ##   "visual"  tropas maiores, cor de time, barra de vida só em quem apanhou,
 ##             cada tipo de corpo andando e batendo do seu jeito
 ##   "peso"    1 s pra entrar em campo, preparo antes do golpe, impacto
+##   "mao4"    4 cartas na mão (era 3) -- o baralho continua com 7
+##   "portao"  3 torres por lado: o PORTÃO na frente (no meio, mais fraco) e as
+##             2 de sempre atrás. O contrário do Clash, que põe 2 na frente
 
-const KEYS = ["torres", "visual", "peso"]
+const KEYS = ["torres", "visual", "peso", "mao4", "portao"]
+
+# ---------------------------------------------------------------- mão e portão
+const HAND_OLD = 3
+const HAND_NEW = 4
+# o portão fica NA FRENTE e apanha primeiro: menos vida que uma torre de trás,
+# tiro mais fraco e alcance menor (ele segura o meio, não a ponte do lado)
+const GATE_HP_SHARE = 0.6
+const GATE_DAMAGE_SHARE = 0.75
+const GATE_RANGE_SHARE = 0.85
+const GATE_DY = 196.0               # distância do rio até o portão (as torres de trás ficam a 380)
+
+
+static func hand_size() -> int:
+	return HAND_NEW if on("mao4") else HAND_OLD
+
+
+static func three_towers() -> bool:
+	return on("portao")
+
+
+static func gate_hp_share() -> float:
+	return _t("gatehp", GATE_HP_SHARE)
+
+
+static func gate_damage_share() -> float:
+	return _t("gatedmg", GATE_DAMAGE_SHARE)
+
+
+static func gate_range_share() -> float:
+	return _t("gaterange", GATE_RANGE_SHARE)
 
 # ---------------------------------------------------------------- torres
 # Calibrado pelo Clash (torre nível 11: 3052 de vida, 109 de dano a cada
