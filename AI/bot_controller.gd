@@ -24,6 +24,8 @@ var hand: Array = []
 var queue: Array = []
 var lane_x: float = 360.0
 
+var _push_plan := PushPlan.new()
+var _push_followup := false
 var _production: Timer
 var _decision: Timer
 var _defense_accum := 0.0
@@ -105,7 +107,31 @@ func _decide():
 	var pool: Array[CardData] = []
 	for c in _affordable(reserve):
 		pool.append(c)
+	# Batalha 2.5: junta recurso e ataca em bloco (mesma regra do bot principal)
+	var push: Dictionary = {}
+	if Regras.on("torres"):
+		push = _push_plan.decide(battle._get_match_elapsed(), money, max_money, battle._entered_last_minute, profile, battle.get_tree(), team, _opponent_money())
+		if push.get("wait", false):
+			return
+		if push.get("chip", false):
+			var cheap: Array[CardData] = []
+			for c in pool:
+				if c.cost <= PushPlan.CHIP_MAX_COST and !c.is_spell():
+					cheap.append(c)
+			pool = cheap
+		elif push.get("go", false):
+			lane_x = float(push["lane_x"])
+			pool.clear()
+			for c in _affordable(_push_plan.reserve()):
+				pool.append(c)
+		if pool.is_empty():
+			return
+	var pushing = push.get("go", false)
 	var chosen: CardData = profile.choose_card(pool)
+	if push.get("first", false):
+		var leader = PushPlan.pick_leader(pool)
+		if leader != null:
+			chosen = leader
 	if chosen == null:
 		return
 	var pos = Vector2.INF
@@ -116,7 +142,28 @@ func _decide():
 	else:
 		var st = DeckBuilder.get_unit_stats(chosen)
 		pos = BattleBrain.offensive_position(chosen, st, team, battle.get_tree(), spawn_area, battle, lane_x)
+		if pushing and !push.get("first", false) and st != null and st.unit_type != UnitData.UnitType.BUILDING:
+			pos = PushPlan.support_position(battle.get_tree(), team, lane_x, spawn_area, battle, pos)
 	_play(chosen, pos)
+	if pushing:
+		_push_plan.played += 1
+	if pushing and !_push_followup:
+		_push_followup = true
+		get_tree().create_timer(1.1, false).timeout.connect(func():
+			_push_followup = false
+			if is_inside_tree():
+				_decide())
+
+
+## recurso do adversário, quando é um só (1 contra 1 de robôs); -1 = não sei
+func _opponent_money() -> int:
+	var foes: Array = []
+	for c in battle._extra_ai_controllers:
+		if is_instance_valid(c) and c != self and c.team != team:
+			foes.append(c)
+	if foes.size() == 1 and battle.ai_profile == null:
+		return int(foes[0].money)
+	return -1
 
 
 func _play(card: CardData, pos: Vector2):

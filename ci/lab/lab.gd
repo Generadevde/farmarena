@@ -168,7 +168,10 @@ func _finish(reason: String):
 	for l in _lives:
 		avg += l
 	avg = avg / _lives.size() if !_lives.is_empty() else 0.0
-	print("LABFIM %s dur=%.1f vidaP=%.2f vidaE=%.2f quedas=%s viradas=%d jogadasBot=%d unidades_mortas=%d vida_media_tropa=%.1fs" % [reason, t, _frac("player_base"), _frac("enemy_base"), str(_falls), _lead_changes, plays_e + plays_p, _lives.size(), avg])
+	var hp0: Array = []
+	for k in _init_hp:
+		hp0.append("%s%d" % ["P" if k.begins_with("player") else "E", int(_init_hp[k])])
+	print("LABFIM %s dur=%.1f vidaP=%.2f vidaE=%.2f quedas=%s viradas=%d jogadasBot=%d unidades_mortas=%d vida_media_tropa=%.1fs torres0=%s" % [reason, t, _frac("player_base"), _frac("enemy_base"), str(_falls), _lead_changes, plays_e + plays_p, _lives.size(), avg, str(hp0)])
 	get_tree().quit()
 
 

@@ -1914,10 +1914,42 @@ func _on_timer_timeout():
 		return
 
 	# 2) JOGADA PROATIVA -- personalidade do bot + vieses de combo/abertura
+	# Batalha 2.5: com a torre defendendo de verdade, carta solta sozinha não
+	# arranha nada. O bot JUNTA recurso e ataca em bloco numa rota (PushPlan).
+	var push: Dictionary = {}
+	if Regras.on("torres"):
+		push = _push_plan.decide(_get_match_elapsed(), GameManager.enemy_money, enemy_max_money, _entered_last_minute, ai_profile, get_tree(), GameManager.Team.ENEMY, int(GameManager.player_money) if !_is_2v2 else -1)
+		if push.get("wait", false):
+			return
+		if push.get("chip", false):
+			var cheap: Array[CardData] = []
+			for card in affordable:
+				if card.cost <= PushPlan.CHIP_MAX_COST and !card.is_spell():
+					cheap.append(card)
+			if cheap.is_empty():
+				return
+			affordable = cheap
+		elif push.get("go", false):
+			_ai_lane_x = float(push["lane_x"])
+			# no ataque em bloco vai quase tudo (sobra só um troco pra defender)
+			var in_push: Array[CardData] = []
+			for card in affordable_ignoring_reserve:
+				if GameManager.enemy_money - card.cost >= _push_plan.reserve():
+					in_push.append(card)
+			affordable = in_push
+			if affordable.is_empty():
+				return  # espera pingar mais recurso dentro da janela do ataque
+	var pushing = push.get("go", false)
+
 	var chosen: CardData = ai_profile.choose_card(affordable)
-	chosen = _apply_combo_bias(chosen, affordable)
-	chosen = _apply_opening_signature(chosen, affordable)
-	chosen = _apply_stalemate_impatience(chosen, affordable)
+	if push.get("first", false):
+		var leader = PushPlan.pick_leader(affordable)
+		if leader != null:
+			chosen = leader  # o ataque começa pelo tanque
+	elif !pushing:
+		chosen = _apply_combo_bias(chosen, affordable)
+		chosen = _apply_opening_signature(chosen, affordable)
+		chosen = _apply_stalemate_impatience(chosen, affordable)
 
 	if chosen == null:
 		return
@@ -1948,13 +1980,27 @@ func _on_timer_timeout():
 			target_pos = _get_building_placement(spawn_enemy_area, ai_profile.archetype)
 		else:
 			target_pos = BattleBrain.offensive_position(chosen, stats, GameManager.Team.ENEMY, get_tree(), spawn_enemy_area, self, _ai_lane_x)
-			if randf() < 0.15:
+			if pushing:
+				if !push.get("first", false):
+					# apoio entra logo atrás do tanque, não na frente dele
+					target_pos = PushPlan.support_position(get_tree(), GameManager.Team.ENEMY, _ai_lane_x, spawn_enemy_area, self, target_pos)
+			elif randf() < 0.15:
 				_pick_ai_lane()  # de vez em quando muda de rota
 
 	_ai_play_card(chosen, target_pos)
+	if pushing:
+		_push_plan.played += 1
+		if !_push_followup:
+			# no ataque em bloco a próxima carta vem logo (não espera o ritmo normal do bot)
+			_push_followup = true
+			get_tree().create_timer(1.1, false).timeout.connect(func():
+				_push_followup = false
+				_on_timer_timeout())
 
 
 var _ai_lane_x: float = 360.0
+var _push_plan := PushPlan.new()
+var _push_followup := false
 
 # ---------------------------------------------------------------- 2v2
 const TWO_V_TWO_BASE_HP_MULT = 1.6  # 2 atacando a mesma base -- mais vida pra partida não acabar em 1 minuto

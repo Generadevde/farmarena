@@ -987,13 +987,20 @@ func _show_settings():
 			["torres", "🏰 Torres de verdade", "Toda torre atira, com mais vida, dano e alcance. Defender passa a valer a pena."],
 			["visual", "👀 Tropas grandes e cor de time", "Tropa maior, contorno azul (seu) ou vermelho (do bot), barra de vida só em quem apanhou."],
 			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."]]:
-		var cb = CheckButton.new()
-		cb.text = str(spec[1])
-		cb.button_pressed = Regras.on(str(spec[0]))
-		cb.add_theme_font_size_override("font_size", 18)
-		cb.custom_minimum_size.y = 52
-		cb.toggled.connect(_on_rule_toggled.bind(str(spec[0])))
-		lab.add_child(cb)
+		var line = HBoxContainer.new()
+		line.add_theme_constant_override("separation", 8)
+		lab.add_child(line)
+		var rule_name = _wrap(str(spec[1]), 18)
+		line.add_child(rule_name)
+		# botão que DIZ o estado (a chavinha padrão não deixava claro se estava ligada)
+		var tb = Button.new()
+		tb.toggle_mode = true
+		tb.button_pressed = Regras.on(str(spec[0]))
+		tb.custom_minimum_size = Vector2(170, 52)
+		tb.add_theme_font_size_override("font_size", 17)
+		_paint_rule_button(tb)
+		tb.toggled.connect(_on_rule_toggled.bind(str(spec[0]), tb))
+		line.add_child(tb)
 		var hint = _wrap(str(spec[2]), 13, ThemeBuilder.COLOR_STAT_LABEL)
 		hint.add_theme_font_override("font", ThemeDB.fallback_font)
 		lab.add_child(hint)
@@ -1016,10 +1023,15 @@ func _on_volume(value: float, key: String, value_label: Label):
 		Sfx.play("carta")
 
 
-func _on_rule_toggled(pressed: bool, key: String):
+func _paint_rule_button(tb: Button):
+	tb.text = "✔ LIGADO" if tb.button_pressed else "DESLIGADO"
+	tb.modulate = Color(0.65, 1.0, 0.65) if tb.button_pressed else Color(0.8, 0.75, 0.7)
+
+
+func _on_rule_toggled(pressed: bool, key: String, tb: Button):
 	Regras.set_on(key, pressed)
 	Config.save()
-	Sfx.play("carta")
+	_paint_rule_button(tb)
 	_queue_refresh()
 
 
@@ -1259,7 +1271,7 @@ func _build_torres(box: Node):
 		var brar = Catalogo.base_rarity(b)
 		var bab = Catalogo.base_ability(b)
 		side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[brar], "Habilidade: " + str(bab[0]) if !bab.is_empty() else "sem habilidade"], 15, Catalogo.RARITY_COLORS[brar]))
-		side.add_child(_label(_base_summary(b), 15, Color(0.8, 0.95, 1.0)))
+		side.add_child(_wrap(_base_summary(b), 15, Color(0.8, 0.95, 1.0)))
 		for t in b.pros:
 			side.add_child(_wrap("✔ " + Regras.tower_pro_text(t), 15, Color(0.6, 1.0, 0.6)))
 		for t in b.cons:

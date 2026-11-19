@@ -32,12 +32,11 @@ vira a mesma coisa: um saco de dano.
 |---|---|---|
 | Duração (mediana, de 300 s) | 74 s | 300 s |
 | Acabaram em menos de 1 min | 18 de 60 | 0 de 60 |
-| Acabaram em menos de 2 min | 39 de 60 | 4 de 60 |
-| Nocaute (as 2 torres) | 57 de 60 | 28 de 60 |
-| Decididas na vida das torres, no fim do tempo | 3 de 60 | 32 de 60 |
-
-Ressalva: bot contra bot continua sendo jogo de um lado só na maioria das
-vezes (um ataca, o outro só defende) — isso é do jeito dos bots, não mudou.
+| Acabaram em menos de 2 min | 39 de 60 | 6 de 60 |
+| Nocaute (as 2 torres) | 57 de 60 | 23 de 60 |
+| Decididas na vida das torres, no fim do tempo | 3 de 60 | 37 de 60 |
+| Vencedor sem levar um arranhão | 38 de 60 | 15 de 60 |
+| Os dois lados saíram feridos | 19 de 60 | 32 de 60 |
 
 ### Cada carta sozinha contra uma torre (quanto ela tira)
 
@@ -74,6 +73,15 @@ dá pra desligar uma por uma e comparar):
    intervalo entre golpes é o mesmo), pisca branco e amassa ao apanhar,
    some com um "fantasma" em vez de corte seco, tela treme em pancada forte.
 
+4. **Bot que ataca em bloco** (`AI/push_plan.gd`, vale junto com a chave das
+   torres) — com a torre defendendo, o bot que soltava carta sozinha não
+   arranhava mais nada (15 de 16 partidas com as torres do jogador intactas).
+   Agora ele junta recurso e ataca numa rota só: tanque na frente, apoio logo
+   atrás. Conta o seu recurso (gastou tudo? ele vem), aproveita a tropa que
+   sobrou da defesa pra contra-atacar e guarda um troco pra não ficar pelado.
+   Contra um "jogador de mentira" que defende tudo: o dano nas torres do
+   jogador dobrou (12% → 24% por partida) e o bot passou a ganhar 1 em cada 3.
+
 De quebra: explosão conta até a borda do alvo (com os corpos maiores a
 abóbora-bomba errava), e o avanço estilo Bandida não é mais gasto enquanto a
 tropa ainda está entrando em campo.
@@ -93,7 +101,8 @@ torre continua defendendo.
 
 ## Ficou pra depois (não mexido)
 
-- Partidas agora costumam ir até o fim dos 5 min. Se cansar, dá pra encurtar.
+- Partidas agora costumam ir até o fim dos 5 min (37 de 60 entre bots). Se
+  cansar, dá pra encurtar o relógio.
 - Cartas que sozinhas ainda rendem demais pro custo: Assombração (20 → 38%),
   Abóboras (25 → 41%), Bezerrada (25 → 44%), Cavalo (35 → 56%).
 - Nível pesa 15% em vida E dano por nível (Clash ≈ 10%). O João achou que
