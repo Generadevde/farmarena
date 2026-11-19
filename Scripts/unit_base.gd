@@ -221,7 +221,11 @@ var _is_air_visual := false
 
 # IDENTIDADE: cada tipo de corpo anda e bate do seu jeito (antes todo mundo
 # dava o mesmo pulinho e o mesmo bote -- era isso que deixava tudo "igual")
-enum Gait { MARCHA, TROTE, GALOPE, CORRIDINHA, CISCA, PULO, RASTEJA, FLUTUA, RODA, PISADA, VOO, ZUMBE, DISCO }
+enum Gait { MARCHA, TROTE, GALOPE, CORRIDINHA, CISCA, PULO, RASTEJA, FLUTUA, RODA, PISADA, VOO, ZUMBE, DISCO, FORMIGA, ONDULA }
+# famílias de corpo (peças "quatro" do SpriteForge)
+const BODY_HOOF = ["casco", "malhado", "cavalo", "bezerro", "vaca", "bode", "jegue", "montado"]
+const BODY_PAW = ["pata", "cachorro", "capivara", "porco", "gato", "onca", "cerbero"]
+const BODY_CRAWL = ["rasteiro", "casca", "cobra", "caranguejo"]
 enum Hit { BOTE, PANCADA, ESTOCADA, GIRO, CABECADA, BICADA, TIRO }
 var _gait: int = Gait.MARCHA
 var _hit_style: int = Hit.BOTE
@@ -247,16 +251,22 @@ func _pick_gait() -> int:
 			return Gait.ZUMBE
 		return Gait.VOO
 	var q = str(r.get("quatro", ""))
-	if q == "sapo":
+	if q == "sapo" or legs == "saci":
 		return Gait.PULO
-	if q == "rasteiro" or q == "casca":
+	if q in BODY_CRAWL:
 		return Gait.RASTEJA
-	if q == "casco" or q == "malhado":
+	if q == "formiga":
+		return Gait.FORMIGA
+	if q in BODY_HOOF:
 		if stats.move_speed >= 70.0:
 			return Gait.GALOPE
 		return Gait.PISADA if stats.unit_scale >= 1.4 else Gait.TROTE
-	if q == "pata":
-		return Gait.CORRIDINHA
+	if q in BODY_PAW:
+		return Gait.GALOPE if stats.move_speed >= 90.0 else Gait.CORRIDINHA
+	if q == "mapinguari" or q == "tripe":
+		return Gait.PISADA
+	if q == "polvo":
+		return Gait.ONDULA
 	if str(r.get("objeto", "")) != "" or legs == "rodas":
 		return Gait.RODA
 	if legs == "fantasma":
@@ -276,7 +286,10 @@ func _pick_hit_style() -> int:
 		return Hit.GIRO
 	if stats.is_aoe or (stats.attack_speed >= 1.8 and stats.damage >= 150):
 		return Hit.PANCADA
-	if str(r.get("quatro", "")) in ["casco", "malhado", "pata"]:
+	var q = str(r.get("quatro", ""))
+	if q == "montado":
+		return Hit.ESTOCADA if !stats.charge_attack else Hit.CABECADA   # lança em riste
+	if q in BODY_HOOF or q in BODY_PAW or q in BODY_CRAWL:
 		return Hit.CABECADA
 	if str(r.get("pernas", "")) == "ave":
 		return Hit.BICADA
@@ -420,7 +433,7 @@ func _begin_deploy(seconds: float):
 
 const SPAWN_LINES = {
 	"Curral": ["Muuu!", "Sai da frente!", "Ô boi!"], "Galinheiro": ["Có có!", "Piu!", "Cocoricó!"], "Brejo": ["Croac.", "Tô de boa.", "Blub."],
-	"Roçado": ["Tá na hora da colheita!", "Uai!", "Pipoca!"], "Peões": ["Ô trem bão!", "Bão?", "Simbora!", "Eita!"], "Coisa Estranha": ["Bip bop.", "Buuu!", "Zzzt!", "Viemos em paz."],
+	"Roçado": ["Tá na hora da colheita!", "Uai!", "Pipoca!"], "Peões": ["Ô trem bão!", "Bão?", "Simbora!", "Eita!"], "Coisa Estranha": ["Bip bop.", "Buuu!", "Zzzt!", "Viemos em paz."], "Mar": ["Glub!", "Maré cheia!", "Splash!"], "Lendas": ["Uuuuh...", "É lenda!", "Reza brava!"],
 }
 const DEATH_LINES = ["Uai...", "Avisa a mãe.", "Fui!", "Ai.", "Nem doeu.", "Volto já."]
 
@@ -582,6 +595,13 @@ func _walk_anim(delta: float, moving: bool) -> Array:
 		Gait.RASTEJA:    # jacaré, tatu: rente ao chão, gingando de lado
 			pos.x = sin(_anim_t * 7.0) * 1.7 * vs
 			rot = sin(_anim_t * 7.0) * 0.07
+		Gait.ONDULA:     # polvo: se arrasta inchando e murchando
+			var o = sin(_anim_t * 6.0)
+			pos.y = -maxf(o, 0.0) * 2.0 * vs
+			sq = Vector2(1.0 + 0.09 * o, 1.0 - 0.09 * o)
+		Gait.FORMIGA:    # formiga: corre rente ao chão num tremidinho ligeiro
+			pos = Vector2(sin(_anim_t * 31.0) * 0.8, -absf(sin(_anim_t * 19.0)) * 0.9) * vs
+			rot = sin(_anim_t * 19.0) * 0.09
 		Gait.RODA:       # trator, robô: não pula -- treme com o motor
 			pos = Vector2(sin(_anim_t * 41.0) * 0.5, sin(_anim_t * 53.0) * 0.7) * vs
 			rot = sin(_anim_t * 37.0) * 0.012
@@ -2257,8 +2277,7 @@ func _apply_card_level_to_stats(new_unit):
 	# duplica o resource antes de alterar, pra não afetar as OUTRAS unidades
 	# desse mesmo tipo que compartilham o .tres original
 	new_unit.stats = new_unit.stats.duplicate()
-	new_unit.stats.hp = round(new_unit.stats.hp * mult)
-	new_unit.stats.damage = round(new_unit.stats.damage * mult)
+	Regras.apply_level(new_unit.stats, mult)
 
 
 ## troca de lado de verdade: time, camadas de colisão, alvo e torre inimiga

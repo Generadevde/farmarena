@@ -1248,12 +1248,552 @@ def quatro_casca():
     return fin(cv)
 
 
+# ---- corpo próprio por bicho (19/11): cavalo e bezerro usavam o MESMO corpo
+# e continuavam parecidos. Agora cada um tem a sua silhueta.
+def _quad(cx, cy, rx, ry, leg_h, back_x, front_x, leg_w=4, hoof=True, far_dx=5):
+    """tronco deitado + 4 pernas. Devolve o canvas SEM contorno (pra enfeitar antes)."""
+    cv = new()
+    top = FEET_Y + 1 - leg_h
+    for x in (back_x + far_dx, front_x + far_dx):     # pernas de trás (escuras)
+        cv.rect(x, top, leg_w - 1, leg_h - (2 if hoof else 0), C("P", 2))
+        if hoof:
+            cv.rect(x, FEET_Y - 1, leg_w - 1, 2, C("M", 2))
+    cv.ellipse(cx, cy, rx, ry, "P")
+    return cv, top
+
+
+def _front_legs(cv, top, leg_h, back_x, front_x, leg_w=4, hoof=True):
+    for x in (back_x, front_x):
+        cv.blob_rect(x, top, leg_w, leg_h - (2 if hoof else 0), "P", 1)
+        if hoof:
+            cv.rect(x, FEET_Y - 1, leg_w, 2, C("M", 2))
+            cv.rect(x, FEET_Y - 1, 2, 1, C("M", 1))
+
+
+def quatro_cavalo():
+    """alto e esguio: perna comprida, pescoço erguido, crina e rabo longo"""
+    cv, top = _quad(19, 28, 12, 6, 12, 8, 23, far_dx=4)
+    for i in range(9):                               # rabo comprido caindo
+        cv.rect(4 - (1 if i > 5 else 0), 25 + i, 3, 1, C("S", 1 if i % 3 else 0))
+    cv.rect(5, 24, 3, 2, C("S", 1))
+    for i in range(7):                               # pescoço subindo pra cabeça
+        cv.rect(24 + i // 2, 24 - i, 7, 1, C("P", 1 if i < 5 else 0))
+    for i in range(8):                               # crina
+        cv.rect(23 + i // 2, 23 - i, 2, 1, C("S", 1))
+    cv.ellipse(19, 31, 7, 2.5, "K")
+    _front_legs(cv, top, 12, 8, 23)
+    return fin(cv)
+
+
+def quatro_bezerro():
+    """pequeno e atarracado: corpo curto, perninha grossa, meia branca"""
+    cv, top = _quad(21, 34, 9.5, 6.5, 7, 13, 23, leg_w=5, far_dx=4)
+    cv.rect(10, 30, 2, 5, C("P", 2))                  # rabinho
+    cv.rect(10, 35, 2, 2, C("S", 0))
+    cv.ellipse(20, 37, 6, 2.5, "S")                   # barriga branca
+    _front_legs(cv, top, 7, 13, 23, leg_w=5)
+    for x in (13, 23):                               # meias brancas
+        cv.rect(x, FEET_Y - 4, 5, 2, C("S", 0))
+    return fin(cv)
+
+
+def quatro_vaca():
+    """parruda: tronco grande, úbere, perna curta e grossa, malhada"""
+    cv, top = _quad(19, 30, 14, 9, 8, 8, 24, leg_w=5, far_dx=5)
+    cv.line(5, 25, 3, 30, C("P", 2))                  # rabo
+    cv.line(3, 30, 3, 35, C("P", 2))
+    cv.rect(2, 36, 3, 3, C("S", 1))
+    cv.ellipse(15, 39, 4, 2.5, "K")                   # úbere
+    cv.put(13, 41, C("K", 2)); cv.put(16, 41, C("K", 2))
+    body = [c[:3] for c in (C("P", 0), C("P", 1), C("P", 2))]
+    for x, y, w, h in ((7, 24, 7, 6), (17, 27, 6, 5), (11, 33, 5, 3), (24, 22, 5, 4), (22, 34, 4, 3)):
+        for yy in range(y, y + h):
+            for xx in range(x, x + w):
+                if (xx, yy) in ((x, y), (x + w - 1, y + h - 1), (x + w - 1, y), (x, y + h - 1)):
+                    continue
+                if cv.get(xx, yy)[3] and cv.get(xx, yy)[:3] in body:
+                    cv.put(xx, yy, C("S", 1))
+    _front_legs(cv, top, 8, 8, 24, leg_w=5)
+    return fin(cv)
+
+
+def quatro_bode():
+    """compacto e peludo: franja na barriga, rabinho em pé, perna fina"""
+    cv, top = _quad(21, 32, 10.5, 6.5, 9, 13, 24, leg_w=3, far_dx=4)
+    cv.rect(9, 25, 3, 4, C("P", 0))                   # rabo em pé
+    cv.put(10, 24, C("P", 0))
+    for x in range(13, 30, 2):                       # franja de pelo
+        cv.rect(x, 37, 1, 3, C("S", 1))
+        cv.rect(x + 1, 37, 1, 2, C("S", 0))
+    _front_legs(cv, top, 9, 13, 24, leg_w=3)
+    return fin(cv)
+
+
+def quatro_jegue():
+    """jegue: lombo reto com listra escura, rabo fino de tufo, perna média"""
+    cv, top = _quad(19, 31, 12.5, 7, 9, 9, 23, far_dx=4)
+    cv.line(6, 27, 4, 33, C("P", 2))
+    cv.rect(3, 34, 3, 4, C("W", 2))
+    cv.rect(9, 24, 19, 2, C("W", 2))                  # listra do lombo
+    cv.rect(15, 26, 2, 6, C("W", 2))                  # a "cruz" do jegue
+    cv.ellipse(19, 35, 7.5, 2.8, "K")
+    _front_legs(cv, top, 9, 9, 23)
+    return fin(cv)
+
+
+def quatro_cachorro():
+    """vira-lata: magro, barriga encolhida, rabo fino enrolado pra cima"""
+    cv, top = _quad(20, 33, 11, 5.5, 9, 10, 24, leg_w=3, hoof=False, far_dx=3)
+    for (x, y) in ((8, 29), (7, 28), (6, 27), (6, 26), (6, 25), (7, 24), (8, 24), (9, 25)):   # rabo em gancho
+        cv.put(x, y, C("P", 1)); cv.put(x + 1, y, C("P", 2))
+    cv.ellipse(23, 36, 4, 2, "K")                     # peito claro
+    for x in (15, 16, 17, 18):                       # barriga encolhida (some um pedaço)
+        cv.put(x, 38, (0, 0, 0, 0))
+    _front_legs(cv, top, 9, 10, 24, leg_w=3, hoof=False)
+    for x in (10, 24):
+        cv.rect(x, FEET_Y - 1, 4, 2, C("K", 1))       # patinha clara
+    return fin(cv)
+
+
+def quatro_capivara():
+    """capivara: barril sem rabo, traseiro alto, perninha curtíssima"""
+    cv, top = _quad(19, 33, 13, 8.5, 5, 9, 24, leg_w=5, hoof=False, far_dx=5)
+    cv.ellipse(11, 31, 6, 7.5, "P")                   # traseiro redondão
+    cv.ellipse(20, 38, 8, 2.5, "K")
+    _front_legs(cv, top, 5, 9, 24, leg_w=5, hoof=False)
+    for x in (9, 24):
+        cv.rect(x, FEET_Y, 5, 1, C("P", 2))
+    return fin(cv)
+
+
+def quatro_porco():
+    """porco: bola gorda, rabinho enrolado, casquinho"""
+    cv, top = _quad(20, 32, 12.5, 9.5, 5, 10, 24, leg_w=4, far_dx=5)
+    for (x, y) in ((6, 28), (5, 27), (5, 26), (6, 25), (7, 26)):      # rabo saca-rolha
+        cv.put(x, y, C("K", 2))
+    cv.ellipse(20, 38, 8, 3, "K")
+    _front_legs(cv, top, 5, 10, 24, leg_w=4)
+    return fin(cv)
+
+
+def quatro_gato():
+    """gato: esguio, costas arqueadas, rabo comprido em S"""
+    cv, top = _quad(21, 33, 10, 5, 9, 12, 24, leg_w=3, hoof=False, far_dx=3)
+    cv.ellipse(18, 29, 6, 3, "P")                     # costas arqueadas
+    for (x, y) in ((10, 31), (8, 30), (6, 28), (5, 25), (5, 22), (6, 20), (8, 19), (9, 20)):   # rabo em S
+        cv.rect(x, y, 2, 3, C("P", 1))
+    cv.rect(8, 19, 3, 2, C("S", 1))                   # ponta do rabo
+    _front_legs(cv, top, 9, 12, 24, leg_w=3, hoof=False)
+    return fin(cv)
+
+
+# ---- BICHARADA NOVA (19/11): tipos bem separados, como cavaleiro x goblin no Clash
+FIRE_O = (240, 96, 32, 255)     # fogo: cores fixas (não mudam com a paleta)
+FIRE_M = (250, 170, 40, 255)
+FIRE_I = (255, 236, 130, 255)
+
+
+def _flame(cv, cx, base_y, h, w):
+    """labareda: três línguas, laranja por fora e amarela por dentro"""
+    for i in range(h):
+        t = i / max(h - 1, 1)
+        half = int(round(w * (1.0 - t) ** 0.8))
+        wob = (1 if (i // 2) % 2 == 0 else -1) if i > 1 else 0
+        for x in range(cx - half + wob, cx + half + 1 + wob):
+            d = abs(x - cx - wob) / max(half, 1)
+            cv.put(x, base_y - i, FIRE_I if d < 0.35 and t < 0.6 else (FIRE_M if d < 0.7 else FIRE_O))
+
+
+def quatro_formiga():
+    """saúva: três gomos, seis perninhas, antenas. Corpo inteiro (não leva cabeça)."""
+    cv = new()
+    for x0, x1 in ((16, 12), (20, 19), (24, 27), (17, 15), (21, 22), (25, 30)):    # pernas
+        cv.line(x0, 38, x1, 44, C("M", 2))
+    cv.ellipse(12, 34, 7, 6, "P")                     # traseiro
+    cv.ellipse(22, 36, 4.5, 3.5, "P")                 # meio
+    cv.ellipse(32, 32, 6.5, 6, "P")                   # cabeça
+    cv.line(34, 27, 38, 21, C("M", 2)); cv.put(39, 21, C("M", 2))    # antenas
+    cv.line(31, 27, 33, 20, C("M", 2)); cv.put(34, 20, C("M", 2))
+    cv.rect(37, 34, 3, 2, C("M", 2))                  # ferrão da boca
+    cv.rect(38, 36, 3, 1, C("M", 2))
+    cv.rect(33, 30, 3, 3, EYE_W); cv.rect(34, 30, 2, 2, PUPIL)
+    cv.rect(9, 31, 3, 1, C("P", 0))                   # brilho
+    return fin(cv)
+
+
+def quatro_montado():
+    """vaqueiro a cavalo: o cavalo de lado e o corpo do cavaleiro; a cabeça do
+    cavaleiro é a peça de cabeça normal (encaixada em cima). Lança apontada."""
+    cv = new()
+    for x in (13, 27):                               # pernas de trás do cavalo
+        cv.rect(x, 36, 3, 7, C("P", 2))
+        cv.rect(x, 43, 3, 2, C("M", 2))
+    for i in range(8):                               # rabo
+        cv.rect(2, 30 + i, 3, 1, C("W", 2))
+    cv.ellipse(18, 32, 13, 6.5, "P")                  # tronco do cavalo
+    for i in range(6):                               # pescoço
+        cv.rect(27 + i // 2, 30 - i, 7, 1, C("P", 1))
+    cv.blob_rect(33, 21, 12, 8, "P", 2)               # cabeça do cavalo (de lado)
+    cv.blob_rect(40, 26, 7, 6, "K", 2)                # focinho
+    cv.put(45, 29, PUPIL)
+    cv.rect(37, 23, 2, 2, EYE_W); cv.put(38, 24, PUPIL)
+    cv.rect(33, 18, 2, 4, C("P", 2))                  # orelha
+    for i in range(7):                               # crina
+        cv.rect(29 + i // 2, 28 - i, 2, 1, C("W", 2))
+    for x in (8, 23):                                # pernas da frente
+        cv.blob_rect(x, 36, 4, 7, "P", 1)
+        cv.rect(x, 43, 4, 2, C("M", 2))
+    cv.blob_rect(13, 24, 9, 6, "A", 2)                # sela / manta
+    cv.blob_rect(12, 17, 10, 9, "S", 2)               # tronco do cavaleiro
+    cv.blob_rect(14, 28, 4, 8, "A", 1)                # perna do cavaleiro
+    cv.rect(13, 35, 6, 2, C("W", 2))                  # bota
+    cv.blob_rect(20, 20, 6, 4, "K", 1)                # mão segurando a lança
+    cv.line(10, 30, 45, 12, C("W", 1))                # lança
+    cv.line(10, 31, 45, 13, C("W", 2))
+    cv.rect(44, 9, 3, 4, C("M", 0)); cv.put(46, 8, C("M", 0))
+    return fin(cv)
+
+
+def pernas_saci():
+    """uma perna só"""
+    cv = new()
+    cv.blob_rect(21, 38, 6, 5, "K", 1)
+    cv.rect(20, 43, 9, 2, C("K", 2))
+    cv.rect(20, 43, 4, 1, C("K", 1))
+    return fin(cv)
+
+
+def corpo_saci():
+    """sem camisa, de calção vermelho"""
+    cv = new()
+    cv.ellipse(24, 32, 8.5, 7.5, "K")
+    cv.blob_rect(16, 34, 17, 6, "A", 2)               # calção
+    cv.rect(16, 34, 17, 1, C("A", 0))
+    return fin(cv)
+
+
+def cab_saci():
+    cv = _cabeca_base(slot="K", rx=10, ry=9.5)
+    cv.rect(18, 21, 12, 3, EYE_W)                      # sorrisão
+    cv.rect(18, 24, 12, 1, OUT)
+    for x in (21, 24, 27):
+        cv.put(x, 22, OUT)
+    cv.rect(29, 22, 8, 2, C("W", 1))                   # cachimbo
+    cv.rect(35, 19, 3, 4, C("W", 2))
+    cv.put(36, 17, (220, 220, 220, 200)); cv.put(37, 15, (220, 220, 220, 150))   # fumacinha
+    _olhos(cv, 13, 5, 3)
+    cv.rect(17, 11, 4, 1, OUT); cv.rect(27, 11, 4, 1, OUT)     # sobrancelha de moleque
+    return fin(cv)
+
+
+def chap_gorro():
+    """carapuça vermelha do saci, caída pro lado"""
+    cv = new()
+    cv.ellipse(24, 8, 10.5, 5, "A")
+    for i in range(8):
+        cv.rect(29 + i, 3 + i, 5 - i // 3, 2, C("A", 1 if i < 5 else 2))
+    cv.ellipse(38, 12, 2.5, 2.5, "A")
+    cv.rect(13, 10, 22, 2, C("A", 2))
+    return fin(cv)
+
+
+def quatro_mapinguari():
+    """gigante peludo da mata: um olho só e a boca na barriga. Corpo inteiro."""
+    cv = new()
+    for x in (14, 28):                               # pés
+        cv.blob_rect(x, 40, 7, 5, "P", 2)
+        for k in range(3):
+            cv.put(x + 1 + k * 2, 44, C("M", 0))
+    for side in (-1, 1):                             # braços compridos com garra
+        ax = 24 + side * 16
+        cv.blob_rect(ax - 3, 18, 6, 20, "P", 2)
+        for k in (-2, 0, 2):
+            cv.rect(ax + k, 38, 1, 3, C("M", 0))
+    cv.ellipse(24, 25, 14, 17, "P")                   # corpão
+    for (x, y) in ((13, 14), (17, 9), (31, 9), (35, 15), (11, 26), (36, 27), (15, 36), (33, 36), (20, 12), (28, 20), (18, 22)):
+        cv.rect(x, y, 1, 3, C("P", 2))                # tufos de pelo
+        cv.put(x + 1, y + 1, C("P", 0))
+    cv.ellipse(24, 12, 5, 4.5, "K")                   # olhão
+    cv.rect(22, 10, 5, 5, EYE_W); cv.rect(23, 11, 3, 3, PUPIL); cv.put(23, 11, SHINE)
+    cv.rect(18, 7, 12, 1, OUT)                        # sobrancelha brava
+    cv.blob_rect(14, 26, 21, 10, "A", 3)              # bocarra na barriga
+    cv.rect(16, 28, 17, 6, (60, 16, 24, 255))
+    for x in range(16, 33, 3):                        # dentes
+        cv.rect(x, 28, 2, 2, EYE_W); cv.rect(x + 1, 32, 2, 2, EYE_W)
+    return fin(cv)
+
+
+def cab_chama():
+    """a mula não tem cabeça: no lugar, fogo"""
+    cv = new()
+    _flame(cv, 23, 27, 22, 8)
+    _flame(cv, 17, 26, 13, 4)
+    _flame(cv, 29, 26, 15, 4)
+    return fin(cv)
+
+
+def quatro_cobra():
+    """boitatá: cobrona de fogo, corpo em onda, cabeça erguida. Corpo inteiro."""
+    cv = new()
+    pts = [(3, 41), (7, 38), (11, 36), (15, 38), (19, 41), (23, 40), (27, 36), (30, 31), (32, 26), (34, 21)]
+    for i, (x, y) in enumerate(pts):                  # corpo em gomos
+        r = 3.2 + min(i, 5) * 0.35
+        cv.ellipse(x, y, r, r, "P")
+    for i, (x, y) in enumerate(pts[1:-1]):            # losangos nas costas
+        if i % 2 == 0:
+            cv.put(x, y - 1, C("S", 1)); cv.put(x - 1, y, C("S", 1)); cv.put(x + 1, y, C("S", 1))
+    for (x, y) in ((9, 33), (17, 35), (25, 33)):      # fogo nas costas
+        _flame(cv, x, y, 6, 2)
+    cv.ellipse(37, 17, 7, 5.5, "P")                   # cabeça
+    cv.ellipse(38, 20, 5, 2.5, "K")                   # papo claro
+    cv.rect(36, 13, 3, 3, FIRE_I); cv.rect(37, 13, 1, 3, PUPIL)       # olho de brasa
+    cv.rect(44, 18, 3, 1, FIRE_O); cv.put(47, 17, FIRE_O); cv.put(47, 19, FIRE_O)   # língua
+    return fin(cv)
+
+
+def cab_onca():
+    cv = cab_gato()
+    fur = [c[:3] for c in (C("P", 0), C("P", 1), C("P", 2))]
+    for (x, y) in ((17, 9), (22, 7), (27, 8), (31, 10), (15, 15), (33, 16), (19, 21), (29, 22), (24, 11)):
+        if cv.get(x, y)[3] and cv.get(x, y)[:3] in fur:
+            cv.put(x, y, C("S", 1))
+            if cv.get(x + 1, y)[3] and cv.get(x + 1, y)[:3] in fur:
+                cv.put(x + 1, y, C("S", 1))
+    return cv
+
+
+def quatro_onca():
+    """onça-pintada: gatão forte, de pintas"""
+    cv, top = _quad(20, 32, 12, 6.5, 9, 10, 24, leg_w=4, hoof=False, far_dx=4)
+    for (x, y) in ((8, 30), (6, 29), (4, 27), (3, 24), (4, 21), (6, 20)):         # rabo grosso
+        cv.rect(x, y, 3, 3, C("P", 1))
+    cv.rect(6, 19, 3, 2, C("S", 1))
+    cv.ellipse(20, 36, 7, 2.3, "K")
+    _front_legs(cv, top, 9, 10, 24, leg_w=4, hoof=False)
+    fur = [c[:3] for c in (C("P", 0), C("P", 1), C("P", 2))]
+    for (x, y) in ((10, 28), (14, 30), (18, 27), (22, 30), (26, 28), (12, 33), (20, 33), (28, 32), (16, 35), (11, 39), (25, 39), (5, 25)):
+        if cv.get(x, y)[3] and cv.get(x, y)[:3] in fur:
+            cv.put(x, y, C("S", 1))
+            if cv.get(x + 1, y)[3] and cv.get(x + 1, y)[:3] in fur:
+                cv.put(x + 1, y, C("S", 1))
+    return fin(cv)
+
+
+# ---- TEMAS NOVOS (19/11): mar, ET e mitologia -- o jogo não é só roça
+def quatro_caranguejo():
+    """caranguejo gigante: largo, de frente, pinças pra cima. Corpo inteiro."""
+    cv = new()
+    for side in (-1, 1):
+        for k in range(3):                           # perninhas de lado
+            x0 = 24 + side * (9 + k * 2)
+            cv.line(x0, 36 + k, x0 + side * 6, 42 + k // 2, C("P", 2))
+        ax = 24 + side * 15                          # braço da pinça
+        cv.line(24 + side * 10, 30, ax, 22, C("P", 2))
+        cv.line(24 + side * 10, 31, ax, 23, C("P", 1))
+        cv.ellipse(ax, 16, 6, 7, "P")                # pinça
+        cv.rect(ax - 1, 9, 2, 8, (0, 0, 0, 0))       # abertura da pinça
+        cv.put(ax, 16, C("P", 2))
+    cv.ellipse(24, 33, 13, 8.5, "P")                 # casco
+    cv.ellipse(24, 37, 9, 3.5, "K")
+    for side in (-1, 1):                             # olhos no talo
+        ex = 24 + side * 5
+        cv.rect(ex, 21, 1, 5, C("P", 2))
+        cv.rect(ex - 1, 18, 3, 3, EYE_W); cv.put(ex, 19, PUPIL)
+    cv.rect(20, 34, 8, 1, OUT)                       # boca
+    for (x, y) in ((14, 29), (33, 29), (18, 27), (29, 27), (24, 28)):
+        cv.put(x, y, C("P", 0))
+    return fin(cv)
+
+
+def quatro_polvo():
+    """polvo: cabeção e tentáculos enrolados. Corpo inteiro."""
+    cv = new()
+    for i, (x, sgn) in enumerate(((10, -1), (15, -1), (21, -1), (27, 1), (33, 1), (38, 1))):   # tentáculos
+        for k in range(10):
+            xx = x + int(round(2.2 * sgn * (1 if (k // 3) % 2 == 0 else -1) * (k / 9.0)))
+            cv.rect(xx, 33 + k, 3, 1, C("P", 1 if i % 2 == 0 else 2))
+        cv.rect(x + sgn * 2, 43, 3, 2, C("K", 1))    # ponta com ventosa
+    cv.ellipse(24, 22, 13, 13, "P")                  # cabeça
+    cv.ellipse(18, 14, 4, 3, "K", shade=False)       # brilho
+    for side in (-1, 1):
+        ex = 24 + side * 6
+        cv.rect(ex - 2, 22, 4, 5, EYE_W); cv.rect(ex - 1, 24, 2, 3, PUPIL)
+    cv.rect(22, 30, 5, 2, C("P", 2))                 # boquinha
+    for (x, y) in ((14, 26), (34, 25), (24, 12), (30, 15)):
+        cv.put(x, y, C("K", 1))
+    return fin(cv)
+
+
+def quatro_aguaviva():
+    """água-viva: sino translúcido e fios pendurados. Corpo inteiro."""
+    cv = new()
+    for i, x in enumerate((14, 18, 22, 26, 30, 34)):  # fios
+        for k in range(14 + (i % 2) * 3):
+            cv.put(x + (1 if (k // 3) % 2 == 0 else 0), 26 + k, C("K" if i % 2 else "P", 1))
+    cv.ellipse(24, 18, 13, 10, "P")                  # sino
+    cv.rect(11, 22, 27, 6, (0, 0, 0, 0))
+    for x in range(11, 38):                          # barra ondulada
+        cv.rect(x, 22, 1, 2 + (1 if (x // 3) % 2 == 0 else 0), C("P", 2))
+    cv.ellipse(19, 13, 5, 3, "K", shade=False)       # brilho
+    for side in (-1, 1):
+        ex = 24 + side * 5
+        cv.rect(ex - 1, 16, 3, 3, EYE_W); cv.put(ex, 17, PUPIL)
+    cv.rect(11, 9, 2, 2, FIRE_I); cv.rect(36, 12, 2, 2, FIRE_I)      # faísca de choque
+    return fin(cv)
+
+
+def quatro_tripe():
+    """tripé invasor: três pernas finas, cúpula de vidro e olho de raio. Corpo inteiro."""
+    cv = new()
+    for (x0, x1) in ((20, 8), (24, 24), (28, 40)):   # pernas
+        cv.line(x0, 22, x1, 43, C("M", 2))
+        cv.line(x0 + 1, 22, x1 + 1, 43, C("M", 1))
+        cv.rect(x1 - 2, 43, 6, 2, C("M", 2))
+    cv.ellipse(24, 17, 13, 6, "M")                   # disco
+    cv.ellipse(24, 11, 8, 7, "S")                    # cúpula
+    cv.ellipse(21, 8, 3, 2, "K", shade=False)
+    cv.rect(13, 17, 22, 2, C("M", 2))
+    for x in (15, 20, 25, 30):                       # luzinhas
+        cv.rect(x, 18, 2, 1, FIRE_M)
+    cv.ellipse(24, 23, 3, 2.5, "A")                  # canhão de raio embaixo
+    cv.put(24, 24, FIRE_I)
+    return fin(cv)
+
+
+def quatro_dragao():
+    """dragãozinho: asa aberta, barrigão, focinho soltando fumaça. Corpo inteiro."""
+    cv = new()
+    for i in range(12):                              # asa de trás
+        cv.rect(6 + i, 8 + abs(6 - i), 2, 12 - abs(6 - i) // 2, C("S", 2))
+    for i in range(7):                               # rabo
+        cv.rect(3 + i, 36 - i // 2, 3, 3, C("P", 2))
+    cv.rect(1, 37, 3, 2, C("A", 1)); cv.put(0, 36, C("A", 1))
+    cv.ellipse(20, 30, 11, 9, "P")                   # corpo
+    cv.ellipse(21, 33, 6.5, 5.5, "K")                # barriga
+    for y in (30, 33, 36):
+        cv.rect(17, y, 8, 1, C("K", 2))
+    for x in (15, 23):                               # patinhas
+        cv.blob_rect(x, 38, 5, 6, "P", 2)
+    for i in range(6):                               # pescoço
+        cv.rect(26 + i, 24 - i, 6, 3, C("P", 1))
+    cv.blob_rect(30, 11, 14, 10, "P", 3)             # cabeça
+    cv.blob_rect(38, 15, 8, 6, "P", 2)               # focinho
+    cv.rect(33, 13, 3, 3, FIRE_I); cv.rect(34, 13, 1, 3, PUPIL)
+    cv.put(44, 16, PUPIL)
+    for x in (31, 35):                               # chifrinhos
+        cv.rect(x, 7, 2, 4, C("M", 0))
+    _flame(cv, 46, 21, 4, 1)
+    for i in range(10):                              # asa da frente
+        cv.rect(10 + i, 12 + abs(5 - i), 2, 9 - abs(5 - i) // 2, C("S", 1))
+    cv.rect(10, 12, 11, 1, C("S", 0))
+    return fin(cv)
+
+
+def quatro_cerbero():
+    """cérbero: cachorrão de três cabeças. Corpo inteiro."""
+    cv, top = _quad(17, 33, 12, 7, 9, 7, 21, leg_w=4, hoof=False, far_dx=4)
+    for i in range(6):                               # rabo de ponta de flecha
+        cv.put(4 - i // 2, 30 - i, C("P", 2)); cv.put(5 - i // 2, 30 - i, C("P", 1))
+    cv.rect(0, 22, 4, 3, C("A", 1))
+    _front_legs(cv, top, 9, 7, 21, leg_w=4, hoof=False)
+    cv.rect(18, 26, 14, 3, C("A", 1))                # coleira de espinhos
+    for x in (19, 23, 27):
+        cv.put(x, 25, C("M", 0))
+    for (hx, hy) in ((27, 14), (38, 20), (30, 30)):  # três cabeças
+        cv.ellipse(hx, hy, 6.5, 5.5, "P")
+        cv.blob_rect(hx + 3, hy, 7, 5, "P", 2)       # focinho
+        cv.rect(hx + 4, hy + 3, 5, 1, EYE_W)         # dentes
+        cv.put(hx + 9, hy + 1, PUPIL)
+        cv.rect(hx - 1, hy - 3, 3, 2, FIRE_M); cv.put(hx, hy - 2, PUPIL)      # olho bravo
+        cv.rect(hx - 5, hy - 6, 3, 4, C("P", 2))     # orelha
+    return fin(cv)
+
+
+def cab_tubarao():
+    cv = new()
+    cv.ellipse(24, 17, 11, 10, "P")
+    for i in range(7):                               # barbatana em cima
+        cv.rect(22 + i // 2, 2 + i, 6 - i // 2, 1, C("P", 2 if i > 2 else 1))
+    cv.ellipse(24, 21, 9, 6, "K")                    # papo branco
+    cv.rect(16, 21, 16, 4, (60, 16, 24, 255))        # bocão
+    for x in range(16, 32, 3):                       # dentes serrilhados
+        cv.rect(x, 21, 2, 1, EYE_W); cv.put(x, 22, EYE_W)
+        cv.rect(x + 1, 24, 2, 1, EYE_W)
+    for side in (-1, 1):
+        ex = 24 + side * 7
+        cv.rect(ex - 1, 12, 3, 3, EYE_W); cv.rect(ex, 13, 2, 2, PUPIL)
+        for k in range(3):                           # guelras
+            cv.put(24 + side * 10, 17 + k * 2, C("P", 2))
+    cv.rect(17, 10, 4, 1, OUT); cv.rect(27, 10, 4, 1, OUT)
+    return fin(cv)
+
+
+def cab_medusa():
+    cv = _cabeca_base(slot="K", rx=9.5, ry=9)
+    for (x, y, dx) in ((12, 9, -1), (15, 5, -1), (20, 3, 0), (26, 3, 0), (31, 5, 1), (34, 9, 1), (10, 15, -1), (36, 15, 1)):   # cobras
+        for k in range(5):
+            cv.rect(x + dx * (k // 2) + (1 if k % 2 else 0), y - k + 2, 2, 1, C("P", 1 if k < 3 else 0))
+        hx = x + dx * 2
+        cv.rect(hx, y - 4, 3, 2, C("P", 0)); cv.put(hx + 1, y - 4, FIRE_O)
+    for side in (-1, 1):                             # olhar de pedra
+        ex = 24 + side * 5
+        cv.rect(ex - 1, 14, 3, 3, FIRE_I); cv.rect(ex, 14, 1, 3, PUPIL)
+    cv.rect(17, 12, 4, 1, OUT); cv.rect(27, 12, 4, 1, OUT)
+    cv.rect(21, 22, 6, 1, OUT); cv.put(20, 21, OUT); cv.put(27, 21, OUT)
+    return fin(cv)
+
+
+def cab_peixe():
+    """peixe-palhaço: cara redonda, listras e boquinha aberta"""
+    cv = _cabeca_base(rx=11, ry=10)
+    fur = [c[:3] for c in (C("P", 0), C("P", 1), C("P", 2))]
+    for x0 in (15, 30):                              # listras brancas
+        for y in range(7, 28):
+            for x in range(x0, x0 + 3):
+                if cv.get(x, y)[3] and cv.get(x, y)[:3] in fur:
+                    cv.put(x, y, EYE_W)
+    for i in range(5):                               # barbatana de cima
+        cv.rect(21 + i, 4 + abs(2 - i), 2, 3, C("P", 2))
+    cv.ellipse(24, 22, 3, 2.5, "K")                  # boca
+    cv.rect(23, 22, 3, 1, OUT)
+    _olhos(cv, 13, 6, 3)
+    return fin(cv)
+
+
+def cab_polvo():
+    """cabeça de polvo: bolota lisa com tentaculozinhos no queixo"""
+    cv = _cabeca_base(rx=11, ry=10, cy=15)
+    for x in (15, 19, 23, 27, 31):
+        cv.rect(x, 24, 2, 4, C("P", 2))
+        cv.put(x, 28, C("K", 1))
+    cv.ellipse(19, 9, 4, 2.5, "K", shade=False)
+    for side in (-1, 1):
+        ex = 24 + side * 5
+        cv.rect(ex - 1, 14, 3, 4, EYE_W); cv.rect(ex, 15, 2, 3, PUPIL)
+    return fin(cv)
+
+
 PECAS["quatro"] = {"casco": quatro_casco, "malhado": quatro_malhado, "pata": quatro_pata, "rasteiro": quatro_rasteiro,
-                   "casca": quatro_casca, "sapo": quatro_sapo}
+                   "casca": quatro_casca, "sapo": quatro_sapo,
+                   "cavalo": quatro_cavalo, "bezerro": quatro_bezerro, "vaca": quatro_vaca, "bode": quatro_bode,
+                   "jegue": quatro_jegue, "cachorro": quatro_cachorro, "capivara": quatro_capivara,
+                   "porco": quatro_porco, "gato": quatro_gato,
+                   "formiga": quatro_formiga, "montado": quatro_montado, "mapinguari": quatro_mapinguari,
+                   "cobra": quatro_cobra, "onca": quatro_onca,
+                   "caranguejo": quatro_caranguejo, "polvo": quatro_polvo, "aguaviva": quatro_aguaviva,
+                   "tripe": quatro_tripe, "dragao": quatro_dragao, "cerbero": quatro_cerbero}
+PECAS["pernas"]["saci"] = pernas_saci
+PECAS["corpo"]["saci"] = corpo_saci
+PECAS["cabeca"].update({"saci": cab_saci, "chama": cab_chama, "onca": cab_onca, "tubarao": cab_tubarao, "medusa": cab_medusa,
+                        "peixe": cab_peixe, "polvo": cab_polvo})
+PECAS["chapeu"]["gorro"] = chap_gorro
 # onde a cabeça (e o chapéu) encaixam em cada postura
-QUATRO_CABECA = {"casco": (10, 6), "malhado": (10, 6), "pata": (10, 8), "rasteiro": (11, 12), "casca": (11, 11), "sapo": (0, 9)}
+QUATRO_CABECA = {"casco": (10, 6), "malhado": (10, 6), "pata": (10, 8), "rasteiro": (11, 12), "casca": (11, 11), "sapo": (0, 9),
+                 "cavalo": (12, 0), "bezerro": (9, 10), "vaca": (11, 5), "bode": (10, 7), "jegue": (10, 5),
+                 "cachorro": (11, 8), "capivara": (10, 8), "porco": (10, 7), "gato": (11, 9),
+                 "montado": (-7, -4), "onca": (11, 8)}
 # carga nas costas (cesto do jegue): vai em cima do lombo, atrás da cabeça
-QUATRO_COSTAS = {"casco": (8, -6), "malhado": (8, -6), "pata": (8, -4)}
+QUATRO_COSTAS = {"casco": (8, -6), "malhado": (8, -6), "pata": (8, -4), "jegue": (8, -7), "cavalo": (6, -10), "vaca": (7, -8)}
 
 
 def montar(receita, paleta):
@@ -1264,7 +1804,7 @@ def montar(receita, paleta):
         cv.paste(PECAS["quatro"][q]())
         if receita.get("costas") and q in QUATRO_COSTAS:
             cv.paste(PECAS["costas"][receita["costas"]](), *QUATRO_COSTAS[q])
-        dx, dy = QUATRO_CABECA[q]
+        dx, dy = QUATRO_CABECA.get(q, (0, 0))
         for cat in ("cabeca", "chapeu"):
             if receita.get(cat):
                 cv.paste(PECAS[cat][receita[cat]](), dx, dy)

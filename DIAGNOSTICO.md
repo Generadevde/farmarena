@@ -97,6 +97,8 @@ cabeçalho de `ci/lab/rodar.sh`:
 - `rodar.sh duelos` — toda tropa contra toda tropa (1 contra 1) e grava
   `Scripts/duelos_medidos.gd`, que é o que a carta mostra em "Força medida"
 - `ci/lab/folha.tscn` — folha com o desenho de todas as tropas no tamanho do campo
+- `rodar.sh papel` — o quanto a estimativa "no papel" acerta os duelos de verdade
+- `ci/lab/safra.tscn` — gera safras futuras e mostra se as cartas saem no preço certo
 - `REGRAS_OFF=torres,visual,peso` na frente = regras antigas, pra comparar
 
 O teste `CI_MODE=regras` (em `ci/battle_test.gd`) garante no GitHub que a
@@ -158,6 +160,63 @@ partidas entre bots acabavam em nocaute; a vida da torre subiu de 1,45x pra
 Bug achado no caminho: duas cartas que devolvem dano (Tatu, Cacto, Robô)
 brigando entre si entravam num vai-e-volta sem fim e travavam o jogo.
 
+### Segunda leva (19/11 à noite) — pedidos do João depois de ler o acima
+
+**"Cavalo e bezerro ainda são parecidos; lá tem cavaleiro, goblin, bem
+separado. Dá uma enchida. Pode ter tema além de roça: mar, bicho, ET, mito."**
+
+- Cada bicho ganhou o SEU corpo (não mais um corpo de casco pra todos): vaca
+  parruda de úbere, bezerro baixinho de meia branca, cavalo alto de crina e
+  rabo comprido, bode peludo, jegue de listra no lombo, cachorro magro de rabo
+  enrolado, capivara em barril.
+- 16 cartas novas, cada uma de um TIPO que não existia, em 2 turmas novas
+  (**Mar** e **Lendas**) mais as antigas:
+  - Mar: Tubarão de Botas, Caranguejo Gigante, Polvo Tinteiro, Água-viva Elétrica
+  - Lendas: Saci (pula numa perna só e dá bote), Mula sem Cabeça, Mapinguari
+    (gigante), Boitatá, Dragão do Milharal, Medusa, Cérbero
+  - Coisa Estranha: Marcianinhos, Tripé Invasor (raio que esquenta no mesmo alvo)
+  - Roçado/Peões/Brejo: Correição de Saúva (9 formigas), Vaqueiro Montado, Onça-Pintada
+- Medido de novo com o elenco inteiro (52 tropas de duelo, 1326 duelos): lista
+  única acerta 86% (era 91%); entre cartas de preço parecido 79% (era 88%);
+  trios pedra-papel-tesoura 11,4% (era 4,9%); duelos apertados 19% (era 14%).
+  Sozinhas, só cartas de custo 50+ derrubam uma torre (12 de 64).
+
+**"Carta sem dano, tipo a Pinga da Braba, não evolui."** Era verdade: o nível
+só multiplicava vida e dano. Agora (`Regras.apply_level`) cresce junto tudo que
+é número de força: explosão, onda de choque, cura, regeneração, escudo, veneno,
+cura ao matar. E feitiço de efeito (fúria, escudo, congelar, marca) passa a
+DURAR mais a cada nível (+9% por nível). A carta mostra isso em verde.
+
+**"Deixa a info mais parecida com a do Clash."** Atributos em duas colunas com
+ícone (vida, dano, dano por segundo, vel. de ataque, alvos, alcance, velocidade
+com o número, tipo, quantidade, entrada em campo, custo) e cada HABILIDADE numa
+linha com o número dela e o ganho do próximo nível — no lugar dos parágrafos
+de "Detalhes" e da lista de estrelas.
+
+**"Atualiza o atualizador, pra ficar tudo coerente. Carta nova vem ajustada?"**
+O criador automático (Safra, `creator/card_generator.gd`) foi conferido com
+`ci/lab/safra.tscn`, que gera 45 safras futuras e estima cada carta:
+
+- Antes: carta Normal/Rara de Controle, Suporte ou Punição saía sem a
+  habilidade do papel dela E com o desconto que "pagava" por ela — até 16
+  pontos abaixo do normal pro preço. E carta de Cerco e a receita "de longe"
+  atiravam de mais longe que a torre nova: custando 15–40, derrubavam uma torre
+  sem levar um tiro.
+- Agora: o desconto volta quando a habilidade sai; força da safra 16,5 (era
+  15); alcance de cerco e "de longe" abaixo do da torre; bando frágil que bate
+  muito, matador de golpe espaçado; bicho sem ferramenta de quatro patas com o
+  corpo dele. Média das tropas geradas: +2,7 pontos do normal pro preço.
+- Como a safra é refeita da semente toda vez que o jogo abre, as cartas de
+  safra que o João JÁ TEM mudam junto (mesmo nome e desenho da cabeça, números
+  e corpo novos).
+- Safras a partir do período 6926 também sorteiam as turmas Mar e Lendas (as
+  anteriores continuam iguais).
+- Carta que o laboratório não mediu (safra, carta criada, carta mexida pela
+  Assembleia) mostra **Força estimada** em vez de medida: `Scripts/duelo_papel.gd`
+  faz o duelo "no papel", só com os números. Conferido contra os 1290 duelos
+  de verdade: acerta o vencedor em 93%, erra em média 4,6 pontos na % de
+  vitórias e 4,5 pontos no dano em torre (`rodar.sh papel`).
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro
@@ -177,4 +236,7 @@ brigando entre si entravam num vai-e-volta sem fim e travavam o jogo.
   de chão sem tiro não encosta neles. É de propósito (no Clash também), mas
   vale olhar se enjoar.
 - Aves ainda dividem o mesmo corpo (pinto, galinha, galo, pato, coruja).
+- As 16 cartas novas e a info nova NÃO foram jogadas no celular: só medidas
+  aqui (duelos, torre, bateria de testes, fotos da tela).
+- Estimativa no papel não conta filhote que nasce na morte nem cura em área.
 - Som: cada tropa ainda usa os mesmos sons de golpe.

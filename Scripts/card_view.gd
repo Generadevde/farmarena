@@ -248,7 +248,8 @@ func _stat_values() -> Dictionary:
 		hp_text += " x%d" % st.unit_count
 	return {
 		"left": [Ico.HEART, hp_text],
-		"right": [Ico.SWORD, str(int(round(st.damage * mult))) if st.damage > 0 else "-"],
+		# dano em ÁREA aparece com o ícone de área no lugar da espada
+		"right": [Ico.AREA if (st.is_aoe or st.spin_attack or st.frontal_cone_attack) else Ico.SWORD, str(int(round(st.damage * mult))) if st.damage > 0 else "-"],
 		"bl": [Ico.RANGE, str(int(st.attack_range)) if st.is_ranged else "perto"],
 		"br": [Ico.SPEED, str(int(st.move_speed)) if st.move_speed > 0 else "fixo"],
 		"mid": ("Voa · " if st.unit_type == UnitData.UnitType.AIR else "") + target,

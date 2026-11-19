@@ -8,7 +8,7 @@ Jogo de cartas e torres offline (estilo Clash Royale, tema roça), feito em Godo
 ## O que tem
 
 - **Batalha**: arena simétrica, 2 torres por lado, rio com 3 passagens. Derrube as duas torres. Partida de 4 minutos; recurso de 0 a 100, em dobro no último minuto.
-- **57 cartas em 6 turmas** (Curral, Galinheiro, Brejo, Roçado, Peões, Coisa Estranha), incluindo cartas com unidades diferentes juntas.
+- **73 cartas em 8 turmas** (Curral, Galinheiro, Brejo, Roçado, Peões, Coisa Estranha, Mar, Lendas), incluindo cartas com unidades diferentes juntas.
 - **7 arenas**, uma por faixa de troféu, cada uma com cenário próprio.
 - **Menu em 5 abas** (toque embaixo ou arraste para o lado): Feira, Cartas, Batalha, Troféus, Sítio.
 - **Progressão**: baús de colheita (tempo curto, cada partida adianta 1 minuto; a abertura é rápida), Feira diária, Mascate surpresa, Caminho dos Troféus, nível do jogador, cópias + ouro para subir carta, maestria visual pelo uso, 4 baralhos.
@@ -34,6 +34,8 @@ Os testes automáticos (partidas sem tela e capturas de tela) rodam no GitHub Ac
 
 ## Batalha 2.5 (nov/2026)
 A torre passou a defender de verdade (toda torre atira, com mais vida, dano e alcance), as tropas ficaram maiores e com cor de time, e o golpe ganhou peso (1 s pra entrar em campo, preparo antes de bater). Tudo fica em `Scripts/regras.gd` e pode ser ligado/desligado em **Configurações → Laboratório da batalha**. O porquê e os números estão em `DIAGNOSTICO.md`; as ferramentas pra medir de novo, em `ci/lab/`.
+
+**Temas e cartas novas (19/11)**: turmas **Mar** e **Lendas**, 16 cartas novas (Tubarão de Botas, Saci, Mapinguari, Dragão do Milharal, Tripé Invasor...), cada bicho com o seu corpo, info da carta no estilo do Clash, nível que melhora também as habilidades, e o criador da Safra conferido pelo laboratório (`ci/lab/safra.tscn`). Carta que o laboratório não mediu mostra **Força estimada** (`Scripts/duelo_papel.gd`).
 
 **Identidade das tropas (19/11)**: bicho anda de quatro patas, cada corpo anda e bate do seu jeito, bando/matador/brigão têm papéis bem separados, e o detalhe da carta mostra a **Força medida** (duelos de verdade rodados no laboratório). Mexeu em número de carta? Rode `ci/lab/rodar.sh solo X` e `ci/lab/rodar.sh duelos X` pra atualizar o que a carta mostra.
 

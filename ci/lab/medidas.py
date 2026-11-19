@@ -31,6 +31,11 @@ for n in names:
 for n, f in solo.items():
     if n in cards and not cards[n].get("safra"):      # carta de safra muda de aparelho pra aparelho
         rows.setdefault(n, {})["t"] = round(f * 100)
+# "k" = vida e dano com que a carta foi medida. Se o jogo encontrar outros
+# números (Assembleia mexeu, carta editada), ele troca a medição por estimativa.
+for n in rows:
+    if n in cards and "hp" in cards[n]:
+        rows[n]["k"] = [int(cards[n]["hp"]), int(cards[n]["damage"])]
 with open(os.path.join(repo, "Scripts", "duelos_medidos.gd"), "w") as f:
     f.write("extends RefCounted\nclass_name DuelosMedidos\n")
     f.write("## GERADO por ci/lab/medidas.py -- não editar na mão.\n")
@@ -39,7 +44,10 @@ with open(os.path.join(repo, "Scripts", "duelos_medidos.gd"), "w") as f:
     f.write("##   e = o normal pra uma carta desse preço\n")
     f.write("##   g / p = de quem ganha (mais caras primeiro) / pra quem perde (mais baratas primeiro)\n")
     f.write("##   t = quanto tira de uma torre se ninguém defender (%)\n")
+    f.write("##   k = [vida, dano] com que foi medida (mudou? o jogo passa a estimar: Scripts/duelo_papel.gd)\n")
     f.write("const TROPAS = %d\n" % len(names))
+    f.write("## reta \"normal pro preço\": fração de vitórias = LINHA_A + LINHA_B * custo\n")
+    f.write("const LINHA_A = %.4f\nconst LINHA_B = %.5f\n" % (a, b))
     f.write("const DATA = {\n")
     for n in sorted(rows):
         f.write("\t%s: %s,\n" % (json.dumps(n, ensure_ascii=False), json.dumps(rows[n], ensure_ascii=False)))

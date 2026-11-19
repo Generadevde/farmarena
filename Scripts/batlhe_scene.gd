@@ -1636,8 +1636,7 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 			# duplica o resource antes de alterar, pra não afetar as OUTRAS unidades
 			# desse mesmo tipo que compartilham o .tres original
 			unit.stats = unit.stats.duplicate()
-			unit.stats.hp = round(unit.stats.hp * mult)
-			unit.stats.damage = round(unit.stats.damage * mult)
+			Regras.apply_level(unit.stats, mult)  # vida, dano E os números das habilidades
 
 		var offset = _get_formation_offset(i, count, unit_radius, first_unit.stats.spawn_formation if first_unit.stats != null else 0)
 		var raw_position = spawn_position + offset

@@ -6,18 +6,18 @@ const COLS = 16
 const CELL = 48
 const ORDEM = ["costas", "pernas", "corpo", "bracos", "cabeca", "chapeu", "arma"]
 const PECAS = {
-	"pernas": {"casco": 0, "bota": 1, "ave": 2, "patinha": 3, "fantasma": 4, "rodas": 5, "inseto": 6},
-	"corpo": {"redondo": 7, "macacao": 8, "penas": 9, "la": 10, "listrado": 11, "armadura": 12, "poncho": 13, "saco": 14, "colete": 15, "terno": 16},
-	"bracos": {"patas": 17, "humanos": 18, "asas": 19},
-	"cabeca": {"vaca": 20, "boi": 21, "porco": 22, "galinha": 23, "pato": 24, "ovelha": 25, "bode": 26, "cavalo": 27, "sapo": 28, "capivara": 29, "gato": 30, "coruja": 31, "abelha": 32, "humano": 33, "velho": 34, "espantalho": 35, "abobora": 36, "milho": 37, "et": 38, "balde": 39, "cebola": 40, "cachorro": 41, "burro": 42, "tatu": 43, "jacare": 44, "urubu": 45, "tomate": 46, "cacto": 47, "caveira": 48},
-	"chapeu": {"palha": 49, "cowboy": 50, "balde": 51, "bandana": 52, "coroa": 53, "cozinheiro": 54, "flor": 55, "penacho": 56, "bone": 57, "cartola": 58, "chifres": 59, "melancia": 60},
-	"arma": {"forcado": 61, "machado": 62, "marreta": 63, "foice": 64, "enxada": 65, "frigideira": 66, "porrete": 67, "estilingue": 68, "viola": 69, "motosserra": 70, "lampiao": 71, "escudo": 72, "vara": 73, "berrante": 74, "garrafa": 75, "rastelo": 76, "espingarda": 77, "regador": 78},
-	"costas": {"rabo_galo": 79, "capa": 80, "foguete": 81, "asas_inseto": 82, "cesto": 83, "morcego": 84},
-	"quatro": {"casco": 85, "malhado": 86, "pata": 87, "rasteiro": 88, "casca": 89, "sapo": 90},
-	"objeto": {"galinheiro": 91, "silo": 92, "colmeia": 93, "poco": 94, "barril": 95, "canhao_milho": 96, "fornalha": 97, "tenda": 98, "ninho": 99, "ovni": 100, "trator": 101, "feno": 102, "carroca": 103, "casinha": 104, "cerca_eletrica": 105},
-	"torre": {"celeiro": 106, "moinho": 107, "caixa_dagua": 108, "castelo_feno": 109, "forte": 110, "armazem": 111, "capela": 112, "colmeia": 113, "antena": 114, "cocho": 115},
-	"icone": {"raio": 116, "tornado": 117, "coracao": 118, "pimenta": 119, "floco": 120, "cogumelo": 121, "escudo": 122, "melancia": 123, "ovo": 124, "vaca_caindo": 125, "nota": 126, "lama": 127, "laco": 128, "espelho": 129, "moeda": 130, "ferradura": 131, "garrafa": 132},
-	"proj": {"ovo": 133, "milho": 134, "pedra": 135, "flecha": 136, "fogo": 137, "gota": 138, "nota": 139, "raio": 140, "espinho": 141, "estrume": 142},
+	"pernas": {"casco": 0, "bota": 1, "ave": 2, "patinha": 3, "fantasma": 4, "rodas": 5, "inseto": 6, "saci": 7},
+	"corpo": {"redondo": 8, "macacao": 9, "penas": 10, "la": 11, "listrado": 12, "armadura": 13, "poncho": 14, "saco": 15, "colete": 16, "terno": 17, "saci": 18},
+	"bracos": {"patas": 19, "humanos": 20, "asas": 21},
+	"cabeca": {"vaca": 22, "boi": 23, "porco": 24, "galinha": 25, "pato": 26, "ovelha": 27, "bode": 28, "cavalo": 29, "sapo": 30, "capivara": 31, "gato": 32, "coruja": 33, "abelha": 34, "humano": 35, "velho": 36, "espantalho": 37, "abobora": 38, "milho": 39, "et": 40, "balde": 41, "cebola": 42, "cachorro": 43, "burro": 44, "tatu": 45, "jacare": 46, "urubu": 47, "tomate": 48, "cacto": 49, "caveira": 50, "saci": 51, "chama": 52, "onca": 53, "tubarao": 54, "medusa": 55, "peixe": 56, "polvo": 57},
+	"chapeu": {"palha": 58, "cowboy": 59, "balde": 60, "bandana": 61, "coroa": 62, "cozinheiro": 63, "flor": 64, "penacho": 65, "bone": 66, "cartola": 67, "chifres": 68, "melancia": 69, "gorro": 70},
+	"arma": {"forcado": 71, "machado": 72, "marreta": 73, "foice": 74, "enxada": 75, "frigideira": 76, "porrete": 77, "estilingue": 78, "viola": 79, "motosserra": 80, "lampiao": 81, "escudo": 82, "vara": 83, "berrante": 84, "garrafa": 85, "rastelo": 86, "espingarda": 87, "regador": 88},
+	"costas": {"rabo_galo": 89, "capa": 90, "foguete": 91, "asas_inseto": 92, "cesto": 93, "morcego": 94},
+	"quatro": {"casco": 95, "malhado": 96, "pata": 97, "rasteiro": 98, "casca": 99, "sapo": 100, "cavalo": 101, "bezerro": 102, "vaca": 103, "bode": 104, "jegue": 105, "cachorro": 106, "capivara": 107, "porco": 108, "gato": 109, "formiga": 110, "montado": 111, "mapinguari": 112, "cobra": 113, "onca": 114, "caranguejo": 115, "polvo": 116, "aguaviva": 117, "tripe": 118, "dragao": 119, "cerbero": 120},
+	"objeto": {"galinheiro": 121, "silo": 122, "colmeia": 123, "poco": 124, "barril": 125, "canhao_milho": 126, "fornalha": 127, "tenda": 128, "ninho": 129, "ovni": 130, "trator": 131, "feno": 132, "carroca": 133, "casinha": 134, "cerca_eletrica": 135},
+	"torre": {"celeiro": 136, "moinho": 137, "caixa_dagua": 138, "castelo_feno": 139, "forte": 140, "armazem": 141, "capela": 142, "colmeia": 143, "antena": 144, "cocho": 145},
+	"icone": {"raio": 146, "tornado": 147, "coracao": 148, "pimenta": 149, "floco": 150, "cogumelo": 151, "escudo": 152, "melancia": 153, "ovo": 154, "vaca_caindo": 155, "nota": 156, "lama": 157, "laco": 158, "espelho": 159, "moeda": 160, "ferradura": 161, "garrafa": 162},
+	"proj": {"ovo": 163, "milho": 164, "pedra": 165, "flecha": 166, "fogo": 167, "gota": 168, "nota": 169, "raio": 170, "espinho": 171, "estrume": 172},
 }
-const QUATRO_CABECA = {"casco": Vector2i(10, 6), "malhado": Vector2i(10, 6), "pata": Vector2i(10, 8), "rasteiro": Vector2i(11, 12), "casca": Vector2i(11, 11), "sapo": Vector2i(0, 9)}
-const QUATRO_COSTAS = {"casco": Vector2i(8, -6), "malhado": Vector2i(8, -6), "pata": Vector2i(8, -4)}
+const QUATRO_CABECA = {"casco": Vector2i(10, 6), "malhado": Vector2i(10, 6), "pata": Vector2i(10, 8), "rasteiro": Vector2i(11, 12), "casca": Vector2i(11, 11), "sapo": Vector2i(0, 9), "cavalo": Vector2i(12, 0), "bezerro": Vector2i(9, 10), "vaca": Vector2i(11, 5), "bode": Vector2i(10, 7), "jegue": Vector2i(10, 5), "cachorro": Vector2i(11, 8), "capivara": Vector2i(10, 8), "porco": Vector2i(10, 7), "gato": Vector2i(11, 9), "montado": Vector2i(-7, -4), "onca": Vector2i(11, 8)}
+const QUATRO_COSTAS = {"casco": Vector2i(8, -6), "malhado": Vector2i(8, -6), "pata": Vector2i(8, -4), "jegue": Vector2i(8, -7), "cavalo": Vector2i(6, -10), "vaca": Vector2i(7, -8)}

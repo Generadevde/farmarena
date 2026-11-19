@@ -109,12 +109,13 @@ static func _fill_spell(sp: SpellData, role: int, cost: int, rng: RandomNumberGe
 
 
 # cabeça de bicho -> corpo de quatro patas que combina (ver SpriteForge / pecas.py)
-const QUATRO_BY_HEAD = {"vaca": "malhado", "boi": "casco", "cavalo": "casco", "bode": "casco", "burro": "casco", "ovelha": "casco",
-	"porco": "pata", "cachorro": "pata", "capivara": "pata", "gato": "pata", "jacare": "rasteiro", "tatu": "casca", "sapo": "sapo"}
+const QUATRO_BY_HEAD = {"vaca": "vaca", "boi": "casco", "cavalo": "cavalo", "bode": "bode", "burro": "jegue", "ovelha": "casco",
+	"porco": "porco", "cachorro": "cachorro", "capivara": "capivara", "gato": "gato", "jacare": "rasteiro", "tatu": "casca", "sapo": "sapo"}
 
 
 static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGenerator):
 	var budget = power_per_cost() * cost * rng.randf_range(0.88, 1.1)
+	budget *= 1.0 + clampf((30.0 - cost) / 100.0, 0.0, 0.15)  # carta barata rende um pouco mais por ponto (como as oficiais)
 	var hp_share = 0.55
 	st.unit_count = 1
 	st.move_speed = rng.randf_range(40.0, 55.0)
@@ -134,7 +135,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			st.attack_speed = 1.6
 			st.target_type = UnitData.TargetType.BUILDING  # tanque vai direto pra torre
 		CardData.CardRole.PUNICAO:
-			hp_share = 0.35
+			hp_share = 0.42
 			st.move_speed = rng.randf_range(50.0, 65.0)
 			st.attack_speed = 1.4
 		CardData.CardRole.ENXAME:
@@ -150,6 +151,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			st.is_ranged = true
 			st.attack_range = rng.randf_range(80.0, 120.0)
 			hp_share = 0.5
+			budget *= 0.88  # voar já é vantagem: tropa de chão sem tiro não encosta
 		CardData.CardRole.CONSTRUCAO:
 			st.unit_type = UnitData.UnitType.BUILDING
 			st.target_type = [UnitData.TargetType.GROUND, UnitData.TargetType.ALL][rng.randi() % 2]
@@ -162,7 +164,9 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 		CardData.CardRole.CERCO:
 			st.is_ranged = true
 			st.target_type = UnitData.TargetType.BUILDING
-			st.attack_range = rng.randf_range(200.0, 260.0)
+			# alcance SEMPRE menor que o da torre (215): com as torres novas, cerco que
+			# atirava de 200-260 derrubava a torre de graça, sem levar um tiro
+			st.attack_range = 150.0 + rng.randf_range(200.0, 260.0) * 0.1
 			st.detection_range = st.attack_range + 20.0
 			st.move_speed = rng.randf_range(30.0, 40.0)
 			st.attack_speed = 2.2
@@ -192,6 +196,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 			st.target_type = UnitData.TargetType.BUILDING
 			st.move_speed = rng.randf_range(60.0, 75.0)
 			hp_share = 0.5
+			budget *= 0.9  # corre direto pra torre: com a força cheia derrubava uma sozinha custando 45
 		CardData.CardRole.INVOCADOR:
 			# invoca uma unidade barata que já existe no jogo
 			var pool: Array = []
@@ -224,7 +229,7 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 	# (bando era só uma tropa normal cortada em pedaços).
 	match role:
 		CardData.CardRole.ENXAME:    # bando: frágil, mas junto bate muito
-			st.hp = max(30, int(round(st.hp * 0.8 / 10.0)) * 10)
+			st.hp = max(30, int(round(st.hp * 0.9 / 10.0)) * 10)
 			st.damage = max(5, int(round(st.damage * 1.8 / 5.0)) * 5)
 		CardData.CardRole.PUNICAO:   # matador: golpe grande e espaçado
 			st.damage = max(5, int(round(st.damage * 1.3 * 1.7 / maxf(st.attack_speed, 0.1) / 5.0)) * 5)
@@ -685,8 +690,9 @@ const TURMA_THEMES = {
 const HEAD_NAMES = {"vaca": "Vaca", "boi": "Boi", "cavalo": "Cavalo", "ovelha": "Ovelha", "bode": "Bode", "galinha": "Galinha", "pato": "Pato", "coruja": "Coruja",
 	"sapo": "Sapo", "capivara": "Capivara", "gato": "Gato", "milho": "Milho", "abobora": "Abóbora", "cebola": "Cebola", "espantalho": "Espantalho",
 	"humano": "Peão", "velho": "Vovô", "porco": "Porco", "et": "ET", "balde": "Robô", "abelha": "Abelha",
-	"cachorro": "Caramelo", "burro": "Jegue", "tatu": "Tatu", "jacare": "Jacaré", "urubu": "Urubu", "tomate": "Tomate", "cacto": "Cacto", "caveira": "Caveira"}
-const HEAD_FEMININE = ["vaca", "ovelha", "galinha", "coruja", "capivara", "abobora", "cebola", "abelha", "caveira"]
+	"cachorro": "Caramelo", "burro": "Jegue", "tatu": "Tatu", "jacare": "Jacaré", "urubu": "Urubu", "tomate": "Tomate", "cacto": "Cacto", "caveira": "Caveira",
+	"tubarao": "Tubarão", "peixe": "Peixe", "polvo": "Polvo", "saci": "Saci", "medusa": "Medusa", "chama": "Fogo-fátuo", "onca": "Onça"}
+const HEAD_FEMININE = ["vaca", "ovelha", "galinha", "coruja", "capivara", "abobora", "cebola", "abelha", "caveira", "medusa", "onca"]
 const WEAPON_TITLES = {"forcado": ["do Forcado", "do Forcado"], "machado": ["Lenhador", "Lenhadora"], "marreta": ["Marreteiro", "Marreteira"], "foice": ["Ceifador", "Ceifadora"],
 	"enxada": ["da Enxada", "da Enxada"], "frigideira": ["Cozinheiro", "Cozinheira"], "porrete": ["Brigão", "Brigona"], "motosserra": ["da Motosserra", "da Motosserra"],
 	"estilingue": ["Atirador", "Atiradora"], "lampiao": ["do Lampião", "do Lampião"], "viola": ["Violeiro", "Violeira"], "escudo": ["Blindado", "Blindada"],
@@ -705,8 +711,29 @@ const BUILDING_SUFFIX = ["Nervoso", "Blindado", "Assombrado", "Turbinado", "da D
 const ACCENTS = ["#c8483c", "#3c6cb8", "#e8a020", "#8048a0", "#40a060", "#e06080", "#30303c", "#50c0e0"]
 
 
+# TEMAS NOVOS (19/11): mar e lendas. Só entram no sorteio quando `new_themes`
+# está ligado -- a Safra liga a partir do período NEW_THEMES_FROM, pra que as
+# cartas de safra que já existem continuem saindo iguaizinhas.
+const NEW_THEMES = {
+	"Mar": {"cabeca": ["tubarao", "peixe", "polvo", "sapo"], "pernas": ["bota", "patinha"], "corpo": ["redondo", "armadura", "listrado"], "bracos": ["patas"],
+		"cores": ["#6a8aa8", "#f08030", "#b060c0", "#2c9ad0", "#70c8e8", "#d84a30"], "proj": "gota"},
+	"Lendas": {"cabeca": ["saci", "medusa", "caveira", "chama", "onca"], "pernas": ["bota", "fantasma"], "corpo": ["poncho", "saco", "terno", "colete"], "bracos": ["humanos"],
+		"cores": ["#8a5638", "#58a850", "#d8e8f0", "#e8a838", "#9a5cd0", "#c84828"], "proj": "fogo"},
+}
+const NEW_THEMES_FROM = 6926
+static var new_themes := false
+
+
+static func theme_of(turma: String) -> Dictionary:
+	if TURMA_THEMES.has(turma):
+		return TURMA_THEMES[turma]
+	return NEW_THEMES.get(turma, TURMA_THEMES["Peões"])
+
+
 static func random_turma(rng: RandomNumberGenerator) -> String:
 	var names = TURMA_THEMES.keys()
+	if new_themes:
+		names = names + NEW_THEMES.keys()
 	return names[rng.randi() % names.size()]
 
 
@@ -717,7 +744,7 @@ static func _pick_of(rng: RandomNumberGenerator, list: Array):
 ## monta a arte (receita + paleta), o nome e o projétil de uma carta nova
 ## já com os números decididos (stats de unidade OU dados de feitiço)
 static func design_card(rng: RandomNumberGenerator, turma: String, role: int, stats: UnitData, spell: SpellData) -> Dictionary:
-	var theme: Dictionary = TURMA_THEMES.get(turma, TURMA_THEMES["Peões"])
+	var theme: Dictionary = theme_of(turma)
 	var palette = {"P": _pick_of(rng, theme["cores"]), "S": _pick_of(rng, theme["cores"]), "A": _pick_of(rng, ACCENTS)}
 	var out = {"receita": {}, "paleta": palette, "nome": "", "proj": theme["proj"]}
 
@@ -1115,7 +1142,18 @@ static func _generate_once(seed_value: int, turma: String, kind: int, role: int,
 		pass  # receita pronta: a raridade sai dos pontos dela
 	elif stats != null:
 		if target <= Catalogo.RARA:
+			# carta Normal/Rara perde a habilidade do papel dela (cura, efeito do
+			# golpe). O desconto que ela tinha "pago" por isso volta em vida e dano
+			# -- antes saía uma tropa sem habilidade E mais fraca que as outras.
+			var refund = 1.0
+			if stats.can_heal_allies:
+				refund = 1.0 / 0.8
+			elif stats.on_hit_effect != UnitData.OnHitEffect.NONE:
+				refund = 1.0 / 0.85
 			Catalogo.strip_abilities(stats)
+			if refund > 1.0:
+				stats.hp = int(round(stats.hp * refund / 10.0)) * 10
+				stats.damage = int(round(stats.damage * refund / 5.0)) * 5
 			if stats.spawns_units and stats.unit_type != UnitData.UnitType.BUILDING:
 				stats.spawns_units = false
 				stats.hp = int(round(stats.hp * 1.5 / 10.0)) * 10
@@ -1225,7 +1263,7 @@ static func _special_unit(rng: RandomNumberGenerator, turma: String, cost: int, 
 		"longe":  # atira de MUITO longe, em área
 			c = clampi(cost, 25, 40)
 			st.is_ranged = true
-			st.attack_range = 240.0
+			st.attack_range = 175.0  # (era 240) a torre nova alcança mais que isso: atirar de longe não pode mais ser bater nela de graça
 			st.is_aoe = true
 			st.aoe_radius = 45.0
 			st.target_type = UnitData.TargetType.ALL

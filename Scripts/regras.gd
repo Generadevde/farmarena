@@ -237,3 +237,34 @@ static func windup_time(stats: UnitData) -> float:
 	if !on("peso") or stats.continuous_attack or stats.attack_speed <= 0.0:
 		return 0.0
 	return clampf(stats.attack_speed * 0.35, 0.2, 0.7)
+
+# ---------------------------------------------------------------- nível da carta
+## Subir de nível melhora TUDO que é número de força da tropa, não só vida e
+## dano. Antes, carta que vive de habilidade (cura, explosão, veneno, escudo)
+## evoluía e continuava igualzinha no que ela faz de melhor.
+const LEVEL_FIELDS = ["hp", "damage", "death_explosion_damage", "entrance_shockwave_damage", "arrival_damage",
+	"heal_aura_amount", "heal_on_kill_amount", "regen_amount", "shield_amount", "temp_shield_amount",
+	"continuous_damage_per_second"]
+const EFFECT_TIME_SHARE = 0.6   # duração de efeito cresce 60% do que vida/dano crescem (15% -> 9% por nível)
+
+
+## aplica o multiplicador do nível numa CÓPIA dos números (quem chama duplica antes)
+static func apply_level(stats: UnitData, mult: float) -> void:
+	if stats == null or mult == 1.0:
+		return
+	for f in LEVEL_FIELDS:
+		var v = stats.get(f)
+		if v == null or float(v) <= 0.0:
+			continue
+		if v is int:
+			stats.set(f, int(round(v * mult)))
+		else:
+			stats.set(f, snappedf(float(v) * mult, 0.1))
+	if stats.on_hit_effect == UnitData.OnHitEffect.POISON:
+		stats.on_hit_effect_strength = round(stats.on_hit_effect_strength * mult)
+
+
+## feitiço/efeito sem número de dano pra crescer (fúria, congelar, lentidão):
+## o que cresce com o nível é o TEMPO que o efeito dura
+static func effect_time_mult(power: float) -> float:
+	return 1.0 + maxf(power - 1.0, 0.0) * EFFECT_TIME_SHARE

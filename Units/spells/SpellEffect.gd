@@ -97,6 +97,10 @@ func _apply_effect(body):
 		var buff_time = spell.buff_duration
 		if buff_time <= 0:
 			buff_time = spell.tick_interval * 1.5 if spell.duration > 0 else 6.0
+		elif spell.duration <= 0:
+			# NÍVEL: fúria e escudo de feitiço instantâneo duram mais a cada nível
+			# (a Pinga da Braba não tem dano pra crescer -- antes evoluir não mudava nada)
+			buff_time *= Regras.effect_time_mult(power)
 		if spell.rage_damage_mult > 1.0 or spell.rage_speed_mult > 1.0 or spell.rage_attack_speed_mult > 1.0:
 			body.apply_rage(spell.rage_damage_mult, spell.rage_speed_mult, spell.rage_attack_speed_mult, buff_time)
 		if spell.shield_amount > 0:
@@ -115,6 +119,8 @@ func _apply_effect(body):
 	var status_duration = spell.tick_interval * 1.5 if spell.duration > 0 else 2.0
 	if spell.status_effect_duration > 0:
 		status_duration = spell.status_effect_duration  # duração escolhida no Criador
+		if spell.duration <= 0:
+			status_duration *= Regras.effect_time_mult(power)  # NÍVEL: congela/marca por mais tempo
 
 	body.apply_on_hit_effect(
 		spell.status_effect,
@@ -142,8 +148,7 @@ func _spawn_one(offset: Vector2):
 		u.card_level = level
 	if power != 1.0 and "stats" in u and u.stats != null:
 		u.stats = u.stats.duplicate()
-		u.stats.hp = round(u.stats.hp * power)
-		u.stats.damage = round(u.stats.damage * power)
+		Regras.apply_level(u.stats, power)
 	if battle != null:
 		battle.add_child(u)
 	else:

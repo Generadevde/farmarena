@@ -1805,29 +1805,370 @@ func _ability_help(skill: String) -> String:
 	return ""
 
 
-## um quadradinho de número: rótulo pequeno, valor grande e, em verde, o
-## quanto sobe no próximo nível
+## linha de atributo no estilo do Clash: ícone numa caixinha à esquerda, nome
+## pequeno em cima, valor grande embaixo e, em verde, o ganho do próximo nível.
+## label_text = "ÍCONE Nome" (o primeiro pedaço é o ícone)
 func _stat_tile(grid: Node, label_text: String, value: String, plus: String = ""):
+	var icon = label_text.get_slice(" ", 0)
+	var name_text = label_text.substr(icon.length() + 1) if label_text.contains(" ") else label_text
 	var p = PanelContainer.new()
-	p.custom_minimum_size = Vector2(198, 0)
+	p.custom_minimum_size = Vector2(296, 0)
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var row = int(grid.get_child_count() / maxi(1, grid.columns if grid is GridContainer else 1))
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.0, 0.0, 0.0, 0.36 if row % 2 == 0 else 0.22)
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 8
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	p.add_theme_stylebox_override("panel", sb)
 	grid.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	p.add_child(h)
+	h.add_child(_icon_box(icon, Color(1, 1, 1, 0.08)))
 	var v = VBoxContainer.new()
-	v.add_theme_constant_override("separation", 0)
-	p.add_child(v)
-	var name_l = _label(label_text, 12, ThemeBuilder.COLOR_STAT_LABEL)
+	v.add_theme_constant_override("separation", -2)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(v)
+	var name_l = _label(name_text, 13, ThemeBuilder.COLOR_STAT_LABEL)
 	name_l.add_theme_font_override("font", ThemeDB.fallback_font)
 	name_l.clip_text = true
 	v.add_child(name_l)
-	var h = HBoxContainer.new()
-	h.add_theme_constant_override("separation", 6)
-	v.add_child(h)
-	var val_l = _label(value, 18)
+	var vh = HBoxContainer.new()
+	vh.add_theme_constant_override("separation", 6)
+	v.add_child(vh)
+	var val_l = _label(value, 19)
 	val_l.add_theme_font_override("font", ThemeDB.fallback_font)
-	h.add_child(val_l)
+	vh.add_child(val_l)
 	if plus != "":
 		var plus_l = _label(plus, 15, Color(0.5, 1.0, 0.55))
 		plus_l.add_theme_font_override("font", ThemeDB.fallback_font)
-		h.add_child(plus_l)
+		vh.add_child(plus_l)
+
+
+func _icon_box(icon: String, bg: Color) -> Control:
+	var box = PanelContainer.new()
+	box.custom_minimum_size = Vector2(36, 36)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(7)
+	box.add_theme_stylebox_override("panel", sb)
+	var l = _label(icon, 20)
+	l.add_theme_font_override("font", ThemeDB.fallback_font)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	box.add_child(l)
+	return box
+
+
+## etiqueta colorida: título pequeno em cima, resposta grande embaixo
+func _chip(title: String, value: String, col: Color) -> Control:
+	var p = PanelContainer.new()
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(col.r, col.g, col.b, 0.22)
+	sb.border_color = Color(col.r, col.g, col.b, 0.9)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(9)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 4
+	p.add_theme_stylebox_override("panel", sb)
+	var vb = VBoxContainer.new()
+	vb.add_theme_constant_override("separation", -3)
+	p.add_child(vb)
+	var t = _label(title, 11, ThemeBuilder.COLOR_STAT_LABEL)
+	t.add_theme_font_override("font", ThemeDB.fallback_font)
+	vb.add_child(t)
+	var val = _label(value, 16, col.lightened(0.55))
+	val.add_theme_font_override("font", ThemeDB.fallback_font)
+	vb.add_child(val)
+	return p
+
+
+## as etiquetas do ATAQUE de uma carta: [título, resposta, cor]
+##   distância (corpo a corpo / de longe) · forma (um alvo / em área + tamanho)
+##   · em quem acerta (chão / ar / torre) · e se ELA voa
+func _attack_chips(card: CardData) -> Array:
+	var out: Array = []
+	var c_near = Color("#e8a040")
+	var c_far = Color("#58b8e8")
+	var c_one = Color("#b0b8c0")
+	var c_area = Color("#e86060")
+	var c_air = Color("#80d8ff")
+	var c_ground = Color("#90d060")
+	var c_tower = Color("#ffb060")
+	if card.is_spell():
+		var sp: SpellData = card.spell_data
+		out.append(["TIPO", "Feitiço", Color("#c090f0")])
+		out.append(["FORMA", "Em área: " + _tiles(sp.radius), c_area])
+		out.append(["DURA", _num(sp.duration) + "s no chão" if sp.duration > 0 else "Na hora", c_one])
+		out.append(["ACERTA", "Seus aliados" if (sp.affects_allies or !sp.affects_enemies) else "Chão e ar", c_ground if (sp.affects_allies or !sp.affects_enemies) else c_air])
+		return out
+	var st: UnitData = DeckBuilder.get_unit_stats(card)
+	if st == null:
+		return out
+	if st.unit_type == UnitData.UnitType.AIR:
+		out.append(["ELA", "Voa", c_air])
+	elif st.unit_type == UnitData.UnitType.BUILDING:
+		out.append(["ELA", "Construção (fica parada)", c_one])
+	else:
+		out.append(["ELA", "Anda no chão", c_ground])
+	if st.damage <= 0 and !st.kamikaze:
+		out.append(["ATAQUE", "Não ataca", c_one])
+		return out
+	if st.kamikaze:
+		out.append(["DISTÂNCIA", "Encosta e explode", c_near])
+	elif st.is_ranged:
+		out.append(["DISTÂNCIA", "De longe: " + _tiles(st.attack_range), c_far])
+	else:
+		out.append(["DISTÂNCIA", "Corpo a corpo", c_near])
+	if st.kamikaze:
+		out.append(["FORMA", "Em área: " + _tiles(st.death_explosion_radius), c_area])
+	elif st.spin_attack:
+		out.append(["FORMA", "Em área (roda): " + _tiles(maxf(st.aoe_radius, 38.0)), c_area])
+	elif st.frontal_cone_attack:
+		out.append(["FORMA", "Em área (leque): " + _tiles(maxf(st.aoe_radius, 38.0)), c_area])
+	elif st.is_aoe:
+		out.append(["FORMA", "Em área: " + _tiles(st.aoe_radius), c_area])
+	elif st.aoe_hits_extra_one:
+		out.append(["FORMA", "Dois alvos por golpe", c_area])
+	elif st.projectile_pierces:
+		out.append(["FORMA", "Atravessa %d alvos" % st.projectile_max_targets, c_area])
+	elif st.projectile_chains:
+		out.append(["FORMA", "Pula entre %d alvos" % st.projectile_chain_max_targets, c_area])
+	elif st.projectile_splits:
+		out.append(["FORMA", "Estilhaça em %d" % st.projectile_split_count, c_area])
+	else:
+		out.append(["FORMA", "Um alvo só", c_one])
+	match st.target_type:
+		UnitData.TargetType.BUILDING:
+			out.append(["ACERTA", "Só torres e construções", c_tower])
+		UnitData.TargetType.ALL:
+			out.append(["ACERTA", "Chão e ar", c_air])
+		UnitData.TargetType.AIR:
+			out.append(["ACERTA", "Só ar", c_air])
+		_:
+			out.append(["ACERTA", "Só chão (não pega voador)", c_ground])
+	return out
+
+
+## linha de HABILIDADE (largura inteira): ícone, nome, o NÚMERO dela (com o
+## ganho do próximo nível) e uma frase curta do que faz
+func _ability_tile(parent: Node, icon: String, name_text: String, value: String, plus: String, help: String, accent: Color):
+	var p = PanelContainer.new()
+	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(accent.r, accent.g, accent.b, 0.13)
+	sb.border_color = Color(accent.r, accent.g, accent.b, 0.55)
+	sb.border_width_left = 3
+	sb.set_corner_radius_all(8)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 10
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 5
+	p.add_theme_stylebox_override("panel", sb)
+	parent.add_child(p)
+	var h = HBoxContainer.new()
+	h.add_theme_constant_override("separation", 8)
+	p.add_child(h)
+	h.add_child(_icon_box(icon, Color(accent.r, accent.g, accent.b, 0.22)))
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", -1)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(v)
+	var top = HBoxContainer.new()
+	top.add_theme_constant_override("separation", 6)
+	v.add_child(top)
+	var nl = _label(name_text, 16, accent.lightened(0.35))
+	nl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nl.clip_text = true
+	top.add_child(nl)
+	if value != "":
+		var vl = _label(value, 17)
+		vl.add_theme_font_override("font", ThemeDB.fallback_font)
+		top.add_child(vl)
+	if plus != "":
+		var pl = _label(plus, 14, Color(0.5, 1.0, 0.55))
+		pl.add_theme_font_override("font", ThemeDB.fallback_font)
+		top.add_child(pl)
+	if help != "":
+		var hl = _wrap(help, 13, ThemeBuilder.COLOR_STAT_LABEL)
+		hl.add_theme_font_override("font", ThemeDB.fallback_font)
+		v.add_child(hl)
+
+
+static func _num(x: float, decimals: int = 1) -> String:
+	return (("%." + str(decimals) + "f") % x).replace(".", ",")
+
+
+static func _tiles(px: float) -> String:
+	return _num(px / TILE_PX) + " quadr."
+
+
+## TODAS as habilidades da carta como linhas [ícone, nome, valor, +próximo nível, frase].
+## O que é número de força (explosão, cura, veneno, escudo...) cresce com o nível.
+func _ability_rows(card: CardData, mult: float, next_mult: float) -> Array:
+	var out: Array = []
+	var up = next_mult > mult
+	var lvl = func(base: float) -> Array:
+		var now = int(round(base * mult))
+		return [str(now), "+%d" % (int(round(base * next_mult)) - now) if up and int(round(base * next_mult)) != now else ""]
+	if card.is_spell():
+		var sp: SpellData = card.spell_data
+		var t_now = Regras.effect_time_mult(mult) if sp.duration <= 0 else 1.0
+		var t_next = Regras.effect_time_mult(next_mult) if sp.duration <= 0 else 1.0
+		var tplus = func(base: float) -> String:
+			return "+" + _num(base * t_next - base * t_now) + "s" if up and t_next > t_now else ""
+		if sp.duration > 0 and sp.damage > 0:
+			out.append(["🌧", "Fica no chão", _num(sp.duration) + "s", "", "bate %d vez(es): uma a cada %ss" % [int(maxf(1.0, sp.duration / maxf(0.05, sp.tick_interval))), _num(sp.tick_interval)]])
+		elif sp.duration > 0:
+			out.append(["🌧", "Fica no chão", _num(sp.duration) + "s", "", "o efeito continua na área esse tempo"])
+		if sp.damage > 0 and sp.base_damage_multiplier != 1.0:
+			out.append(["🏰", "Contra torre", "%d%%" % int(round(sp.base_damage_multiplier * 100)), "", "feitiço bate bem mais fraco em torre"])
+		if sp.rage_damage_mult > 1.0 or sp.rage_speed_mult > 1.0 or sp.rage_attack_speed_mult > 1.0:
+			out.append(["😡", "Fúria", "+%d%% dano" % int(round((sp.rage_damage_mult - 1.0) * 100)), "", "aliados na área também andam +%d%% e batem +%d%% mais rápido" % [int(round((sp.rage_speed_mult - 1.0) * 100)), int(round((sp.rage_attack_speed_mult - 1.0) * 100))]])
+			out.append(["⏱", "Duração da fúria", _num(sp.buff_duration * t_now) + "s", tplus.call(sp.buff_duration), "é o que cresce quando a carta evolui"])
+		if sp.shield_amount > 0:
+			out.append(["⏱", "Duração do escudo", _num(sp.buff_duration * t_now) + "s", tplus.call(sp.buff_duration), ""])
+		if sp.status_effect != UnitData.OnHitEffect.NONE:
+			var dur = sp.status_effect_duration if sp.status_effect_duration > 0 else (sp.tick_interval * 1.5 if sp.duration > 0 else 2.0)
+			var row = _effect_row(sp.status_effect, sp.status_effect_strength, dur * t_now, sp.tick_interval, sp.knockback_distance, 1.0, 1.0)
+			if sp.status_effect_duration > 0 and row[2].ends_with("s") and row[3] == "":
+				row[3] = tplus.call(sp.status_effect_duration)
+			out.append(row)
+		if sp.cleanses:
+			out.append(["✨", "Purifica", "", "", "tira efeitos ruins dos aliados na área"])
+		if sp.summon_interval > 0.0 and sp.duration > 0.0:
+			out.append(["🐣", "Brota", "1 x %s" % _scene_name(sp.summon_scene), "", "um a cada %ss enquanto durar" % _num(sp.summon_interval)])
+		elif sp.summon_count > 0:
+			out.append(["🐣", "Invoca", "%d x %s" % [sp.summon_count, _scene_name(sp.summon_scene)], "", "nascem onde você jogar, no nível da carta"])
+		return out
+	var st: UnitData = DeckBuilder.get_unit_stats(card)
+	if st == null:
+		return out
+	if st.spin_attack:
+		out.append(["🌀", "Golpe em roda", _tiles(maxf(st.aoe_radius, 38.0)), "", "gira e acerta todos em volta dela"])
+	elif st.frontal_cone_attack:
+		out.append(["📐", "Golpe em leque", _tiles(maxf(st.aoe_radius, 38.0)), "", "acerta todos num leque de %d° pra frente" % int(st.cone_angle_degrees)])
+	elif st.is_aoe:
+		out.append(["⭕", "Dano em área", _tiles(st.aoe_radius), "", "acerta todo mundo perto do alvo"])
+	if st.charge_attack:
+		var c = lvl.call(st.damage * st.charge_damage_multiplier)
+		out.append(["🐎", "Investida", c[0], c[1], "depois de correr %s, o golpe sai x%s e empurra" % [_tiles(st.charge_distance_needed), _num(st.charge_damage_multiplier)]])
+	if st.first_attack_bonus:
+		var f = lvl.call(st.damage * st.first_attack_multiplier)
+		out.append(["⚡", "1º golpe", f[0], f[1], "o primeiro ataque sai x%s" % _num(st.first_attack_multiplier)])
+	if st.bandit_dash:
+		out.append(["🌪", "Bote", "", "", "salta no primeiro alvo e não leva dano no caminho (uma vez)"])
+	if st.entrance_rage_duration > 0:
+		out.append(["😡", "Entra em fúria", _num(st.entrance_rage_duration) + "s", "", "chega com +%d%% de dano e +%d%% de velocidade" % [int(round((st.entrance_rage_damage_mult - 1.0) * 100)), int(round((st.entrance_rage_speed_mult - 1.0) * 100))]])
+	if st.entrance_shockwave_damage > 0:
+		var w = lvl.call(st.entrance_shockwave_damage)
+		out.append(["💥", "Onda de choque", w[0], w[1], "dano em volta ao entrar em campo (raio %s)" % _tiles(st.entrance_shockwave_radius)])
+	if st.deals_arrival_damage:
+		var ar = lvl.call(st.arrival_damage)
+		out.append(["💥", "Dano ao chegar", ar[0], ar[1], "raio %s" % _tiles(st.arrival_damage_radius)])
+	if st.explodes_on_death or st.kamikaze:
+		var ex = lvl.call(st.death_explosion_damage)
+		out.append(["💣", "Explosão", ex[0], ex[1], ("explode ao encostar no alvo" if st.kamikaze else "explode ao morrer") + " (raio %s)" % _tiles(st.death_explosion_radius)])
+	if st.on_hit_effect != UnitData.OnHitEffect.NONE:
+		out.append(_effect_row(st.on_hit_effect, st.on_hit_effect_strength, st.on_hit_effect_duration, st.on_hit_effect_tick_interval, st.knockback_distance, mult, next_mult))
+	if st.projectile_splits:
+		out.append(["🍿", "Tiro se divide", "em %d" % st.projectile_split_count, "", "ao acertar, estilhaça nos inimigos por perto"])
+	if st.projectile_pierces:
+		out.append(["🔱", "Tiro atravessa", "%d alvos" % st.projectile_max_targets, "", "passa por dentro de quem estiver na fila"])
+	if st.projectile_chains:
+		out.append(["⛓", "Tiro em corrente", "%d alvos" % st.projectile_chain_max_targets, "", "pula de um inimigo pro outro"])
+	if st.can_heal_allies:
+		var hl = lvl.call(st.heal_aura_amount / maxf(st.heal_aura_interval, 0.1))
+		out.append(["✚", "Cura por segundo", hl[0], hl[1], "em todos os aliados a até %s dela" % _tiles(st.heal_aura_radius)])
+	if st.lifesteal_percent > 0:
+		out.append(["🩸", "Roubo de vida", "%d%%" % int(round(st.lifesteal_percent * 100)), "", "do dano que causa volta como vida"])
+	if st.heals_on_kill:
+		var hk = lvl.call(st.heal_on_kill_amount)
+		out.append(["🍖", "Cura ao matar", hk[0], hk[1], "a cada inimigo derrotado"])
+	if st.damage_reduction_percent > 0:
+		out.append(["🛡", "Casca dura", "-%d%%" % int(round(st.damage_reduction_percent * 100)), "", "de todo dano que leva"])
+	if st.has_shield:
+		var sh = lvl.call(st.shield_amount)
+		out.append(["🛡", "Escudo", sh[0], sh[1], "vida extra" + (" (recarrega em %ss)" % _num(st.shield_recharge_time, 0) if st.shield_recharge_time > 0 else "")])
+	if st.passive_regen:
+		var rg = lvl.call(st.regen_amount / maxf(st.regen_interval, 0.1))
+		out.append(["💗", "Regenera por segundo", rg[0], rg[1], "recupera vida sozinha"])
+	if st.reflects_damage:
+		out.append(["↩", "Devolve dano", "%d%%" % int(round(st.reflect_damage_percent * 100)), "", "quem bate nela leva isso de volta"])
+	if st.execute_threshold > 0:
+		out.append(["🗡", "Executa", "x" + _num(st.execute_damage_mult), "", "em alvo com menos de %d%% de vida" % int(round(st.execute_threshold * 100))])
+	if st.low_hp_rage_threshold > 0:
+		out.append(["😤", "Fúria quase morrendo", "x" + _num(st.low_hp_rage_damage_mult), "", "de dano quando ela fica abaixo de %d%% de vida" % int(round(st.low_hp_rage_threshold * 100))])
+	if st.ramping_damage:
+		out.append(["📈", "Esquenta", "até x" + _num(st.ramping_damage_max_multiplier), "", "+%d%% de dano a cada golpe" % int(round(st.ramping_damage_per_hit * 100))])
+	if st.same_target_ramping_damage:
+		out.append(["📈", "Insiste no alvo", "até x" + _num(st.same_target_ramping_damage_max_multiplier), "", "+%d%% de dano a cada golpe no mesmo alvo" % int(round(st.same_target_ramping_damage_per_hit * 100))])
+	if st.ramping_attack_speed:
+		out.append(["🪓", "Acelera", "até x" + _num(1.0 / maxf(st.attack_speed_ramp_min_multiplier, 0.1)), "", "bate %d%% mais rápido a cada golpe" % int(round(st.attack_speed_ramp_per_hit * 100))])
+	if st.forces_aggro:
+		out.append(["📣", "Provoca", _tiles(st.taunt_radius), "", "inimigos nesse raio são obrigados a bater nela"])
+	if st.can_resurrect:
+		out.append(["🔁", "Levanta de novo", "%d%% da vida" % int(round(st.resurrect_hp_percent * 100)), "", "uma vez, depois de morrer"])
+	if st.can_stealth:
+		out.append(["🥷", "Furtiva", "", "", "o inimigo só enxerga a menos de %s; aparece depois de atacar" % _tiles(st.stealth_reveal_range)])
+	if st.immune_while_moving:
+		out.append(["👻", "Intocável andando", "", "", "não leva dano enquanto anda; só parada ou atacando"])
+	if st.immune_to_knockback or st.immune_to_pull:
+		out.append(["⚓", "Inabalável", "", "", "não é empurrada nem puxada"])
+	if st.is_linked:
+		out.append(["🔗", "Divide o dano", "%d%%" % int(round(st.link_share_percent * 100)), "", "o grupo reparte o dano que cada um leva"])
+	if st.counter_attack_chance > 0:
+		out.append(["🔄", "Revida", "%d%%" % int(round(st.counter_attack_chance * 100)), "", "de chance de devolver o golpe quando apanha"])
+	if st.distance_damage_bonus_per_100px > 0:
+		out.append(["🔭", "Mais dano de longe", "+%d%%" % int(round(st.distance_damage_bonus_per_100px * 100)), "", "a cada %s de distância do alvo" % _tiles(100.0)])
+	if st.generates_resource:
+		out.append(["💧", "Gera recurso", "%d a cada %ss" % [st.resource_per_tick, _num(st.resource_tick_interval)], "", "enquanto estiver viva"])
+	if st.can_spawn_anywhere:
+		out.append(["📍", "Nasce em qualquer lugar", "", "", "pode ser jogada até do lado da torre inimiga"])
+	if st.spawns_units:
+		out.append(["🏠", "Solta", "%d x %s" % [st.spawn_count, _scene_name(st.spawn_unit_scene)], "", "a cada %ss, no nível da carta" % _num(st.spawn_interval)])
+	if st.spawns_on_death:
+		out.append(["🐣", "Ao morrer solta", "%d x %s" % [st.death_spawn_count, _scene_name(st.death_spawn_scene)], "", ""])
+	if st.summons_on_attack:
+		out.append(["🐣", "Invoca ao atacar", "%d%%" % int(round(st.attack_summon_chance * 100)), "", "de chance de nascer 1 x %s" % _scene_name(st.attack_summon_scene)])
+	for comp in card.companions:
+		if comp.get("scene", null) != null:
+			out.append(["👥", "Vem junto", "%d x %s" % [int(comp.get("count", 1)), _scene_name(comp["scene"])], "", "entram em campo na mesma jogada"])
+	if st.duration > 0:
+		out.append(["⌛", "Tempo em campo", _num(st.duration, 0) + "s", "", "depois disso some sozinha"])
+	return out
+
+
+## linha de um efeito aplicado no alvo (veneno, atordoar, lentidão...)
+func _effect_row(effect: int, strength: float, duration: float, tick: float, knock: float, mult: float, next_mult: float) -> Array:
+	var n = str(CustomContent.EFFECT_NAMES[effect])
+	var secs = _num(duration) + "s"
+	match effect:
+		UnitData.OnHitEffect.POISON:
+			var now = int(round(strength * mult / maxf(tick, 0.1)))
+			var nxt = int(round(strength * next_mult / maxf(tick, 0.1)))
+			return ["☠", n + " por segundo", str(now), "+%d" % (nxt - now) if nxt > now else "", "o alvo fica perdendo vida por " + secs]
+		UnitData.OnHitEffect.SLOW:
+			return ["🐌", n, secs, "", "o alvo fica %d%% mais lento" % (int(round((1.0 - strength) * 100)) if strength <= 1.0 else int(strength))]
+		UnitData.OnHitEffect.FREEZE:
+			return ["❄", n, secs, "", "o alvo fica travado no gelo"]
+		UnitData.OnHitEffect.WEAKNESS:
+			return ["📉", n, secs, "", "o alvo causa %d%% menos dano" % (int(round((1.0 - strength) * 100)) if strength <= 1.0 else int(strength))]
+		UnitData.OnHitEffect.STUN:
+			return ["💫", n, secs, "", "trava o alvo a cada golpe"]
+		UnitData.OnHitEffect.KNOCKBACK:
+			return ["💨", n, _tiles(knock), "", "joga o alvo pra trás"]
+		UnitData.OnHitEffect.PULL:
+			return ["🧲", n, _tiles(knock), "", "puxa o alvo pra perto"]
+		UnitData.OnHitEffect.MARK:
+			return ["🎯", n, secs, "", "o alvo leva %d%% a mais de dano de tudo" % int(round((strength - 1.0) * 100))]
+	return ["🌀", n, secs, "", "aplicado no alvo a cada golpe"]
 
 
 const TILE_PX = 31.0  # 1 "quadrado" do campo (576 px de largura ≈ 18 quadrados, igual ao Clash)
@@ -1861,6 +2202,29 @@ func _role_job(card: CardData) -> String:
 		CardData.CardRole.VERSATIL:
 			return "Serve um pouco pra tudo: defende e ataca."
 	return ""
+
+
+## Força da carta: MEDIDA no laboratório quando existe e os números não mudaram;
+## senão ESTIMADA na hora pelo duelo no papel (carta de safra, carta criada,
+## carta que a Assembleia mexeu). Assim toda tropa mostra a mesma informação.
+var _strength_cache: Dictionary = {}
+
+
+func _strength_data(card: CardData) -> Dictionary:
+	if card == null or card.is_spell():
+		return {}
+	var st: UnitData = DeckBuilder.get_unit_stats(card)
+	if st == null:
+		return {}
+	var med: Dictionary = DuelosMedidos.of(card.card_name)
+	var key: Array = med.get("k", [])
+	var same = !card.has_meta("safra") and key.size() >= 2 and int(key[0]) == st.hp and int(key[1]) == st.damage
+	if !med.is_empty() and same:
+		return med
+	var ck = "%s|%d|%d|%.2f|%d" % [card.resource_path if card.resource_path != "" else card.card_name, st.hp, st.damage, st.attack_speed, st.unit_count]
+	if !_strength_cache.has(ck):
+		_strength_cache[ck] = DueloPapel.estimate(card)
+	return _strength_cache[ck]
 
 
 ## barra da força medida: preenchida até onde a carta chega, com um risco
@@ -1991,9 +2355,9 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 		if sp.shield_amount > 0:
 			var s0 = int(round(sp.shield_amount * mult))
 			_stat_tile(g, "🛡 Escudo", str(s0), "+%d" % (int(round(sp.shield_amount * next_mult)) - s0) if up else "")
-		_stat_tile(g, "⭕ Raio", ("%.1f quadrados" % (sp.radius / TILE_PX)).replace(".", ","))
+		_stat_tile(g, "⭕ Raio", _tiles(sp.radius))
 		if sp.duration > 0:
-			_stat_tile(g, "⏱ Duração", "%.1fs" % sp.duration)
+			_stat_tile(g, "⏱ Duração", _num(sp.duration) + "s")
 		if sp.summon_count > 0:
 			_stat_tile(g, "👥 Invoca", "x%d" % sp.summon_count)
 		_stat_tile(g, "🎯 Afeta", "Aliados" if (sp.affects_allies or !sp.affects_enemies) else "Inimigos")
@@ -2003,18 +2367,17 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 	if st == null:
 		return
 	var hp0 = int(round(st.hp * mult))
+	var area = st.is_aoe or st.spin_attack or st.frontal_cone_attack
 	_stat_tile(g, "❤ Vida", str(hp0), "+%d" % (int(round(st.hp * next_mult)) - hp0) if up else "")
 	if st.damage > 0:
 		var d1 = int(round(st.damage * mult))
-		_stat_tile(g, "⚔ Dano", str(d1), "+%d" % (int(round(st.damage * next_mult)) - d1) if up else "")
+		_stat_tile(g, "💥 Dano em área" if area else "⚔ Dano", str(d1), "+%d" % (int(round(st.damage * next_mult)) - d1) if up else "")
 		if st.attack_speed > 0:
 			var dps0 = int(round(st.damage * mult / st.attack_speed))
 			_stat_tile(g, "🔥 Dano por segundo", str(dps0), "+%d" % (int(round(st.damage * next_mult / st.attack_speed)) - dps0) if up else "")
-			_stat_tile(g, "⏱ Vel. de ataque", "%.1fs" % st.attack_speed)
-		_stat_tile(g, "📏 Alcance", ("%.1f quadrados" % (st.attack_range / TILE_PX)).replace(".", ",") if st.is_ranged else "Corpo a corpo")
+			_stat_tile(g, "⏱ Vel. de ataque", _num(st.attack_speed) + "s")
 	else:
 		_stat_tile(g, "⚔ Dano", "não ataca")
-	_stat_tile(g, "👟 Velocidade", _speed_name(st.move_speed))
 	var targets = "Chão"
 	match st.target_type:
 		UnitData.TargetType.BUILDING:
@@ -2024,6 +2387,9 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 		UnitData.TargetType.AIR:
 			targets = "Só ar"
 	_stat_tile(g, "🎯 Alvos", targets if st.damage > 0 else "-")
+	if st.damage > 0:
+		_stat_tile(g, "📏 Alcance", _tiles(st.attack_range) if st.is_ranged else "Corpo a corpo")
+	_stat_tile(g, "👟 Velocidade", _speed_name(st.move_speed) + (" (%d)" % int(st.move_speed) if st.move_speed > 0 else ""))
 	var kind = "Terrestre"
 	if st.unit_type == UnitData.UnitType.AIR:
 		kind = "Voador"
@@ -2035,8 +2401,9 @@ func _fill_stat_tiles(g: Node, card: CardData, mult: float, next_mult: float):
 		count_text += " +%d" % int(comp["count"])
 	if st.unit_count > 1 or !card.companions.is_empty():
 		_stat_tile(g, "👥 Quantidade", count_text)
-	if st.is_aoe:
-		_stat_tile(g, "⭕ Dano em área", ("%.1f quadrados" % (st.aoe_radius / TILE_PX)).replace(".", ","))
+	var deploy = Regras.deploy_time(st)
+	if deploy > 0.0:
+		_stat_tile(g, "⏳ Entrada em campo", _num(deploy) + "s")
 	_stat_tile(g, "💧 Custo", str(card.cost))
 
 
@@ -2270,18 +2637,43 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) * star_factor if can_level else mult
 	if can_level:
 		v.add_child(_label("Em verde: quanto melhora no nível %d" % (lv + 1), 13, ThemeBuilder.COLOR_STAT_LABEL))
-	var g = _grid(v, 3)
+	# ATAQUE bem definido: de perto ou de longe, num alvo ou em área (e de que
+	# tamanho), e em quem acerta (chão, ar, só torre)
+	var chips = _attack_chips(card)
+	if !chips.is_empty():
+		var cp = _panel(v)
+		cp.add_child(_label("🗡 Ataque", 17, ThemeBuilder.COLOR_GOLD))
+		var flow = HFlowContainer.new()
+		flow.add_theme_constant_override("h_separation", 6)
+		flow.add_theme_constant_override("v_separation", 6)
+		flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cp.add_child(flow)
+		for ch in chips:
+			flow.add_child(_chip(str(ch[0]), str(ch[1]), ch[2]))
+		var target_line = _target_text(card)
+		if target_line != "":
+			cp.add_child(_wrap(target_line.trim_prefix("🎯 "), 14, ThemeBuilder.COLOR_STAT_LABEL))
+	var g = _grid(v, 2)
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_fill_stat_tiles(g, card, mult, next_mult)
-	var target_line = _target_text(card)
-	if target_line != "":
-		v.add_child(_wrap(target_line, 16, Color(1.0, 0.85, 0.55)))
+	# HABILIDADES no mesmo formato dos atributos: cada uma com o seu número
+	# (e o quanto ele cresce no próximo nível) -- como na info do Clash
+	var ab_rows = _ability_rows(card, mult, next_mult)
+	if !ab_rows.is_empty():
+		var ab_box = VBoxContainer.new()
+		ab_box.add_theme_constant_override("separation", 5)
+		ab_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		v.add_child(ab_box)
+		ab_box.add_child(_label("✨ Habilidades", 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
+		for r in ab_rows:
+			_ability_tile(ab_box, str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), Catalogo.RARITY_COLORS[maxi(rarity, 1)])
 	# FORÇA MEDIDA: números tirados de duelos de verdade no laboratório (não é
 	# palpite) -- pra dar pra ver se a carta é fraca ou forte pro preço dela
-	var med: Dictionary = DuelosMedidos.of(card.card_name)
+	var med: Dictionary = _strength_data(card)
 	var mu = _matchups(card)
 	if med.has("v") or med.has("t"):
 		var fp = _panel(v)
-		fp.add_child(_label("⚔️ Força medida", 17, ThemeBuilder.COLOR_GOLD))
+		fp.add_child(_label("⚔️ Força estimada" if med.get("est", false) else "⚔️ Força medida", 17, ThemeBuilder.COLOR_GOLD))
 		if med.has("v"):
 			var won = int(med["v"])
 			var normal = int(med.get("e", won))
@@ -2313,26 +2705,10 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 			fp.add_child(_wrap("👍 Ganha de: " + ", ".join(wins), 15, Color(0.6, 1.0, 0.6)))
 		if !losses.is_empty():
 			fp.add_child(_wrap("👎 Perde pra: " + ", ".join(losses), 15, Color(1.0, 0.62, 0.55)))
-		fp.add_child(_wrap("Medido com as duas cartas no mesmo nível.", 12, ThemeBuilder.COLOR_STAT_LABEL))
-	# DETALHES: todos os números que não cabem nos quadradinhos
-	var details = _card_details(card, mult)
-	if !details.is_empty():
-		var dp = _panel(v)
-		dp.add_child(_label("🔎 Detalhes", 16, ThemeBuilder.COLOR_GOLD))
-		for line in details:
-			var dl = _wrap("• " + str(line), 14)
-			dl.add_theme_font_override("font", ThemeDB.fallback_font)
-			dp.add_child(dl)
-
-	# habilidades, uma por linha, explicadas
-	var skills = Catalogo.abilities_detail(card)
-	if !skills.is_empty():
-		var sk_panel = _panel(v)
-		sk_panel.add_child(_label("✨ Habilidades", 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
-		for pair in skills:
-			var help_text = _ability_help(str(pair[0]))
-			sk_panel.add_child(_wrap("%s %s%s" % ["★".repeat(int(pair[1])), pair[0], ": " + help_text if help_text != "" else ""], 15))
-
+		if med.get("est", false):
+			fp.add_child(_wrap("Estimativa pelos números da carta (ela não passou pelo laboratório). A conta acerta uns 9 em cada 10 duelos.", 12, ThemeBuilder.COLOR_STAT_LABEL))
+		else:
+			fp.add_child(_wrap("Medido em batalha de verdade, com as duas cartas no mesmo nível.", 12, ThemeBuilder.COLOR_STAT_LABEL))
 	# FUNÇÃO: pra que a carta serve (toda carta tem uma, com ou sem habilidade)
 	var job = _role_job(card)
 	if job != "" or !card.pros.is_empty() or !card.cons.is_empty():

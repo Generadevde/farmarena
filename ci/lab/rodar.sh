@@ -5,6 +5,7 @@
 #   GODOT=/caminho/godot ci/lab/rodar.sh lote  nome N            (N partidas bot x bot justas)
 #   GODOT=/caminho/godot ci/lab/rodar.sh solo  nome              (cada carta sozinha contra uma torre)
 #   GODOT=/caminho/godot ci/lab/rodar.sh duelos nome             (toda tropa x toda tropa; grava o que a carta mostra)
+#   GODOT=/caminho/godot ci/lab/rodar.sh papel nome              (o quanto a estimativa "no papel" acerta os duelos de verdade)
 #
 # PLANO_JSON = [[t, "P"|"E", "Nome da carta", x, y], ...]  (x,y a partir do meio do campo; y>0 = lado do jogador)
 # Regras antigas pra comparar:  REGRAS_OFF=torres,visual,peso  na frente do comando.
@@ -70,7 +71,14 @@ PY
     [ -f "$OUT/solo_$nome.json" ] || echo "(sem solo_$nome.json: rode antes 'rodar.sh solo $nome' pra carta mostrar também o dano em torre)"
     python3 "$REPO/ci/lab/medidas.py" "$OUT" "_$nome"
     ;;
+  papel)
+    # confere o "duelo no papel" (estimativa que o jogo usa pra carta não medida)
+    # contra os duelos de verdade da etiqueta dada
+    HOME="$OUT/home_papel" LAB_PAPEL="$OUT/matriz_$nome.json" LAB_SOLO="$OUT/solo_$nome.json" \
+      timeout 300 "$GODOT" --headless res://ci/lab/papel.tscn 2>&1 | grep -E "^PAPEL (acerto|erro)|SCRIPT ERROR"
+    rm -rf "$OUT/home_papel"
+    ;;
   *)
-    sed -n 2,13p "$0"
+    sed -n 2,14p "$0"
     ;;
 esac
