@@ -1146,7 +1146,7 @@ func _abilities_audit():
 	# cartas com acompanhantes
 	var counts: Array = []
 	var comp_ok = true
-	for pair in [["comitiva", 3], ["vaca_e_cria", 3], ["galo_e_cia", 5], ["dupla_caipira", 2], ["bezerrada", 3], ["pintaiada", 6]]:
+	for pair in [["comitiva", 3], ["vaca_e_cria", 3], ["galo_e_cia", 5], ["dupla_caipira", 2], ["bezerrada", 4], ["pintaiada", 6]]:
 		await _wipe()
 		var got = (await _put(pair[0], P, mid)).size()
 		counts.append("%s=%d" % [pair[0], got])

@@ -94,10 +94,69 @@ cabeçalho de `ci/lab/rodar.sh`:
 - `rodar.sh cena` — monta uma situação e grava vídeo na proporção do Moto G75
 - `rodar.sh lote` — N partidas bot x bot justas, com resumo
 - `rodar.sh solo` — cada carta sozinha contra uma torre
+- `rodar.sh duelos` — toda tropa contra toda tropa (1 contra 1) e grava
+  `Scripts/duelos_medidos.gd`, que é o que a carta mostra em "Força medida"
+- `ci/lab/folha.tscn` — folha com o desenho de todas as tropas no tamanho do campo
 - `REGRAS_OFF=torres,visual,peso` na frente = regras antigas, pra comparar
 
 O teste `CI_MODE=regras` (em `ci/battle_test.gd`) garante no GitHub que a
 torre continua defendendo.
+
+## Identidade das tropas (19/11) — "tá tudo muito igual, muito repetido"
+
+O João jogou a Batalha 2.5 e disse que as unidades continuavam parecidas
+demais: no Clash um cavaleiro e um goblin são claramente diferentes, "tem uma
+simetria na diferença". E que tinha lendária que ele não sabia dizer se era
+fraca ou forte. Medido, deu três causas:
+
+**1. Nos números, a diferença era só de QUANTO, não de COMO.** Todas as tropas
+duelaram entre si (`rodar.sh duelos`, 666 duelos, mesmo nível):
+
+| | Antes | Agora |
+|---|---|---|
+| Uma única lista "fraca → forte" acerta o resultado | 91% | 85% |
+| Idem, só entre cartas de preço parecido (±5) | 88% | 79% |
+| Trios pedra-papel-tesoura (preço parecido) | 4,9% | 12,7% |
+| Duelos apertados (vencedor com menos de 25% da vida, preço parecido) | 14% | 17% |
+
+O que foi mexido: cada papel foi puxado pro seu canto (antes era tudo
+meio-termo). **Bando** (Bezerrada agora são 4, Molecada, Galinhas): cada um
+morre com 1 golpe do Peão ou 2 tiros da torre, mas juntos batem muito.
+**Matador** (Galo Rei, Jacaré, Boi Marretão, Pato Ninja): golpe maior e mais
+espaçado — apaga tropa de vida alta, desperdiça golpe em bando. **Brigão**
+(Peão) é a régua. Resultado que dá pra ver: Peão > Pintaiada > Galo Rei > Peão.
+O gerador de cartas da safra segue a mesma ideia (bando e matador).
+
+**2. No desenho, quase todo bicho era o mesmo boneco em pé com outra cabeça.**
+Agora bicho sem ferramenta anda de quatro patas (vaca malhada, bezerro,
+cavalo, jegue, bode, cachorro, capivara), jacaré é rasteiro, tatu tem casco e
+sapo fica agachado (`ci/tools/arte/pecas.py`, peças "quatro"). Gente e bicho
+com ferramenta continuam em pé. O tamanho voltou a ser quase proporcional
+(pintinho miúdo, robô enorme).
+
+**3. No movimento, todo mundo dava o mesmo pulinho.** Agora cada corpo anda de
+um jeito (`_walk_anim` em `unit_base.gd`): casco trota ou galopa, ave cisca
+rebolando, sapo salta e agacha, jacaré ginga rente ao chão, assombração
+flutua, trator treme com o motor, grandão pisa pesado e levanta poeira,
+inseto zumbe. E cada um bate de um jeito: marretada, giro da foice, cabeçada,
+bicada, estocada.
+
+**Lendária fraca ou forte?** Nenhuma lendária/mística mediu fraca: Assombração
+vence 46% dos duelos (o normal pra custo 20 é 27%), Urubu de Plantão 66%
+(normal 39%), Tatu Bola 49% (39%), Jacaré 74% (65%), Disco Voador 94% (84%),
+Boi da Cara Preta 94% (71%), Cacto 46% (46%), Lenhador 60% (65%). O problema
+era não dar pra VER isso: os números da carta (70 de vida!) enganam. Agora o
+detalhe da carta mostra a **⚔️ Força medida**: quantas tropas ela vence, o
+normal pro preço, de quem ganha, pra quem perde e quanto tira de uma torre
+sozinha (`Scripts/duelos_medidos.gd`, gerado pelo laboratório — rodar de novo
+quando mexer em número de carta).
+
+Efeito colateral medido e compensado: com as tropas mais afiadas, 19 de 40
+partidas entre bots acabavam em nocaute; a vida da torre subiu de 1,45x pra
+1,62x e voltou pra 11 de 40 (antes da mudança: 17 de 60).
+
+Bug achado no caminho: duas cartas que devolvem dano (Tatu, Cacto, Robô)
+brigando entre si entravam num vai-e-volta sem fim e travavam o jogo.
 
 ## Ficou pra depois (não mexido)
 
@@ -107,12 +166,15 @@ torre continua defendendo.
 - (19/11) Espaço pessoal: tropas do mesmo lado que não estão brigando passam a
   ficar 1,35 corpo de distância (antes 0,85) -- menos boneco empilhado no
   mesmo ponto. Vale só com a regra "visual" ligada.
-- Cartas que sozinhas ainda rendem demais pro custo: Assombração (20 → 38%),
-  Abóboras (25 → 41%), Bezerrada (25 → 44%), Cavalo (35 → 56%).
+- Cartas que sozinhas ainda tiram bastante da torre pro custo: Assombração
+  (20 → 38%), Abóboras (25 → 37%), Cavalo (35 → 56%).
 - Nível pesa 15% em vida E dano por nível (Clash ≈ 10%). O João achou que
   não é o principal.
 - Mão de 3 cartas e baralho de 7 (Clash: 4 e 8) — é do projeto original.
 - Começa a partida com 5 de 100 de recurso (Clash começa com metade).
 - Bug antigo: popup do baú abre por cima da carta aberta.
-- As artes vêm todas do mesmo molde de corpo (SpriteForge): maiores elas se
-  distinguem bem melhor, mas poses diferentes por carta ajudariam mais ainda.
+- Voadores dominam duelo (Mosquito, Abelha, Urubu, Boi da Cara Preta): tropa
+  de chão sem tiro não encosta neles. É de propósito (no Clash também), mas
+  vale olhar se enjoar.
+- Aves ainda dividem o mesmo corpo (pinto, galinha, galo, pato, coruja).
+- Som: cada tropa ainda usa os mesmos sons de golpe.

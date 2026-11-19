@@ -108,6 +108,11 @@ static func _fill_spell(sp: SpellData, role: int, cost: int, rng: RandomNumberGe
 	sp.radius = round(sp.radius / 5.0) * 5.0
 
 
+# cabeça de bicho -> corpo de quatro patas que combina (ver SpriteForge / pecas.py)
+const QUATRO_BY_HEAD = {"vaca": "malhado", "boi": "casco", "cavalo": "casco", "bode": "casco", "burro": "casco", "ovelha": "casco",
+	"porco": "pata", "cachorro": "pata", "capivara": "pata", "gato": "pata", "jacare": "rasteiro", "tatu": "casca", "sapo": "sapo"}
+
+
 static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGenerator):
 	var budget = power_per_cost() * cost * rng.randf_range(0.88, 1.1)
 	var hp_share = 0.55
@@ -214,6 +219,16 @@ static func _fill_unit(st: UnitData, role: int, cost: int, rng: RandomNumberGene
 	st.hp = max(30, int(round(budget * hp_share / 0.3 / count / 10.0)) * 10)
 	var dps = budget * (1.0 - hp_share) / 3.0 / count
 	st.damage = max(5, int(round(dps * st.attack_speed / 5.0)) * 5)
+	# IDENTIDADE: cada papel puxa os números pro seu canto. Antes vida e dano
+	# saíam do mesmo orçamento "meio-termo" e toda carta nova parecia igual
+	# (bando era só uma tropa normal cortada em pedaços).
+	match role:
+		CardData.CardRole.ENXAME:    # bando: frágil, mas junto bate muito
+			st.hp = max(30, int(round(st.hp * 0.8 / 10.0)) * 10)
+			st.damage = max(5, int(round(st.damage * 1.8 / 5.0)) * 5)
+		CardData.CardRole.PUNICAO:   # matador: golpe grande e espaçado
+			st.damage = max(5, int(round(st.damage * 1.3 * 1.7 / maxf(st.attack_speed, 0.1) / 5.0)) * 5)
+			st.attack_speed = 1.7
 	st.move_speed = round(st.move_speed / 5.0) * 5.0
 	st.attack_range = round(st.attack_range / 5.0) * 5.0
 	st.attack_speed = snapped(st.attack_speed, 0.1)
@@ -768,6 +783,15 @@ static func design_card(rng: RandomNumberGenerator, turma: String, role: int, st
 		palette["K"] = _pick_of(rng, ["#e8b088", "#d89868", "#c08058", "#f0c8a0"])
 	elif head in ["galinha", "pato", "coruja"]:
 		palette["K"] = _pick_of(rng, ["#f0b030", "#f09030"])
+	# bicho sem ferramenta na mão anda de quatro patas (não gasta sorteio:
+	# as cartas de safra que já existem continuam as mesmas, só muda o corpo)
+	if weapon == "" and stats.unit_type == UnitData.UnitType.GROUND and QUATRO_BY_HEAD.has(head) \
+			and str(recipe.get("costas", "")) in ["", "cesto"]:
+		var four = {"quatro": QUATRO_BY_HEAD[head], "cabeca": head}
+		for keep in ["chapeu", "costas"]:
+			if recipe.has(keep):
+				four[keep] = recipe[keep]
+		recipe = four
 	out["receita"] = recipe
 
 	var fem = 1 if head in HEAD_FEMININE else 0

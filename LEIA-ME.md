@@ -35,6 +35,8 @@ Os testes automáticos (partidas sem tela e capturas de tela) rodam no GitHub Ac
 ## Batalha 2.5 (nov/2026)
 A torre passou a defender de verdade (toda torre atira, com mais vida, dano e alcance), as tropas ficaram maiores e com cor de time, e o golpe ganhou peso (1 s pra entrar em campo, preparo antes de bater). Tudo fica em `Scripts/regras.gd` e pode ser ligado/desligado em **Configurações → Laboratório da batalha**. O porquê e os números estão em `DIAGNOSTICO.md`; as ferramentas pra medir de novo, em `ci/lab/`.
 
+**Identidade das tropas (19/11)**: bicho anda de quatro patas, cada corpo anda e bate do seu jeito, bando/matador/brigão têm papéis bem separados, e o detalhe da carta mostra a **Força medida** (duelos de verdade rodados no laboratório). Mexeu em número de carta? Rode `ci/lab/rodar.sh solo X` e `ci/lab/rodar.sh duelos X` pra atualizar o que a carta mostra.
+
 ## Raridade 3.0
 - **Normal** e **Rara**: sem habilidade (a Rara é só uma carta um pouco melhor ou diferente).
 - **Épica**: habilidade fraca (1-2 pontos). **Lendária**: habilidade boa (3-4). **Mística**: as melhores (5+).

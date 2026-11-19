@@ -1146,3 +1146,132 @@ PECAS["chapeu"].update({"bone": chap_bone, "cartola": chap_cartola, "chifres": c
 PECAS["arma"].update({"vara": arma_vara, "berrante": arma_berrante, "garrafa": arma_garrafa, "rastelo": arma_rastelo,
                       "espingarda": arma_espingarda, "regador": arma_regador})
 PECAS["costas"].update({"cesto": costas_cesto, "morcego": costas_asas_morcego})
+
+
+# ================================================================ POSTURAS (lote 3)
+# Nem todo bicho fica em pé feito gente. Estas peças são o CORPO INTEIRO
+# (pernas + tronco + rabo) em outra postura; a cabeça é a mesma peça de
+# sempre, só encaixada em outro lugar (QUATRO_CABECA = deslocamento dx,dy).
+# Receita: {"quatro": "casco", "cabeca": "vaca"}  (sem pernas/corpo/bracos)
+def quatro_casco():
+    """vaca, cavalo, bode, jegue: de lado, quatro pernas com casco, rabo com tufo"""
+    cv = new()
+    for x in (16, 30):                               # pernas de trás (mais escuras)
+        cv.rect(x, 37, 3, 6, C("P", 2))
+        cv.rect(x, 43, 3, 2, C("M", 2))
+    cv.line(7, 27, 5, 31, C("P", 2))                  # rabo
+    cv.line(5, 31, 5, 34, C("P", 2))
+    cv.rect(4, 35, 3, 3, C("S", 1))
+    cv.ellipse(20, 31, 13, 8, "P")                    # tronco
+    cv.ellipse(20, 35, 8, 3.2, "K")                   # barriga clara
+    for x in (10, 25):                               # pernas da frente
+        cv.blob_rect(x, 36, 5, 7, "P", 1)
+        cv.rect(x, 43, 5, 2, C("M", 2))
+        cv.rect(x, 43, 2, 1, C("M", 1))
+    return fin(cv)
+
+
+def quatro_pata():
+    """cachorro, capivara, porco, gato: de lado, perna curta e patinha"""
+    cv = new()
+    for x in (16, 29):
+        cv.rect(x, 39, 3, 5, C("P", 2))
+    cv.ellipse(6, 28, 2.5, 3.5, "P")                  # rabinho pra cima
+    cv.ellipse(20, 33, 12.5, 7.5, "P")
+    cv.ellipse(20, 37, 8, 3, "K")
+    for x in (10, 25):
+        cv.blob_rect(x, 39, 5, 6, "P", 2)
+        cv.rect(x, 44, 5, 1, C("P", 2))
+    return fin(cv)
+
+
+def quatro_rasteiro():
+    """jacaré, tatu: baixinho e comprido, rabo grosso, placas nas costas"""
+    cv = new()
+    for i, (x, w) in enumerate(((1, 4), (4, 5), (8, 6))):   # rabo afinando
+        cv.rect(x, 39 - i, w, 3 + i, C("P", 2 if i == 0 else 1))
+    for x in (12, 27):                               # patas de trás
+        cv.rect(x, 41, 4, 4, C("P", 2))
+    cv.ellipse(21, 37, 13, 6, "P")
+    cv.ellipse(21, 40, 9, 2.5, "K")
+    for x in (10, 14, 18, 22, 26):                   # placas / escamas
+        cv.rect(x, 30, 3, 2, C("S", 1))
+        cv.put(x + 1, 29, C("S", 0))
+    for x in (9, 24):                                # patas da frente
+        cv.blob_rect(x, 41, 5, 4, "P", 1)
+    return fin(cv)
+
+
+def quatro_sapo():
+    """sapo: agachado de frente, coxas grandes dos lados"""
+    cv = new()
+    for side in (-1, 1):
+        cv.ellipse(24 + side * 13, 39, 6, 5, "P")     # coxa dobrada
+        cv.rect(24 + side * 13 - 4, 43, 8, 2, C("K", 1))   # pezão
+        cv.rect(24 + side * 13 - 4, 43, 8, 1, C("K", 0))
+    cv.ellipse(24, 36, 11, 8, "P")
+    cv.ellipse(24, 39, 7, 4.5, "K")
+    for side in (-1, 1):                             # mãozinhas na frente
+        cv.rect(24 + side * 6 - 2, 42, 4, 3, C("P", 2))
+    return fin(cv)
+
+
+def quatro_malhado():
+    """vaca: o mesmo corpo de casco, com manchas"""
+    cv = quatro_casco()
+    body = [c[:3] for c in (C("P", 0), C("P", 1), C("P", 2))]
+    for x, y, w, h in ((9, 25, 6, 5), (17, 28, 5, 4), (13, 33, 4, 3), (24, 24, 4, 3)):
+        for yy in range(y, y + h):
+            for xx in range(x, x + w):
+                if (xx, yy) in ((x, y), (x + w - 1, y + h - 1), (x + w - 1, y), (x, y + h - 1)):
+                    continue                           # cantos arredondados
+                if cv.get(xx, yy)[3] and cv.get(xx, yy)[:3] in body:
+                    cv.put(xx, yy, C("S", 1))
+    return cv
+
+
+def quatro_casca():
+    """tatu: casco em cúpula com faixas, perninha curta, rabo fino"""
+    cv = new()
+    cv.line(3, 41, 8, 39, C("K", 2))                  # rabo fino
+    cv.line(3, 42, 8, 40, C("K", 2))
+    for x in (13, 27):
+        cv.rect(x, 41, 4, 4, C("K", 2))
+    cv.ellipse(21, 35, 13, 8.5, "M")                  # casco
+    for x in (12, 16, 20, 24, 28):                   # faixas
+        for y in range(28, 43):
+            if cv.get(x, y)[3]:
+                cv.put(x, y, C("M", 2))
+    cv.rect(9, 42, 25, 2, C("K", 1))                  # barriga aparecendo embaixo
+    for x in (9, 24):
+        cv.blob_rect(x, 41, 5, 4, "K", 1)
+    return fin(cv)
+
+
+PECAS["quatro"] = {"casco": quatro_casco, "malhado": quatro_malhado, "pata": quatro_pata, "rasteiro": quatro_rasteiro,
+                   "casca": quatro_casca, "sapo": quatro_sapo}
+# onde a cabeça (e o chapéu) encaixam em cada postura
+QUATRO_CABECA = {"casco": (10, 6), "malhado": (10, 6), "pata": (10, 8), "rasteiro": (11, 12), "casca": (11, 11), "sapo": (0, 9)}
+# carga nas costas (cesto do jegue): vai em cima do lombo, atrás da cabeça
+QUATRO_COSTAS = {"casco": (8, -6), "malhado": (8, -6), "pata": (8, -4)}
+
+
+def montar(receita, paleta):
+    """receita = {categoria: nome}; devolve Image 48x48 já recolorida"""
+    cv = Canvas()
+    q = receita.get("quatro")
+    if q:
+        cv.paste(PECAS["quatro"][q]())
+        if receita.get("costas") and q in QUATRO_COSTAS:
+            cv.paste(PECAS["costas"][receita["costas"]](), *QUATRO_COSTAS[q])
+        dx, dy = QUATRO_CABECA[q]
+        for cat in ("cabeca", "chapeu"):
+            if receita.get(cat):
+                cv.paste(PECAS[cat][receita[cat]](), dx, dy)
+        return recolor(cv.img, paleta)
+    for cat in ORDEM:
+        nome = receita.get(cat)
+        if not nome:
+            continue
+        cv.paste(PECAS[cat][nome]())
+    return recolor(cv.img, paleta)

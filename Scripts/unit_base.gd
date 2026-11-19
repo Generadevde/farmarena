@@ -68,6 +68,7 @@ var _windup_left: float = -1.0     # preparo do golpe em andamento (<0 = não es
 var _windup_total: float = 0.0
 var _aim_dir := Vector2.ZERO
 var _hit_squash := 0.0             # "amassada" rápida ao levar golpe
+static var _reflecting := false    # trava do "devolve dano" (vale pra todas as unidades)
 var _base_sprite_scale := Vector2.ONE
 var deploy_clock := true           # numa leva (6 pintinhos), só o primeiro mostra o relógio
 
@@ -218,6 +219,71 @@ var _lunge := Vector2.ZERO
 var _visual_scale := 1.0
 var _is_air_visual := false
 
+# IDENTIDADE: cada tipo de corpo anda e bate do seu jeito (antes todo mundo
+# dava o mesmo pulinho e o mesmo bote -- era isso que deixava tudo "igual")
+enum Gait { MARCHA, TROTE, GALOPE, CORRIDINHA, CISCA, PULO, RASTEJA, FLUTUA, RODA, PISADA, VOO, ZUMBE, DISCO }
+enum Hit { BOTE, PANCADA, ESTOCADA, GIRO, CABECADA, BICADA, TIRO }
+var _gait: int = Gait.MARCHA
+var _hit_style: int = Hit.BOTE
+var _step_index := 0        # conta as passadas (poeira na pisada pesada)
+var _spin_left := 0.0       # giro do golpe em roda
+var _dip := 0.0             # cabeçada / bicada (inclina e volta)
+var _slam := 0.0            # pancada (achata e volta)
+var _idle_t := 0.0
+const SPIN_TIME = 0.3
+
+
+func _recipe() -> Dictionary:
+	return card_data.art_recipe if card_data != null and card_data.art_recipe != null else {}
+
+
+func _pick_gait() -> int:
+	var r = _recipe()
+	var legs = str(r.get("pernas", ""))
+	if stats.unit_type == UnitData.UnitType.AIR:
+		if str(r.get("objeto", "")) != "":
+			return Gait.DISCO
+		if legs == "inseto":
+			return Gait.ZUMBE
+		return Gait.VOO
+	var q = str(r.get("quatro", ""))
+	if q == "sapo":
+		return Gait.PULO
+	if q == "rasteiro" or q == "casca":
+		return Gait.RASTEJA
+	if q == "casco" or q == "malhado":
+		if stats.move_speed >= 70.0:
+			return Gait.GALOPE
+		return Gait.PISADA if stats.unit_scale >= 1.4 else Gait.TROTE
+	if q == "pata":
+		return Gait.CORRIDINHA
+	if str(r.get("objeto", "")) != "" or legs == "rodas":
+		return Gait.RODA
+	if legs == "fantasma":
+		return Gait.FLUTUA
+	if legs == "ave":
+		return Gait.CISCA
+	if stats.unit_scale >= 1.6 or stats.push_weight >= 4.0:
+		return Gait.PISADA
+	return Gait.MARCHA
+
+
+func _pick_hit_style() -> int:
+	var r = _recipe()
+	if stats.is_ranged:
+		return Hit.TIRO
+	if stats.spin_attack:
+		return Hit.GIRO
+	if stats.is_aoe or (stats.attack_speed >= 1.8 and stats.damage >= 150):
+		return Hit.PANCADA
+	if str(r.get("quatro", "")) in ["casco", "malhado", "pata"]:
+		return Hit.CABECADA
+	if str(r.get("pernas", "")) == "ave":
+		return Hit.BICADA
+	if stats.attack_speed <= 0.9:
+		return Hit.ESTOCADA
+	return Hit.BOTE
+
 
 func _setup_visuals():
 	var sprite: Sprite2D = $Sprite2D
@@ -225,6 +291,11 @@ func _setup_visuals():
 	_base_sprite_scale = sprite.scale
 	_is_air_visual = stats.unit_type == UnitData.UnitType.AIR
 	_anim_t = randf() * 10.0
+	_idle_t = randf() * 10.0
+	_gait = _pick_gait()
+	_hit_style = _pick_hit_style()
+	if Regras.on("visual") and !is_preview:
+		sprite.flip_h = team == GameManager.Team.ENEMY   # cada lado olha pro campo do outro
 	var team_look = Regras.on("visual") and !is_preview
 	if stats.unit_type != UnitData.UnitType.BUILDING or team_look:
 		var shadow = Polygon2D.new()
@@ -262,9 +333,28 @@ func _setup_visuals():
 		_spawn_fx.call_deferred()
 
 
+static var _top_cache := {}
+
+
+## quantos pixels do desenho ficam acima do centro (48x48 -> no máximo 24)
+func _sprite_top_px() -> float:
+	var tex: Texture2D = $Sprite2D.texture
+	if tex == null:
+		return 20.0
+	var key = tex.get_rid()
+	if !_top_cache.has(key):
+		var img = tex.get_image()
+		_top_cache[key] = (tex.get_height() * 0.5 - float(img.get_used_rect().position.y)) if img != null else 20.0
+	return _top_cache[key]
+
+
 ## altura da cabeça acima do centro (pra barra de vida ficar em cima dela)
 func _head_height() -> float:
-	var h = 24.0 * absf($Sprite2D.scale.y) * 0.86
+	var h = 24.0 * absf(_base_sprite_scale.y) * 0.86
+	if Regras.on("visual"):
+		# bicho baixinho (sapo, jacaré, tatu) tem a cabeça bem mais embaixo:
+		# mede onde o desenho começa de verdade pra barra encostar nele
+		h = (_sprite_top_px() + 1.0) * absf(_base_sprite_scale.y)
 	if _is_air_visual:
 		h += 16.0 * _visual_scale
 	return h
@@ -343,7 +433,7 @@ func _say(text: String):
 func _spawn_fx():
 	if is_inside_tree():
 		Fx.ring(get_parent(), position, 18.0 * _visual_scale, Color(1, 1, 1, 0.9), 0.25)
-		Sfx.play("nasce", 0.2, -3.0)
+		Sfx.play("nasce", 0.12, -3.0, clampf(1.5 - 0.42 * stats.unit_scale, 0.6, 1.4) if Regras.on("visual") else 1.0)
 		# defesa recém-colocada mostra por um instante até onde alcança
 		if stats.unit_type == UnitData.UnitType.BUILDING and stats.is_ranged and stats.damage > 0:
 			Fx.zone(get_parent(), position, stats.attack_range + 14.0, Color(1.0, 0.85, 0.3), 2.0)
@@ -361,27 +451,57 @@ func _process(delta):
 	sprite.self_modulate.a = lerpf(sprite.self_modulate.a, 0.4 if ghostly else 1.0, minf(1.0, delta * 10.0))
 	var pos = _sprite_home
 	var rot = 0.0
-	if _is_air_visual:
-		_anim_t += delta
-		pos.y += sin(_anim_t * 3.2) * 2.5 * _visual_scale
-		rot = sin(_anim_t * 1.6) * 0.05
-	elif moving:
-		_anim_t += delta * clampf(velocity.length() / 45.0, 0.6, 2.2)
-		pos.y -= absf(sin(_anim_t * 9.0)) * 2.2 * _visual_scale
-		rot = sin(_anim_t * 9.0) * 0.07
+	var squash = Vector2.ONE
+	if !Regras.on("visual"):
+		# jeito antigo: todo mundo com o mesmo pulinho
+		if _is_air_visual:
+			_anim_t += delta
+			pos.y += sin(_anim_t * 3.2) * 2.5 * _visual_scale
+			rot = sin(_anim_t * 1.6) * 0.05
+		elif moving:
+			_anim_t += delta * clampf(velocity.length() / 45.0, 0.6, 2.2)
+			pos.y -= absf(sin(_anim_t * 9.0)) * 2.2 * _visual_scale
+			rot = sin(_anim_t * 9.0) * 0.07
+	else:
+		var walk = _walk_anim(delta, moving)
+		pos += walk[0]
+		rot = walk[1]
+		squash = walk[2]
 	if moving and absf(velocity.x) > 6.0:
 		sprite.flip_h = velocity.x < 0
 	if _lunge.length_squared() > 0.05:
 		pos += _lunge
 		_lunge = _lunge.lerp(Vector2.ZERO, minf(1.0, delta * 11.0))
+	# golpe em roda: o desenho dá uma volta inteira
+	if _spin_left > 0.0:
+		_spin_left = maxf(0.0, _spin_left - delta)
+		rot += (1.0 - _spin_left / SPIN_TIME) * TAU * (-1.0 if sprite.flip_h else 1.0)
+	# cabeçada / bicada: inclina pra frente e volta
+	if absf(_dip) > 0.01:
+		rot += _dip
+		_dip = lerpf(_dip, 0.0, minf(1.0, delta * 10.0))
+	# pancada: achata no impacto e volta
+	if _slam > 0.01:
+		squash *= Vector2(1.0 + 0.2 * _slam, 1.0 - 0.18 * _slam)
+		_slam = lerpf(_slam, 0.0, minf(1.0, delta * 8.0))
 	# PESO: preparo do golpe (recua e "arma") e amassada ao apanhar
-	var squash = Vector2.ONE
 	if _windup_left >= 0.0 and _windup_total > 0.0:
 		var k = clampf(1.0 - _windup_left / _windup_total, 0.0, 1.0)
 		var reach = minf(_visual_scale, 1.8) * (3.0 if stats.is_ranged else 7.0)
-		pos -= _aim_dir * reach * k
-		rot -= signf(_aim_dir.x if absf(_aim_dir.x) > 0.15 else 1.0) * 0.16 * k
-		squash = Vector2(1.0 + 0.07 * k, 1.0 - 0.07 * k)
+		var side = signf(_aim_dir.x if absf(_aim_dir.x) > 0.15 else 1.0)
+		if _hit_style == Hit.PANCADA and Regras.on("visual"):
+			# levanta a marreta: sobe, inclina bem pra trás e estica
+			pos -= _aim_dir * reach * 0.6 * k
+			pos.y -= 6.0 * minf(_visual_scale, 1.8) * k
+			rot -= side * 0.3 * k
+			squash *= Vector2(1.0 - 0.06 * k, 1.0 + 0.1 * k)
+		elif _hit_style == Hit.GIRO and Regras.on("visual"):
+			rot -= side * 0.45 * k            # torce o corpo antes de girar
+			squash *= Vector2(1.0 + 0.05 * k, 1.0 - 0.05 * k)
+		else:
+			pos -= _aim_dir * reach * k
+			rot -= side * 0.16 * k
+			squash *= Vector2(1.0 + 0.07 * k, 1.0 - 0.07 * k)
 	if _hit_squash > 0.01:
 		squash *= Vector2(1.0 + 0.16 * _hit_squash, 1.0 - 0.14 * _hit_squash)
 		_hit_squash = lerpf(_hit_squash, 0.0, minf(1.0, delta * 14.0))
@@ -394,15 +514,125 @@ func _process(delta):
 	sprite.rotation = rot
 
 
+## JEITO DE ANDAR: devolve [deslocamento, rotação, amassada] do desenho.
+## Só visual -- a posição de verdade da tropa não muda.
+func _walk_anim(delta: float, moving: bool) -> Array:
+	var vs = _visual_scale
+	var pos = Vector2.ZERO
+	var rot = 0.0
+	var sq = Vector2.ONE
+	var speed_k = clampf(velocity.length() / 45.0, 0.6, 2.4)
+	_idle_t += delta
+	match _gait:
+		Gait.VOO:        # ave grande: plana subindo e descendo, bate asa devagar
+			_anim_t += delta
+			pos.y = sin(_anim_t * 3.2) * 2.5 * vs
+			rot = sin(_anim_t * 1.6) * 0.05
+			sq = Vector2(1.0 + 0.05 * sin(_anim_t * 9.0), 1.0 - 0.03 * sin(_anim_t * 9.0))
+			return [pos, rot, sq]
+		Gait.ZUMBE:      # inseto: treme e ziguezagueia sem parar
+			_anim_t += delta
+			pos = Vector2(sin(_anim_t * 23.0) * 1.3 + sin(_anim_t * 5.1) * 2.0, sin(_anim_t * 17.0) * 1.6) * vs
+			rot = sin(_anim_t * 29.0) * 0.07
+			return [pos, rot, sq]
+		Gait.DISCO:      # disco voador: paira e inclina pro lado que vai
+			_anim_t += delta
+			pos.y = sin(_anim_t * 2.0) * 3.0 * vs
+			rot = clampf(velocity.x / 60.0, -1.0, 1.0) * 0.14 + sin(_anim_t * 1.3) * 0.03
+			return [pos, rot, sq]
+		Gait.FLUTUA:     # assombração: desliza flutuando, nunca toca o chão
+			_anim_t += delta * (1.4 if moving else 0.8)
+			pos.y = (sin(_anim_t * 2.6) * 2.5 - 2.5) * vs
+			rot = sin(_anim_t * 1.9) * 0.09
+			return [pos, rot, sq]
+	if !moving:
+		# parado: respira (ninguém vira estátua)
+		var b = sin(_idle_t * 2.6)
+		if _gait == Gait.RODA:
+			return [Vector2(0, sin(_idle_t * 34.0) * 0.35 * vs), 0.0, sq]   # motor ligado
+		return [pos, rot, Vector2(1.0 - 0.012 * b, 1.0 + 0.02 * b)]
+	_anim_t += delta * speed_k
+	var step = 0
+	match _gait:
+		Gait.CISCA:      # galinha, pinto, pato: passinho rápido rebolando
+			pos.y = -absf(sin(_anim_t * 13.0)) * 1.6 * vs
+			rot = sin(_anim_t * 13.0) * 0.14
+		Gait.TROTE:      # bicho de casco: balanço de lombo
+			pos.y = -absf(sin(_anim_t * 8.0)) * 1.8 * vs
+			rot = sin(_anim_t * 8.0 + 0.6) * 0.055
+		Gait.GALOPE:     # cavalo / bezerro correndo: salto comprido, estica e encolhe
+			var g = sin(_anim_t * 7.5)
+			pos.y = -maxf(g, 0.0) * 4.5 * vs
+			rot = -g * 0.13 * (-1.0 if $Sprite2D.flip_h else 1.0)
+			sq = Vector2(1.0 + 0.07 * g, 1.0 - 0.07 * g)
+			step = int(floor(_anim_t * 7.5 / TAU))
+		Gait.CORRIDINHA: # cachorro, capivara: perninha curta, pulinho miúdo
+			pos.y = -absf(sin(_anim_t * 12.0)) * 1.5 * vs
+			rot = sin(_anim_t * 12.0) * 0.05
+		Gait.PULO:       # sapo: salta, cai agachado, salta de novo
+			var ph = fposmod(_anim_t * 1.5, 1.0)
+			if ph < 0.62:
+				var h = sin(ph / 0.62 * PI)
+				pos.y = -h * 9.0 * vs
+				sq = Vector2(1.0 - 0.1 * h, 1.0 + 0.14 * h)
+			else:
+				var d = sin((ph - 0.62) / 0.38 * PI)
+				sq = Vector2(1.0 + 0.14 * d, 1.0 - 0.13 * d)
+			step = int(floor(_anim_t * 1.5 + 0.38))
+		Gait.RASTEJA:    # jacaré, tatu: rente ao chão, gingando de lado
+			pos.x = sin(_anim_t * 7.0) * 1.7 * vs
+			rot = sin(_anim_t * 7.0) * 0.07
+		Gait.RODA:       # trator, robô: não pula -- treme com o motor
+			pos = Vector2(sin(_anim_t * 41.0) * 0.5, sin(_anim_t * 53.0) * 0.7) * vs
+			rot = sin(_anim_t * 37.0) * 0.012
+		Gait.PISADA:     # grandão: passada lenta e pesada, levanta poeira
+			var p = sin(_anim_t * 5.0)
+			pos.y = -absf(p) * 3.2 * vs
+			rot = p * 0.06
+			sq = Vector2(1.0 + 0.05 * (1.0 - absf(p)), 1.0 - 0.05 * (1.0 - absf(p)))
+			step = int(floor(_anim_t * 5.0 / PI))
+		_:               # gente: marcha
+			pos.y = -absf(sin(_anim_t * 9.0)) * 2.2 * vs
+			rot = sin(_anim_t * 9.0) * 0.07
+	# poeira quando o pé (ou o corpo todo) bate no chão
+	if step != _step_index:
+		_step_index = step
+		if is_inside_tree() and !is_preview:
+			Fx.burst(get_parent(), position + Vector2(0, 17.0 * vs), Color(0.78, 0.68, 0.5, 0.75), 3, 26.0, 2.0 * minf(vs, 1.8))
+	return [pos, rot, sq]
+
+
 func _attack_anim():
 	if target == null or !is_instance_valid(target) or !("global_position" in target):
 		return
 	var dir = (target.global_position - global_position).normalized()
 	if absf(dir.x) > 0.2:
 		$Sprite2D.flip_h = dir.x < 0
-	_lunge = dir * (-4.0 if stats.is_ranged else 9.0) * minf(_visual_scale, 1.6)
+	var k = minf(_visual_scale, 1.6)
+	_lunge = dir * (-4.0 if stats.is_ranged else 9.0) * k
 	if Regras.on("peso") and !stats.is_ranged:
 		_lunge *= 1.35  # o bote sai do recuo do preparo: mais curso, mais peso
+	if !Regras.on("visual"):
+		return
+	var side = -1.0 if $Sprite2D.flip_h else 1.0
+	match _hit_style:
+		Hit.GIRO:        # foice em roda: o corpo dá a volta
+			_lunge = Vector2.ZERO
+			_spin_left = SPIN_TIME
+		Hit.PANCADA:     # marretada: desce com tudo, achata e levanta poeira
+			_lunge = dir * 13.0 * k
+			_slam = 1.0
+			if is_inside_tree():
+				Fx.ring(get_parent(), target.global_position, 16.0 * k, Color(1, 0.95, 0.8, 0.9), 0.22)
+				Fx.burst(get_parent(), target.global_position, Color(0.78, 0.68, 0.5, 0.85), 6, 60.0, 2.6)
+		Hit.CABECADA:    # bicho de quatro patas: abaixa a cabeça e arremete
+			_lunge = dir * 14.0 * k
+			_dip = side * 0.32
+		Hit.BICADA:      # ave: bicada curta e seca
+			_lunge = dir * 6.0 * k
+			_dip = side * 0.5
+		Hit.ESTOCADA:    # golpe rápido: toque curto
+			_lunge = dir * 6.5 * k
 
 
 func _apply_unit_scale():
@@ -1612,8 +1842,12 @@ func take_damage(amount, _is_shared_damage: bool = false):
 			if is_instance_valid(ally):
 				ally.take_damage(shared_amount, true)
 
-	if stats.reflects_damage and target != null and is_instance_valid(target):
+	# dano devolvido NÃO é devolvido de novo: duas cartas que devolvem dano
+	# brigando entre si entravam num vai-e-volta sem fim (travava o jogo)
+	if stats.reflects_damage and !_reflecting and target != null and is_instance_valid(target):
+		_reflecting = true
 		target.take_damage(amount * stats.reflect_damage_percent)
+		_reflecting = false
 
 	if stats.counter_attack_chance > 0 and randf() < stats.counter_attack_chance:
 		if target != null and is_instance_valid(target):

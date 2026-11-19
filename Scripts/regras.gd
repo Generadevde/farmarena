@@ -13,7 +13,8 @@ class_name Regras
 ## São 3 chaves em Configurações > Laboratório, pra comparar ligando e
 ## desligando no próprio jogo:
 ##   "torres"  torre de verdade: toda torre atira, com mais vida, dano e alcance
-##   "visual"  tropas maiores, cor de time, barra de vida só em quem apanhou
+##   "visual"  tropas maiores, cor de time, barra de vida só em quem apanhou,
+##             cada tipo de corpo andando e batendo do seu jeito
 ##   "peso"    1 s pra entrar em campo, preparo antes do golpe, impacto
 
 const KEYS = ["torres", "visual", "peso"]
@@ -24,7 +25,8 @@ const KEYS = ["torres", "visual", "peso"]
 # lá a torre mata 1 elixir de Cavaleiro em ~4 s e aguenta ~55 "elixir-segundos"
 # de pancada. Aqui dava 10 s e 21. Com os números abaixo: ~4 s e ~47.
 const TOWER_HP_FRACTION_OLD = 0.65
-const TOWER_HP_FRACTION = 1.45       # Celeiro: 1300 -> 1885 por torre
+const TOWER_HP_FRACTION = 1.62     # (era 1.45) as tropas ficaram mais "afiadas" em 19/11 -- bando e matador
+                                   # batem bem mais; com 1.45 quase metade das partidas entre bots acabava em nocaute
 const TOWER_DAMAGE_MULT = 2.3        # Celeiro: 32 -> 74 por tiro
 const TOWER_RANGE_BONUS = 90.0       # Celeiro: 125 -> 215 (passa de todo atirador comum)
 const TOWER_RANGE_MAX = 280.0
@@ -142,8 +144,9 @@ static func double_time() -> float:
 
 
 # ---------------------------------------------------------------- visual
-const SPRITE_BOOST = 1.55      # tropa "normal" (escala 1.0) fica 55% maior na tela
-const SPRITE_CURVE = 0.6       # as pequenas crescem mais que as gigantes (escala^0.6)
+const SPRITE_BOOST = 1.5       # tropa "normal" (escala 1.0) fica 50% maior na tela
+const SPRITE_CURVE = 0.85      # quase proporcional: pintinho é miúdo, vaca é grande, robô é enorme
+                               # (era 0.6 -- espremia todo mundo pro mesmo tamanho)
 const BODY_BOOST = 1.28        # o corpo (colisão) cresce menos que o desenho
 const BODY_CURVE = 0.8
 const COLOR_ALLY = Color("#4aa8ff")

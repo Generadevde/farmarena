@@ -44,3 +44,4 @@ for c, hp0, last, dead in res:
     frac = (hp0 - last) / hp0
     print(f"{c['nome']:24s} custo {c['custo']:3d}  tira {frac * 100:5.1f}% da torre   morre aos {dead if dead else '>75'} s")
 print(f"\n{tag}: {kills} de {len(res)} cartas derrubam a torre sozinhas")
+json.dump({c["nome"]: round((hp0 - last) / hp0, 3) for c, hp0, last, dead in res}, open(os.path.join(out, "solo_%s.json" % tag), "w"), ensure_ascii=False)

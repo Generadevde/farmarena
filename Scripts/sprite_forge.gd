@@ -7,6 +7,8 @@ class_name SpriteForge
 ##   personagem: {"pernas":"bota","corpo":"macacao","bracos":"humanos",
 ##                "cabeca":"humano","chapeu":"palha","arma":"forcado","costas":""}
 ##   peça inteira: {"objeto":"silo"}  |  {"torre":"celeiro"}  |  {"icone":"raio"}
+##   bicho de quatro patas: {"quatro":"malhado","cabeca":"vaca"} (+ "chapeu")
+##     -- corpo inteiro numa peça só; a cabeça encaixa deslocada (PecasIndex.QUATRO_CABECA)
 ## Uma paleta é {"P":"#rrggbb","S":...,"A":...,"K":...,"M":...,"W":...}
 ##   P principal · S secundária · A acento · K pele/bico/palha · M metal · W madeira
 ##
@@ -96,6 +98,21 @@ static func make_image(recipe: Dictionary, palette: Dictionary = {}) -> Image:
 	for cat in SOLO + ["proj"]:
 		if recipe.get(cat, "") != "":
 			order.append(cat)
+	# POSTURA: bicho de quatro patas / rasteiro / agachado. O corpo inteiro é
+	# uma peça só ("quatro") e a cabeça + chapéu encaixam deslocados.
+	var stance = str(recipe.get("quatro", ""))
+	if order.is_empty() and stance != "" and has_piece("quatro", stance):
+		_stamp(out, int(PecasIndex.PECAS["quatro"][stance]), ramps)
+		var load_piece = str(recipe.get("costas", ""))
+		if load_piece != "" and has_piece("costas", load_piece) and PecasIndex.QUATRO_COSTAS.has(stance):
+			var lo: Vector2i = PecasIndex.QUATRO_COSTAS[stance]
+			_stamp(out, int(PecasIndex.PECAS["costas"][load_piece]), ramps, lo.x, lo.y)
+		var off: Vector2i = PecasIndex.QUATRO_CABECA.get(stance, Vector2i.ZERO)
+		for cat in ["cabeca", "chapeu"]:
+			var part = str(recipe.get(cat, ""))
+			if part != "" and has_piece(cat, part):
+				_stamp(out, int(PecasIndex.PECAS[cat][part]), ramps, off.x, off.y)
+		return Image.create_from_data(CELL, CELL, false, Image.FORMAT_RGBA8, out)
 	if order.is_empty():
 		order = PecasIndex.ORDEM
 	for cat in order:
@@ -106,15 +123,18 @@ static func make_image(recipe: Dictionary, palette: Dictionary = {}) -> Image:
 	return Image.create_from_data(CELL, CELL, false, Image.FORMAT_RGBA8, out)
 
 
-static func _stamp(out: PackedByteArray, cell: int, ramps: Dictionary):
+static func _stamp(out: PackedByteArray, cell: int, ramps: Dictionary, dx: int = 0, dy: int = 0):
 	var ox = (cell % PecasIndex.COLS) * CELL
 	var oy = (cell / PecasIndex.COLS) * CELL
 	for y in CELL:
+		var ty = y + dy
+		if ty < 0 or ty >= CELL:
+			continue
 		var src = ((oy + y) * _atlas_w + ox) * 4
-		var dst = y * CELL * 4
+		var dst = (ty * CELL + dx) * 4
 		for x in CELL:
 			var a = _atlas[src + 3]
-			if a != 0:
+			if a != 0 and x + dx >= 0 and x + dx < CELL:
 				var r = _atlas[src]
 				var g = _atlas[src + 1]
 				var b = _atlas[src + 2]

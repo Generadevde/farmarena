@@ -985,7 +985,7 @@ func _show_settings():
 	lab.add_child(_wrap("Ligue e desligue pra comparar. Vale a partir da próxima partida.", 14, ThemeBuilder.COLOR_STAT_LABEL))
 	for spec in [
 			["torres", "🏰 Torres de verdade", "Toda torre atira, com mais vida, dano e alcance. Defender passa a valer a pena."],
-			["visual", "👀 Tropas grandes e cor de time", "Tropa maior, contorno azul (seu) ou vermelho (do bot), barra de vida só em quem apanhou."],
+			["visual", "👀 Tropas grandes e cor de time", "Tropa maior, contorno azul (seu) ou vermelho (do bot), barra de vida só em quem apanhou. Cada bicho anda e bate do seu jeito."],
 			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."]]:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
@@ -1863,6 +1863,34 @@ func _role_job(card: CardData) -> String:
 	return ""
 
 
+## barra da força medida: preenchida até onde a carta chega, com um risco
+## branco marcando o normal pro preço dela
+func _strength_bar(won: int, normal: int, col: Color) -> Control:
+	var box = Control.new()
+	box.custom_minimum_size = Vector2(0, 16)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bg = ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.4)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.add_child(bg)
+	var fill = ColorRect.new()
+	fill.color = col.darkened(0.15)
+	fill.anchor_right = clampf(won / 100.0, 0.02, 1.0)
+	fill.anchor_bottom = 1.0
+	box.add_child(fill)
+	var mark = ColorRect.new()
+	mark.color = Color(1, 1, 1, 0.95)
+	mark.anchor_left = clampf(normal / 100.0, 0.0, 1.0)
+	mark.anchor_right = mark.anchor_left
+	mark.anchor_bottom = 1.0
+	mark.offset_left = -1.5
+	mark.offset_right = 1.5
+	mark.offset_top = -3.0
+	mark.offset_bottom = 3.0
+	box.add_child(mark)
+	return box
+
+
 ## [boa contra, sofre contra]: nomes de cartas de verdade, tirados dos números
 func _matchups(card: CardData) -> Array:
 	var good: Array = []
@@ -2247,6 +2275,45 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var target_line = _target_text(card)
 	if target_line != "":
 		v.add_child(_wrap(target_line, 16, Color(1.0, 0.85, 0.55)))
+	# FORÇA MEDIDA: números tirados de duelos de verdade no laboratório (não é
+	# palpite) -- pra dar pra ver se a carta é fraca ou forte pro preço dela
+	var med: Dictionary = DuelosMedidos.of(card.card_name)
+	var mu = _matchups(card)
+	if med.has("v") or med.has("t"):
+		var fp = _panel(v)
+		fp.add_child(_label("⚔️ Força medida", 17, ThemeBuilder.COLOR_GOLD))
+		if med.has("v"):
+			var won = int(med["v"])
+			var normal = int(med.get("e", won))
+			var dif = won - normal
+			var verdict = "no preço certo"
+			var vcol = Color(1.0, 0.9, 0.55)
+			if dif >= 12:
+				verdict = "forte pro preço"
+				vcol = Color(0.6, 1.0, 0.6)
+			elif dif <= -12:
+				verdict = "fraca no mano a mano"
+				vcol = Color(1.0, 0.62, 0.55)
+			fp.add_child(_strength_bar(won, normal, vcol))
+			fp.add_child(_wrap("No mano a mano vence %d de cada 100 tropas. O normal pra carta de %d é %d: %s." % [won, card.cost, normal, verdict], 15, vcol))
+			if dif <= -12 and card.role in [CardData.CardRole.SUPORTE, CardData.CardRole.CONTROLE, CardData.CardRole.INVOCADOR, CardData.CardRole.PUNICAO]:
+				fp.add_child(_wrap("Mas o forte dela não é brigar sozinha: é o efeito que ela dá pro time.", 14, ThemeBuilder.COLOR_STAT_LABEL))
+		if med.has("t"):
+			var took = int(med["t"])
+			var ttext = "🏰 Sozinha, se ninguém defender, tira %d%% da vida de uma torre." % took
+			if took >= 100:
+				ttext = "🏰 Sozinha, se ninguém defender, DERRUBA uma torre."
+			fp.add_child(_wrap(ttext, 15))
+		var wins: Array = med.get("g", [])
+		var losses: Array = med.get("p", [])
+		if wins.is_empty() and losses.is_empty():
+			wins = mu[0]
+			losses = mu[1]
+		if !wins.is_empty():
+			fp.add_child(_wrap("👍 Ganha de: " + ", ".join(wins), 15, Color(0.6, 1.0, 0.6)))
+		if !losses.is_empty():
+			fp.add_child(_wrap("👎 Perde pra: " + ", ".join(losses), 15, Color(1.0, 0.62, 0.55)))
+		fp.add_child(_wrap("Medido com as duas cartas no mesmo nível.", 12, ThemeBuilder.COLOR_STAT_LABEL))
 	# DETALHES: todos os números que não cabem nos quadradinhos
 	var details = _card_details(card, mult)
 	if !details.is_empty():
@@ -2277,13 +2344,13 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 			pc.add_child(_wrap("✔ " + p, 15, Color(0.6, 1.0, 0.6)))
 		for p in card.cons:
 			pc.add_child(_wrap("✖ " + p, 15, Color(1.0, 0.62, 0.55)))
-	var mu = _matchups(card)
-	if !mu[0].is_empty() or !mu[1].is_empty():
+	if !(med.has("v") or med.has("t")) and (!mu[0].is_empty() or !mu[1].is_empty()):
 		var mp_panel = _panel(v)
 		if !mu[0].is_empty():
 			mp_panel.add_child(_wrap("👍 Boa contra: " + ", ".join(mu[0]), 15, Color(0.6, 1.0, 0.6)))
 		if !mu[1].is_empty():
 			mp_panel.add_child(_wrap("👎 Sofre contra: " + ", ".join(mu[1]), 15, Color(1.0, 0.62, 0.55)))
+
 
 	# histórico
 	var hist = _panel(v)

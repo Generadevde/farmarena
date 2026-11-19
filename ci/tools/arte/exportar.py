@@ -28,4 +28,7 @@ with open(os.path.join(ROOT, "Scripts", "pecas_index.gd"), "w") as f:
     for c, d in index.items():
         f.write('\t"%s": {%s},\n' % (c, ", ".join('"%s": %d' % (n, i) for n, i in d.items())))
     f.write("}\n")
+    # posturas: onde a cabeça/chapéu encaixam quando o corpo é uma peça "quatro"
+    f.write("const QUATRO_CABECA = {%s}\n" % ", ".join('"%s": Vector2i(%d, %d)' % (k, v[0], v[1]) for k, v in pecas.QUATRO_CABECA.items()))
+    f.write("const QUATRO_COSTAS = {%s}\n" % ", ".join('"%s": Vector2i(%d, %d)' % (k, v[0], v[1]) for k, v in pecas.QUATRO_COSTAS.items()))
 print("atlas", atlas.size, len(cells), "peças")

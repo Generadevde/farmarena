@@ -77,6 +77,95 @@ func _ready():
 		print("LAB robo jogador deck=", prof.deck.map(func(x): return x.card_name), " | bot deck=", battle.ai_profile.deck.map(func(x): return x.card_name) if battle.ai_profile else [])
 	t = 0.0
 	print("LAB inicio plano=", plan.size())
+	if OS.get_environment("LAB_DUELOS") != "":
+		_duels()
+
+
+# ---------------------------------------------------------------- duelos (LAB_DUELOS=arquivo.json)
+# Solta a carta A de um lado e a B do outro, no meio do campo (longe das
+# torres), e anota quem sobra, com quanta vida e em quanto tempo. Roda a
+# lista inteira numa partida só. Entrada: [["A","B"], ...]  Saída: LAB_DUELOS_OUT
+var _dueling := false
+
+
+func _side_state(team) -> Array:
+	var n := 0
+	var hp := 0.0
+	for u in get_tree().get_nodes_in_group("units"):
+		if is_instance_valid(u) and !u.is_queued_for_deletion() and u.team == team and u.current_hp > 0:
+			n += 1
+			hp += float(u.current_hp)
+	return [n, hp]
+
+
+# torre sempre inteira: num duelo sem briga (um não alcança o outro) as tropas
+# vão pra torre, e a partida não pode acabar no meio da lista
+func _heal_towers():
+	for g in ["player_base", "enemy_base"]:
+		for tw in get_tree().get_nodes_in_group(g):
+			if is_instance_valid(tw) and "max_hp" in tw:
+				tw.hp = tw.max_hp
+
+
+func _duels():
+	_dueling = true
+	var pairs: Array = JSON.parse_string(FileAccess.get_file_as_string(OS.get_environment("LAB_DUELOS")))
+	var gap = float(OS.get_environment("LAB_DUELO_GAP")) if OS.get_environment("LAB_DUELO_GAP") != "" else 95.0
+	var out: Array = []
+	for pr in pairs:
+		var a = _card(str(pr[0]))
+		var b = _card(str(pr[1]))
+		if a == null or b == null:
+			continue
+		for u in get_tree().get_nodes_in_group("units"):
+			u.queue_free()
+		for pj in get_tree().get_nodes_in_group("projectiles"):
+			pj.queue_free()
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		battle._battle_time_remaining = 9999.0  # o relógio da partida não pode acabar no meio da lista
+		_heal_towers()
+		battle.spawn_unit(a.unit_scene, GameManager.Team.PLAYER, ArenaBuilder.CENTER + Vector2(0, gap), a)
+		battle.spawn_unit(b.unit_scene, GameManager.Team.ENEMY, ArenaBuilder.CENTER + Vector2(0, -gap), b)
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		var p0 = _side_state(GameManager.Team.PLAYER)
+		var e0 = _side_state(GameManager.Team.ENEMY)
+		var t0 = GameManager.game_time
+		var res = "empate"
+		var frac = 0.0
+		while GameManager.game_time - t0 < 45.0 and !get_tree().paused:
+			await get_tree().physics_frame
+			_heal_towers()
+			var ps = _side_state(GameManager.Team.PLAYER)
+			var es = _side_state(GameManager.Team.ENEMY)
+			if ps[0] == 0 or es[0] == 0:
+				# espera um instante: filhote que nasce na morte ainda conta
+				for i in 12:
+					await get_tree().physics_frame
+				ps = _side_state(GameManager.Team.PLAYER)
+				es = _side_state(GameManager.Team.ENEMY)
+				if ps[0] == 0 and es[0] == 0:
+					res = "empate"
+					break
+				if es[0] == 0:
+					res = "A"
+					frac = ps[1] / maxf(p0[1], 1.0)
+					break
+				if ps[0] == 0:
+					res = "B"
+					frac = es[1] / maxf(e0[1], 1.0)
+					break
+		var ps2 = _side_state(GameManager.Team.PLAYER)
+		var es2 = _side_state(GameManager.Team.ENEMY)
+		out.append({"a": a.card_name, "b": b.card_name, "res": res, "sobra": snappedf(minf(frac, 1.0), 0.01), "t": snappedf(GameManager.game_time - t0, 0.1),
+			"fa": snappedf(ps2[1] / maxf(p0[1], 1.0), 0.01), "fb": snappedf(es2[1] / maxf(e0[1], 1.0), 0.01)})
+	var f = FileAccess.open(OS.get_environment("LAB_DUELOS_OUT"), FileAccess.WRITE)
+	f.store_string(JSON.stringify(out))
+	f.close()
+	print("DUELOS ", out.size())
+	_done = true
+	get_tree().quit()
 
 
 func _card(card_name: String) -> CardData:
@@ -206,7 +295,7 @@ func _track():
 func _physics_process(delta):
 	if battle == null or !is_instance_valid(battle) or !battle.is_inside_tree():
 		return
-	if _done:
+	if _done or _dueling:
 		return
 	if battle.match_over:
 		_finish("acabou")

@@ -65,6 +65,15 @@ func _ready():
 	await _shot("carta")
 	for n in get_tree().get_nodes_in_group("hub_popup"):
 		n.queue_free()
+	# carta de duelo: mostra a "Força medida" (barra, ganha de / perde pra)
+	hub._show_card_popup(Catalogo.card("galo_rei"))
+	await get_tree().create_timer(0.4).timeout
+	await _shot("carta_forca")
+	if OS.get_environment("SHOT_SO_CARTA") != "":
+		get_tree().quit()
+		return
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	hub._pending_card = Catalogo.card("cavalo_coiceiro")
 	hub._queue_refresh()
 	await get_tree().create_timer(0.4).timeout

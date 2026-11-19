@@ -13,8 +13,11 @@ const PECAS = {
 	"chapeu": {"palha": 49, "cowboy": 50, "balde": 51, "bandana": 52, "coroa": 53, "cozinheiro": 54, "flor": 55, "penacho": 56, "bone": 57, "cartola": 58, "chifres": 59, "melancia": 60},
 	"arma": {"forcado": 61, "machado": 62, "marreta": 63, "foice": 64, "enxada": 65, "frigideira": 66, "porrete": 67, "estilingue": 68, "viola": 69, "motosserra": 70, "lampiao": 71, "escudo": 72, "vara": 73, "berrante": 74, "garrafa": 75, "rastelo": 76, "espingarda": 77, "regador": 78},
 	"costas": {"rabo_galo": 79, "capa": 80, "foguete": 81, "asas_inseto": 82, "cesto": 83, "morcego": 84},
-	"objeto": {"galinheiro": 85, "silo": 86, "colmeia": 87, "poco": 88, "barril": 89, "canhao_milho": 90, "fornalha": 91, "tenda": 92, "ninho": 93, "ovni": 94, "trator": 95, "feno": 96, "carroca": 97, "casinha": 98, "cerca_eletrica": 99},
-	"torre": {"celeiro": 100, "moinho": 101, "caixa_dagua": 102, "castelo_feno": 103, "forte": 104, "armazem": 105, "capela": 106, "colmeia": 107, "antena": 108, "cocho": 109},
-	"icone": {"raio": 110, "tornado": 111, "coracao": 112, "pimenta": 113, "floco": 114, "cogumelo": 115, "escudo": 116, "melancia": 117, "ovo": 118, "vaca_caindo": 119, "nota": 120, "lama": 121, "laco": 122, "espelho": 123, "moeda": 124, "ferradura": 125, "garrafa": 126},
-	"proj": {"ovo": 127, "milho": 128, "pedra": 129, "flecha": 130, "fogo": 131, "gota": 132, "nota": 133, "raio": 134, "espinho": 135, "estrume": 136},
+	"quatro": {"casco": 85, "malhado": 86, "pata": 87, "rasteiro": 88, "casca": 89, "sapo": 90},
+	"objeto": {"galinheiro": 91, "silo": 92, "colmeia": 93, "poco": 94, "barril": 95, "canhao_milho": 96, "fornalha": 97, "tenda": 98, "ninho": 99, "ovni": 100, "trator": 101, "feno": 102, "carroca": 103, "casinha": 104, "cerca_eletrica": 105},
+	"torre": {"celeiro": 106, "moinho": 107, "caixa_dagua": 108, "castelo_feno": 109, "forte": 110, "armazem": 111, "capela": 112, "colmeia": 113, "antena": 114, "cocho": 115},
+	"icone": {"raio": 116, "tornado": 117, "coracao": 118, "pimenta": 119, "floco": 120, "cogumelo": 121, "escudo": 122, "melancia": 123, "ovo": 124, "vaca_caindo": 125, "nota": 126, "lama": 127, "laco": 128, "espelho": 129, "moeda": 130, "ferradura": 131, "garrafa": 132},
+	"proj": {"ovo": 133, "milho": 134, "pedra": 135, "flecha": 136, "fogo": 137, "gota": 138, "nota": 139, "raio": 140, "espinho": 141, "estrume": 142},
 }
+const QUATRO_CABECA = {"casco": Vector2i(10, 6), "malhado": Vector2i(10, 6), "pata": Vector2i(10, 8), "rasteiro": Vector2i(11, 12), "casca": Vector2i(11, 11), "sapo": Vector2i(0, 9)}
+const QUATRO_COSTAS = {"casco": Vector2i(8, -6), "malhado": Vector2i(8, -6), "pata": Vector2i(8, -4)}
