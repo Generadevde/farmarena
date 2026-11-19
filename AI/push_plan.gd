@@ -26,6 +26,8 @@ var active_until := -1.0
 var lane_x := 0.0
 var played := 0
 var _jitter := randf_range(-16.0, 8.0)   # cada ataque junta um tanto diferente (não vira relógio)
+var arena := 4                           # 1..7: arena da partida. Bot de arena baixa ataca menor e pune menos
+var _no_punish_until := -1.0
 
 
 func is_pushing(now: float) -> bool:
@@ -56,7 +58,8 @@ func threshold(max_money: int, double_time: bool, profile: AIProfile) -> int:
 			t += 6.0
 	if double_time:
 		t += 6.0  # no x2 o recurso volta rápido: dá pra encher e despejar
-	return int(clampf(t + _jitter, 50.0, float(max_money) - 4.0))
+	t += (clampi(arena, 1, 7) - 4) * 4.0  # arena 1: ataques menores (-12); arena 7: maiores (+12)
+	return int(clampf(t + _jitter, 48.0, float(max_money) - 4.0))
 
 
 ## opp_money: recurso do adversário (-1 = não sei). Contar o recurso do outro
@@ -68,8 +71,12 @@ func decide(now: float, money: int, max_money: int, double_time: bool, profile: 
 	var counter_lane = INF
 	if money >= threshold(max_money, double_time, profile):
 		start = true
-	elif opp_money >= 0 and opp_money <= PUNISH_OPP_MONEY and money >= PUNISH_MY_MONEY:
-		start = true  # PUNIÇÃO: ele está sem recurso pra defender
+	elif opp_money >= 0 and opp_money <= PUNISH_OPP_MONEY and money >= PUNISH_MY_MONEY and now >= _no_punish_until:
+		# PUNIÇÃO: ele está sem recurso pra defender. Bot de arena baixa nem sempre percebe
+		if randf() < clampf(0.2 + clampi(arena, 1, 7) * 0.15, 0.3, 0.95):
+			start = true
+		else:
+			_no_punish_until = now + 7.0
 	elif money >= COUNTER_MY_MONEY:
 		counter_lane = _counter_lane(tree, my_team)
 		start = counter_lane != INF  # CONTRA-ATAQUE: a defesa sobrou viva, vai junto

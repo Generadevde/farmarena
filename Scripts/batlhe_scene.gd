@@ -1918,6 +1918,7 @@ func _on_timer_timeout():
 	# arranha nada. O bot JUNTA recurso e ataca em bloco numa rota (PushPlan).
 	var push: Dictionary = {}
 	if Regras.on("torres"):
+		_push_plan.arena = 4 if MatchSetup.tournament else ArenaManager.get_player_arena()
 		push = _push_plan.decide(_get_match_elapsed(), GameManager.enemy_money, enemy_max_money, _entered_last_minute, ai_profile, get_tree(), GameManager.Team.ENEMY, int(GameManager.player_money) if !_is_2v2 else -1)
 		if push.get("wait", false):
 			return

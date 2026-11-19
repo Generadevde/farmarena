@@ -110,6 +110,7 @@ func _decide():
 	# Batalha 2.5: junta recurso e ataca em bloco (mesma regra do bot principal)
 	var push: Dictionary = {}
 	if Regras.on("torres"):
+		_push_plan.arena = 4 if MatchSetup.tournament else ArenaManager.get_player_arena()
 		push = _push_plan.decide(battle._get_match_elapsed(), money, max_money, battle._entered_last_minute, profile, battle.get_tree(), team, _opponent_money())
 		if push.get("wait", false):
 			return
