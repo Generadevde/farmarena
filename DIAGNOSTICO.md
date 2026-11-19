@@ -101,8 +101,12 @@ torre continua defendendo.
 
 ## Ficou pra depois (não mexido)
 
-- Partidas agora costumam ir até o fim dos 5 min (37 de 60 entre bots). Se
-  cansar, dá pra encurtar o relógio.
+- (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro
+  só no último. Entre bots: 17 de 60 acabam em nocaute, o resto é decidido na
+  vida das torres quando o tempo acaba. Com x2 nos 2 últimos minutos seriam 28.
+- (19/11) Espaço pessoal: tropas do mesmo lado que não estão brigando passam a
+  ficar 1,35 corpo de distância (antes 0,85) -- menos boneco empilhado no
+  mesmo ponto. Vale só com a regra "visual" ligada.
 - Cartas que sozinhas ainda rendem demais pro custo: Assombração (20 → 38%),
   Abóboras (25 → 41%), Bezerrada (25 → 44%), Cavalo (35 → 56%).
 - Nível pesa 15% em vida E dano por nível (Clash ≈ 10%). O João achou que

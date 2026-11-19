@@ -748,7 +748,12 @@ func _apply_soft_separation():
 	if stats.unit_type == UnitData.UnitType.BUILDING:
 		return
 	var my_is_air = stats.unit_type == UnitData.UnitType.AIR
-	var my_r = _get_own_target_radius() * SEPARATION_RADIUS_FRACTION
+	var my_body = _get_own_target_radius()
+	# ESPAÇO PRÓPRIO (visual 2.5): com as tropas maiores, o raio antigo deixava
+	# uma em cima da outra (um "bolo" na trilha). Agora cada tropa guarda um
+	# espaço do tamanho do desenho dela. Só quem está brigando entre si
+	# (atacante e alvo) continua podendo encostar, senão ninguém se alcançava.
+	var wide = Regras.spacing()
 	var push_total = Vector2.ZERO
 
 	for body in get_tree().get_nodes_in_group("units"):
@@ -763,7 +768,10 @@ func _apply_soft_separation():
 			continue
 
 		var offset = global_position - body.global_position
-		var min_d = my_r + body._get_own_target_radius() * SEPARATION_RADIUS_FRACTION
+		var fraction = SEPARATION_RADIUS_FRACTION
+		if wide > fraction and body != target and body.target != self and !other_is_building:
+			fraction = wide
+		var min_d = (my_body + body._get_own_target_radius()) * fraction
 		var d = offset.length()
 		if d >= min_d:
 			continue

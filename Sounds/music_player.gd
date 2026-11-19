@@ -5,7 +5,7 @@ extends Node
 # no ícone ao lado do MusicPlayer pra abrir o Inspector dele)
 @export var menu_tracks: Array[AudioStream] = []
 @export var battle_tracks: Array[AudioStream] = []
-## faixas pros 2 minutos finais da partida (recurso x2) -- mais aceleradas
+## faixas pro minuto final da partida (recurso x2) -- mais aceleradas
 @export var final_tracks: Array[AudioStream] = []
 
 enum Category { NONE, MENU, BATTLE, FINAL }
@@ -35,7 +35,7 @@ func play_battle_music():
 	_play_category(Category.BATTLE, battle_tracks)
 
 
-# chamado pela batalha quando entra nos 2 minutos finais (x2)
+# chamado pela batalha quando entra no minuto final (x2)
 func play_final_music():
 	if final_tracks.is_empty():
 		return

@@ -231,14 +231,14 @@ const BASE_PRODUCTION_INTERVAL = 0.25
 # quanto o recurso sobe a cada tick de produção
 const PRODUCTION_AMOUNT_PER_TICK = 1
 
-# timer de batalha -- 5 minutos, com boost de produção e agressividade da
-# IA no último minuto. Se zerar sem ninguém destruir a base do outro, empata
-const BATTLE_DURATION = 300.0
-# recurso x2 nos 2 minutos finais (a partir de 1:59) -- antes era 1.5x no 0:59
-const LAST_MINUTE_THRESHOLD = 120.0
+# timer de batalha -- 4 minutos, com recurso x2 e IA mais agressiva no
+# último minuto (pedido do João em 19/11/2026; antes eram 5 min com x2 nos
+# 2 finais). Os números moram em Regras pra dar pra medir no laboratório.
+var BATTLE_DURATION: float = Regras.battle_duration()
+var LAST_MINUTE_THRESHOLD: float = Regras.double_time()
 const LAST_MINUTE_PRODUCTION_MULT = 2.0
 
-var _battle_time_remaining: float = BATTLE_DURATION
+var _battle_time_remaining: float = Regras.battle_duration()
 var _entered_last_minute: bool = false
 var _timer_label: Label  # encontrado pelo nome, se existir na cena (não quebra se não tiver)
 var _resource_bar: ProgressBar  # encontrado pelo nome -- não usa mais $ResourceBar fixo, já que ela agora vive dentro do HUD
@@ -1183,6 +1183,57 @@ func _process(delta):
 		preview_units[i].modulate = color
 
 
+var _last_count_shown := -1
+
+
+## faixa grande no meio do campo (último minuto, etc.)
+func _show_big_banner(title: String, subtitle: String, color: Color):
+	var box = VBoxContainer.new()
+	box.z_index = 100
+	box.custom_minimum_size = Vector2(520, 0)
+	box.position = to_local(ArenaBuilder.CENTER) + Vector2(-260, -70)
+	box.pivot_offset = Vector2(260, 50)
+	for spec in [[title, 40, color], [subtitle, 26, Color(1, 1, 1)]]:
+		var l = Label.new()
+		l.text = str(spec[0])
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", int(spec[1]))
+		l.add_theme_color_override("font_color", spec[2])
+		l.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.06))
+		l.add_theme_constant_override("outline_size", 10)
+		box.add_child(l)
+	add_child(box)
+	Sfx.play("nivel", 0.0, 2.0)
+	box.scale = Vector2(0.6, 0.6)
+	var tw = create_tween()
+	tw.tween_property(box, "scale", Vector2(1.08, 1.08), 0.18)
+	tw.tween_property(box, "scale", Vector2.ONE, 0.12)
+	tw.tween_interval(1.5)
+	tw.tween_property(box, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(box.queue_free)
+
+
+func _show_count(n: int):
+	var l = Label.new()
+	l.text = str(n)
+	l.z_index = 100
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(200, 0)
+	l.position = to_local(ArenaBuilder.CENTER) + Vector2(-100, -60)
+	l.pivot_offset = Vector2(100, 50)
+	l.add_theme_font_size_override("font_size", 72)
+	l.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4) if n > 3 else Color(1.0, 0.45, 0.4))
+	l.add_theme_color_override("font_outline_color", Color(0.08, 0.04, 0.04))
+	l.add_theme_constant_override("outline_size", 8)
+	l.add_theme_font_override("font", ThemeDB.fallback_font)
+	add_child(l)
+	Sfx.play("clique", 0.0, 3.0, 1.0 if n > 3 else 1.3)
+	var tw = create_tween().set_parallel(true)
+	tw.tween_property(l, "scale", Vector2(1.5, 1.5), 0.8)
+	tw.tween_property(l, "modulate:a", 0.0, 0.8)
+	tw.chain().tween_callback(l.queue_free)
+
+
 func _update_battle_timer(delta):
 	if match_over:
 		return
@@ -1197,13 +1248,15 @@ func _update_battle_timer(delta):
 			_timer_label.text += "  x2"
 			_timer_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.85))
 
-	# entrando nos 2 minutos finais: recurso x2 pros dois lados + IA mais
+	# entrando no minuto final: recurso x2 pros dois lados + IA mais
 	# agressiva -- só dispara UMA vez. DIVIDE o wait_time atual (em vez de
 	# sobrescrever com o valor base), pra não apagar o bônus de produção da base
 	_process_cow_rain(delta)
 	if !_entered_last_minute and (_battle_time_remaining < LAST_MINUTE_THRESHOLD or MatchSetup.rule == 1):
 		_entered_last_minute = true
-		MusicPlayer.play_final_music()  # trilha acelerada nos 2 minutos finais
+		if MatchSetup.rule != 1 and !is_replay_mode:
+			_show_big_banner("⏱ ÚLTIMO MINUTO", "Recurso em dobro!", Color(1.0, 0.55, 0.9))
+		MusicPlayer.play_final_music()  # trilha acelerada no minuto final
 		$ProductionTimer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
 		$EnemyProductionTimer.wait_time /= LAST_MINUTE_PRODUCTION_MULT
 		for extra_timer in _extra_production_timers:
@@ -1214,6 +1267,12 @@ func _update_battle_timer(delta):
 		for extra_ai in _extra_ai_controllers:
 			if is_instance_valid(extra_ai):
 				extra_ai.on_double_time()
+
+	# contagem final: os 10 últimos segundos piscam no meio do campo
+	var whole = int(ceil(_battle_time_remaining))
+	if whole <= 10 and whole >= 1 and whole != _last_count_shown and !is_replay_mode:
+		_last_count_shown = whole
+		_show_count(whole)
 
 	if _battle_time_remaining <= 0.0:
 		_resolve_time_up()
@@ -1443,7 +1502,7 @@ func _show_intro():
 		_intro_label(inner, MatchSetup.RULE_TEXT[MatchSetup.rule], 17, Color(1, 1, 1), true)
 	else:
 		_intro_label(inner, "Batalha normal", 24, Color(0.75, 1.0, 0.75))
-		_intro_label(inner, "Sem modificador. Recurso em dobro a partir de 1:59.", 17, Color(1, 1, 1), true)
+		_intro_label(inner, "Sem modificador. Recurso em dobro no último minuto.", 17, Color(1, 1, 1), true)
 	if MatchSetup.tournament:
 		if MatchSetup.daily:
 			notes.append("Você joga com o BARALHO DO DIA (emprestado)")

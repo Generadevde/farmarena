@@ -128,6 +128,19 @@ static func tower_pro_text(text: String) -> String:
 	return text
 
 
+# ---------------------------------------------------------------- relógio
+const BATTLE_SECONDS = 240.0   # partida de 4 minutos
+const DOUBLE_SECONDS = 60.0    # recurso em dobro no último minuto
+
+
+static func battle_duration() -> float:
+	return _t("dur", BATTLE_SECONDS)
+
+
+static func double_time() -> float:
+	return _t("x2", DOUBLE_SECONDS)
+
+
 # ---------------------------------------------------------------- visual
 const SPRITE_BOOST = 1.55      # tropa "normal" (escala 1.0) fica 55% maior na tela
 const SPRITE_CURVE = 0.6       # as pequenas crescem mais que as gigantes (escala^0.6)
@@ -149,6 +162,14 @@ static func body_factor(unit_scale: float) -> float:
 	if !on("visual") or unit_scale <= 0.0:
 		return 1.0
 	return BODY_BOOST * pow(unit_scale, BODY_CURVE) / unit_scale
+
+
+## fração do corpo que cada tropa guarda de espaço em volta (0.85 = antigo)
+const SPACING = 1.35
+
+
+static func spacing() -> float:
+	return _t("sep", SPACING) if on("visual") else 0.85
 
 
 static func team_color(is_player: bool) -> Color:
