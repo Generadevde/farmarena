@@ -597,6 +597,26 @@ A régua mostra que várias cartas do jogo fogem do padrão do próprio tipo
 (Vaca Brava: 192% da vida de um Derruba-torre de custo 40). Não mexi nelas:
 é o que o João quer acertar à mão pelo Criador.
 
+### Nona leva (20/11) — mecânicas que faltavam em relação ao Clash
+
+O João pediu todas menos a habilidade com botão (não gosta de campeão). Todas
+têm campo no Criador e teste em `CI_MODE=novas`. Nenhuma carta do jogo usa
+ainda: é matéria-prima pro Criador.
+
+| mecânica | onde | campos |
+|---|---|---|
+| Carta de duas tropas | `CardData`, `Catalogo.apply_companion` | `companion_id`, `companion_count` |
+| Feitiço que rola (Tronco) | `SpellEffect._roll` | `rolls`, `roll_distance`, `roll_speed` (não acerta voador) |
+| Feitiço que escolhe alvo (Relâmpago) | `SpellEffect._apply_tick` | `picks_strongest` |
+| Espelho | `batlhe_scene.cast_spell`, `_last_card` | `mirror` (custo fixo da carta, não "o da última + 1") |
+| Construção que se esconde (Tesla) | `unit_base.is_hidden` | `hides_underground` (sem alvo, não apanha nem de feitiço) |
+| Cura a cada golpe (Curandeira) | `unit_base._perform_attack` | `heals_on_attack`, `attack_heal_amount`, `attack_heal_radius` |
+| Segundo ataque (Domador / atiradores nas costas) | `unit_base._process_extras` | `rider_*` (só em tropa, nunca em torre) |
+
+O "Goblin Gigante" sai de segundo ataque com `rider_count` > 1 mais "invoca ao
+morrer", que já existia. A régua e o duelo de papel do Criador não enxergam
+estas mecânicas, e os bots jogam o Espelho como um feitiço qualquer.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

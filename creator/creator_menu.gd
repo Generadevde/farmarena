@@ -871,6 +871,7 @@ const ABILITIES = [
 		["Executa alvo fraco", "execute_threshold", ["execute_damage_mult"], {"execute_threshold": 0.2, "execute_damage_mult": 2.0}],
 		["Dano extra contra uma categoria", "extra_damage_vs_role_mult", ["extra_damage_vs_role"], {"extra_damage_vs_role_mult": 0.5}],
 		["Kamikaze", "kamikaze", [], {}],
+		["Segundo ataque (cavaleiro / atiradores nas costas)", "rider_attack", ["rider_damage", "rider_range", "rider_interval", "rider_count", "rider_effect", "rider_effect_duration", "rider_effect_strength"], {}],
 	]],
 	["🎯 Projétil (só pra quem atira)", [
 		["Atravessa", "projectile_pierces", ["projectile_max_targets"], {"projectile_max_targets": 3}],
@@ -894,6 +895,7 @@ const ABILITIES = [
 		["Imune enquanto anda", "immune_while_moving", [], {}],
 		["Invulnerável ao nascer", "spawn_invulnerability_duration", [], {"spawn_invulnerability_duration": 1.5}],
 		["Fúria com vida baixa", "low_hp_rage_threshold", ["low_hp_rage_damage_mult"], {"low_hp_rage_threshold": 0.3, "low_hp_rage_damage_mult": 1.5}],
+		["Construção que se esconde", "hides_underground", [], {}],
 	]],
 	["🚪 Entrada em campo", [
 		["Fúria ao entrar", "entrance_rage_duration", ["entrance_rage_damage_mult", "entrance_rage_speed_mult"], {"entrance_rage_duration": 4.0}],
@@ -915,6 +917,7 @@ const ABILITIES = [
 		["Converte inimigo", "can_convert_enemy", ["convert_max_targets"], {}],
 	]],
 	["💚 Apoio e recurso", [
+		["Cura quem está perto a cada golpe", "heals_on_attack", ["attack_heal_amount", "attack_heal_radius"], {}],
 		["Cura aliados perto", "can_heal_allies", ["heal_aura_amount", "heal_aura_radius", "heal_aura_interval"], {"heal_aura_amount": 20, "heal_aura_radius": 90.0}],
 		["Provoca (puxa inimigos)", "forces_aggro", ["taunt_radius"], {"taunt_radius": 120.0}],
 		["Explode ao morrer", "explodes_on_death", ["death_explosion_damage", "death_explosion_radius"], {"death_explosion_damage": 150, "death_explosion_radius": 70.0}],
@@ -1574,7 +1577,8 @@ const SPELL_GROUPS = [["Onde e por quanto tempo", ["radius", "duration", "tick_i
 	["Dano", ["damage", "base_damage_multiplier", "knockback_distance"]],
 	["Efeito em quem é atingido", ["status_effect", "status_effect_strength", "status_effect_duration"]],
 	["Cura e escudo nos aliados", ["heal_amount", "shield_amount"]],
-	["Fúria nos aliados", ["rage_damage_mult", "rage_speed_mult", "rage_attack_speed_mult"]]]
+	["Fúria nos aliados", ["rage_damage_mult", "rage_speed_mult", "rage_attack_speed_mult"]],
+	["Jeitos especiais", ["rolls", "roll_distance", "roll_speed", "picks_strongest", "mirror"]]]
 
 
 func _tab_efeito():

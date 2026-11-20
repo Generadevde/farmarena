@@ -1721,6 +1721,8 @@ func _spawn_companions(team, spawn_position, card_data: CardData, level_profile:
 
 
 func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, level_profile: AIProfile = null):
+	if card_data != null and !_spawning_companions and !CustomContent.is_spawn_only(card_data):
+		_last_card[team] = card_data
 	if card_data != null and !card_data.companions.is_empty() and !_spawning_companions:
 		_spawn_companions(team, spawn_position, card_data, level_profile)
 	# instancia a primeira unidade só pra descobrir quantas essa carta deve spawnar
@@ -2581,7 +2583,26 @@ func select_card(card_data: CardData, hand_index: int = -1):
 	print("DEBUG select_card: prévia de ", count, " unidade(s) levou ", _debug_elapsed_ms, "ms")
 
 
+var _last_card: Dictionary = {}   # time -> última carta jogada (o Espelho repete)
+
+
 func cast_spell(spell_data: SpellData, position: Vector2, caster_team, source_card_path: String = ""):
+	if spell_data != null and spell_data.mirror:
+		# ESPELHO: repete a última carta desse lado, aqui. Sem carta anterior, não faz nada.
+		var again: CardData = _last_card.get(caster_team, null)
+		if again == null or (again.spell_data != null and again.spell_data.mirror):
+			Fx.text(self, to_local(position), "nada pra repetir", Color(1, 0.8, 0.6), 1.0)
+			return
+		Fx.ring(self, to_local(position), 40.0, Color(0.8, 0.9, 1.0, 0.9), 0.4)
+		if again.is_spell():
+			cast_spell(again.spell_data, position, caster_team, again.resource_path)
+		else:
+			spawn_unit(again.unit_scene, caster_team, position, again)
+		return
+	if source_card_path != "":
+		var played: CardData = Catalogo.find_card(source_card_path)
+		if played != null:
+			_last_card[caster_team] = played
 	var effect = SpellEffect.new()
 	effect.spell = spell_data
 	effect.caster_team = caster_team

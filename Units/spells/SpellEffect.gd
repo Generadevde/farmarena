@@ -18,6 +18,12 @@ func _ready():
 		visual.texture = spell.ground_effect_texture
 		add_child(visual)
 
+	if spell.rolls:
+		# rola pra frente, pro lado do adversário (o campo do jogador é o de baixo)
+		_roll_dir = Vector2(0, -1) if caster_team == GameManager.Team.PLAYER else Vector2(0, 1)
+		_rolling = true
+		Sfx.play("torre_dano", 0.1, -2.0, 0.7)
+		return
 	_cast_fx()
 	_summon_units()
 	_apply_tick()  # aplica imediatamente ao ser lançado
@@ -28,7 +34,46 @@ func _ready():
 		_tick_timer = spell.tick_interval
 
 
+var _rolling := false
+var _roll_dir := Vector2.ZERO
+var _rolled := 0.0
+var _roll_hit := {}
+
+
+func _roll(delta):
+	var step = spell.roll_speed * delta
+	position += _roll_dir * step
+	_rolled += step
+	for body in get_tree().get_nodes_in_group("damageable"):
+		if !is_instance_valid(body) or !("team" in body) or body.team == caster_team or _roll_hit.has(body.get_instance_id()):
+			continue
+		if "stats" in body and body.stats != null and body.stats.unit_type == UnitData.UnitType.AIR:
+			continue   # rola pelo chão: voador passa por cima
+		var d = body.global_position - global_position
+		if absf(d.x) <= spell.radius and absf(d.y) <= 26.0:
+			_roll_hit[body.get_instance_id()] = true
+			_apply_effect(body)
+	queue_redraw()
+	if _rolled >= spell.roll_distance:
+		queue_free()
+
+
+func _draw():
+	if !_rolling:
+		return
+	var w = spell.radius
+	var col = spell.fx_color if spell.fx_color.a > 0.0 else Color("#8a5a34")
+	draw_rect(Rect2(-w, -9, w * 2.0, 18), col)
+	draw_rect(Rect2(-w, -9, w * 2.0, 18), col.darkened(0.45), false, 3.0)
+	for i in 5:
+		var x = -w + fmod(_rolled * 0.6 + i * w * 0.4, w * 2.0)
+		draw_line(Vector2(x, -9), Vector2(x, 9), col.darkened(0.3), 2.0)
+
+
 func _process(delta):
+	if _rolling:
+		_roll(delta)
+		return
 	if spell.duration <= 0:
 		return
 
@@ -50,7 +95,25 @@ func _process(delta):
 		_apply_tick()
 
 
+func _body_hp(body) -> float:
+	if "current_hp" in body and body.current_hp != null:
+		return float(body.current_hp)
+	return float(body.hp) if "hp" in body else 0.0
+
+
 func _apply_tick():
+	if spell.picks_strongest > 0:
+		# escolhe os alvos: só os N inimigos de mais vida dentro do raio
+		var list: Array = []
+		for body in get_tree().get_nodes_in_group("damageable"):
+			if is_instance_valid(body) and ("team" in body) and body.team != caster_team \
+					and body.global_position.distance_to(global_position) <= spell.radius:
+				list.append(body)
+		list.sort_custom(func(a, b): return _body_hp(a) > _body_hp(b))
+		for body in list.slice(0, spell.picks_strongest):
+			Fx.ring(get_parent(), body.position, 22.0, Color(1, 1, 0.6, 0.9), 0.3)
+			_apply_effect(body)
+		return
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if !("team" in body):
 			continue

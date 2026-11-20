@@ -67,3 +67,15 @@ class_name SpellData
 @export_group("Visual")
 ## cor do efeito no chão/partículas (o jogo escolhe uma se ficar transparente)
 @export var fx_color: Color = Color(0, 0, 0, 0)
+
+
+@export_group("Mecânicas novas (versão 113)")
+## ROLA pelo chão (tipo o Tronco): sai de onde você soltou e anda pra frente, acertando
+## uma vez cada tropa de chão no caminho. O raio vira a meia-largura.
+@export var rolls: bool = false
+@export var roll_distance: float = 320.0
+@export var roll_speed: float = 260.0
+## ESCOLHE os alvos (tipo o Relâmpago): acerta só os N de mais vida dentro do raio. 0 = todo mundo.
+@export var picks_strongest: int = 0
+## ESPELHO: repete a última carta que você jogou, no lugar onde soltar.
+@export var mirror: bool = false

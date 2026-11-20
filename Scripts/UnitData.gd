@@ -579,3 +579,23 @@ enum OnHitEffect {
 ## Quantos inimigos consegue converter no total, ao longo da vida dessa
 ## unidade (só usado se Can Convert Enemy estiver ligado).
 @export var convert_max_targets: int = 1
+
+
+@export_group("Mecânicas novas (versão 113)")
+## Construção que se ESCONDE: sem inimigo no alcance ela some debaixo da terra e não pode ser
+## atacada nem acertada por feitiço. Aparece pra atirar.
+@export var hides_underground: bool = false
+## Cura quem está perto A CADA GOLPE que dá.
+@export var heals_on_attack: bool = false
+@export var attack_heal_amount: int = 30
+@export var attack_heal_radius: float = 90.0
+## SEGUNDO ATAQUE (montaria com cavaleiro, ou atiradores nas costas): além do golpe normal,
+## acerta sozinho tropas inimigas por perto. Não bate em torre.
+@export var rider_attack: bool = false
+@export var rider_damage: int = 40
+@export var rider_range: float = 130.0
+@export var rider_interval: float = 1.2
+@export var rider_count: int = 1
+@export var rider_effect: OnHitEffect = OnHitEffect.NONE
+@export var rider_effect_duration: float = 1.5
+@export var rider_effect_strength: float = 0.5

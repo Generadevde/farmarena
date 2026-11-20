@@ -687,6 +687,7 @@ func _physics_process(delta):
 			_really_moving = false
 	_prev_pos = global_position
 
+	_process_extras(delta)
 	_process_poison(delta)
 	_update_status_modulate()
 
@@ -1394,9 +1395,66 @@ func _get_effective_damage() -> int:
 	return round(dmg)
 
 
+## construção escondida debaixo da terra: sem alvo, ninguém acerta nem escolhe ela
+func is_hidden() -> bool:
+	return stats != null and stats.hides_underground and (target == null or !is_instance_valid(target)) and current_hp > 0
+
+
+var _rider_clock := 0.0
+var _hidden_shown := false
+
+
+## esconder (visual) e o SEGUNDO ATAQUE: roda todo quadro, fora do golpe normal
+func _process_extras(delta):
+	if stats.hides_underground:
+		var h = is_hidden()
+		if h != _hidden_shown:
+			_hidden_shown = h
+			var sp = get_node_or_null("Sprite2D")
+			if sp != null:
+				sp.modulate.a = 0.3 if h else 1.0
+				sp.position.y += 10.0 if h else -10.0
+	if !stats.rider_attack or stats.rider_damage <= 0 or current_hp <= 0:
+		return
+	_rider_clock -= delta
+	if _rider_clock > 0.0:
+		return
+	var found: Array = []
+	for body in get_tree().get_nodes_in_group("units"):
+		if !is_instance_valid(body) or body == self or !("team" in body) or body.team == team or body.is_queued_for_deletion():
+			continue
+		if body.has_method("is_hidden") and body.is_hidden():
+			continue
+		var d = global_position.distance_to(body.global_position)
+		if d <= stats.rider_range:
+			found.append([d, body])
+	if found.is_empty():
+		return
+	_rider_clock = maxf(stats.rider_interval, 0.2)
+	found.sort_custom(func(a, b): return a[0] < b[0])
+	for it in found.slice(0, maxi(stats.rider_count, 1)):
+		var victim = it[1]
+		Fx.ring(get_parent(), victim.position, 12.0, Color(1, 0.95, 0.7, 0.9), 0.2)
+		victim.take_damage(int(round(stats.rider_damage * _level_mult_safe())))
+		if stats.rider_effect != UnitData.OnHitEffect.NONE and is_instance_valid(victim) and victim.has_method("apply_on_hit_effect"):
+			victim.apply_on_hit_effect(stats.rider_effect, stats.rider_effect_strength, stats.rider_effect_duration, 1.0, 20.0, global_position)
+
+
+func _level_mult_safe() -> float:
+	# o segundo ataque sobe de nível junto com a carta, como o dano normal
+	return PlayerProfile.compute_stat_multiplier(card_level)
+
+
 func _perform_attack():
 	_reveal_disguise()
 	_attack_anim()
+	if stats.heals_on_attack and stats.attack_heal_amount > 0:
+		# cura quem está perto (ela também) a cada golpe
+		for ally in get_tree().get_nodes_in_group("units"):
+			if is_instance_valid(ally) and ("team" in ally) and ally.team == team and ally.has_method("heal") \
+					and global_position.distance_to(ally.global_position) <= stats.attack_heal_radius:
+				ally.heal(stats.attack_heal_amount)
+		Fx.ring(get_parent(), position, stats.attack_heal_radius, Color(0.5, 1.0, 0.6, 0.6), 0.3)
 
 	var dmg = _get_effective_damage()
 	var target_killed = false
@@ -1746,6 +1804,8 @@ func _is_valid_enemy(body) -> bool:
 	# pra "revelar" ela
 	# ... e só ATÉ ela dar o primeiro golpe: depois que atacou, apareceu pra todo mundo
 	# (antes continuava invisível pra sempre pra quem estava longe, tipo atirador)
+	if body.has_method("is_hidden") and body.is_hidden():
+		return false   # construção escondida: só aparece quando ela mesma acha alvo
 	if "stats" in body and body.stats != null and body.stats.can_stealth and !body._has_attacked_before:
 		var dist = global_position.distance_to(body.global_position)
 		if dist > body.stats.stealth_reveal_range:
@@ -1824,6 +1884,8 @@ func _on_area_2d_body_exited(body):
 
 
 func take_damage(amount, _is_shared_damage: bool = false):
+	if amount > 0 and is_hidden():
+		return   # escondida debaixo da terra: nem feitiço acerta
 	# invulnerável logo ao nascer -- nem dano de área/feitiço passa nessa janela
 	if _spawn_invulnerable_until > GameManager.game_time:
 		return

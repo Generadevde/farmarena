@@ -42,7 +42,7 @@ func _ready():
 	# os testes de mecânica (empurrão, congelar, efeitos...) foram montados no
 	# campo de 2 torres e medem a tropa, não o campo: o portão no meio só
 	# atrapalharia a medida. Torres, simulação e partidas usam o campo de verdade
-	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo", "torres"]:
+	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo", "torres", "novas"]:
 		Regras.forced["portao"] = false
 		Regras.forced["modulos"] = false   # mecânica de tropa é medida no campo antigo de 2 torres
 	if mode == "torres":
@@ -62,6 +62,10 @@ func _ready():
 		return
 	if mode == "torres":
 		await _towers_test()
+		get_tree().quit()
+		return
+	if mode == "novas":
+		await _new_mechanics_test()
 		get_tree().quit()
 		return
 	if mode == "modulos":
@@ -1937,3 +1941,98 @@ func _legacy_audit():
 	print("RESULTADO gerador em campo: ", fought, " cartas lutaram | sem causar dano em 3s: ", no_damage)
 	print("RESULTADO antigas OK (", _aud_ok.size(), "): ", _aud_ok)
 	print("RESULTADO antigas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
+
+
+## MECÂNICAS NOVAS (versão 113): feitiço que rola, feitiço que escolhe alvo, espelho,
+## construção que se esconde, cura a cada golpe e segundo ataque
+func _new_mechanics_test():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	battle.get_node("Timer").stop()
+	_aud_bad.clear()
+	var P = GameManager.Team.PLAYER
+	var E = GameManager.Team.ENEMY
+	var mid = ArenaBuilder.CENTER + Vector2(135, 150)
+	# 1) ROLA: acerta uma vez quem está no caminho, não acerta quem está fora da largura
+	await _wipe()
+	var a = await _dummy(E, mid + Vector2(0, -90))
+	var b = await _dummy(E, mid + Vector2(10, -200))
+	var c = await _dummy(E, mid + Vector2(-170, -120))
+	var roll = SpellData.new()
+	roll.rolls = true
+	roll.radius = 45.0
+	roll.damage = 100
+	roll.roll_distance = 300.0
+	roll.roll_speed = 500.0
+	battle.cast_spell(roll, mid, P)
+	await get_tree().create_timer(1.6).timeout
+	_check("feitiço que rola acerta uma vez quem está no caminho", a.current_hp == 99899 and b.current_hp == 99899 and c.current_hp == 99999,
+		"%d %d fora=%d" % [a.current_hp, b.current_hp, c.current_hp])
+	# 2) ESCOLHE: só os 2 de mais vida
+	await _wipe()
+	var big = await _dummy(E, mid + Vector2(0, -60), 5000)
+	var medium = await _dummy(E, mid + Vector2(30, -60), 3000)
+	var small = await _dummy(E, mid + Vector2(-30, -60), 1000)
+	var pick = SpellData.new()
+	pick.radius = 120.0
+	pick.damage = 200
+	pick.picks_strongest = 2
+	battle.cast_spell(pick, mid + Vector2(0, -60), P)
+	await get_tree().process_frame
+	_check("feitiço que escolhe acerta só os 2 de mais vida", big.current_hp == 4800 and medium.current_hp == 2800 and small.current_hp == 1000,
+		"%d %d %d" % [big.current_hp, medium.current_hp, small.current_hp])
+	# 3) ESPELHO: repete o último feitiço e a última tropa
+	var raio: CardData = Catalogo.card("raio")
+	var hp_a = big.current_hp
+	battle.cast_spell(raio.spell_data, big.global_position, P, raio.resource_path)
+	await get_tree().process_frame
+	var one = hp_a - big.current_hp
+	var mir = SpellData.new()
+	mir.mirror = true
+	battle.cast_spell(mir, big.global_position, P)
+	await get_tree().process_frame
+	_check("espelho repete o último feitiço", one > 0 and hp_a - big.current_hp == one * 2, "1x=%d total=%d" % [one, hp_a - big.current_hp])
+	await _wipe()
+	var chicks = await _put("pintaiada", P, mid + Vector2(0, 120))
+	var n0 = get_tree().get_nodes_in_group("units").size()
+	battle.cast_spell(mir, mid + Vector2(60, 120), P)
+	await get_tree().process_frame
+	_check("espelho repete a última tropa", get_tree().get_nodes_in_group("units").size() == n0 + chicks.size(), "%d -> %d" % [n0, get_tree().get_nodes_in_group("units").size()])
+	# 4) ESCONDE: sem inimigo, ninguém acerta; com inimigo perto, aparece
+	await _wipe()
+	var cannon = (await _put("canhao_pipoca", P, mid + Vector2(0, 140)))[0]
+	cannon.stats = cannon.stats.duplicate()
+	cannon.stats.hides_underground = true
+	await get_tree().create_timer(0.4).timeout
+	var hp_c = cannon.current_hp
+	cannon.take_damage(100)
+	var hidden_ok = cannon.is_hidden() and cannon.current_hp == hp_c
+	var foe = await _dummy(E, mid + Vector2(0, 60))
+	await get_tree().create_timer(2.0).timeout
+	_check("construção escondida não apanha e aparece quando acha alvo", hidden_ok and !cannon.is_hidden() and foe.current_hp < 99999,
+		"escondida ok? %s | apareceu? %s | bateu? %s" % [str(hidden_ok), str(!cannon.is_hidden()), str(foe.current_hp < 99999)])
+	# 5) CURA A CADA GOLPE
+	await _wipe()
+	var healer = (await _put("peao_forcado", P, mid + Vector2(0, 40)))[0]
+	healer.stats = healer.stats.duplicate()
+	healer.stats.heals_on_attack = true
+	healer.stats.attack_heal_amount = 50
+	var hurt = (await _put("vaca_brava", P, mid + Vector2(0, 110)))[0]
+	hurt.stats = hurt.stats.duplicate()
+	hurt.stats.move_speed = 0.0
+	hurt.current_hp = 500
+	await _dummy(E, mid + Vector2(0, 5))
+	await get_tree().create_timer(3.0).timeout
+	_check("cura quem está perto a cada golpe", hurt.current_hp > 500, str(hurt.current_hp))
+	# 6) SEGUNDO ATAQUE: quem só bate em torre acerta tropa com o cavaleiro
+	await _wipe()
+	var ram = (await _put("vaca_brava", P, mid + Vector2(0, 100)))[0]
+	ram.stats = ram.stats.duplicate()
+	ram.stats.rider_attack = true
+	ram.stats.rider_damage = 40
+	ram.stats.rider_effect = UnitData.OnHitEffect.SLOW
+	var near = await _dummy(E, mid + Vector2(60, 60))
+	var far = await _dummy(E, mid + Vector2(-260, -300))
+	await get_tree().create_timer(2.0).timeout
+	_check("segundo ataque acerta tropa perto e não a de longe", near.current_hp < 99999 and far.current_hp == 99999, "%d %d" % [near.current_hp, far.current_hp])
+	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
