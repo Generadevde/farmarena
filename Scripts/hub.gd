@@ -8,6 +8,7 @@ const CREATOR_SCENE = "res://creator/creator_menu.tscn"
 const PROFILE_SCENE = "res://Scenes/profile_setup.tscn"
 
 const TABS = [["🛒", "Feira"], ["🃏", "Cartas"], ["⚔", "Batalha"], ["🏆", "Troféus"], ["🛡", "Clã"], ["🏡", "Sítio"]]
+const CREATOR_TAB = ["🛠", "Criador"]   # botão próprio na barra de baixo: abre a tela do Criador
 const TOP_H = 92.0
 const BAR_H = 104.0
 
@@ -164,6 +165,15 @@ func _build_shell():
 		dot.visible = false
 		b.add_child(dot)
 		_dots.append(dot)
+	# o Criador tem botão próprio na barra (abre a tela dele, que é grande demais pra ser uma página)
+	var cb = Button.new()
+	cb.text = "%s\n%s" % [CREATOR_TAB[0], CREATOR_TAB[1]]
+	cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cb.custom_minimum_size.y = BAR_H - 16
+	cb.add_theme_font_size_override("font_size", 16)
+	cb.modulate = Color(0.85, 0.95, 1.0)
+	cb.pressed.connect(_goto.bind(CREATOR_SCENE))
+	tabs.add_child(cb)
 	_layout_pages.call_deferred()
 
 
@@ -989,7 +999,7 @@ func _show_settings():
 			["torres", "🏰 Torres de verdade", "Toda torre atira, com mais vida, dano e alcance. Defender passa a valer a pena."],
 			["visual", "👀 Tropas grandes e cor de time", "Tropa maior, contorno azul (seu) ou vermelho (do bot), barra de vida só em quem apanhou. Cada bicho anda e bate do seu jeito."],
 			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."],
-			["mao4", "🃏 4 cartas na mão", "Em vez de 3. O baralho continua com 7: sobra menos carta escondida na fila."],
+			["mao4", "🃏 4 cartas na mão", "Em vez de 3. O baralho tem 8, como no Clash."],
 			["portao", "🚪 Portão na frente (3 torres)", "Experiência: uma torre mais fraca no meio, na frente, além das duas de trás. Deixa a partida toda no meio -- por isso vem desligado."],
 			["rotas", "🧭 3 rotas (só com o portão)", "A tropa segue a rota onde você solta: esquerda e direita vão na torre de trás daquele lado, o meio vai no portão."],
 			["modulos", "🧩 Base principal + módulos", "Casa Grande no meio (caiu, acabou) e 6 pontos em volta pra pôr os módulos (1 a 3, conforme o nível). Desligado, voltam as 2 torres iguais."]]:
@@ -2753,32 +2763,6 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) * star_factor if can_level else mult
 	if can_level:
 		v.add_child(_label("Em verde: quanto melhora no nível %d" % (lv + 1), 13, ThemeBuilder.COLOR_STAT_LABEL))
-	# TIPO: como a carta luta, pra que serve, de quem ganha e de quem perde
-	var kind: Dictionary = Catalogo.KINDS[Catalogo.kind_of(card)]
-	var kp = _panel(v)
-	var kt = _label("TIPO: %s" % str(kind["nome"]).to_upper(), 19, Color(str(kind["cor"])))
-	kp.add_child(kt)
-	kp.add_child(_wrap(str(kind["serve"]), 15))
-	if str(kind["ganha"]) != "":
-		kp.add_child(_wrap("✔ Ganha de: " + str(kind["ganha"]), 15, Color(0.6, 1.0, 0.6)))
-	if str(kind["perde"]) != "":
-		kp.add_child(_wrap("✘ Perde pra: " + str(kind["perde"]), 15, Color(1.0, 0.62, 0.55)))
-	# ATAQUE bem definido: de perto ou de longe, num alvo ou em área (e de que
-	# tamanho), e em quem acerta (chão, ar, só torre)
-	var chips = _attack_chips(card)
-	if !chips.is_empty():
-		var cp = _panel(v)
-		cp.add_child(_label("🗡 Ataque", 17, ThemeBuilder.COLOR_GOLD))
-		var flow = HFlowContainer.new()
-		flow.add_theme_constant_override("h_separation", 6)
-		flow.add_theme_constant_override("v_separation", 6)
-		flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		cp.add_child(flow)
-		for ch in chips:
-			flow.add_child(_chip(str(ch[0]), str(ch[1]), ch[2]))
-		var target_line = _target_text(card)
-		if target_line != "":
-			cp.add_child(_wrap(target_line.trim_prefix("🎯 "), 14, ThemeBuilder.COLOR_STAT_LABEL))
 	var g = _grid(v, 2)
 	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_fill_stat_tiles(g, card, mult, next_mult)
@@ -2793,6 +2777,43 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 		ab_box.add_child(_label("✨ Habilidades", 17, Catalogo.RARITY_COLORS[rarity].lightened(0.2)))
 		for r in ab_rows:
 			_ability_tile(ab_box, str(r[0]), str(r[1]), str(r[2]), str(r[3]), str(r[4]), Catalogo.RARITY_COLORS[maxi(rarity, 1)])
+	# TIPO numa caixinha só: como ela luta, de quem ganha e de quem perde (é o ÚNICO lugar
+	# da tela que diz isso; antes aparecia em três painéis diferentes)
+	var kind: Dictionary = Catalogo.KINDS[Catalogo.kind_of(card)]
+	var kp = _panel(v)
+	kp.add_child(_label("%s" % str(kind["nome"]).to_upper(), 18, Color(str(kind["cor"]))))
+	kp.add_child(_wrap(str(kind["serve"]), 14))
+	if str(kind["ganha"]) != "":
+		kp.add_child(_wrap("✔ Ganha de: " + str(kind["ganha"]), 14, Color(0.6, 1.0, 0.6)))
+	if str(kind["perde"]) != "":
+		kp.add_child(_wrap("✘ Perde pra: " + str(kind["perde"]), 14, Color(1.0, 0.62, 0.55)))
+	# o resto (ataque em detalhe, força medida, função, histórico) fica atrás de um botão
+	var v_main = v
+	var more = VBoxContainer.new()
+	more.add_theme_constant_override("separation", 8)
+	more.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	more.visible = false
+	var more_b = _button("ℹ Mais detalhes ▼", func(): pass, 16)
+	more_b.pressed.connect(func():
+		more.visible = !more.visible
+		more_b.text = "ℹ Mais detalhes ▲" if more.visible else "ℹ Mais detalhes ▼")
+	v.add_child(more_b)
+	v.add_child(more)
+	v = more
+	var chips = _attack_chips(card)
+	if !chips.is_empty():
+		var cp = _panel(v)
+		cp.add_child(_label("🗡 Ataque", 17, ThemeBuilder.COLOR_GOLD))
+		var flow = HFlowContainer.new()
+		flow.add_theme_constant_override("h_separation", 6)
+		flow.add_theme_constant_override("v_separation", 6)
+		flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cp.add_child(flow)
+		for ch in chips:
+			flow.add_child(_chip(str(ch[0]), str(ch[1]), ch[2]))
+		var target_line = _target_text(card)
+		if target_line != "":
+			cp.add_child(_wrap(target_line.trim_prefix("🎯 "), 14, ThemeBuilder.COLOR_STAT_LABEL))
 	# FORÇA MEDIDA: números tirados de duelos de verdade no laboratório (não é
 	# palpite) -- pra dar pra ver se a carta é fraca ou forte pro preço dela
 	var med: Dictionary = _strength_data(card)
@@ -2868,6 +2889,7 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	if played > 0:
 		hist.add_child(_wrap("Na temporada (todo mundo): jogada em %d partidas, vence %d%%" % [played, int(round(100.0 * int(season.get("wins", 0)) / played))], 15, ThemeBuilder.COLOR_STAT_LABEL))
 	hist.add_child(_wrap("Libera na Arena %d (%s)" % [maxi(1, card.unlock_arena), ArenaManager.get_arena_info(maxi(1, card.unlock_arena)).get("name", "")], 15, ThemeBuilder.COLOR_STAT_LABEL))
+	v = v_main
 
 	if owned:
 		var n_stars = Progresso.stars(card)
@@ -3160,6 +3182,16 @@ func _build_feira(box: Node):
 		gift.modulate = Color(1, 1, 0.7)
 	box.add_child(gift)
 
+	# oportunidade do dia: um negócio diferente a cada data
+	var oport = Progresso.opportunity()
+	var opp = _panel(box)
+	opp.add_child(_label("🎪 Oportunidade de hoje", 20, Color(1.0, 0.8, 0.45)))
+	opp.add_child(_label(str(oport["nome"]), 19, ThemeBuilder.COLOR_GOLD))
+	opp.add_child(_wrap(str(oport["texto"]) + " Amanhã é outro negócio.", 15))
+	var ob = _button("Já fechou este negócio hoje" if oport["feito"] else "Fechar negócio  ·  💰 %d" % int(oport["preco"]), _take_opportunity, 19)
+	ob.disabled = oport["feito"] or PlayerProfile.coins < int(oport["preco"])
+	opp.add_child(ob)
+
 	var kp = _panel(box)
 	kp.add_child(_label("💎 Balcão de Cristal  ·  você tem %d" % Progresso.crystals(), 19, Color(0.6, 0.95, 1.0)))
 	kp.add_child(_wrap("Cristal é raro: vem ao subir de nível (+1), completar o Desafio do Dia (+2) e ganhar torneio (+3 a +5). Também serve pra LAPIDAR uma carta que chegou no nível %d: ela fica dourada e ganha +3%% de vida e dano por estrela." % PlayerProfile.MAX_CARD_LEVEL, 14, ThemeBuilder.COLOR_STAT_LABEL))
@@ -3234,6 +3266,18 @@ func _buy_offer(offer: Dictionary):
 	var result = Progresso.buy_offer(offer)
 	if !result.is_empty():
 		_show_loot("Compra feita!", [result], ThemeBuilder.COLOR_GOLD)
+
+
+func _take_opportunity():
+	var res = Progresso.take_opportunity()
+	if res.is_empty():
+		return
+	Sfx.play("carta")
+	if !res["loot"].is_empty():
+		_show_loot("Baú de ocasião", res["loot"], Color("#d8b060"))
+	else:
+		_toast(str(res["texto"]))
+	_queue_refresh()
 
 
 func _claim_gift():

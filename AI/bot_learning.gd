@@ -1,7 +1,7 @@
 extends Node
 
 const SAVE_DIR = "user://bots/"
-const DECK_SIZE = 7
+const DECK_SIZE = 8
 
 # carta com (derrotas - vitórias) maior ou igual a isso vira candidata a troca
 const CARD_NET_LOSS_THRESHOLD = 5
@@ -20,7 +20,7 @@ const ARCHETYPE_SWITCH_CHANCE = 0.3  # nem toda vez que bate o streak troca -- a
 # --- progressão do bot em si (separado do nível de cada carta) ---
 # quantas cartas ele já conhece de cara, antes de evoluir -- um pouco mais
 # que o tamanho do deck, pra já ter alguma escolha desde o início
-const DECK_STYLE_VERSION = 4  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
+const DECK_STYLE_VERSION = 5  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
 const BONUS_KNOWN_CARDS = 4  # cartas extras de começo, puxadas pelo estilo de cada bot
 const STARTING_KNOWN_CARDS = 9  # exatamente o tamanho do deck -- um "starter" de verdade, sem sobrar variedade extra logo de cara. Era 9 antes
 
@@ -1395,7 +1395,7 @@ func _experiment_deck(data: Dictionary, bot_arena: int):
 		return
 	var paths: Array = data.get("deck_paths", [])
 	var deck: Array = _load_deck(paths)
-	if deck.size() < 7 or deck.size() != paths.size():
+	if deck.size() < DECK_SIZE or deck.size() != paths.size():
 		return
 	var pool: Array = []
 	for c in CardDatabase.all_cards:

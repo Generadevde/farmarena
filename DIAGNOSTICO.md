@@ -635,6 +635,20 @@ estas mecânicas, e os bots jogam o Espelho como um feitiço qualquer.
 - **Transparência**: tropa entrando em campo 78% → 92% de opacidade; invisível
   ou imune andando 40% → 60%.
 
+### Décima primeira leva (20/11) — baralho de 8, carta enxuta, oportunidade na Feira, Criador na barra
+
+- **Baralho de 8** (`Progresso.DECK_SIZE`, `BotLearning.DECK_SIZE`), 4 na mão,
+  como no Clash. O baralho inicial ganhou o Milho Pipoqueiro; baralho salvo com
+  7 é completado sozinho (`_valid_deck`); os bots remontam o deles
+  (`DECK_STYLE_VERSION = 5`).
+- **Tela da carta**: números em quadradinhos, uma caixa só com o tipo (como
+  luta, de quem ganha, de quem perde) e o resto atrás de "Mais detalhes". Antes
+  "ganha de / perde pra" aparecia em três painéis.
+- **Feira**: "Oportunidade de hoje", um negócio diferente por data, uma vez por
+  dia (`Progresso.OPPORTUNITIES`).
+- **Criador** com botão próprio na barra de baixo.
+- O "HUD em geral" não foi redesenhado: ficou pra uma rodada própria, com foto.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

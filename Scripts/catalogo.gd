@@ -489,7 +489,7 @@ const CARTAS = [
 		"f": {"radius": 90.0, "damage": 520, "base_damage_multiplier": 0.3, "status_effect": "KNOCKBACK", "knockback_distance": 50.0, "summon_count": 2, "fx_color": "#ffb040"}},
 ]
 
-const BARALHO_INICIAL = ["peao_forcado", "pintaiada", "galinha_atiradeira", "vaca_brava", "molecada", "raio", "canhao_pipoca"]
+const BARALHO_INICIAL = ["peao_forcado", "pintaiada", "galinha_atiradeira", "vaca_brava", "molecada", "raio", "canhao_pipoca", "milho_pipoqueiro"]
 
 # ---------------------------------------------------------------- torres
 const TORRES = [

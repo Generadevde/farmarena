@@ -1034,7 +1034,7 @@ func _write_arenas():
 # criadas por você: coleção, baralho e bots. Nada é apagado de verdade: as cartas do jogo
 # ficam guardadas e voltam ao desligar. Enquanto você tem menos de 7 cartas suas, o
 # baralho inicial do jogo completa o que falta, senão não dá pra jogar.
-const ZERO_MIN = 7
+const ZERO_MIN = 8
 const BACKUP_DIR = "user://custom_copia/"
 var _full_cards: Array = []
 

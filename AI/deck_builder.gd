@@ -210,7 +210,7 @@ static func plan_deck(bot_name: String, style: Dictionary, deck_size: int) -> Ar
 static func _arena_gate(known_cards: Array, style: Dictionary) -> Array:
 	var cap = int(style.get("arena_cap", 99)) + ARENA_PEEK
 	var out = known_cards.filter(func(c): return c != null and c.unlock_arena <= cap)
-	return out if out.size() >= 7 else known_cards
+	return out if out.size() >= 8 else known_cards
 
 
 static func build_deck(known_cards: Array, style: Dictionary, deck_size: int) -> Array[CardData]:

@@ -1729,7 +1729,7 @@ func _build_collection_panel():
 	if zero:
 		var mine = CustomContent.zero_pool().size() - CustomContent.zero_borrowed()
 		v.add_child(_note("Em jogo: %d carta(s) sua(s)%s. Baralho e bots usam só essas. As cartas do jogo não foram apagadas: desligue aqui e voltam todas." % [mine,
-			(" + %d do baralho inicial emprestada(s) até você ter 7" % CustomContent.zero_borrowed()) if CustomContent.zero_borrowed() > 0 else ""], Color(0.75, 0.95, 1.0)))
+			(" + %d do baralho inicial emprestada(s) até você ter 8" % CustomContent.zero_borrowed()) if CustomContent.zero_borrowed() > 0 else ""], Color(0.75, 0.95, 1.0)))
 	else:
 		v.add_child(_note("Ligado, o jogo passa a usar só as cartas que você criar, uma por uma. Nada é apagado de verdade."))
 	var paused = bool(Config.data.get("safra_pausa", false))

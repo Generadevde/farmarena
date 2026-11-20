@@ -456,6 +456,23 @@ func _screens_test():
 	for i in range(1, sizes.size()):
 		growing = growing and sizes[i] > sizes[i - 1]
 	_check("abelha < pintinho < galinha < moleque < peão < vaca < robô", growing, str(sizes))
+	# BARALHO de 8 (4 na mão), oportunidade do dia e detalhes da carta
+	_check("baralho tem 8 cartas", Progresso.DECK_SIZE == 8 and Progresso.deck_cards(Progresso.active_deck()).size() == 8 and Catalogo.starter_deck().size() == 8,
+		"%d" % Progresso.deck_cards(Progresso.active_deck()).size())
+	PlayerProfile.add_coins(1000)
+	var op = Progresso.opportunity()
+	var coins0 = PlayerProfile.coins
+	var got = Progresso.take_opportunity()
+	_check("oportunidade do dia fecha uma vez só e cobra o preço", !got.is_empty() and Progresso.opportunity()["feito"] and Progresso.take_opportunity().is_empty()
+		and PlayerProfile.coins <= coins0 - int(op["preco"]) + 250, "%s: %s" % [op["id"], str(got.get("texto", ""))])
+	hub._go_tab(0)
+	await get_tree().create_timer(0.4).timeout
+	_check("feira mostra a oportunidade de hoje", _find_text(hub, "Oportunidade de hoje"))
+	hub._show_card_popup(Catalogo.card("vaca_brava"))
+	await get_tree().create_timer(0.3).timeout
+	_check("carta: detalhes ficam atrás de um botão", _find_text(hub, "Mais detalhes"))
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	# CRIADOR novo: abre uma carta do jogo, mexe, salva (fica guardado à parte) e restaura
 	hub.queue_free()
 	await get_tree().process_frame
@@ -2054,5 +2071,5 @@ func _new_mechanics_test():
 	var zd = CustomContent.zero_deck("bot qualquer")
 	Config.data["do_zero"] = false
 	CustomContent.apply_zero()
-	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == 7 and zd.size() == 7 and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
+	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == 8 and zd.size() == 8 and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
 	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

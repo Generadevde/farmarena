@@ -13,7 +13,7 @@ signal rewards_pending  # tem prêmio novo na fila pra mostrar (hub abre o popup
 
 const SAVE_DIR = "user://profiles/"
 const DECK_SLOTS = 4
-const DECK_SIZE = 7
+const DECK_SIZE = 8   # igual ao Clash: 8 no baralho, 4 na mão (era 7)
 const CHEST_SLOTS = 3
 const BATTLE_SKIPS_SECONDS = 60  # cada partida jogada adianta o baú que está abrindo
 
@@ -569,6 +569,66 @@ func buy_offer(offer: Dictionary) -> Dictionary:
 	var result = give_card(c, int(offer["qtd"]))
 	_commit()
 	return result
+
+
+# ---- OPORTUNIDADE DO DIA: um negócio diferente por dia (muda com a data), uma vez só
+const OPPORTUNITIES = [
+	{"id": "fardo", "nome": "🧺 Fardo de cartas", "texto": "10 cópias de uma carta sua, sorteada na hora.", "preco": 250},
+	{"id": "bau", "nome": "📦 Baú de ocasião", "texto": "Um baú bom, aberto na hora, pela metade do que vale.", "preco": 300},
+	{"id": "cristal", "nome": "💎 Troca do garimpeiro", "texto": "Ouro vira cristal: 1 cristal.", "preco": 400},
+	{"id": "aposta", "nome": "🎲 Dobro ou nada", "texto": "Metade das vezes volta 250 de ouro. Na outra metade, nada.", "preco": 100},
+	{"id": "duas", "nome": "🃏 Duas pelo preço de uma", "texto": "2 cartas diferentes que você ainda não tem (das que já pode ter).", "preco": 350},
+]
+
+
+func opportunity() -> Dictionary:
+	var s = shop()
+	var day = Time.get_date_dict_from_system()
+	var op: Dictionary = OPPORTUNITIES[(int(day["day"]) + int(day["month"]) * 3) % OPPORTUNITIES.size()].duplicate()
+	op["feito"] = bool(s.get("oport", false))
+	return op
+
+
+## fecha o negócio do dia. Devolve {"texto": o que aconteceu, "loot": [...] se abriu baú}; {} se não deu
+func take_opportunity() -> Dictionary:
+	var op = opportunity()
+	if op["feito"] or PlayerProfile.coins < int(op["preco"]):
+		return {}
+	var out := {"texto": "", "loot": []}
+	match str(op["id"]):
+		"fardo":
+			var mine = owned_cards()
+			if mine.is_empty():
+				return {}
+			var c: CardData = mine[randi() % mine.size()]
+			give_card(c, 10)
+			out["texto"] = "10 cópias de %s!" % c.card_name
+		"bau":
+			out["loot"] = roll_chest(2)
+			out["texto"] = "Baú aberto!"
+		"cristal":
+			add_crystals(1)
+			out["texto"] = "+1 cristal."
+		"aposta":
+			if randf() < 0.5:
+				PlayerProfile.add_coins(250)
+				out["texto"] = "Dobrou! +250 de ouro."
+			else:
+				out["texto"] = "Deu nada desta vez."
+		"duas":
+			var news: Array = pool().filter(func(x): return !is_owned(x))
+			news.shuffle()
+			if news.is_empty():
+				return {}
+			var names: Array = []
+			for c in news.slice(0, 2):
+				give_card(c, 1)
+				names.append(c.card_name)
+			out["texto"] = "Cartas novas: " + ", ".join(names)
+	PlayerProfile.spend_coins(int(op["preco"]))
+	d["shop"]["oport"] = true
+	_commit()
+	return out
 
 
 func claim_daily_gift() -> Array:
