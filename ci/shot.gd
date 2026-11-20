@@ -374,3 +374,6 @@ func _creator_shots():
 	cr._show_ed_tab(1)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("criador_feitico")
+	cr._show_ed_tab(3)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("criador_feitico_teste")

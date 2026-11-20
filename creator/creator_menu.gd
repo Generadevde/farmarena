@@ -843,7 +843,7 @@ func _confirm(text: String, on_yes: Callable):
 #    pixel por pixel (que continua existindo pra retoque).
 # Vale pra tropa, construção, feitiço e módulo, do jogo ou criados por você.
 
-const ED_TABS = {"tropa": ["Básico", "Combate", "Habilidades", "Visual", "Teste"], "feitico": ["Básico", "Efeito", "Visual"], "modulo": ["Básico", "Função", "Visual"]}
+const ED_TABS = {"tropa": ["Básico", "Combate", "Habilidades", "Visual", "Teste"], "feitico": ["Básico", "Efeito", "Visual", "Teste"], "modulo": ["Básico", "Função", "Visual"]}
 const CORE_PROPS = ["hp", "damage", "attack_speed", "attack_range", "move_speed", "unit_count", "spawn_formation", "unit_type", "target_type",
 	"is_ranged", "projectile_speed", "detection_range", "duration", "push_weight"]
 const BASE_TYPE_NAMES = ["Canhão (atira)", "Produção (recurso mais rápido)", "Cura", "Só vida", "Espaço (guarda mais recurso)", "Aura (efeito em volta)"]
@@ -1004,11 +1004,11 @@ func _build_head():
 	_h_sub = _line("", 15, Color(0.85, 0.95, 1.0))
 	col.add_child(_h_title)
 	col.add_child(_h_sub)
-	if _ed_kind == "tropa":
-		for key in ["vida", "dano", "geral"]:
+	if _ed_kind == "tropa" or _ed_kind == "feitico":
+		for key in (["vida", "dano", "geral"] if _ed_kind == "tropa" else ["dano", "cura", "raio"]):
 			var row = HBoxContainer.new()
 			row.add_theme_constant_override("separation", 6)
-			var nm = _line({"vida": "Vida", "dano": "Dano", "geral": "Força"}[key], 14, Color(0.85, 0.82, 0.75))
+			var nm = _line({"vida": "Vida", "dano": "Dano", "geral": "Força", "cura": "Cura", "raio": "Raio"}[key], 14, Color(0.85, 0.82, 0.75))
 			nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 			nm.custom_minimum_size.x = 48
 			row.add_child(nm)
@@ -1026,6 +1026,7 @@ func _build_head():
 			row.add_child(pct)
 			col.add_child(row)
 			_h_bars[key] = [bar, pct]
+	if _ed_kind == "tropa":
 		_h_size = SizePreview.new()
 		var peao: CardData = Catalogo.card("peao_forcado")
 		_h_size.ref_unit = peao.icon if peao != null else null
@@ -1088,7 +1089,18 @@ func _refresh_head():
 	_h_title.text = card.card_name
 	if _ed_kind == "feitico":
 		var sp: SpellData = _work["spell"]
-		_h_sub.text = "Feitiço  ·  custo %d  ·  dano %d  ·  raio %d" % [card.cost, sp.damage, int(sp.radius)]
+		var np = Regua.spell_pulses(sp)
+		_h_sub.text = "Feitiço  ·  custo %d  ·  dano %d%s  ·  raio %d" % [card.cost, sp.damage, (" x%d" % np) if np > 1 else "", int(sp.radius)]
+		var sc = Regua.spell_compare(sp, card.cost)
+		for key in _h_bars:
+			var sp_p = int(sc[key])
+			var sbar: ProgressBar = _h_bars[key][0]
+			var spct: Label = _h_bars[key][1]
+			sbar.value = clampi(sp_p, 0, 200)
+			spct.text = "%d%%" % sp_p if sp_p >= 0 else "não tem"
+			var scol = Color(0.6, 0.6, 0.6) if sp_p < 0 else (Color(0.5, 1.0, 0.5) if (sp_p >= 85 and sp_p <= 115) else (Color(1.0, 0.85, 0.35) if (sp_p >= 70 and sp_p <= 130) else Color(1.0, 0.45, 0.4)))
+			sbar.modulate = scol
+			spct.add_theme_color_override("font_color", scol)
 		return
 	var st: UnitData = _work["stats"]
 	var cmp = Regua.compare(st, card.cost)
@@ -1506,6 +1518,9 @@ func _pick_color(key: String):
 
 # ---------------------------------------------------------------- aba Teste
 func _tab_teste():
+	if _ed_kind == "feitico":
+		_tab_teste_feitico()
+		return
 	var st: UnitData = _work["stats"]
 	var card: CardData = _work["card"]
 	var cmp = Regua.compare(st, card.cost)
@@ -1630,3 +1645,50 @@ class SizePreview extends Control:
 			var s = float(it[1])
 			draw_texture_rect(it[0], Rect2(x, ground - s, s, s), false, Color(1, 1, 1, float(it[2])))
 			x += s * 0.8 + 4.0
+
+
+## Teste do feitiço: o que o dano dele faz, na hora, com os números da tela
+func _tab_teste_feitico():
+	var sp: SpellData = _work["spell"]
+	var card: CardData = _work["card"]
+	var std = Regua.spell_standard()
+	var cmp = Regua.spell_compare(sp, card.cost)
+	var n = Regua.spell_pulses(sp)
+	var total = sp.damage * n
+	_section("Régua (padrão de %d feitiços do jogo, custo %d)" % [int(std["cartas"]), card.cost])
+	if sp.damage > 0:
+		_field_box.add_child(_note("Dano total: %d%s  (padrão %d)  →  %d%%" % [total, (" (%d x %d)" % [sp.damage, n]) if n > 1 else "", int(round(std["dmg_c"] * card.cost)), cmp["dano"]]))
+	if sp.heal_amount > 0:
+		_field_box.add_child(_note("Cura total: %d  (padrão %d)  →  %d%%" % [sp.heal_amount * n, int(round(std["cura_c"] * card.cost)), cmp["cura"]]))
+	_field_box.add_child(_note("Raio: %d  (padrão %d)  →  %d%%" % [int(sp.radius), int(std["raio"]), cmp["raio"]]))
+	if sp.damage <= 0 and sp.heal_amount <= 0:
+		_field_box.add_child(_note("Este feitiço não dá dano nem cura: ele vale pelo efeito, e efeito não entra na régua."))
+	if sp.damage <= 0 or !sp.affects_enemies:
+		return
+	_section("Contra uma torre")
+	var tower_hp = maxf(float(Regras.tower_hp(Catalogo.bases()[0])), 1.0) if !Catalogo.bases().is_empty() else 1560.0
+	var on_tower = total * sp.base_damage_multiplier
+	_field_box.add_child(_note("Tira %d de vida de um módulo (%d%% de um Celeiro). Feitiço bate em construção com %d%% do dano." % [int(round(on_tower)), int(round(on_tower / tower_hp * 100.0)), int(round(sp.base_damage_multiplier * 100.0))]))
+	_section("Contra tropas de custo parecido")
+	var refs: Array = []
+	for c in Catalogo.cards():
+		if c == null or c.is_spell():
+			continue
+		var st: UnitData = DeckBuilder.get_unit_stats(c)
+		if st != null and st.unit_type != UnitData.UnitType.BUILDING:
+			refs.append(c)
+	refs.sort_custom(func(a, b): return absi(a.cost - card.cost) < absi(b.cost - card.cost))
+	var kills = 0
+	var lines: Array = []
+	for c in refs.slice(0, 12):
+		var st: UnitData = DeckBuilder.get_unit_stats(c)
+		var each = "cada um" if st.unit_count > 1 else "ela"
+		if total >= st.hp:
+			kills += 1
+			lines.append(["✔ mata %s (custo %d, %d de vida%s)" % [c.card_name, c.cost, st.hp, " x%d" % st.unit_count if st.unit_count > 1 else ""], Color(0.6, 1.0, 0.6)])
+		else:
+			lines.append(["✖ não mata %s (custo %d): tira %d%% da vida d%s" % [c.card_name, c.cost, int(round(total * 100.0 / maxf(st.hp, 1.0))), "e " + each if each == "cada um" else "ela"], Color(1.0, 0.75, 0.6)])
+	_field_box.add_child(_note("Mata %d de %d (se pegar todo mundo dentro do raio)." % [kills, lines.size()], Color(0.75, 0.95, 1.0)))
+	for l in lines:
+		_field_box.add_child(_note(str(l[0]), l[1]))
+	_field_box.add_child(_note("Conta feita com os números da tela, no nível 1. Feitiço que fica no chão só dá o dano total em quem ficar dentro até o fim."))

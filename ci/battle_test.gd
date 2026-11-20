@@ -483,6 +483,16 @@ func _screens_test():
 	_check("criador: preencher pelo padrão dá carta do tipo pedido, perto de 100%", cmp["kind"] == "bando" and abs(int(cmp["vida"]) - 100) <= 20 and abs(int(cmp["dano"]) - 100) <= 25, str(cmp))
 	_check("criador: carta nova já nasce com desenho", !cr._work["image"].is_invisible())
 	cr._close_form()
+	# feitiço: 4 abas, com régua e teste
+	cr._open_card_form(CustomContent.open_card_for_edit(Catalogo.card("raio")))
+	var sp_ok = cr._ed_kind == "feitico" and cr._h_bars.size() == 3
+	for i in 4:
+		cr._show_ed_tab(i)
+		await get_tree().process_frame
+		sp_ok = sp_ok and cr._field_box.get_child_count() > 0
+	var scmp = Regua.spell_compare(Catalogo.card("raio").spell_data, Catalogo.card("raio").cost)
+	_check("criador: feitiço tem as 4 abas, régua e teste", sp_ok and int(scmp["dano"]) > 0 and int(scmp["raio"]) > 0, str(scmp))
+	cr._close_form()
 	cr._set_tab(1)
 	cr._open_base_form(CustomContent.open_base_for_edit(mods[0]))
 	var mod_ok = cr._head.visible

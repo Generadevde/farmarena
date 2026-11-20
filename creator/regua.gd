@@ -14,6 +14,7 @@ static var _std: Dictionary = {}
 
 static func clear():
 	_std = {}
+	_spell_std = {}
 
 
 static func _median(a: Array) -> float:
@@ -123,3 +124,44 @@ static func compare(st: UnitData, cost: int) -> Dictionary:
 	var dano = (st.damage / maxf(st.attack_speed, 0.1) * n) / maxf(s["dps_c"] * c, 0.01) * 100.0 if s["dps_c"] > 0.0 else 100.0
 	var geral = CardGenerator._raw_power(st) / maxf(CardGenerator.power_per_cost() * c, 1.0) * 100.0
 	return {"kind": kind, "vida": int(round(vida)), "dano": int(round(dano)), "geral": int(round(geral))}
+
+
+# ---------------------------------------------------------------- feitiços
+static var _spell_std: Dictionary = {}
+
+
+## quantas vezes o feitiço bate (1 se for instantâneo)
+static func spell_pulses(sp: SpellData) -> int:
+	return int(maxf(1.0, sp.duration / maxf(0.05, sp.tick_interval))) if sp.duration > 0.0 else 1
+
+
+## padrão dos feitiços do jogo: dano total por custo, cura total por custo e raio (medianas)
+static func spell_standard() -> Dictionary:
+	if _spell_std.is_empty():
+		var dmg: Array = []
+		var heal: Array = []
+		var rad: Array = []
+		for c in CardDatabase.all_cards:
+			if c == null or !c.is_spell() or c.cost <= 0 or c.spell_data == null or CustomContent.is_custom(c):
+				continue
+			var sp: SpellData = c.spell_data
+			var n = spell_pulses(sp)
+			if sp.damage > 0:
+				dmg.append(float(sp.damage) * n / c.cost)
+			if sp.heal_amount > 0:
+				heal.append(float(sp.heal_amount) * n / c.cost)
+			rad.append(sp.radius)
+		_spell_std = {"dmg_c": _median(dmg), "cura_c": _median(heal), "raio": _median(rad), "cartas": rad.size(), "de_dano": dmg.size(), "de_cura": heal.size()}
+	return _spell_std
+
+
+## {"dano", "cura", "raio"} em % do padrão (-1 = o feitiço não tem isso)
+static func spell_compare(sp: SpellData, cost: int) -> Dictionary:
+	var s = spell_standard()
+	var c = maxf(float(cost), 1.0)
+	var n = spell_pulses(sp)
+	return {
+		"dano": int(round(sp.damage * n / maxf(s["dmg_c"] * c, 0.01) * 100.0)) if (sp.damage > 0 and s["dmg_c"] > 0.0) else -1,
+		"cura": int(round(sp.heal_amount * n / maxf(s["cura_c"] * c, 0.01) * 100.0)) if (sp.heal_amount > 0 and s["cura_c"] > 0.0) else -1,
+		"raio": int(round(sp.radius / maxf(s["raio"], 1.0) * 100.0)),
+	}
