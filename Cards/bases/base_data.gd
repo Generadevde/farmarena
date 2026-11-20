@@ -50,6 +50,16 @@ func get_nation_name() -> String:
 
 ## Tipo funcional -- o que essa base FAZ na prática.
 enum BaseType { CANNON, PRODUCTION, HEAL, HP, CAPACITY, AURA }
+# --- MÓDULOS (20/11): cada torre do lado é um módulo com uma função ---
+## (a raridade sai de Catalogo.base_rarity, pela habilidade -- igual às cartas)
+## solta tropa: id da carta (Catalogo) que o módulo solta de graça
+@export var spawn_card_id: String = ""
+## true = solta quando APANHA (com intervalo mínimo); false = solta sozinho a cada `spawn_cooldown`
+@export var spawn_on_hit: bool = false
+@export var spawn_cooldown: float = 0.0
+## suas cartas de até `ally_speed_max_cost` de custo andam mais rápido (0.25 = 25%)
+@export var ally_speed_bonus: float = 0.0
+@export var ally_speed_max_cost: int = 0
 @export var base_type: BaseType = BaseType.CANNON
 
 ## Categoria estratégica -- separada do tipo funcional acima, porque um

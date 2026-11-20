@@ -33,10 +33,14 @@ const BASE_UPGRADE_MATCHES = 40        # partidas jogadas pro 1º upgrade (níve
 const BASE_UPGRADE_MATCHES_GROWTH = 20 # quanto isso sobe a cada nível seguinte
 const BASE_UPGRADE_COST = 300          # moedas pro 1º upgrade
 const BASE_UPGRADE_COST_GROWTH = 150   # quanto isso sobe a cada nível seguinte
-const BASE_LEVEL_BOOST = 0.15  # cada nível soma sempre 15% de estatística -- igual pra carta e pra base
-const CARD_LEVEL_BOOST = 0.15  # mesmo valor, mesmo formato -- fixo em vez da tabela variável de antes
+const BASE_LEVEL_BOOST = 0.10  # cada nível soma sempre 15% de estatística -- igual pra carta e pra base
+const CARD_LEVEL_BOOST = 0.10  # mesmo valor, mesmo formato -- fixo em vez da tabela variável de antes
 
-const MAX_CARD_LEVEL = 9  # nível 7 = maestria (ganha habilidade bônus, ver UnitData.mastery_effect)
+# 20/11: níveis de 1 a 14 (eram 9), +10% por nível (eram +15%). No nível 14 a carta
+# tem 2,3x os números do nível 1 -- quase o mesmo teto de antes (2,2x no 9), só que
+# em degraus menores. A maestria continua chegando no nível 9.
+const MASTERY_LEVEL = 9
+const MAX_CARD_LEVEL = 14  # nível 7 = maestria (ganha habilidade bônus, ver UnitData.mastery_effect)
 
 const PROFILES_DIR = "user://profiles/"
 const LAST_PROFILE_PATH = "user://last_profile.cfg"

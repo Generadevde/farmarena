@@ -430,7 +430,91 @@ func _build_replay_deck_row(deck_paths: Array, is_top: bool):
 		row.add_child(icon_rect)
 
 
+# ---------------------------------------------------------------- MÓDULOS
+var _main_down: Dictionary = {}      # time -> a base principal caiu
+var _module_bonus: Dictionary = {}   # torre -> o que ela está dando pro dono (some quando ela cai)
+
+
+## a base principal é IGUAL pros dois: o maior nível de torre dos dois lados
+func _main_level() -> int:
+	if MatchSetup.tournament:
+		return MatchSetup.TOURNAMENT_LEVEL
+	return maxi(Progresso.tower_level(), Progresso.bot_tower_level(ai_profile))
+
+
+func _install_side_modules(group: String, team, loadout: Array, level: int):
+	var timer: Timer = $ProductionTimer if team == GameManager.Team.PLAYER else $EnemyProductionTimer
+	var mods: Array = []
+	for t in get_tree().get_nodes_in_group(group):
+		if t.is_main:
+			t.install_base_data(Catalogo.main_base(), _main_level())
+			t.scale_hp(Regras.tower_hp_fraction())
+		elif t.module_slot >= 0:
+			mods.append(t)
+	mods.sort_custom(func(a, b): return a.module_slot < b.module_slot)
+	for i in mods.size():
+		var t = mods[i]
+		if i >= loadout.size() or loadout[i]["base"] == null:
+			t.remove_from_group(group)   # espaço sem módulo
+			t.queue_free()
+			continue
+		var b: BaseData = loadout[i]["base"]
+		t.module_point = int(loadout[i]["ponto"])
+		t.global_position = ArenaBuilder.module_position(team, t.module_point)
+		t.install_base_data(b, level)
+		t.scale_hp(Regras.tower_hp_fraction())
+		# o que o módulo dá só vale enquanto ele está de pé
+		var bonus = {"team": team, "prod": 0.0, "cap": 0}
+		if b.base_type == BaseData.BaseType.PRODUCTION:
+			timer.wait_time *= (1.0 - b.production_speed_boost)
+			bonus["prod"] = b.production_speed_boost
+		elif b.base_type == BaseData.BaseType.CAPACITY:
+			add_storage_capacity(team, b.capacity_bonus)
+			bonus["cap"] = b.capacity_bonus
+		_module_bonus[t] = bonus
+	var full = 0.0
+	for t in get_tree().get_nodes_in_group(group):
+		if !t.is_queued_for_deletion():
+			full += t.max_hp
+	_side_full_hp[group] = full
+
+
+## chamado pela torre na hora em que ela cai
+func on_tower_lost(tower):
+	if tower.is_main:
+		_main_down[tower.team] = true
+	if !_module_bonus.has(tower):
+		return
+	var bn: Dictionary = _module_bonus[tower]
+	_module_bonus.erase(tower)
+	var timer: Timer = $ProductionTimer if bn["team"] == GameManager.Team.PLAYER else $EnemyProductionTimer
+	if float(bn["prod"]) > 0.0:
+		timer.wait_time /= (1.0 - float(bn["prod"]))
+	if int(bn["cap"]) > 0:
+		add_storage_capacity(bn["team"], -int(bn["cap"]))
+		GameManager.player_money = minf(GameManager.player_money, player_max_money)
+		GameManager.enemy_money = minf(GameManager.enemy_money, enemy_max_money)
+
+
+## quanto as tropas da carta `card` andam mais rápido por causa de um módulo do dono
+func module_speed_for(team, card: CardData) -> float:
+	if card == null:
+		return 1.0
+	var best = 1.0
+	for t in get_tree().get_nodes_in_group("player_base" if team == GameManager.Team.PLAYER else "enemy_base"):
+		if is_instance_valid(t) and !t.is_queued_for_deletion() and t.base_data != null and t.base_data.ally_speed_bonus > 0.0 \
+				and card.cost <= t.base_data.ally_speed_max_cost:
+			best = maxf(best, 1.0 + t.base_data.ally_speed_bonus)
+	return best
+
+
 func _apply_player_base():
+	if Regras.modules():
+		var loadout = Progresso.module_loadout()
+		_install_side_modules("player_base", GameManager.Team.PLAYER, loadout, MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.tower_level())
+		for it in loadout:
+			PlayerProfile.record_base_usage(it["base"])
+		return
 	var base_data = PlayerProfile.get_equipped_base()
 	if base_data == null:
 		return  # ainda não escolheu nenhuma -- base fica com o HP padrão genérico
@@ -448,6 +532,10 @@ func _apply_player_base():
 
 
 func _apply_ai_base():
+	if Regras.modules():
+		_install_side_modules("enemy_base", GameManager.Team.ENEMY, Progresso.bot_module_loadout(ai_profile),
+			MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.bot_tower_level(ai_profile))
+		return
 	if ai_profile == null or ai_profile.equipped_base == null:
 		return
 	var base_data = ai_profile.equipped_base
@@ -608,6 +696,13 @@ func _on_base_destroyed(team):
 	if match_over:
 		return
 	towers_destroyed[team] += 1
+	if Regras.modules():
+		# caiu a BASE PRINCIPAL: acabou. Caiu um módulo: conta no placar e a partida segue
+		if _main_down.get(team, false):
+			_end_match(team)
+			return
+		_show_tower_down_banner(team)
+		return
 	if _alive_towers(team).is_empty():
 		_end_match(team)
 		return
@@ -1665,6 +1760,8 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 		unit.team = team
 		if "lane" in unit:
 			unit.lane = Regras.lane_of(spawn_position.x)  # a carta inteira segue a rota de onde foi solta
+		if Regras.modules() and "module_speed_bonus" in unit:
+			unit.module_speed_bonus = module_speed_for(team, card_data)
 		unit.deploy_clock = i == 0
 		unit.card_level = level
 		if card_data != null:

@@ -151,8 +151,64 @@ static func score_card(card: CardData, style: Dictionary, chosen: Array) -> floa
 
 # 2.0: bot só usa carta que já "existe" na arena dele (igual o jogador) --
 # se sobrar pouca carta, libera tudo pra não ficar sem baralho
+# ---------------------------------------------------------------- baralho com COMBO
+# Medido em 20/11 (ci/lab/decks.tscn, jogo novo): os 101 bots usavam só 12
+# cartas diferentes das 144, dois bots quaisquer tinham 4,1 cartas iguais em 7,
+# 23 baralhos não tinham NENHUMA carta que derruba torre e 37 nada que limpasse
+# bando. Era repetido e sem plano. Agora todo baralho de bot nasce em volta de
+# uma dupla que joga junta (quem derruba torre + a escolta que atira) mais as
+# respostas que todo baralho precisa, e cada bot escolhe as cartas DELE pra
+# cada vaga. O bot também pode usar carta de até 2 arenas acima da dele.
+const ARENA_PEEK = 2
+const FLEX_KINDS = [["voador"], ["construcao"], ["tanque", "lutador"], ["bando"], ["apoio", "atirador"], ["ariete"], ["matador"], ["area"]]
+
+
+static func _slot_fits(slot: int, c: CardData, flex: Array) -> bool:
+	var k = Catalogo.kind_of(c)
+	match slot:
+		0: return k == "ariete"                                   # quem derruba torre (a carta que ganha a partida)
+		1: return k == "atirador" and can_hit_air(c)              # a escolta: atira de trás e pega voador
+		2: return k == "area" or (c.is_spell() and c.spell_data != null and c.spell_data.damage > 0)   # limpa bando
+		3: return k in ["matador", "bando"]                       # derruba tanque
+		4: return !c.is_spell() and c.cost <= 20                  # barata, pra girar a mão
+		5: return c.is_spell()                                    # feitiço
+		_: return k in flex                                       # o gosto do bot
+	return false
+
+
+static func plan_deck(bot_name: String, style: Dictionary, deck_size: int) -> Array[CardData]:
+	var cap = int(style.get("arena_cap", 1)) + ARENA_PEEK
+	var pool: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and c.unlock_arena <= cap and !CustomContent.is_spawn_only(c):
+			pool.append(c)
+	var flex: Array = FLEX_KINDS[abs(hash(bot_name + "/gosto")) % FLEX_KINDS.size()]
+	var deck: Array[CardData] = []
+	for slot in deck_size:
+		var best: CardData = null
+		var best_h = -1
+		for c in pool:
+			if deck.has(c) or !_slot_fits(slot, c, flex):
+				continue
+			var h = abs(hash("%s/%d/%s" % [bot_name, slot, c.resource_path]))   # cada bot tem a ordem de preferência dele
+			if h > best_h:
+				best_h = h
+				best = c
+		if best != null:
+			deck.append(best)
+	# vaga sem candidato (arena com pouca carta): completa com o que tiver, ainda na ordem do bot
+	var rest: Array = pool.filter(func(c): return !deck.has(c))
+	rest.sort_custom(func(a, b): return abs(hash(bot_name + a.resource_path)) > abs(hash(bot_name + b.resource_path)))
+	for c in rest:
+		if deck.size() >= deck_size:
+			break
+		deck.append(c)
+	_ensure_air_coverage(deck, pool)
+	return deck
+
+
 static func _arena_gate(known_cards: Array, style: Dictionary) -> Array:
-	var cap = int(style.get("arena_cap", 99))
+	var cap = int(style.get("arena_cap", 99)) + ARENA_PEEK
 	var out = known_cards.filter(func(c): return c != null and c.unlock_arena <= cap)
 	return out if out.size() >= 7 else known_cards
 

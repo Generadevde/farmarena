@@ -12,6 +12,7 @@ var target = null
 var attack_cooldown = 0.0
 var is_preview = false
 var current_hp
+var module_speed_bonus: float = 1.0  # módulo do dono que acelera cartas baratas (regra "modulos")
 var speed_multiplier: float = 1.0  # >1 = sob efeito de fúria, <1 = sob efeito de lentidão
 var card_level: int = 1  # nível de upgrade da carta que gerou essa unidade
 var card_role: int = CardData.CardRole.VERSATIL  # categoria da carta, pra IA usar na defesa
@@ -1129,7 +1130,7 @@ func _process_combat(delta):
 
 
 func _get_move_speed() -> float:
-	var speed = stats.move_speed * speed_multiplier * _rage_mult(_rage_speed)
+	var speed = stats.move_speed * speed_multiplier * module_speed_bonus * _rage_mult(_rage_speed)
 	if _dash_time_remaining > 0:
 		speed *= stats.dash_speed_multiplier
 	if _formation_speed_cap >= 0.0:
@@ -1632,7 +1633,7 @@ func _apply_on_hit_effect_to(body):
 
 	# habilidade de maestria: além do efeito normal acima, aplica esse extra
 	# só quando a carta já está no nível máximo (hoje 7, pro jogador)
-	if stats.mastery_effect != UnitData.OnHitEffect.NONE and card_level >= PlayerProfile.MAX_CARD_LEVEL:
+	if stats.mastery_effect != UnitData.OnHitEffect.NONE and card_level >= PlayerProfile.MASTERY_LEVEL:
 		body.apply_on_hit_effect(
 			stats.mastery_effect,
 			stats.mastery_effect_strength,

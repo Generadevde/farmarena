@@ -375,6 +375,83 @@ e abriu o antigo sem perceber.)
 sem duelo de verdade (só estimativa). A tabela acima é das cartas feitas à
 mão, medidas antes das mudanças desta leva.
 
+### Quinta leva (20/11) — base principal + módulos, baralhos dos bots, níveis de 1 a 14
+
+Depois de uma manhã de desenhos descartados (portão, torre de comando, três
+torres iguais, colheita, campo cruzado), o João fechou o campo: *"uma base
+principal e 6 pontos em volta, 3 pra frente e 3 mais atrás; a base principal
+não muda, o que muda são os módulos"*.
+
+**Campo (regra `modulos`, ligada de fábrica; desliga no Laboratório).**
+
+- **Casa Grande** (base principal) no meio, a 330 do rio. Igual pros dois
+  lados, no nível mais alto de torre dos dois. Caiu, acabou a partida.
+- **6 pontos** em volta (`Regras.MODULE_POINTS`): frente esquerda / meio /
+  direita, lado esquerdo / direito, atrás da base.
+- Cada lado põe **2 módulos** onde quiser (`Progresso.module_loadout`,
+  `set_module`). Módulo derrubado para de funcionar na hora (recurso e
+  capacidade voltam ao normal) e vale 1 no placar. Fim do tempo: mais módulos
+  derrubados, depois vida, depois empate.
+- **Só módulo de tiro atira.** Os outros valem pela função.
+- Os módulos são as torres que já existiam (10) + 3 novos: Guarita do Caramelo
+  (solta tropa quando apanha), Estábulo Ligeiro (cartas de até 30 andam 25%
+  mais rápido), Curral de Engorda (um Peão de graça a cada 28 s). Raridade e
+  criação pela Safra já existiam pras torres e continuam valendo.
+- Aba **Módulos** (era Torres): mapa dos 6 pontos pra tocar e mover, e a lista
+  com "pôr no lugar de...".
+- O bot escolhe 2 módulos (sempre os mesmos pra cada bot) e nunca deixa a base
+  sozinha: dois de defesa guardam as rotas do lado; um só fica na frente do
+  meio; módulo de recurso vai pra trás.
+
+Medido entre bots, mesmas cartas e nível (`LAB_MODULOS=2`: módulos sorteados
+entre todos, postos pela regra do bot), 36 partidas, base com 2300 de vida:
+
+| | 2 torres (ontem, 24) | módulos (36) |
+|---|---|---|
+| acabou sem nada cair | 10 | 2 |
+| os dois lados perderam alguma coisa | 0 | 10 |
+| base principal derrubada (fim na hora) | — | 14 |
+| partidas com menos de 2 minutos | 0 | 3 |
+| cartas jogadas esquerda / meio / direita | 45 / 4 / 52% | 23 / 56 / 21% |
+
+- **Melhorou:** quase toda partida tem coisa caindo e em 10 de 36 os dois
+  lados perdem algo (era 0).
+- **Atenção:** a base cai em 14 de 36 (39%) e 56% das cartas vão no meio,
+  porque metade dos arranjos do bot tem um módulo só na frente, no meio. Não é
+  o "tudo no meio" do portão (67%, sempre o primeiro a cair), mas o meio pesa.
+  Com a base em 1500 de vida ela caía em 15 de 36; em 1850, 18 de 36 (já com
+  os baralhos novos, mais ofensivos); ficou em 2300.
+- **Não medido:** cada módulo sozinho (13 módulos em 36 partidas é pouco pra
+  dizer qual é forte demais), e nada com gente jogando.
+
+**Baralhos dos bots** (`ci/lab/decks.tscn`, jogo novo, 101 bots). O João: *"os
+bots não tinham estratégia de montar combos ou usavam o mesmo deck repetitivo
+demais"*. Medido, ele estava certo:
+
+| | antes | agora |
+|---|---|---|
+| cartas diferentes em uso | 12 de 144 | 35 |
+| cartas iguais entre dois bots (de 7) | 4,1 | 2,2 |
+| pares de bots com 5+ cartas iguais | 1616 de 5050 | 129 |
+| baralhos sem carta que derruba torre | 23 | 6 |
+| baralhos sem nada que limpe bando | 37 | 0 |
+
+`DeckBuilder.plan_deck`: todo baralho nasce em volta de uma dupla (quem
+derruba torre + a escolta que atira e pega voador) mais as respostas (limpa
+bando, derruba tanque, carta barata, feitiço) e uma vaga do gosto do bot. Cada
+bot escolhe as cartas dele por vaga, e pode usar carta de até 2 arenas acima
+(na arena 1 só existiam 12 cartas pra todo mundo). Vale pros bots que já
+existem (`DECK_STYLE_VERSION` 4 refaz o baralho uma vez). Na partida o bot já
+atacava em bloco (líder na frente, apoio atrás); faltava o baralho ter as peças.
+
+**Níveis de 1 a 14** (eram 9), **+10% por nível** (eram +15%). No 14 a carta
+tem 2,3x o nível 1; antes, 2,2x no 9. Os 8 primeiros degraus de cópias são os
+de antes; os 5 novos continuam a escada. Bots: até 1120 troféus sobem como
+antes (nível 9), depois 1 nível a cada 600. Maestria continua no nível 9.
+Vida aparece em número redondo (3890, não 3888). **Efeito colateral:** carta
+que já estava no nível 2 a 9 fica um pouco mais fraca do que era (nível 9:
+2,2x → 1,8x), igual pra você e pros bots.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

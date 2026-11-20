@@ -44,6 +44,30 @@ func _ready():
 	MatchSetup.arena_override = 1
 	var si = int(OS.get_environment("LAB_SEED")) if OS.get_environment("LAB_SEED") != "" else 0
 	MatchSetup.next_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[(3 + si * 2) % BotSimulator.roster_names.size()])
+	if OS.get_environment("LAB_MODULOS") != "":
+		# LAB_MODULOS=1: os dois lados entram com módulos e pontos sorteados entre TODOS (pra medir a variedade)
+		var all_mods: Array = BotSimulator.available_bases.filter(func(b): return b != null)
+		for b in all_mods:
+			b.unlock_arena = 0
+		var rng = RandomNumberGenerator.new()
+		rng.seed = 9000 + si
+		var a: BaseData = all_mods[rng.randi() % all_mods.size()]
+		var b2: BaseData = all_mods[rng.randi() % all_mods.size()]
+		while b2 == a:
+			b2 = all_mods[rng.randi() % all_mods.size()]
+		var pa2 = rng.randi() % 6
+		var pb2 = (pa2 + 1 + rng.randi() % 5) % 6
+		Progresso.set_module(0, a, pa2)
+		Progresso.set_module(1, b2, pb2)
+		if OS.get_environment("LAB_MODULOS") == "2":
+			# LAB_MODULOS=2: módulos sorteados, mas POSTOS com juízo (a mesma regra que o bot usa), nos dois lados
+			var pp = BotLearning.get_or_create_profile(BotSimulator.roster_names[(11 + si * 5) % BotSimulator.roster_names.size()])
+			pp.equipped_base = a
+			var lo = Progresso.bot_module_loadout(pp)
+			for i in lo.size():
+				Progresso.set_module(i, lo[i]["base"], int(lo[i]["ponto"]))
+		if MatchSetup.next_ai_profile != null:
+			MatchSetup.next_ai_profile.equipped_base = all_mods[rng.randi() % all_mods.size()]
 	battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child(battle)
 	await get_tree().create_timer(0.6).timeout
@@ -259,6 +283,10 @@ func _finish(reason: String):
 		if a.has("x"):
 			lanes[Regras.lane_of(float(a["x"])) + 1] += 1
 	print("LABROTAS ", lanes)
+	if "_main_down" in battle:
+		print("LABBASE ", "P" if battle._main_down.get(GameManager.Team.PLAYER, false) else ("E" if battle._main_down.get(GameManager.Team.ENEMY, false) else "-"),
+			" modulos=", get_tree().get_nodes_in_group("player_base").filter(func(t): return !t.is_main).map(func(t): return [t.base_data.base_name, t.module_point]),
+			" x ", get_tree().get_nodes_in_group("enemy_base").filter(func(t): return !t.is_main).map(func(t): return [t.base_data.base_name, t.module_point]))
 	var plays_p := 0
 	var plays_e := 0
 	for a in battle.match_action_log:
@@ -284,7 +312,7 @@ func _track():
 			var key = "%s#%d" % [g, b.get_instance_id()]
 			if !_init_hp.has(key) and "max_hp" in b and t > 0.3:
 				_init_hp[key] = float(b.max_hp)
-				_kind[key] = "g" if ("is_gate" in b and b.is_gate) else "l"   # g = portão, l = torre de trás (lado)
+				_kind[key] = "b" if ("is_main" in b and b.is_main) else ("g" if ("is_gate" in b and b.is_gate) else "l")   # b = base principal, g = portão, l = torre/módulo
 				_seen_towers[key] = b
 			i += 1
 	for key in _seen_towers.keys():

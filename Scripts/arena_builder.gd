@@ -24,7 +24,17 @@ const BG_PATH = "res://Resources/arena/arena_bg.png"
 
 ## as 2 torres de trás (esquerda, direita) e, com a regra "portao" ligada,
 ## o PORTÃO por último: no meio e bem mais perto do rio
+## posição de um dos 6 pontos de módulo (ou da base principal, com point = -1)
+static func module_position(team, point: int) -> Vector2:
+	var side = 1.0 if team == GameManager.Team.PLAYER else -1.0
+	var p: Vector2 = Regras.MAIN_BASE_POS if point < 0 else Regras.MODULE_POINTS[clampi(point, 0, Regras.MODULE_POINTS.size() - 1)]
+	# o campo do bot é o seu de cabeça pra baixo: a "esquerda" dele fica na SUA esquerda
+	return Vector2(CENTER.x + p.x, CENTER.y + p.y * side)
+
+
 static func tower_positions(team) -> Array:
+	if Regras.modules():
+		return [module_position(team, -1), module_position(team, Regras.DEFAULT_POINTS[0]), module_position(team, Regras.DEFAULT_POINTS[1])]
 	var side = 1.0 if team == GameManager.Team.PLAYER else -1.0
 	var y = CENTER.y + TOWER_DY * side
 	var out = [Vector2(CENTER.x - TOWER_DX, y), Vector2(CENTER.x + TOWER_DX, y)]
@@ -154,6 +164,19 @@ static func _towers(battle: Node):
 		if first == null:
 			continue
 		var pos = tower_positions(team)
+		if Regras.modules():
+			# base principal + os módulos (a batalha põe cada um no ponto escolhido depois)
+			first.position = battle.to_local(pos[0])
+			first.name = "Base_Jogador" if team == GameManager.Team.PLAYER else "Base_Bot"
+			first.is_main = true
+			for i in Regras.MODULES_PER_SIDE:
+				var m = first.duplicate()
+				m.name = ("Modulo_Jogador_" if team == GameManager.Team.PLAYER else "Modulo_Bot_") + str(i + 1)
+				m.is_main = false
+				m.module_slot = i
+				battle.add_child(m)
+				m.position = battle.to_local(pos[1 + i])
+			continue
 		first.position = battle.to_local(pos[0])
 		first.name = ("Torre_Jogador_" if team == GameManager.Team.PLAYER else "Torre_Bot_") + "1"
 		var second = first.duplicate()

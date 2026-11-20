@@ -543,6 +543,22 @@ const TORRES = [
 		"pros": ["Tiro forte", "Alcance enorme"], "cons": ["A torre com menos vida", "Atira devagar"],
 		"receita": {"torre": "antena"}, "paleta": {"M": "#a0a8b8", "S": "#50e0a0", "A": "#f04848", "K": "#f8e040"}, "proj": "raio",
 		"b": {"base_hp": 900, "attack_damage": 85, "attack_range": 210.0, "attack_speed": 2.0, "projectile_speed": 420.0}},
+	# --- módulos novos de 20/11 (pedido do João): solta tropa ao apanhar, acelera cartas, dá tropa de tempos em tempos ---
+	{"id": "guarita", "nome": "Guarita do Caramelo", "turma": "Peões", "arena": 2, "tipo": "HP", "categoria": "DEFENSIVO",
+		"desc": "Bateu nela, sai um Caramelo bravo lá de dentro. E outro. E outro.",
+		"pros": ["Solta um Caramelo quando apanha (a cada 6 s)"], "cons": ["Não atira", "Parada, não faz nada"],
+		"receita": {"torre": "forte"}, "paleta": {"W": "#a87038", "A": "#d8a030", "M": "#484c58"},
+		"b": {"base_hp": 1250, "spawn_card_id": "caramelo", "spawn_on_hit": true, "spawn_cooldown": 6.0}},
+	{"id": "estabulo", "nome": "Estábulo Ligeiro", "turma": "Curral", "arena": 3, "tipo": "HP", "categoria": "OFENSIVO",
+		"desc": "Bicho bem tratado corre mais. Suas cartas baratas saem voando.",
+		"pros": ["Cartas de até 30 de custo andam 25% mais rápido"], "cons": ["Não atira", "Não ajuda carta cara"],
+		"receita": {"torre": "celeiro"}, "paleta": {"A": "#3c8c58", "W": "#6a4428", "K": "#f0e8c0"},
+		"b": {"base_hp": 1150, "ally_speed_bonus": 0.25, "ally_speed_max_cost": 30}},
+	{"id": "curral_engorda", "nome": "Curral de Engorda", "turma": "Curral", "arena": 5, "tipo": "HP", "categoria": "OFENSIVO",
+		"desc": "De tempos em tempos a porteira abre e sai um Peão novinho, de graça.",
+		"pros": ["Solta um Peão de graça a cada 28 s"], "cons": ["Não atira", "Pouca vida"],
+		"receita": {"torre": "castelo_feno"}, "paleta": {"K": "#c8a060", "A": "#a04838", "W": "#6a4428"},
+		"b": {"base_hp": 1000, "spawn_card_id": "peao_forcado", "spawn_cooldown": 28.0}},
 ]
 
 # ---------------------------------------------------------------- construção
@@ -885,6 +901,28 @@ static func tokens() -> Array:
 	return _tokens
 
 
+# a BASE PRINCIPAL: igual pros dois lados, não entra na coleção e não muda
+const SEDE = {"id": "sede", "nome": "Casa Grande", "turma": "Peões", "arena": 0, "tipo": "CANNON", "categoria": "DEFENSIVO",
+	"desc": "A sede da fazenda. Caiu ela, acabou a partida.", "pros": [], "cons": [],
+	"receita": {"torre": "celeiro"}, "paleta": {"A": "#f0f0e8", "W": "#5a3820", "K": "#e8b830"}, "proj": "milho",
+	"b": {"base_hp": 2300, "attack_damage": 32, "attack_range": 125.0, "attack_speed": 1.0}}
+static var _main_base: BaseData = null
+
+
+static func main_base() -> BaseData:
+	_ensure()
+	if _main_base == null:
+		_main_base = build_base(SEDE, PATH_PREFIX + "sede.tres")
+	return _main_base
+
+
+static func base_by_path(path: String) -> BaseData:
+	for b in BotSimulator.available_bases:
+		if b != null and b.resource_path == path:
+			return b
+	return null
+
+
 static func bases() -> Array:
 	_ensure()
 	return _bases
@@ -1115,6 +1153,10 @@ static func base_ability(b: BaseData) -> Array:
 	## devolve [nome, pontos] ou [] se a torre não tem habilidade
 	if b == null:
 		return []
+	if b.spawn_card_id != "":
+		return ["Solta tropa quando apanha", 4] if b.spawn_on_hit else ["Dá tropa de graça de tempos em tempos", 6]
+	if b.ally_speed_bonus > 0.0:
+		return ["Acelera suas cartas baratas", 2]
 	match b.base_type:
 		BaseData.BaseType.PRODUCTION:
 			return ["Recurso mais rápido", 1 if b.production_speed_boost <= 0.15 else 3]

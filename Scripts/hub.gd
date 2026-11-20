@@ -990,7 +990,8 @@ func _show_settings():
 			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."],
 			["mao4", "🃏 4 cartas na mão", "Em vez de 3. O baralho continua com 7: sobra menos carta escondida na fila."],
 			["portao", "🚪 Portão na frente (3 torres)", "Experiência: uma torre mais fraca no meio, na frente, além das duas de trás. Deixa a partida toda no meio -- por isso vem desligado."],
-			["rotas", "🧭 3 rotas (só com o portão)", "A tropa segue a rota onde você solta: esquerda e direita vão na torre de trás daquele lado, o meio vai no portão."]]:
+			["rotas", "🧭 3 rotas (só com o portão)", "A tropa segue a rota onde você solta: esquerda e direita vão na torre de trás daquele lado, o meio vai no portão."],
+			["modulos", "🧩 Base principal + módulos", "Casa Grande no meio (caiu, acabou) e 6 pontos em volta pra pôr 2 módulos. Desligado, voltam as 2 torres iguais."]]:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		lab.add_child(line)
@@ -1237,20 +1238,98 @@ func _set_cards_view(v: int):
 	_queue_refresh()
 
 
+var _mod_sel := -1   # módulo tocado no mapa (0 ou 1), esperando o toque no ponto novo
+
+
+## o mapa da sua base: a Casa Grande no meio e os 6 pontos em volta (em cima = lado do rio)
+func _build_modulos_map(box: Node, loadout: Array):
+	var tp = _panel(box)
+	tp.add_child(_label("🧩 Sua base: Casa Grande + 2 módulos", 22, ThemeBuilder.COLOR_GOLD))
+	tp.add_child(_wrap("A Casa Grande é igual pros dois lados e não muda: se ela cair, a partida acaba. Em volta dela tem 6 pontos e você põe 2 módulos onde quiser. Módulo derrubado para de funcionar e vale 1 no placar. Só módulo de tiro atira. Nível dos seus módulos: %d." % Progresso.tower_level(), 15, ThemeBuilder.COLOR_STAT_LABEL))
+	tp.add_child(_label("▲ rio (a frente é em cima)", 14, Color(0.6, 0.85, 1.0)))
+	var grid = GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	tp.add_child(grid)
+	for cell in [0, 1, 2, 3, -1, 5, -2, 4, -2]:   # -1 = a base, -2 = canto sem ponto
+		var b = Button.new()
+		b.custom_minimum_size = Vector2(196, 150)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.expand_icon = true
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		b.add_theme_font_size_override("font_size", 14)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		grid.add_child(b)
+		if cell == -2:
+			b.disabled = true
+			b.modulate.a = 0.0
+			continue
+		if cell == -1:
+			b.icon = Catalogo.main_base().icon
+			b.text = "Casa Grande"
+			b.disabled = true
+			continue
+		var slot = -1
+		for i in loadout.size():
+			if int(loadout[i]["ponto"]) == cell:
+				slot = i
+		if slot >= 0:
+			b.icon = loadout[slot]["base"].icon
+			b.text = loadout[slot]["base"].base_name
+			if slot == _mod_sel:
+				b.modulate = Color(1.0, 1.0, 0.45)
+		else:
+			b.text = "＋\n" + Regras.MODULE_POINT_NAMES[cell]
+			b.modulate = Color(1, 1, 1, 0.75)
+		b.pressed.connect(_module_cell_tap.bind(cell, slot))
+	var hint = "Toque num módulo e depois no ponto pra onde ele vai."
+	if _mod_sel >= 0 and _mod_sel < loadout.size():
+		hint = "Agora toque no ponto novo de %s (ou nele de novo pra cancelar)." % loadout[_mod_sel]["base"].base_name
+	tp.add_child(_wrap(hint, 15, Color(1.0, 0.95, 0.6)))
+
+
+func _module_cell_tap(cell: int, slot: int):
+	var loadout = Progresso.module_loadout()
+	if _mod_sel < 0 or _mod_sel >= loadout.size():
+		_mod_sel = slot   # tocou num ponto vazio sem nada escolhido: não faz nada
+	elif slot == _mod_sel:
+		_mod_sel = -1
+	else:
+		Progresso.set_module(_mod_sel, loadout[_mod_sel]["base"], cell)   # ponto vazio: muda; ponto do outro: os dois trocam
+		_mod_sel = -1
+		Sfx.play("carta")
+	_queue_refresh()
+
+
+func _use_module(slot: int, b: BaseData):
+	var loadout = Progresso.module_loadout()
+	if slot < loadout.size():
+		Progresso.set_module(slot, b, int(loadout[slot]["ponto"]))
+	Sfx.play("carta")
+	_queue_refresh()
+
+
 func _build_torres(box: Node):
 	var equipped = PlayerProfile.get_equipped_base()
 	var tlv = Progresso.tower_level()
+	var mods_on = Regras.modules()
+	var loadout: Array = Progresso.module_loadout() if mods_on else []
+	if mods_on:
+		_build_modulos_map(box, loadout)
 	var tp = _panel(box)
-	tp.add_child(_label("🏰 Nível das torres: %d" % tlv, 22, ThemeBuilder.COLOR_GOLD))
-	var why = "Sobe sozinho junto com o seu nível de jogador (hoje nível %d), sem passar de 1 acima da carta mais forte do baralho. Cada nível dá +15%% de vida e de dano." % Progresso.player_level()
+	tp.add_child(_label(("🧩 Nível dos módulos: %d" if mods_on else "🏰 Nível das torres: %d") % tlv, 22, ThemeBuilder.COLOR_GOLD))
+	var why = "Sobe sozinho junto com o seu nível de jogador (hoje nível %d), sem passar de 1 acima da carta mais forte do baralho. Cada nível dá +10%% de vida e de dano." % Progresso.player_level()
 	if tlv >= PlayerProfile.MAX_CARD_LEVEL:
-		why = "Nível máximo! Cada nível deu +15% de vida e de dano."
+		why = "Nível máximo! Cada nível deu +10% de vida e de dano."
 	elif tlv < Progresso.player_level():
 		why += " Agora quem segura é o baralho: melhore suas cartas pra torre subir."
 	else:
 		why += " Agora falta subir o seu nível de jogador."
 	tp.add_child(_wrap(why, 15, ThemeBuilder.COLOR_STAT_LABEL))
-	box.add_child(_wrap("Sua torre vale pras DUAS torres do seu lado. Cada tipo muda o jeito de jogar. As novas liberam conforme você sobe de arena.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	box.add_child(_wrap("Cada módulo faz uma coisa. Escolha 2 e ponha cada um num ponto. Os novos liberam conforme você sobe de arena." if mods_on else "Sua torre vale pras DUAS torres do seu lado. Cada tipo muda o jeito de jogar. As novas liberam conforme você sobe de arena.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var list: Array = BotSimulator.available_bases.filter(func(b): return b != null)
 	list.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena)
 	for b in list:
@@ -1271,7 +1350,8 @@ func _build_torres(box: Node):
 		row.add_child(side)
 		if b.has_meta("safra"):
 			side.add_child(_label("🆕 NOVIDADE da safra" if b == Safra.current_tower() else "🌱 Torre de safra", 14, Color(0.5, 1, 0.6)))
-		side.add_child(_label(b.base_name + ("   ✔ EM USO" if b == equipped else ""), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
+		var in_use = loadout.any(func(o): return o["base"] == b) if mods_on else b == equipped
+		side.add_child(_label(b.base_name + ("   ✔ EM USO" if in_use else ""), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
 		var brar = Catalogo.base_rarity(b)
 		var bab = Catalogo.base_ability(b)
 		side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[brar], "Habilidade: " + str(bab[0]) if !bab.is_empty() else "sem habilidade"], 15, Catalogo.RARITY_COLORS[brar]))
@@ -1284,6 +1364,10 @@ func _build_torres(box: Node):
 			p.add_child(_wrap("“%s”" % b.description, 15, Color(0.95, 0.9, 0.78)))
 		if !unlocked:
 			p.add_child(_label("🔒 Libera na Arena %d (%s)" % [b.unlock_arena, ArenaManager.get_arena_info(b.unlock_arena).get("name", "")], 16, Color(1, 0.85, 0.5)))
+		elif mods_on:
+			if !in_use:
+				for i in loadout.size():
+					p.add_child(_button("Pôr no lugar de %s" % loadout[i]["base"].base_name, _use_module.bind(i, b), 18))
 		elif b != equipped:
 			p.add_child(_button("Usar esta torre", _equip_base_direct.bind(b), 19))
 	box.add_child(_button("🎨 Criar minha própria torre (Criador)", _goto.bind(CREATOR_SCENE), 18))
@@ -1292,7 +1376,12 @@ func _build_torres(box: Node):
 func _base_summary(b: BaseData) -> String:
 	var tmult = PlayerProfile.compute_base_stat_multiplier(Progresso.tower_level())
 	var hp = Regras.tower_hp(b, tmult)
-	var txt = "❤ %d cada" % hp
+	var txt = "❤ %d" % hp if Regras.modules() else "❤ %d cada" % hp
+	if b.spawn_card_id != "":
+		var sc: CardData = Catalogo.card(b.spawn_card_id)
+		txt += "  ·  solta %s %s" % [sc.card_name if sc != null else "tropa", ("quando apanha, a cada %ds" if b.spawn_on_hit else "de graça a cada %ds") % int(b.spawn_cooldown)]
+	if b.ally_speed_bonus > 0.0:
+		txt += "  ·  cartas de até %d de custo andam %d%% mais rápido" % [b.ally_speed_max_cost, int(round(b.ally_speed_bonus * 100))]
 	if Regras.tower_shoots(b):
 		txt += "  ·  ⚔ %d a cada %.1fs  ·  alcance %s%s" % [int(round(Regras.tower_damage(b) * tmult)), Regras.tower_interval(b),
 			("%.1f quadrados" % (Regras.tower_range(b) / TILE_PX)).replace(".", ","), "  ·  em área" if (b.is_aoe and b.base_type == BaseData.BaseType.CANNON) else ""]
@@ -1308,7 +1397,8 @@ func _base_summary(b: BaseData) -> String:
 		BaseData.BaseType.AURA:
 			txt += "  ·  aura: %s (raio %d)" % [CustomContent.EFFECT_NAMES[b.effect], int(b.aura_radius)]
 		_:
-			txt += "  ·  a mais resistente" if Regras.on("torres") else "  ·  só resistência"
+			if b.spawn_card_id == "" and b.ally_speed_bonus <= 0.0:
+				txt += "  ·  a mais resistente" if Regras.on("torres") else "  ·  só resistência"
 	return txt
 
 
@@ -1337,7 +1427,7 @@ func _build_dock():
 	var switch = HBoxContainer.new()
 	switch.add_theme_constant_override("separation", 8)
 	col.add_child(switch)
-	var names = ["🃏 Cartas", "🏰 Torres"]
+	var names = ["🃏 Cartas", "🧩 Módulos" if Regras.modules() else "🏰 Torres"]
 	for i in 2:
 		var sb = _button(names[i], _set_cards_view.bind(i), 19)
 		sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2997,7 +3087,7 @@ func _upgrade(card: CardData, popup_box: Node, deck_index: int = -1):
 	if Progresso.upgrade(card):
 		_close(popup_box)
 		_queue_refresh()
-		await _celebrate(card, "NÍVEL %d!" % Progresso.level(card), "+15% de vida e de dano", Color(0.5, 1.0, 0.6))
+		await _celebrate(card, "NÍVEL %d!" % Progresso.level(card), "+10% de vida e de dano", Color(0.5, 1.0, 0.6))
 		_show_card_popup(card, deck_index)
 
 

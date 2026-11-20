@@ -20,7 +20,7 @@ const ARCHETYPE_SWITCH_CHANCE = 0.3  # nem toda vez que bate o streak troca -- a
 # --- progressão do bot em si (separado do nível de cada carta) ---
 # quantas cartas ele já conhece de cara, antes de evoluir -- um pouco mais
 # que o tamanho do deck, pra já ter alguma escolha desde o início
-const DECK_STYLE_VERSION = 3  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
+const DECK_STYLE_VERSION = 4  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
 const BONUS_KNOWN_CARDS = 4  # cartas extras de começo, puxadas pelo estilo de cada bot
 const STARTING_KNOWN_CARDS = 9  # exatamente o tamanho do deck -- um "starter" de verdade, sem sobrar variedade extra logo de cara. Era 9 antes
 
@@ -180,7 +180,14 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 				known_paths.append(card.resource_path)
 		data["known_card_paths"] = known_paths
 		profile.known_cards = _load_deck(known_paths)
-		profile.deck.clear()  # força remontar com o estilo novo logo abaixo (lista tipada: clear, não = [])
+		# v4: baralho com COMBO (derruba-torre + escolta + respostas), diferente pra cada bot
+		profile.deck = DeckBuilder.plan_deck(bot_name, style, DECK_SIZE)
+		for card in profile.deck:
+			if card != null and !known_paths.has(card.resource_path):
+				known_paths.append(card.resource_path)
+		data["known_card_paths"] = known_paths
+		data["deck_paths"] = _deck_to_paths(profile.deck)
+		profile.known_cards = _load_deck(known_paths)
 		data.erase("favorite_card_path")
 		known_changed = true
 
@@ -214,7 +221,7 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 		known_changed = true
 	# ARENA: o bot só joga com carta que já existe na arena DELE. Carta de arena
 	# mais alta (ex.: carta de safra que mudou de arena) sai e entra outra parecida.
-	if _enforce_arena_on_deck(profile, data, bot_arena_now, known_paths):
+	if _enforce_arena_on_deck(profile, data, bot_arena_now + DeckBuilder.ARENA_PEEK, known_paths):   # bot pode usar carta de até 2 arenas acima
 		known_changed = true
 
 	var needs_save = is_new or known_changed or base_just_rolled or archetype_just_migrated
@@ -1212,7 +1219,10 @@ var _level_cap := 9   # teto de nível do bot que está sendo processado agora
 ## bot na mesma faixa de um jogador com aqueles troféus:
 ##   0 troféus = nível 2 · 320 = 4 · 480 = 5 · 640 = 6 · 800 = 7 · 960 = 8 · 1120+ = 9
 static func level_cap_for(trophies: int) -> int:
-	return clampi(2 + int(trophies / 160.0), 2, PlayerProfile.MAX_CARD_LEVEL)
+	# até 1120 troféus é a escada de antes (chega no 9); daí pra cima, 1 nível a cada 600 (14 perto de 4100)
+	if trophies <= 1120:
+		return clampi(2 + int(trophies / 160.0), 2, 9)
+	return clampi(9 + int((trophies - 1120) / 600.0), 9, PlayerProfile.MAX_CARD_LEVEL)
 
 
 ## põe o teto em vigor pro bot e, UMA vez, abaixa quem passou dele
@@ -1356,7 +1366,7 @@ func _maybe_upgrade_cards(data: Dictionary):
 		if card == null:
 			continue
 		var rarity = Catalogo.rarity_of(card)
-		var copies_needed = int(Progresso.COPIES_NEEDED[rarity][clampi(level - 1, 0, 7)])
+		var copies_needed = int(Progresso.COPIES_NEEDED[rarity][clampi(level - 1, 0, 12)])
 		var cost_needed = int(round((PlayerProfile.UPGRADE_BASE_COST + (level - 1) * PlayerProfile.UPGRADE_COST_GROWTH) * Progresso.COIN_FACTOR[rarity]))
 		var copies_have = int(copies.get(path, 0))
 		if copies_have < copies_needed or gold < cost_needed:

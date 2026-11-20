@@ -25,7 +25,11 @@ class_name Regras
 ##             Sem isso toda tropa ia na torre mais perto -- sempre o portão --
 ##             e a partida virava "solta tudo no meio"
 
-const KEYS = ["torres", "visual", "peso", "mao4", "portao", "rotas"]
+##   "modulos" BASE PRINCIPAL no meio (caiu, acabou) + 6 pontos em volta, onde
+##             cada lado põe 2 MÓDULOS que escolheu antes da partida. Só módulo
+##             de tiro atira; os outros valem pela função (recurso, cura, tropa...)
+
+const KEYS = ["torres", "visual", "peso", "mao4", "portao", "rotas", "modulos"]
 # O PORTÃO nasce DESLIGADO. Foi testado em 19/11 e o João sentiu na hora: "o jogo
 # virou ficar jogando carta no meio". Medido entre bots: com ele, 67% de TODAS as
 # cartas caem na rota do meio e o portão é a primeira torre a cair em 15 de 15
@@ -52,7 +56,20 @@ static func hand_size() -> int:
 
 
 static func three_towers() -> bool:
-	return on("portao")
+	return on("portao") and !modules()
+
+
+# ---------------------------------------------------------------- módulos
+const MODULES_PER_SIDE = 2
+const MAIN_BASE_POS = Vector2(0, 330)   # a partir do meio do rio, pro lado de quem é o dono
+# os 6 pontos: 3 na frente (esquerda, meio, direita), 2 nos lados da base e 1 atrás dela
+const MODULE_POINTS = [Vector2(-150, 235), Vector2(0, 225), Vector2(150, 235), Vector2(-140, 395), Vector2(0, 435), Vector2(140, 395)]
+const MODULE_POINT_NAMES = ["Frente esquerda", "Frente meio", "Frente direita", "Lado esquerdo", "Atrás da base", "Lado direito"]
+const DEFAULT_POINTS = [0, 2]
+
+
+static func modules() -> bool:
+	return on("modulos")
 
 
 static func routes() -> bool:
@@ -136,6 +153,8 @@ static func tower_hp_fraction() -> float:
 static func tower_shoots(b: BaseData) -> bool:
 	if b == null:
 		return false
+	if modules():
+		return b.base_type == BaseData.BaseType.CANNON   # módulo que não é de tiro vale pela função dele
 	return b.base_type == BaseData.BaseType.CANNON or on("torres")
 
 
@@ -177,7 +196,7 @@ static func _t(key: String, fallback: float) -> float:
 
 ## vida de UMA torre em campo (são 2 por lado), já com o nível
 static func tower_hp(b: BaseData, level_mult: float = 1.0) -> int:
-	return int(round(round(b.base_hp * level_mult) * tower_hp_fraction()))
+	return tidy(round(b.base_hp * level_mult) * tower_hp_fraction())
 
 
 ## Os textos das torres foram escritos quando só a "de tiro" atirava.
@@ -187,7 +206,7 @@ static func tower_con_text(text: String) -> String:
 		return text
 	var t = text.strip_edges().to_lower()
 	if t in ["não ataca", "não causa dano direto", "não causa dano"]:
-		return "Só o tiro básico"
+		return "Não atira" if modules() else "Só o tiro básico"
 	if t == "tiro fraco":
 		return "Nenhum bônus extra"
 	return text
@@ -198,7 +217,7 @@ static func tower_pro_text(text: String) -> String:
 		return text
 	var t = text.strip_edges().to_lower()
 	if t in ["atira sozinho", "atira sozinha"]:
-		return "Tiro mais forte que o das outras"
+		return "Módulo de tiro: defende sozinho" if modules() else "Tiro mais forte que o das outras"
 	return text
 
 
@@ -321,6 +340,16 @@ const EFFECT_TIME_SHARE = 0.6   # duração de efeito cresce 60% do que vida/dan
 
 
 ## aplica o multiplicador do nível numa CÓPIA dos números (quem chama duplica antes)
+## número "redondo" de vida: de 10 em 10 acima de 1000, de 5 em 5 acima de 200
+## (3888 vira 3890, 1264 vira 1260). Só arruma a leitura, não muda o equilíbrio.
+static func tidy(v: float) -> int:
+	if v >= 1000.0:
+		return int(round(v / 10.0)) * 10
+	if v >= 200.0:
+		return int(round(v / 5.0)) * 5
+	return int(round(v))
+
+
 static func apply_level(stats: UnitData, mult: float) -> void:
 	if stats == null or mult == 1.0:
 		return
@@ -329,7 +358,7 @@ static func apply_level(stats: UnitData, mult: float) -> void:
 		if v == null or float(v) <= 0.0:
 			continue
 		if v is int:
-			stats.set(f, int(round(v * mult)))
+			stats.set(f, tidy(v * mult) if f == "hp" else int(round(v * mult)))
 		else:
 			stats.set(f, snappedf(float(v) * mult, 0.1))
 	if stats.on_hit_effect == UnitData.OnHitEffect.POISON:

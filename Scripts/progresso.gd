@@ -26,12 +26,13 @@ const CHESTS = [
 const WIN_CHEST_WEIGHTS = [60, 28, 10, 2]
 
 # cópias pra subir do nível L pro L+1 (índice = L-1), por raridade
+# 14 níveis = 13 subidas. Os 8 primeiros degraus são os de antes (ninguém perde o que já juntou)
 const COPIES_NEEDED = [
-	[2, 4, 8, 15, 25, 40, 60, 90],
-	[1, 2, 4, 8, 13, 20, 30, 45],
-	[1, 1, 2, 3, 5, 8, 12, 18],
-	[1, 1, 1, 2, 2, 3, 4, 5],
-	[1, 1, 1, 1, 2, 2, 3, 3],
+	[2, 4, 8, 15, 25, 40, 60, 90, 110, 130, 150, 175, 200],
+	[1, 2, 4, 8, 13, 20, 30, 45, 55, 65, 75, 88, 100],
+	[1, 1, 2, 3, 5, 8, 12, 18, 22, 26, 30, 35, 40],
+	[1, 1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+	[1, 1, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6],
 ]
 const COIN_FACTOR = [1.0, 1.5, 2.5, 4.0, 6.0]
 const COPIES_PER_ROLL = [[3, 8], [2, 4], [1, 2], [1, 1], [1, 1]]
@@ -184,7 +185,7 @@ func copies_needed(c: CardData) -> int:
 	var lv = level(c)
 	if lv >= PlayerProfile.MAX_CARD_LEVEL:
 		return 0
-	return COPIES_NEEDED[Catalogo.rarity_of(c)][clampi(lv - 1, 0, 7)]
+	return COPIES_NEEDED[Catalogo.rarity_of(c)][clampi(lv - 1, 0, 12)]
 
 
 func upgrade_cost(c: CardData) -> int:
@@ -1293,6 +1294,93 @@ func daily_result(won: bool) -> String:
 		text = "Vitória! (o prêmio de hoje você já pegou)"
 	_commit()
 	return text
+
+
+# ================================================================ MÓDULOS (base principal + 6 pontos)
+## os 2 módulos do jogador e o ponto de cada um: [{"base": BaseData, "ponto": int}, ...]
+func module_loadout() -> Array:
+	var out: Array = []
+	var points := {}
+	for it in d.get("modulos", []):
+		var b: BaseData = Catalogo.base_by_path(str(it.get("path", "")))
+		var p = int(it.get("ponto", -1))
+		if b == null or !PlayerProfile.is_base_unlocked(b) or p < 0 or p >= Regras.MODULE_POINTS.size() or points.has(p):
+			continue
+		if out.any(func(o): return o["base"] == b):
+			continue
+		points[p] = true
+		out.append({"base": b, "ponto": p})
+	# completa o que falta: primeiro a torre que já estava equipada, depois as liberadas
+	var pool: Array = [PlayerProfile.get_equipped_base()]
+	for b in BotSimulator.available_bases:
+		if b != null and PlayerProfile.is_base_unlocked(b):
+			pool.append(b)
+	for b in pool:
+		if out.size() >= Regras.MODULES_PER_SIDE:
+			break
+		if b == null or out.any(func(o): return o["base"] == b):
+			continue
+		for p in Regras.DEFAULT_POINTS + [1, 3, 5, 4]:
+			if !points.has(p):
+				points[p] = true
+				out.append({"base": b, "ponto": p})
+				break
+	return out
+
+
+## põe o módulo `b` no espaço `slot` (0 ou 1), no ponto `point`. Se o outro
+## espaço já usava esse módulo ou esse ponto, os dois trocam.
+func set_module(slot: int, b: BaseData, point: int):
+	var cur = module_loadout()
+	if slot < 0 or slot >= cur.size() or b == null:
+		return
+	var other = 1 - slot
+	if other < cur.size():
+		if cur[other]["base"] == b:
+			cur[other]["base"] = cur[slot]["base"]
+		if int(cur[other]["ponto"]) == point:
+			cur[other]["ponto"] = cur[slot]["ponto"]
+	cur[slot] = {"base": b, "ponto": point}
+	d["modulos"] = cur.map(func(o): return {"path": o["base"].resource_path, "ponto": int(o["ponto"])})
+	_commit()
+
+
+## os módulos do bot: a torre que ele já usava + outra, sempre as mesmas pra cada
+## bot. Ele nunca deixa a base sozinha: quem tem um módulo de recurso leva um de
+## defesa junto. Dois de defesa guardam as duas rotas do lado; um só fica na
+## frente do meio (é o mais perto de quem vem por qualquer ponte). Módulo de
+## recurso vai pros pontos de trás.
+func bot_module_loadout(profile) -> Array:
+	var first: BaseData = profile.equipped_base if profile != null and profile.equipped_base != null else null
+	var top = maxi(ArenaManager.get_player_arena(), first.unlock_arena if first != null else 0)
+	var pool: Array = BotSimulator.available_bases.filter(func(b): return b != null and b.unlock_arena <= top)
+	if pool.is_empty():
+		return []
+	var seed = abs(hash(str(profile.profile_name) if profile != null else "bot"))
+	if first == null:
+		first = pool[0]
+	var eco_types = [BaseData.BaseType.PRODUCTION, BaseData.BaseType.CAPACITY]
+	var first_eco = first.base_type in eco_types
+	var rest = pool.filter(func(b): return b != first and (!first_eco or !(b.base_type in eco_types)))
+	if rest.is_empty():
+		rest = pool.filter(func(b): return b != first)
+	var second: BaseData = rest[seed % rest.size()] if !rest.is_empty() else null
+	var fronts: Array = []
+	var backs: Array = []
+	for b in [first, second]:
+		if b != null:
+			(backs if b.base_type in eco_types else fronts).append(b)
+	var out: Array = []
+	if fronts.size() >= 2:
+		var flip = (seed / 3) % 2 == 1
+		out.append({"base": fronts[0], "ponto": 2 if flip else 0})
+		out.append({"base": fronts[1], "ponto": 0 if flip else 2})
+	elif fronts.size() == 1:
+		out.append({"base": fronts[0], "ponto": 1})
+	var back_points = [3, 5, 4]
+	for k in backs.size():
+		out.append({"base": backs[k], "ponto": back_points[((seed / 7) + k) % back_points.size()]})
+	return out
 
 
 # ================================================================ nível das TORRES

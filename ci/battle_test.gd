@@ -38,8 +38,9 @@ func _ready():
 	# os testes de mecânica (empurrão, congelar, efeitos...) foram montados no
 	# campo de 2 torres e medem a tropa, não o campo: o portão no meio só
 	# atrapalharia a medida. Torres, simulação e partidas usam o campo de verdade
-	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo"]:
+	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo", "torres"]:
 		Regras.forced["portao"] = false
+		Regras.forced["modulos"] = false   # mecânica de tropa é medida no campo antigo de 2 torres
 	if mode == "torres":
 		# o portão e as rotas nascem desligados (ficam no Laboratório): este teste liga os dois
 		Regras.forced["portao"] = true
@@ -57,6 +58,10 @@ func _ready():
 		return
 	if mode == "torres":
 		await _towers_test()
+		get_tree().quit()
+		return
+	if mode == "modulos":
+		await _modules_test()
 		get_tree().quit()
 		return
 	if mode == "regras":
@@ -354,6 +359,92 @@ func _art_sheet():
 	print("RESULTADO catálogo: unidades sem stats=", sem_stats)
 
 
+## MÓDULOS: base principal + 6 pontos + 2 módulos por lado
+func _modules_test():
+	_aud_bad.clear()
+	var forte: BaseData = null
+	var moinho: BaseData = null
+	var guarita: BaseData = null
+	var estabulo: BaseData = null
+	for b in BotSimulator.available_bases:
+		if b == null:
+			continue
+		if b.resource_path.ends_with("torre_moinho.tres"):
+			moinho = b
+		elif b.resource_path.ends_with("torre_guarita.tres"):
+			guarita = b
+		elif b.resource_path.ends_with("torre_estabulo.tres"):
+			estabulo = b
+		elif b.resource_path.ends_with("torre_forte.tres"):
+			forte = b
+	_check("os módulos novos existem", moinho != null and guarita != null and estabulo != null and forte != null)
+	# o jogador entra com Moinho (ponto 4, atrás da base) e Guarita (ponto 0); o teste libera os módulos na marra
+	for b in [moinho, guarita, estabulo]:
+		if b != null:
+			b.unlock_arena = 0
+	Progresso.set_module(0, moinho, 4)
+	Progresso.set_module(1, guarita, 0)
+	var saved = Progresso.module_loadout()
+	_check("guarda os 2 módulos e os pontos", saved.size() == 2 and saved[0]["base"] == moinho and int(saved[0]["ponto"]) == 4 and saved[1]["base"] == guarita and int(saved[1]["ponto"]) == 0)
+	await get_tree().create_timer(1.0).timeout
+	battle.get_node("Timer").stop()
+	var c = ArenaBuilder.CENTER
+	var mine = get_tree().get_nodes_in_group("player_base")
+	var bots = get_tree().get_nodes_in_group("enemy_base")
+	var my_main = mine.filter(func(t): return t.is_main)
+	var my_mods = mine.filter(func(t): return !t.is_main)
+	var bot_main = bots.filter(func(t): return t.is_main)
+	var bot_mods = bots.filter(func(t): return !t.is_main)
+	print("RESULTADO módulos: meu lado=", mine.map(func(t): return [t.base_data.base_name, t.module_point, t.max_hp]), " | bot=", bots.map(func(t): return [t.base_data.base_name, t.module_point, t.max_hp]))
+	_check("1 base principal + 2 módulos de cada lado", my_main.size() == 1 and my_mods.size() == 2 and bot_main.size() == 1 and bot_mods.size() == 2)
+	_check("base principal igual pros dois", my_main[0].max_hp == bot_main[0].max_hp and my_main[0].base_data == bot_main[0].base_data, "%d x %d" % [my_main[0].max_hp, bot_main[0].max_hp])
+	_check("base principal no meio", abs(my_main[0].global_position.x - c.x) < 2.0 and abs(bot_main[0].global_position.x - c.x) < 2.0)
+	var m_moinho = my_mods.filter(func(t): return t.base_data == moinho)
+	var m_guarita = my_mods.filter(func(t): return t.base_data == guarita)
+	_check("módulos nos pontos escolhidos", m_moinho.size() == 1 and m_guarita.size() == 1
+		and m_moinho[0].global_position.distance_to(ArenaBuilder.module_position(GameManager.Team.PLAYER, 4)) < 2.0
+		and m_guarita[0].global_position.distance_to(ArenaBuilder.module_position(GameManager.Team.PLAYER, 0)) < 2.0)
+	_check("módulos do bot em pontos diferentes", bot_mods[0].module_point != bot_mods[1].module_point and bot_mods[0].base_data != bot_mods[1].base_data)
+	_check("só módulo de tiro atira", !Regras.tower_shoots(moinho) and Regras.tower_shoots(Catalogo.main_base()))
+	# PRODUÇÃO: o Moinho acelera o recurso enquanto está de pé; caiu, volta ao normal
+	var with_mill = battle.get_node("ProductionTimer").wait_time
+	# GUARDA: apanhou (depois do intervalo), solta tropa
+	m_guarita[0]._spawn_clock = 99.0
+	var before_units = get_tree().get_nodes_in_group("units").size()
+	m_guarita[0].take_damage(10)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var guard_spawned = get_tree().get_nodes_in_group("units").size() - before_units
+	_check("guarita solta tropa quando apanha", guard_spawned >= 1, str(guard_spawned))
+	# VELOCIDADE: com o Estábulo de pé, carta barata anda mais rápido; carta cara não
+	var cheap: CardData = Catalogo.card("caramelo")
+	var costly: CardData = Catalogo.card("boi_marretao")
+	var speed_none = battle.module_speed_for(GameManager.Team.PLAYER, cheap)
+	m_guarita[0].base_data = estabulo
+	var speed_cheap = battle.module_speed_for(GameManager.Team.PLAYER, cheap)
+	var speed_costly = battle.module_speed_for(GameManager.Team.PLAYER, costly)
+	m_guarita[0].base_data = guarita
+	_check("estábulo acelera só carta barata", speed_none == 1.0 and speed_cheap > 1.2 and speed_costly == 1.0, "%s %s %s" % [speed_none, speed_cheap, speed_costly])
+	# PLACAR: derrubar um módulo não acaba a partida, mas conta
+	m_moinho[0].take_damage(999999)
+	await get_tree().process_frame
+	var after_mill = battle.get_node("ProductionTimer").wait_time
+	_check("moinho acelera o recurso e para quando cai", with_mill < after_mill - 0.0001, "%.3f -> %.3f" % [with_mill, after_mill])
+	_check("perder módulo não acaba a partida", !battle.match_over)
+	_check("no fim do tempo, quem perdeu módulo perde", battle.time_up_loser() == GameManager.Team.PLAYER, str(battle.time_up_loser()))
+	bot_mods[0].take_damage(999999)
+	bot_mods[1].take_damage(999999)
+	await get_tree().process_frame
+	_check("derrubar os 2 módulos do bot não acaba a partida", !battle.match_over)
+	_check("placar 2 x 1 pra mim", battle.time_up_loser() == GameManager.Team.ENEMY, str(battle.time_up_loser()))
+	# BASE PRINCIPAL: caiu, acabou -- mesmo com o placar a favor
+	my_main[0].take_damage(999999)
+	await get_tree().process_frame
+	_check("base principal caiu = fim da partida", battle.match_over)
+	get_tree().paused = false
+	print("RESULTADO modulos COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
+
+
 func _towers_test():
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -485,7 +576,7 @@ func _rules_test():
 	Regras.forced["torres"] = false
 	var off_ok = !Regras.tower_shoots(forte) and Regras.tower_hp(celeiro) == int(round(celeiro.base_hp * 0.65)) and Regras.tower_range(celeiro) == celeiro.attack_range
 	Regras.forced.erase("torres")
-	_check("vida e alcance novos", hp_new == int(round(celeiro.base_hp * Regras.TOWER_HP_FRACTION)) and range_new > 200.0, "Celeiro: %d de vida, alcance %d" % [hp_new, int(range_new)])
+	_check("vida e alcance novos", hp_new == Regras.tidy(celeiro.base_hp * Regras.TOWER_HP_FRACTION) and range_new > 200.0, "Celeiro: %d de vida, alcance %d" % [hp_new, int(range_new)])
 	_check("chave 'torres' desligada volta ao antigo", off_ok)
 
 	# 3) VANTAGEM DE QUEM DEFENDE: tropa sozinha não derruba torre

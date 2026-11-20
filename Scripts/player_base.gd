@@ -9,6 +9,10 @@ signal damaged(amount)
 @export var team: GameManager.Team
 
 var hp: int
+var is_main := false       # a BASE PRINCIPAL (regra "modulos"): caiu, a partida acaba
+var module_slot := -1      # 0 ou 1: qual dos módulos do lado é este (-1 = não é módulo)
+var module_point := -1     # em qual dos 6 pontos ele está
+var _spawn_clock := 0.0
 var is_gate := false   # o PORTÃO: a torre da frente (regra "portao"), mais fraca que as de trás
 var base_data: BaseData = null
 var _base_cooldown: float = 0.0   # cura / aura
@@ -67,6 +71,10 @@ func install_base_data(new_base_data: BaseData, level: int = 1):
 			$Sprite2D.position = Vector2(0, -14)
 		if team == GameManager.Team.ENEMY:
 			$Sprite2D.self_modulate = Color(1.0, 0.82, 0.82)  # torres inimigas levemente avermelhadas
+	if is_main:
+		# a base principal é a maior coisa do seu lado
+		$Sprite2D.scale *= 1.22
+		$Sprite2D.position.y *= 1.22
 	if is_gate:
 		# o portão é menor que as torres de trás: dá pra ver de longe quem é quem
 		$Sprite2D.scale *= 0.82
@@ -82,7 +90,7 @@ func install_base_data(new_base_data: BaseData, level: int = 1):
 
 # multiplica a vida máxima (usado no 2v2, onde 2 bots atacam a mesma base)
 func scale_hp(mult: float):
-	max_hp = int(round(max_hp * mult))
+	max_hp = Regras.tidy(max_hp * mult)   # vida em número redondo (3890, não 3888)
 	hp = max_hp
 	$ProgressBar.max_value = max_hp
 	$ProgressBar.value = hp
@@ -97,6 +105,12 @@ func _process(delta):
 	# continua dando o bônus dele (cura, aura, produção, capacidade, vida)
 	if Regras.tower_shoots(base_data):
 		_process_cannon(delta)
+	# módulo que solta tropa sozinho, de tempos em tempos
+	if base_data.spawn_card_id != "":
+		_spawn_clock += delta
+		if !base_data.spawn_on_hit and _spawn_clock >= maxf(base_data.spawn_cooldown, 1.0):
+			_spawn_clock = 0.0
+			_spawn_guard()
 
 	match base_data.base_type:
 		BaseData.BaseType.HEAL:
@@ -377,6 +391,11 @@ func _apply_base_effect_to(body):
 
 func take_damage(amount):
 	hp = clamp(hp - amount, 0, max_hp)
+	# módulo de guarda: apanhou, solta tropa (com um intervalo mínimo)
+	if base_data != null and base_data.spawn_on_hit and base_data.spawn_card_id != "" and hp > 0 and amount > 0 \
+			and _spawn_clock >= maxf(base_data.spawn_cooldown, 1.0):
+		_spawn_clock = 0.0
+		_spawn_guard()
 	if amount >= 15:
 		Fx.number(get_parent(), position + Vector2(0, -40), amount, Color(1, 0.8, 0.35))
 		Sfx.play("torre_dano", 0.1, -2.0)
@@ -433,7 +452,21 @@ func _shake():
 	tw.tween_callback(func(): _shaking = false)
 
 
+## solta a tropa do módulo, do lado dele que olha pro rio
+func _spawn_guard():
+	var card: CardData = Catalogo.card(base_data.spawn_card_id)
+	var bs = get_tree().get_first_node_in_group("battle_scene")
+	if card == null or bs == null or card.unit_scene == null:
+		return
+	var toward = 1.0 if team == GameManager.Team.ENEMY else -1.0
+	bs.spawn_unit(card.unit_scene, team, global_position + Vector2(randf_range(-20.0, 20.0), 55.0 * toward), card)
+	Fx.text(get_parent(), position + Vector2(0, -40), "+ " + card.card_name, Color(0.7, 1.0, 0.7), 1.2)
+
+
 func die():
+	var bs0 = get_tree().get_first_node_in_group("battle_scene")
+	if bs0 != null and bs0.has_method("on_tower_lost"):
+		bs0.on_tower_lost(self)   # tira da partida o que este módulo dava (recurso, capacidade...)
 	var parent = get_parent()
 	Fx.ring(parent, position, 90.0, Color(1.0, 0.75, 0.3), 0.6)
 	Fx.puff(parent, position, 3.0)
