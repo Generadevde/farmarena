@@ -472,7 +472,16 @@ func _screens_test():
 	await get_tree().process_frame
 	var st2: UnitData = DeckBuilder.get_unit_stats(peao)
 	_check("criador: salvar muda a carta do jogo e guarda à parte", st2.hp == hp_before + 500 and st2.has_shield and CustomContent.has_override(peao), "vida %d" % st2.hp)
+	# carta de duas tropas: o Peão passa a vir com 2 pintinhos, e volta ao normal
+	cr._open_card_form(CustomContent.open_card_for_edit(peao))
+	cr._work["card"].companion_id = "pintaiada"
+	cr._work["card"].companion_count = 2
+	cr._save_card()
+	await get_tree().process_frame
+	_check("criador: carta com outra tropa junto", peao.companions.size() == 1 and int(peao.companions[0]["count"]) == 2 and peao.companions[0]["scene"] == Catalogo.card("pintaiada").unit_scene)
 	CustomContent.restore_original_card(peao)
+	Catalogo.apply_companion(peao)
+	_check("criador: restaurar tira a tropa que vinha junto", peao.companions.is_empty() and peao.companion_id == "", peao.companion_id)
 	var st3: UnitData = DeckBuilder.get_unit_stats(peao)
 	_check("criador: restaurar volta ao original", st3.hp == hp_before and !st3.has_shield, "vida %d (era %d)" % [st3.hp, hp_before])
 	cr._open_card_form(CustomContent.make_blank_card(false))

@@ -355,6 +355,7 @@ func _save_card():
 		card.art_palette = _palette.duplicate()
 	Regua.clear()
 	CustomContent.apply_snapshot(card, CustomContent.snapshot(_work["card"], CustomContent.CARD_FIELDS), CustomContent.CARD_FIELDS)
+	Catalogo.apply_companion(card)
 	if _work["card"].has_meta("spawn_only"):
 		card.set_meta("spawn_only", _work["card"].get_meta("spawn_only"))
 	if _orig["stats"] != null and _work["stats"] != null:
@@ -385,6 +386,7 @@ func _delete_card(card: CardData):
 
 func _restore_card(card: CardData):
 	CustomContent.restore_original_card(card)
+	Catalogo.apply_companion(card)
 	_close_form()
 	_say("\"%s\" voltou ao original." % card.card_name)
 
@@ -1161,6 +1163,8 @@ func _tab_basico():
 				_field(_work["base"], f)
 		return
 	for f in CustomContent.CARD_FIELDS:
+		if _ed_kind == "feitico" and str(f[0]).begins_with("companion_"):
+			continue   # feitiço não leva tropa junto (ele invoca: está na aba Efeito)
 		_field(_work["card"], f)
 	if _ed_kind != "tropa":
 		return

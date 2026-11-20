@@ -17,6 +17,10 @@ class_name CardData
 ## 2.0 -- acompanhantes: unidades DIFERENTES que nascem junto com a principal.
 ## Cada item: {"scene": PackedScene, "count": int}
 var companions: Array = []
+## a tropa que vem JUNTO (id do catálogo) e quantas: é o que o Criador edita e salva.
+## `companions` acima é montado a partir daqui (Catalogo.apply_companion).
+@export var companion_id: String = ""
+@export var companion_count: int = 0
 
 ## Pontos fortes de jogar essa carta -- lista curta, tipo bullet point
 @export var pros: Array[String] = []

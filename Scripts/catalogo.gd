@@ -1195,6 +1195,17 @@ static func _enum_value(enum_dict: Dictionary, value, fallback: int = 0) -> int:
 
 
 ## stats_override / spell_override: números já prontos (gerador / Safra)
+## carta de DUAS tropas (igual à gangue de goblins do Clash): refaz a lista de quem vem
+## junto a partir do que o Criador salvou. Só é chamada em carta editada ou criada.
+static func apply_companion(card: CardData):
+	if card == null or card.is_spell():
+		return
+	card.companions = []
+	var other: CardData = card(card.companion_id) if card.companion_id != "" else null
+	if other != null and other != card and other.unit_scene != null and card.companion_count > 0:
+		card.companions.append({"scene": other.unit_scene, "count": card.companion_count})
+
+
 ## PORTE: o tamanho do bicho de verdade, tirado do desenho da carta (a "receita").
 ## Multiplica o tamanho que sai da força. 1,0 = gente.
 const PORTE_QUATRO = {"formiga": 0.6, "sapo": 0.8, "gato": 0.8, "caranguejo": 0.8, "cachorro": 0.85, "casca": 0.85, "aguaviva": 0.85,
@@ -1269,6 +1280,9 @@ static func link_children(card: CardData, def: Dictionary, by_id: Dictionary):
 	for pair in def.get("junto", []):
 		if by_id.has(pair[0]):
 			card.companions.append({"scene": by_id[pair[0]].unit_scene, "count": int(pair[1])})
+			if card.companion_id == "":
+				card.companion_id = str(pair[0])
+				card.companion_count = int(pair[1])
 	var stats: UnitData = unit_stats(card)
 	if stats == null:
 		return

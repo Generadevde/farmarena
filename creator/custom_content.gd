@@ -43,6 +43,8 @@ const CARD_FIELDS = [
 	["nation_data", "Nação", "nation", []],
 	["danger_level", "Perigo (pra IA)", "int", [1, 10, 1]],
 	["rarity", "Raridade", "enum", ["Normal", "Rara", "Épica", "Lendária", "Mística"]],
+	["companion_id", "Vem junto com (outra tropa na mesma carta)", "cardid", []],
+	["companion_count", "Quantas vêm junto", "int", [0, 12, 1]],
 	["unlock_arena", "Libera na arena (0 = desde o começo)", "int", [0, 12, 1]],
 	["description", "Descrição", "multiline", []],
 ]
@@ -669,6 +671,7 @@ func restore_original_card(card: CardData):
 	if _originals.has(path):
 		var o = _originals[path]
 		apply_snapshot(card, o["card"], CARD_FIELDS)
+		Catalogo.apply_companion(card)
 		var stats = DeckBuilder.get_unit_stats(card)
 		if stats != null and o.has("unit"):
 			apply_snapshot(stats, o["unit"], all_unit_fields())
@@ -865,6 +868,7 @@ func _load_overrides():
 		remember_original_card(card)
 		var entry = _overrides["cards"][path]
 		apply_snapshot(card, entry.get("card", {}), CARD_FIELDS)
+		Catalogo.apply_companion(card)
 		var stats = DeckBuilder.get_unit_stats(card)
 		if stats != null and entry.has("unit"):
 			apply_snapshot(stats, entry["unit"], all_unit_fields())
