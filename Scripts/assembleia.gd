@@ -275,7 +275,16 @@ static func _close(pauta: Dictionary, period: int):
 
 ## chama ao abrir o menu e ao carregar o perfil: fecha as pautas vencidas,
 ## abre a dos bots do período e aplica os ajustes nas cartas
+## chave "assembleia_off" (Criador > Coleção do jogo): desligada, ninguém vota e nenhuma
+## carta fica com número mexido; ligando de novo, os ajustes guardados voltam
+static func off() -> bool:
+	return bool(Config.data.get("assembleia_off", false))
+
+
 static func sync():
+	if off():
+		apply_all()
+		return
 	var a = _d()
 	var now = SafraTempo.current_period()
 	if int(a["periodo"]) != now:
@@ -304,6 +313,9 @@ static func apply_all():
 		var c0 = Catalogo.find_card(str(path))
 		if c0 != null:
 			_set_numbers(c0, _orig[path], 1.0, 1.0)
+	if off():
+		_orig.clear()   # desligada: os números ficam os da carta, sem ajuste nenhum
+		return
 	for path in adjusts:
 		var c = Catalogo.find_card(str(path))
 		if c == null:

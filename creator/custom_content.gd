@@ -1081,8 +1081,10 @@ func apply_zero():
 				back.append(c)
 		CardDatabase.all_cards.assign(back)
 		_full_cards = []
+	_apply_safra_switch()
 	DeckBuilder.clear_cache()
 	apply_zero_modules()
+	Assembleia.apply_all()
 
 
 # ---- módulos "do zero": a mesma ideia das cartas. Ligado, só existem os módulos que você
@@ -1164,3 +1166,34 @@ func backup_when() -> String:
 ## põe a cópia de volta por cima do que tem agora (vale depois de fechar e abrir o jogo)
 func backup_restore() -> int:
 	return _copy_dir(BACKUP_DIR, ROOT) if backup_when() != "" else 0
+
+
+# ---- chave "safra_off": as cartas colhidas pela safra saem do jogo (e voltam ao religar)
+var _safra_hidden: Array = []
+
+
+func safra_off() -> bool:
+	return bool(Config.data.get("safra_off", false))
+
+
+func _apply_safra_switch():
+	if safra_off():
+		for c in _full_cards.duplicate():
+			if c != null and c.has_meta("safra"):
+				_full_cards.erase(c)
+				if !_safra_hidden.has(c):
+					_safra_hidden.append(c)
+		for c in CardDatabase.all_cards.duplicate():
+			if c != null and c.has_meta("safra"):
+				CardDatabase.all_cards.erase(c)
+				if !_safra_hidden.has(c):
+					_safra_hidden.append(c)
+	elif !_safra_hidden.is_empty():
+		# no "começar do zero" elas voltam pra lista guardada (a que retorna quando o modo desliga)
+		for c in _safra_hidden:
+			if zero_on():
+				if !_full_cards.has(c):
+					_full_cards.append(c)
+			elif !CardDatabase.all_cards.has(c):
+				CardDatabase.all_cards.append(c)
+		_safra_hidden = []

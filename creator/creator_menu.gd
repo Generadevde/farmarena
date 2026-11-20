@@ -1770,8 +1770,18 @@ func _build_collection_panel():
 	v.add_child(zmb)
 	if zm:
 		v.add_child(_note("Em jogo: %d módulo(s) seu(s). Sem nenhum, a batalha é só com a Casa Grande, pros dois lados. Crie na aba Módulos; desligando aqui, os do jogo voltam." % BotSimulator.available_bases.size(), Color(0.75, 0.95, 1.0)))
+	v.add_child(_button("Cartas da safra: " + ("DESLIGADAS (não existem no jogo)" if CustomContent.safra_off() else "ligadas"), func():
+		Config.data["safra_off"] = !CustomContent.safra_off()
+		Config.save()
+		CustomContent.apply_zero()
+		_show_list()))
+	v.add_child(_button("Assembleia (bufa e nerfa cartas): " + ("DESLIGADA (nenhum ajuste vale)" if Assembleia.off() else "ligada"), func():
+		Config.data["assembleia_off"] = !Assembleia.off()
+		Config.save()
+		Assembleia.sync()
+		_show_list()))
 	var paused = bool(Config.data.get("safra_pausa", false))
-	v.add_child(_button("Criador automático da safra: " + ("PAUSADO" if paused else "ligado"), func():
+	v.add_child(_button("Safra nova a cada período: " + ("PAUSADA (não cria carta nova)" if paused else "ligada"), func():
 		Config.data["safra_pausa"] = !bool(Config.data.get("safra_pausa", false))
 		Config.save()
 		_show_list()))

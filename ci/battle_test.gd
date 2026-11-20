@@ -2114,5 +2114,25 @@ func _new_mechanics_test():
 	CustomContent.apply_zero()
 	_check("módulos do zero: só os criados; desligar devolve", zero_mods == CustomContent.custom_bases.size() and (zero_mods > 0 or (lo_p == 0 and lo_b == 0)) and BotSimulator.available_bases.size() == bases_n,
 		"%d -> %d -> %d (jogador %d, bot %d)" % [bases_n, zero_mods, BotSimulator.available_bases.size(), lo_p, lo_b])
+	# chaves da SAFRA e da ASSEMBLEIA
+	var safra_n = CardDatabase.all_cards.filter(func(x): return x != null and x.has_meta("safra")).size()
+	Config.data["safra_off"] = true
+	CustomContent.apply_zero()
+	var safra_hidden = CardDatabase.all_cards.filter(func(x): return x != null and x.has_meta("safra")).size()
+	Config.data["safra_off"] = false
+	CustomContent.apply_zero()
+	var vaca: CardData = Catalogo.card("vaca_brava")
+	var hp_raw = DeckBuilder.get_unit_stats(vaca).hp
+	Assembleia._d()["ajustes"][vaca.resource_path] = {"hp": 1.5, "dmg": 1.0}
+	Assembleia.apply_all()
+	var hp_adj = DeckBuilder.get_unit_stats(vaca).hp
+	Config.data["assembleia_off"] = true
+	Assembleia.sync()
+	var hp_off = DeckBuilder.get_unit_stats(vaca).hp
+	Config.data["assembleia_off"] = false
+	Assembleia._d()["ajustes"].erase(vaca.resource_path)
+	Assembleia.apply_all()
+	_check("chave da safra tira e devolve as cartas dela", safra_hidden == 0 and CardDatabase.all_cards.filter(func(x): return x != null and x.has_meta("safra")).size() == safra_n, "%d -> %d" % [safra_n, safra_hidden])
+	_check("chave da assembleia desliga os ajustes", hp_adj > hp_raw and hp_off == hp_raw and DeckBuilder.get_unit_stats(vaca).hp == hp_raw, "%d %d %d" % [hp_raw, hp_adj, hp_off])
 	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == zero_want and zero_n < all_n and zd.size() == (8 if zero_want > 0 else 0) and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
 	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
