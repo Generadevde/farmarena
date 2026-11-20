@@ -2157,7 +2157,7 @@ func _on_timer_timeout():
 
 	var chosen: CardData = ai_profile.choose_card(affordable)
 	if push.get("first", false):
-		var leader = PushPlan.pick_leader(affordable)
+		var leader = PushPlan.pick_leader(affordable, ai_profile.favorite_card)
 		if leader != null:
 			chosen = leader  # o ataque começa pelo tanque
 	elif !pushing:

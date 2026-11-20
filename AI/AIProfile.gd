@@ -94,7 +94,11 @@ const ARCHETYPE_NAMES = {
 
 
 func get_card_level(card: CardData) -> int:
-	return card_levels.get(card.resource_path, 1)
+	var lv = int(card_levels.get(card.resource_path, 1))
+	# a carta favorita joga 1 nível acima: é a que o bot mais treinou
+	if favorite_card != null and card == favorite_card:
+		lv = mini(lv + 1, PlayerProfile.MAX_CARD_LEVEL)
+	return lv
 
 
 ## estrelas (carta lapidada com cristal) -- mesma regra do jogador

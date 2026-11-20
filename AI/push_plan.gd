@@ -174,7 +174,7 @@ func _pick_lane(tree: SceneTree, my_team) -> float:
 
 
 ## primeira carta do ataque: o tanque (ou a mais parruda) que der pra pagar
-static func pick_leader(affordable: Array) -> CardData:
+static func pick_leader(affordable: Array, favorite: CardData = null) -> CardData:
 	var best: CardData = null
 	var best_score = -INF
 	for c in affordable:
@@ -186,6 +186,8 @@ static func pick_leader(affordable: Array) -> CardData:
 		var score = float(st.hp) * maxi(1, st.unit_count)
 		if c.role == CardData.CardRole.TANQUE:
 			score *= 1.6
+		if favorite != null and c == favorite:
+			score = maxf(score * 2.5, 950.0)   # a favorita puxa o ataque sempre que der
 		if score > best_score:
 			best_score = score
 			best = c

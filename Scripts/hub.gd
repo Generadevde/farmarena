@@ -3754,6 +3754,8 @@ func _show_bot(who: String):
 	var rec = Leaderboard.get_record(who)
 	v.add_child(_label("🏆 %d  ·  %s %s  ·  %s" % [ArenaManager.get_trophies(who), arena.get("emoji", ""), arena.get("name", ""), Cla.clan_of(who)], 16))
 	v.add_child(_label("Estilo: %s  ·  nesta temporada: %dV %dD" % [prof.get_archetype_name(), int(rec.get("wins", 0)), int(rec.get("losses", 0))], 16, ThemeBuilder.COLOR_STAT_LABEL))
+	if prof.favorite_card != null:
+		v.add_child(_label("⭐ Carta favorita: %s (joga 1 nível acima e puxa os ataques dele)" % prof.favorite_card.card_name, 15, Color(1.0, 0.9, 0.55)))
 	var g = _grid(v, 4)
 	for c in prof.deck:
 		if c == null:

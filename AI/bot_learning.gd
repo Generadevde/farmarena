@@ -20,7 +20,7 @@ const ARCHETYPE_SWITCH_CHANCE = 0.3  # nem toda vez que bate o streak troca -- a
 # --- progressão do bot em si (separado do nível de cada carta) ---
 # quantas cartas ele já conhece de cara, antes de evoluir -- um pouco mais
 # que o tamanho do deck, pra já ter alguma escolha desde o início
-const DECK_STYLE_VERSION = 5  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
+const DECK_STYLE_VERSION = 6  # sobe esse número pra forçar todo bot a remontar o deck com o montador atual
 const BONUS_KNOWN_CARDS = 4  # cartas extras de começo, puxadas pelo estilo de cada bot
 const STARTING_KNOWN_CARDS = 9  # exatamente o tamanho do deck -- um "starter" de verdade, sem sobrar variedade extra logo de cara. Era 9 antes
 
@@ -228,13 +228,16 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 
 	# carta favorita: sorteia uma do próprio deck na primeira vez, e depois
 	# disso persiste sempre a mesma -- senão mudaria de assinatura toda partida
-	var favorite_path = data.get("favorite_card_path", "")
-	if favorite_path != "" and ResourceLoader.exists(favorite_path):
-		profile.favorite_card = load(favorite_path)
-	elif !profile.deck.is_empty():
-		profile.favorite_card = profile.deck[randi() % profile.deck.size()]
-		data["favorite_card_path"] = profile.favorite_card.resource_path
-		needs_save = true
+	# (as cartas do jogo vivem na memória, não em arquivo: procurar por arquivo nunca achava,
+	# e a favorita era sorteada de novo a cada vez que o jogo abria)
+	var favorite_path = str(data.get("favorite_card_path", ""))
+	var fav: CardData = Catalogo.find_card(favorite_path) if favorite_path != "" else null
+	if fav == null or !profile.deck.has(fav):
+		fav = DeckBuilder.favorite_of(bot_name, profile.deck, int(profile.archetype))
+		if fav != null:
+			data["favorite_card_path"] = fav.resource_path
+			needs_save = true
+	profile.favorite_card = fav
 
 	# guarda reserva o suficiente pra sempre conseguir reagir à carta que o
 	# jogador mais usa contra ele -- "sabe" que você gosta de Rainha Abelha

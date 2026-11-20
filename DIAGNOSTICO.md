@@ -666,6 +666,23 @@ ET, oceano, fazenda): atlas com 258 peças. Toda peça tem um tema
 por ele em "Montar por peças". "Começar do zero" passou a valer com uma carta
 só: ela se repete no baralho (pedido do João).
 
+### Décima terceira leva (20/11) — personalidade dos bots com peso
+
+Os 25 estilos (`AIProfile.Archetype`) e a carta favorita já existiam, mas
+pesavam pouco: o montador novo de baralho ignorava o estilo, e a favorita era
+sorteada de novo toda vez que o jogo abria (procurava a carta por arquivo, e as
+cartas do jogo vivem na memória).
+
+- `DeckBuilder.TASTE`: o estilo escolhe os tipos das vagas livres do baralho
+  (Enxameador leva bando, Estrutural leva construção, Poupador leva tanque...).
+- `DeckBuilder.favorite_of`: favorita fixa por bot, do tipo que o estilo gosta.
+  Ela joga 1 nível acima (`AIProfile.get_card_level`) e puxa os ataques
+  (`PushPlan.pick_leader`). Aparece na tela do bot.
+- Todos os bots remontam o baralho uma vez (`DECK_STYLE_VERSION = 6`).
+
+Jogo novo, 101 bots, todos na arena 1: 37 cartas diferentes em uso, 2,6 cartas
+em comum entre dois bots (de 8).
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

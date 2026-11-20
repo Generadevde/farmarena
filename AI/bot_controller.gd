@@ -133,7 +133,7 @@ func _decide():
 	var pushing = push.get("go", false)
 	var chosen: CardData = profile.choose_card(pool)
 	if push.get("first", false):
-		var leader = PushPlan.pick_leader(pool)
+		var leader = PushPlan.pick_leader(pool, profile.favorite_card)
 		if leader != null:
 			chosen = leader
 	if chosen == null:

@@ -94,6 +94,7 @@ static func style_for_bot(bot_name: String, archetype: int, preferred_role: int)
 		"spells_wanted": 1 + rng.randi() % 2,
 		"favorite_nation": fav_nation,
 		"arena_cap": ArenaManager.get_participant_arena(bot_name),
+		"archetype": archetype,
 		"seed": rng.randi(),
 	}
 
@@ -160,6 +161,16 @@ static func score_card(card: CardData, style: Dictionary, chosen: Array) -> floa
 # respostas que todo baralho precisa, e cada bot escolhe as cartas DELE pra
 # cada vaga. O bot também pode usar carta de até 2 arenas acima da dele.
 const ARENA_PEEK = 2
+# PERSONALIDADE no baralho: o que cada estilo de bot gosta de levar nas vagas livres
+# (as 2 últimas) e o tipo da carta FAVORITA dele. Quem não está aqui usa o gosto sorteado.
+const TASTE = {
+	AIProfile.Archetype.AGRESSIVO: ["ariete", "matador"], AIProfile.Archetype.ATACA_TUDO: ["ariete", "bando"], AIProfile.Archetype.IMPULSIVO: ["bando", "lutador"],
+	AIProfile.Archetype.ENXAMEADOR: ["bando"], AIProfile.Archetype.PASSIVO: ["construcao", "tanque"], AIProfile.Archetype.ESTRUTURAL: ["construcao"], AIProfile.Archetype.TERRITORIAL: ["construcao", "atirador"],
+	AIProfile.Archetype.POUPADOR: ["tanque"], AIProfile.Archetype.ACUMULADOR: ["tanque", "matador"], AIProfile.Archetype.BOOMER: ["tanque", "area"], AIProfile.Archetype.EMBOSCADA: ["matador", "voador"],
+	AIProfile.Archetype.OPORTUNISTA: ["voador", "ariete"], AIProfile.Archetype.PROVOCADOR: ["tanque", "lutador"], AIProfile.Archetype.REATIVO_PURO: ["area", "atirador"],
+	AIProfile.Archetype.ANALITICO: ["atirador", "apoio"], AIProfile.Archetype.COMBINADOR: ["apoio", "area"], AIProfile.Archetype.VINGATIVO: ["matador"], AIProfile.Archetype.MINIMALISTA: ["lutador"],
+	AIProfile.Archetype.BABY: ["bando", "lutador"], AIProfile.Archetype.APOSTADOR: ["voador", "matador"],
+}
 const FLEX_KINDS = [["voador"], ["construcao"], ["tanque", "lutador"], ["bando"], ["apoio", "atirador"], ["ariete"], ["matador"], ["area"]]
 
 
@@ -183,6 +194,8 @@ static func plan_deck(bot_name: String, style: Dictionary, deck_size: int) -> Ar
 		if c != null and c.unlock_arena <= cap and !CustomContent.is_spawn_only(c):
 			pool.append(c)
 	var flex: Array = FLEX_KINDS[abs(hash(bot_name + "/gosto")) % FLEX_KINDS.size()]
+	if TASTE.has(int(style.get("archetype", -1))):
+		flex = TASTE[int(style["archetype"])]   # a personalidade manda nas vagas livres
 	var deck: Array[CardData] = []
 	for slot in deck_size:
 		var best: CardData = null
@@ -321,3 +334,19 @@ static func bonus_known_cards(style: Dictionary, already_known: Array, amount: i
 			break
 		result.append(entry["card"])
 	return result
+
+
+## a carta FAVORITA do bot: sempre a mesma pra cada bot, do tipo que a personalidade
+## dele gosta (se o baralho tiver), senão a que o nome dele sortear
+static func favorite_of(bot_name: String, deck: Array, archetype: int) -> CardData:
+	var cards: Array = deck.filter(func(c): return c != null)
+	if cards.is_empty():
+		return null
+	var liked: Array = TASTE.get(archetype, [])
+	var pool: Array = cards.filter(func(c): return !c.is_spell() and Catalogo.kind_of(c) in liked)
+	if pool.is_empty():
+		pool = cards.filter(func(c): return !c.is_spell())
+	if pool.is_empty():
+		pool = cards
+	pool.sort_custom(func(a, b): return a.resource_path < b.resource_path)
+	return pool[abs(hash(bot_name + "/favorita")) % pool.size()]
