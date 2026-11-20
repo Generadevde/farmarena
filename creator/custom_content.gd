@@ -1032,8 +1032,8 @@ func _write_arenas():
 # ================================================================ COMEÇAR DO ZERO
 # Chave "do_zero" (Criador > Coleção do jogo). Ligada, o jogo passa a usar SÓ as cartas
 # criadas por você: coleção, baralho e bots. Nada é apagado de verdade: as cartas do jogo
-# ficam guardadas e voltam ao desligar. Enquanto você tem menos de 7 cartas suas, o
-# baralho inicial do jogo completa o que falta, senão não dá pra jogar.
+# ficam guardadas e voltam ao desligar. Dá pra jogar com UMA carta só (ela se repete
+# no baralho); o baralho inicial só entra enquanto você não criou nenhuma.
 const ZERO_MIN = 8
 const BACKUP_DIR = "user://custom_copia/"
 var _full_cards: Array = []
@@ -1044,15 +1044,14 @@ func zero_on() -> bool:
 
 
 func zero_pool() -> Array:
+	# só as SUAS cartas, mesmo que seja uma só. O baralho inicial do jogo só entra
+	# enquanto você não criou nenhuma (com zero carta não tem como jogar).
 	var out: Array = []
 	for c in custom_cards:
 		if c != null and !is_spawn_only(c):
 			out.append(c)
-	for c in Catalogo.starter_deck():
-		if out.size() >= ZERO_MIN:
-			break
-		if c != null and !out.has(c):
-			out.append(c)
+	if out.is_empty():
+		out = Catalogo.starter_deck().duplicate()
 	return out
 
 
@@ -1076,7 +1075,8 @@ func apply_zero():
 	DeckBuilder.clear_cache()
 
 
-## 7 cartas pra um baralho (o do bot muda com o nome dele quando tem mais de 7)
+## o baralho de quem joga no "começar do zero". Com menos cartas que o tamanho do
+## baralho, elas se REPETEM até encher: com uma carta só, o baralho são 8 dela.
 func zero_deck(seed_name: String, prefer: Array = []) -> Array:
 	var pool = zero_pool()
 	var out: Array = []
@@ -1088,6 +1088,10 @@ func zero_deck(seed_name: String, prefer: Array = []) -> Array:
 	var rest = pool.filter(func(c): return !out.has(c))
 	while out.size() < ZERO_MIN and !rest.is_empty():
 		out.append(rest.pop_at(rng.randi() % rest.size()))
+	var i = 0
+	while out.size() < ZERO_MIN and !pool.is_empty():
+		out.append(pool[i % pool.size()])
+		i += 1
 	return out
 
 

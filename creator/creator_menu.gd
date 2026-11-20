@@ -1435,9 +1435,22 @@ func _parts_picker():
 			_regen_art()
 			_build_ed_body()))
 		v.add_child(mrow)
+	# TEMA: filtra as peças de todas as listas abaixo (Comida, Guerra, Oceano...)
+	var themes: Array = ["Todos os temas", "Fazenda"] + PecasIndex.TEMAS.keys()
+	var trow = HBoxContainer.new()
+	trow.add_child(_field_label("Tema das peças"))
+	trow.add_child(_option(themes, maxi(themes.find(_theme), 0), func(i):
+		_theme = str(themes[i])
+		_build_ed_body()))
+	v.add_child(trow)
 	for slot in PIECE_SLOTS[mode]:
 		var solo = PIECE_SLOTS[mode].size() == 1
-		var items: Array = ([] if solo else [""]) + SpriteForge.pieces(slot)
+		var items: Array = ([] if solo else [""])
+		for piece in SpriteForge.pieces(slot):
+			if _piece_in_theme(str(piece)) or str(piece) == str(_recipe.get(slot, "")):
+				items.append(piece)
+		if items.is_empty() or (items.size() == 1 and str(items[0]) == ""):
+			continue   # este tema não tem peça pra este lugar
 		var shown: Array = []
 		for it in items:
 			shown.append("(nada)" if str(it) == "" else str(it).replace("_", " ").capitalize())
@@ -1729,7 +1742,7 @@ func _build_collection_panel():
 	if zero:
 		var mine = CustomContent.zero_pool().size() - CustomContent.zero_borrowed()
 		v.add_child(_note("Em jogo: %d carta(s) sua(s)%s. Baralho e bots usam só essas. As cartas do jogo não foram apagadas: desligue aqui e voltam todas." % [mine,
-			(" + %d do baralho inicial emprestada(s) até você ter 8" % CustomContent.zero_borrowed()) if CustomContent.zero_borrowed() > 0 else ""], Color(0.75, 0.95, 1.0)))
+			" (com menos de 8, elas se repetem no baralho)" if (mine > 0 and mine < 8) else (" ainda: por enquanto vale o baralho inicial, até você criar a primeira" if mine == 0 else "")], Color(0.75, 0.95, 1.0)))
 	else:
 		v.add_child(_note("Ligado, o jogo passa a usar só as cartas que você criar, uma por uma. Nada é apagado de verdade."))
 	var paused = bool(Config.data.get("safra_pausa", false))
@@ -1751,3 +1764,18 @@ func _build_collection_panel():
 				var n = CustomContent.backup_restore()
 				_say("✔ Cópia de volta (%d arquivo(s)). Feche e abra o jogo pra ela valer." % n))))
 	v.add_child(_note("Cópia guardada: %s" % (when if when != "" else "nenhuma ainda")))
+
+
+var _theme := "Todos os temas"
+
+
+## a peça é do tema escolhido? ("Fazenda" = a que não está em nenhum outro tema)
+func _piece_in_theme(piece: String) -> bool:
+	if _theme == "Todos os temas":
+		return true
+	if _theme == "Fazenda":
+		for t in PecasIndex.TEMAS:
+			if PecasIndex.TEMAS[t].has(piece):
+				return false
+		return true
+	return PecasIndex.TEMAS.get(_theme, []).has(piece)

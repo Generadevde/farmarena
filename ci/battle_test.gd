@@ -21,6 +21,11 @@ func _ready():
 	var mode = OS.get_environment("CI_MODE")
 	if OS.get_environment("CI_ZERO") != "":
 		Config.data["do_zero"] = true   # a partida inteira no modo "começar do zero"
+		if OS.get_environment("CI_ZERO") == "1carta":
+			# uma carta criada só: o baralho inteiro é ela repetida
+			var pk = CustomContent.make_blank_card(false)
+			pk["card"].card_name = "Carta Única"
+			CustomContent.save_card(pk, true)
 		print("TESTE começar do zero: em jogo ", CustomContent.zero_pool().map(func(c): return c.card_name))
 	if mode == "arte":
 		_art_sheet()
@@ -515,6 +520,16 @@ func _screens_test():
 	var cmp = Regua.compare(cr._work["stats"], 40)
 	_check("criador: preencher pelo padrão dá carta do tipo pedido, perto de 100%", cmp["kind"] == "bando" and abs(int(cmp["vida"]) - 100) <= 20 and abs(int(cmp["dano"]) - 100) <= 25, str(cmp))
 	_check("criador: carta nova já nasce com desenho", !cr._work["image"].is_invisible())
+	# peças novas e filtro por tema
+	cr._theme = "Guerra"
+	cr._parts_open = true
+	cr._recipe = {"objeto": "tanque"}
+	cr._regen_art()
+	cr._show_ed_tab(3)
+	await get_tree().process_frame
+	_check("criador: peças novas e temas", SpriteForge.has_piece("objeto", "tanque") and SpriteForge.has_piece("torre", "farol") and SpriteForge.has_piece("arma", "katana")
+		and cr._piece_in_theme("tanque") and !cr._piece_in_theme("vaca") and PecasIndex.TEMAS.size() >= 7 and !cr._work["image"].is_invisible())
+	cr._theme = "Todos os temas"
 	cr._close_form()
 	# feitiço: 4 abas, com régua e teste
 	cr._open_card_form(CustomContent.open_card_for_edit(Catalogo.card("raio")))
@@ -2068,8 +2083,9 @@ func _new_mechanics_test():
 	Config.data["do_zero"] = true
 	CustomContent.apply_zero()
 	var zero_n = CardDatabase.all_cards.size()
+	var zero_want = CustomContent.zero_pool().size()
 	var zd = CustomContent.zero_deck("bot qualquer")
 	Config.data["do_zero"] = false
 	CustomContent.apply_zero()
-	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == 8 and zd.size() == 8 and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
+	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == zero_want and zero_n < all_n and zd.size() == 8 and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
 	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

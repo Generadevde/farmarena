@@ -660,6 +660,12 @@ chapéus, 3 armas e 3 projéteis. Atlas: 187 → 222 peças. Aparecem no Criador
 (montar por peças); nenhuma carta do jogo usa ainda, e o criador automático
 tem lista própria de peças, então as cartas dele não mudaram.
 
+Depois (versão 117) entraram mais 36 em `temas.py` (comida, países, mitologia,
+ET, oceano, fazenda): atlas com 258 peças. Toda peça tem um tema
+(`PecasIndex.TEMAS`; a que não está em nenhum é "Fazenda") e o Criador filtra
+por ele em "Montar por peças". "Começar do zero" passou a valer com uma carta
+só: ela se repete no baralho (pedido do João).
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro
