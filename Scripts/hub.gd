@@ -1449,9 +1449,14 @@ func _build_dock():
 		il.clip_text = true
 		head.add_child(il)
 		# o que falta no baralho, pelos tipos das cartas
+		# UMA linha só, sem quebra: texto com quebra automática faz a doca "medir" milhares de
+		# pixels de altura antes de ser desenhada, e o espaço reservado embaixo dela empurrava a
+		# coleção inteira pra fora da tela (bug da versão 105 a 107: "as cartas sumiram")
 		var gaps = Catalogo.deck_gaps(Progresso.deck_cards(_deck_slot))
-		var gl = _wrap("⚠ Falta: " + ", ".join(gaps) if !gaps.is_empty() else "✔ Baralho completo: tem como ganhar e resposta pra bando, voador e tanque", 14,
+		var gl = _label("⚠ Falta: " + ", ".join(gaps) if !gaps.is_empty() else "✔ Baralho completo: tem como ganhar e resposta pra bando, voador e tanque", 14,
 			Color(1.0, 0.75, 0.4) if !gaps.is_empty() else Color(0.6, 1.0, 0.6))
+		gl.clip_text = true
+		gl.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		col.add_child(gl)
 		if !is_active:
 			var ub = _button("Usar este", _pick_active_deck.bind(_deck_slot), 15)
