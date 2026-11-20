@@ -826,7 +826,32 @@ func active_deck() -> int:
 
 
 func deck_paths(slot: int) -> Array:
+	if CustomContent.zero_on():
+		return _zero_deck_paths(clampi(slot, 0, DECK_SLOTS - 1))
 	return d["decks"][clampi(slot, 0, DECK_SLOTS - 1)]
+
+
+## "começar do zero": os baralhos ficam guardados à parte (os do jogo normal não são mexidos) e
+## só têm cartas SUAS. Com menos de 8 cartas, o baralho mostra as que existem (na batalha elas
+## se repetem até encher). Carta nova entra sozinha enquanto tiver lugar.
+func _zero_deck_paths(slot: int) -> Array:
+	if !d.has("decks_zero"):
+		d["decks_zero"] = []
+	var all: Array = d["decks_zero"]
+	while all.size() < DECK_SLOTS:
+		all.append([])
+	var paths: Array = all[slot]
+	var mine: Array = CardDatabase.all_cards.filter(func(c): return c != null and is_owned(c) and !CustomContent.is_spawn_only(c))
+	var ok: Array = mine.map(func(c): return c.resource_path)
+	for i in range(paths.size() - 1, -1, -1):
+		if !ok.has(paths[i]) or paths.find(paths[i]) != i:
+			paths.remove_at(i)
+	for p in ok:
+		if paths.size() >= DECK_SIZE:
+			break
+		if !paths.has(p):
+			paths.append(p)
+	return paths
 
 
 func deck_cards(slot: int) -> Array:
@@ -876,7 +901,7 @@ func set_deck_card(slot: int, index: int, c: CardData) -> bool:
 
 func _apply_active_deck():
 	var cards = deck_cards(active_deck())
-	if cards.size() != DECK_SIZE:
+	if cards.size() != DECK_SIZE and !(CustomContent.zero_on() and !cards.is_empty()):
 		return
 	DeckManager.full_deck.assign(cards)
 	DeckManager.start_deck()
@@ -1429,6 +1454,8 @@ func module_loadout() -> Array:
 		var p = int(it.get("ponto", -1))
 		if b == null or !PlayerProfile.is_base_unlocked(b) or p < 0 or p >= Regras.MODULE_POINTS.size() or points.has(p):
 			continue
+		if !BotSimulator.available_bases.has(b):
+			continue   # módulo que não existe mais (módulos "do zero": só os seus)
 		points[p] = true
 		out.append({"base": b, "ponto": p})
 	# completa o que falta: primeiro a torre que já estava equipada, depois as liberadas.
@@ -1437,7 +1464,7 @@ func module_loadout() -> Array:
 	for b in BotSimulator.available_bases:
 		if b != null and PlayerProfile.is_base_unlocked(b):
 			pool.append(b)
-	pool = pool.filter(func(b): return b != null)
+	pool = pool.filter(func(b): return b != null and BotSimulator.available_bases.has(b))
 	var order: Array = Regras.FILL_POINTS
 	for b in pool:
 		if out.size() >= n:
@@ -1511,8 +1538,8 @@ func bot_module_loadout(profile, slots: int = -1) -> Array:
 	if pool.is_empty():
 		return []
 	var seed = abs(hash(str(profile.profile_name) if profile != null else "bot"))
-	if first == null:
-		first = pool[0]
+	if first == null or !pool.has(first):
+		first = pool[seed % pool.size()]   # (o módulo antigo dele pode não existir mais: módulos "do zero")
 	var eco_types = [BaseData.BaseType.PRODUCTION, BaseData.BaseType.CAPACITY]
 	# 1 em cada 5 bots aposta tudo num módulo só e leva DOIS iguais (nunca dois de recurso).
 	# "botduplo" é só pro laboratório forçar sim (1) ou não (0).
@@ -1552,7 +1579,9 @@ func tower_level() -> int:
 	var best = 1
 	for c in deck_cards(active_deck()):
 		if c != null:
-			best = maxi(best, level(c))
+			# nível GUARDADO da carta, não o de "carta da vez": esse é o nível da torre, e
+			# perguntar um pro outro dava volta sem fim quando a carta da vez estava no baralho
+			best = maxi(best, int(PlayerProfile.card_levels.get(c.resource_path, 1)))
 	return clampi(mini(player_level(), best + 1), 1, PlayerProfile.MAX_CARD_LEVEL)
 
 

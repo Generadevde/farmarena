@@ -450,6 +450,7 @@ func _restore_base(b: BaseData):
 
 func _save_base():
 	var b: BaseData = _orig["base"]
+	_apply_zero_later.call_deferred()
 	CustomContent.apply_snapshot(b, CustomContent.snapshot(_work["base"], CustomContent.BASE_FIELDS), CustomContent.BASE_FIELDS)
 	_orig["image"] = _work["image"]
 	_orig["proj_image"] = _work["proj_image"]
@@ -1464,6 +1465,13 @@ func _parts_picker():
 				_recipe[slot_name] = str(items[i])
 			_regen_art()))
 		v.add_child(srow)
+	# SORTEAR: troca só as peças dos lugares que você já está usando (dentro do tema escolhido)
+	var rrow = HBoxContainer.new()
+	rrow.add_theme_constant_override("separation", 6)
+	rrow.add_child(_button("🎲 Sortear peças", _shuffle_pieces))
+	rrow.add_child(_button("🎨 Sortear cores", _shuffle_colors))
+	v.add_child(rrow)
+	v.add_child(_note("Sortear peças mexe só nos lugares que já têm peça (não põe chapéu em quem está sem), dentro do tema. Toque quantas vezes quiser."))
 	var ct = _label("Cores (toque pra trocar)", 16)
 	ct.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
 	v.add_child(ct)
@@ -1745,6 +1753,23 @@ func _build_collection_panel():
 			" (com menos de 8, elas se repetem no baralho)" if (mine > 0 and mine < 8) else (". A coleção está vazia e não dá pra batalhar até você criar a primeira" if mine == 0 else "")], Color(0.75, 0.95, 1.0)))
 	else:
 		v.add_child(_note("Ligado, o jogo passa a usar só as cartas que você criar, uma por uma. Nada é apagado de verdade."))
+	if zero:
+		var lend = bool(Config.data.get("zero_inicial", false))
+		v.add_child(_button("Cartas iniciais do jogo: " + ("EMPRESTADAS enquanto você não tem nenhuma" if lend else "travadas (não existem)"), func():
+			Config.data["zero_inicial"] = !bool(Config.data.get("zero_inicial", false))
+			Config.save()
+			CustomContent.apply_zero()
+			_show_list()))
+	var zm = CustomContent.zero_modules_on()
+	var zmb = _button("Módulos do zero: " + ("LIGADO (só os seus módulos)" if zm else "desligado (todos os módulos do jogo)"), func():
+		Config.data["do_zero_mod"] = !CustomContent.zero_modules_on()
+		Config.save()
+		CustomContent.apply_zero()
+		_show_list())
+	zmb.add_theme_color_override("font_color", Color(0.5, 1, 0.5) if zm else Color(1, 1, 1))
+	v.add_child(zmb)
+	if zm:
+		v.add_child(_note("Em jogo: %d módulo(s) seu(s). Sem nenhum, a batalha é só com a Casa Grande, pros dois lados. Crie na aba Módulos; desligando aqui, os do jogo voltam." % BotSimulator.available_bases.size(), Color(0.75, 0.95, 1.0)))
 	var paused = bool(Config.data.get("safra_pausa", false))
 	v.add_child(_button("Criador automático da safra: " + ("PAUSADO" if paused else "ligado"), func():
 		Config.data["safra_pausa"] = !bool(Config.data.get("safra_pausa", false))
@@ -1779,3 +1804,36 @@ func _piece_in_theme(piece: String) -> bool:
 				return false
 		return true
 	return PecasIndex.TEMAS.get(_theme, []).has(piece)
+
+
+## troca por outra, ao acaso, cada peça que JÁ está em uso (os lugares vazios ficam vazios)
+func _shuffle_pieces():
+	if _recipe.is_empty():
+		_recipe = MODE_DEFAULTS[_recipe_mode()].duplicate()
+	for slot in PIECE_SLOTS[_recipe_mode()]:
+		if str(_recipe.get(slot, "")) == "":
+			continue
+		var options: Array = SpriteForge.pieces(slot).filter(func(p): return _piece_in_theme(str(p)))
+		if options.is_empty():
+			options = SpriteForge.pieces(slot)
+		if options.size() > 1:
+			options.erase(_recipe[slot])
+		_recipe[slot] = str(options[randi() % options.size()])
+	_regen_art()
+	_build_ed_body_keep_scroll()
+
+
+func _shuffle_colors():
+	for key in PALETTE_KEYS:
+		_palette[key] = str(SWATCHES[randi() % SWATCHES.size()])
+	_regen_art()
+	_build_ed_body_keep_scroll()
+
+
+func _build_ed_body_keep_scroll():
+	var y = _scroll.scroll_vertical
+	_build_ed_body()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(_scroll):
+		_scroll.scroll_vertical = y

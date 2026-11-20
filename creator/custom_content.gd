@@ -1050,6 +1050,9 @@ func zero_pool() -> Array:
 	for c in custom_cards:
 		if c != null and !is_spawn_only(c):
 			out.append(c)
+	# chave à parte: emprestar o baralho inicial do jogo enquanto você não tem nenhuma carta
+	if out.is_empty() and bool(Config.data.get("zero_inicial", false)):
+		out = Catalogo.starter_deck().duplicate()
 	return out
 
 
@@ -1079,6 +1082,30 @@ func apply_zero():
 		CardDatabase.all_cards.assign(back)
 		_full_cards = []
 	DeckBuilder.clear_cache()
+	apply_zero_modules()
+
+
+# ---- módulos "do zero": a mesma ideia das cartas. Ligado, só existem os módulos que você
+# criar (pra você e pros bots); sem nenhum, a batalha é só com a Casa Grande.
+var _full_bases: Array = []
+
+
+func zero_modules_on() -> bool:
+	return bool(Config.data.get("do_zero_mod", false))
+
+
+func apply_zero_modules():
+	if zero_modules_on():
+		if _full_bases.is_empty():
+			_full_bases = BotSimulator.available_bases.duplicate()
+		BotSimulator.available_bases.assign(custom_bases.filter(func(b): return b != null))
+	elif !_full_bases.is_empty():
+		var back: Array = _full_bases.duplicate()
+		for b in custom_bases:
+			if b != null and !back.has(b):
+				back.append(b)
+		BotSimulator.available_bases.assign(back)
+		_full_bases = []
 
 
 ## o baralho de quem joga no "começar do zero". Com menos cartas que o tamanho do

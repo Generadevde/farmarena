@@ -19,6 +19,8 @@ func _ready():
 	CustomContent.load_all()
 
 	var mode = OS.get_environment("CI_MODE")
+	if OS.get_environment("CI_ZEROMOD") != "":
+		Config.data["do_zero_mod"] = true   # partida sem nenhum módulo (só a Casa Grande)
 	if OS.get_environment("CI_ZERO") != "":
 		Config.data["do_zero"] = true   # a partida inteira no modo "começar do zero"
 		if OS.get_environment("CI_ZERO") == "1carta":
@@ -475,6 +477,10 @@ func _screens_test():
 	_check("carta da vez: liberada pra todos no nível da torre", feat != null and Progresso.is_owned(feat) and Progresso.level(feat) == Progresso.tower_level()
 		and botp.get_card_level(feat) == Progresso.tower_level() and Progresso.featured_days_left() >= 1 and Progresso.featured_days_left() <= 3,
 		"%s" % (feat.card_name if feat != null else "nenhuma"))
+	# a carta da vez DENTRO do baralho não pode dar volta sem fim com o nível da torre (fechava o jogo)
+	var deck_ok = Progresso.set_deck_card(Progresso.active_deck(), 0, feat) or Progresso.deck_cards(Progresso.active_deck()).has(feat)
+	var tl = Progresso.tower_level()
+	_check("carta da vez no baralho não trava o nível da torre", deck_ok and tl >= 1 and Progresso.level(feat) == tl)
 	hub._go_tab(0)
 	await get_tree().create_timer(0.4).timeout
 	_check("feira mostra a oportunidade de hoje e a carta da vez", _find_text(hub, "Oportunidade de hoje") and _find_text(hub, "Carta da vez"))
@@ -534,6 +540,9 @@ func _screens_test():
 	await get_tree().process_frame
 	_check("criador: peças novas e temas", SpriteForge.has_piece("objeto", "tanque") and SpriteForge.has_piece("torre", "farol") and SpriteForge.has_piece("arma", "katana")
 		and cr._piece_in_theme("tanque") and !cr._piece_in_theme("vaca") and PecasIndex.TEMAS.size() >= 7 and !cr._work["image"].is_invisible())
+	var before_r = cr._recipe.duplicate()
+	cr._shuffle_pieces()
+	_check("criador: sortear troca só as peças em uso, dentro do tema", cr._recipe.keys() == before_r.keys() and cr._recipe["objeto"] != "tanque" and cr._piece_in_theme(str(cr._recipe["objeto"])), str(cr._recipe))
 	cr._theme = "Todos os temas"
 	cr._close_form()
 	# feitiço: 4 abas, com régua e teste
@@ -2094,5 +2103,16 @@ func _new_mechanics_test():
 	Config.data["do_zero"] = false
 	CustomContent.apply_zero()
 	_check("começar do zero sem carta: coleção vazia e batalha travada (sem fechar o jogo)", blocked_ok and CustomContent.can_battle())
+	# MÓDULOS do zero: sem nenhum módulo seu, ninguém leva módulo; desligar devolve os do jogo
+	var bases_n = BotSimulator.available_bases.size()
+	Config.data["do_zero_mod"] = true
+	CustomContent.apply_zero()
+	var zero_mods = BotSimulator.available_bases.size()
+	var lo_p = Progresso.module_loadout().size()
+	var lo_b = Progresso.bot_module_loadout(BotLearning.get_or_create_profile(BotSimulator.roster_names[0]), 2).size()
+	Config.data["do_zero_mod"] = false
+	CustomContent.apply_zero()
+	_check("módulos do zero: só os criados; desligar devolve", zero_mods == CustomContent.custom_bases.size() and (zero_mods > 0 or (lo_p == 0 and lo_b == 0)) and BotSimulator.available_bases.size() == bases_n,
+		"%d -> %d -> %d (jogador %d, bot %d)" % [bases_n, zero_mods, BotSimulator.available_bases.size(), lo_p, lo_b])
 	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == zero_want and zero_n < all_n and zd.size() == (8 if zero_want > 0 else 0) and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
 	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
