@@ -1052,10 +1052,22 @@ func _apply_soft_separation():
 # anda pra torre inimiga MAIS PERTO: com o portão de pé é ele (fica no meio
 # e na frente); depois que ele cai, a torre de trás da "sua" rota. E
 # troca sozinha quando ela cai
+var lane := 99   # rota: -1 esquerda, 0 meio, 1 direita (99 = ainda não escolhida; vale a posição em que foi solta)
+
+
 func _refresh_enemy_tower():
 	var group = "enemy_base" if team == GameManager.Team.PLAYER else "player_base"
 	var best = null
 	var best_d = INF
+	if Regras.routes():
+		# ROTAS: a torre é a do fim da rota onde a tropa foi solta. Só quando
+		# ela já caiu é que vale "a mais perto"
+		if lane == 99:
+			lane = Regras.lane_of(global_position.x)
+		var mine = Regras.route_tower(get_tree(), team, lane)
+		if mine != null:
+			enemy_base = mine
+			return
 	for t in get_tree().get_nodes_in_group(group):
 		if !is_instance_valid(t) or t.is_queued_for_deletion() or ("hp" in t and t.hp <= 0):
 			continue
@@ -1660,6 +1672,9 @@ func find_target():
 	var previous_target = target
 	var bodies = $Area2D.get_overlapping_bodies()
 	target = null
+	var by_route = Regras.routes()
+	if by_route and (enemy_base == null or !is_instance_valid(enemy_base) or enemy_base.is_queued_for_deletion()):
+		_refresh_enemy_tower()
 
 	var closest_unit = null
 	var closest_unit_dist = INF
@@ -1680,6 +1695,10 @@ func find_target():
 				return
 
 		var is_base_target = _is_base(body)
+		# ROTAS: torre que não é a da minha rota eu passo direto (ela atira em
+		# mim, mas não me puxa pro meio)
+		if is_base_target and by_route and enemy_base != null and is_instance_valid(enemy_base) and body != enemy_base:
+			continue
 		# visão medida até a BORDA do alvo, igual ao alcance de ataque
 		if _gap_to(body) > max(sight, stats.attack_range):
 			continue

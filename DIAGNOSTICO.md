@@ -290,6 +290,91 @@ está abrindo" e travava a fila. Agora só trava quem está contando o tempo de
 verdade (`Progresso.unlocking_index`). A Chave também parou de escolher o baú
 pronto quando existe outro esperando.
 
+### Quarta leva (19/11, noite) — "virou ficar jogando carta no meio" e "as cartas estão sem identidade"
+
+O João jogou a versão do portão e disse: *"simplesmente o jogo virou de ficar
+jogando carta no meio, e não é isso"*, *"precisa de mais IA"* e *"as cartas
+estão sem identidade, e não digo só de visual"*.
+
+**O meio.** A causa é o próprio portão: toda tropa vai na torre mais perto, e
+ele é sempre a mais perto. Tentativa de salvar: regra `rotas` (a tropa segue a
+rota onde foi solta: lado = torre de trás daquele lado, meio = portão) e o
+portão recuado de 196 pra 270, pra ficar coberto pelas duas de trás. Medido
+entre bots (24 partidas cada):
+
+| | portão + rotas | 2 torres |
+|---|---|---|
+| cartas jogadas na rota do meio | 67% | 4% |
+| primeira torre a cair | portão em 15 de 15 | — |
+| partidas sem torre cair | 9 | 10 |
+
+Mesmo com as rotas, o portão é a torre mais fraca e a mais na frente: ele É o
+jogo. **Decisão: o portão volta pro Laboratório, DESLIGADO de fábrica**
+(`Regras.DEFAULT_OFF`). Quem ligar ganha as 3 rotas junto, com a linha
+tracejada mostrando em que torre a tropa vai. As 4 cartas na mão ficam.
+
+**Mais IA** (`AI/battle_brain.gd`, `AI/push_plan.gd`):
+
+- Defesa: o bot escolhia a carta pelo "papel" dela numa tabela. Agora faz a
+  conta do duelo de verdade entre a carta dele e a que está vindo
+  (`BattleBrain.duel_margin`, o mesmo cálculo da "Força estimada", que acerta
+  o vencedor em 93% dos duelos medidos) e prefere a troca boa: ganhar gastando
+  menos do que o outro gastou.
+- Com o portão ligado, escolhe a rota contando quantas torres atiram em quem
+  chega em cada uma (antes ia sempre no meio).
+- Tamanho do ataque e chance de punir quem ficou sem recurso passaram a
+  escalar pelas 12 arenas (paravam na 7).
+- Medido com `LAB_AB=P|E` (um lado com a IA antiga, o mesmo par de baralhos
+  jogado duas vezes trocando quem fica com a antiga), 48 partidas no campo de
+  2 torres: **IA nova 31, IA antiga 16, 1 empate**. Com o portão ligado, em 30
+  partidas: nova 21, antiga 9.
+- O que NÃO mudou: bot contra bot, 10 de 24 partidas ainda acabam sem torre
+  cair (decididas na vida). É medida entre bots; com gente jogando não foi medido.
+
+**Identidade.** Duas causas medidas, nenhuma era desenho:
+
+1. *Metade do elenco era enchimento.* Das 58 tropas que o criador fez pra
+   completar as 12 arenas, **41 não tinham habilidade nenhuma** e 15 eram
+   quase cópia de outra carta (Polvo Parrudo = Bode Parrudo, número por
+   número). Nomes como "Robô Ligeiro Gourmet" e "Vaca 3000" não diziam nada.
+   Agora (`Catalogo._sign_arena_card`) toda tropa criada tem UMA assinatura que
+   combina com o papel, sem repetir no mesmo papel e no máximo 2 vezes no
+   elenco, e o nome diz qual é: Tamanduá Disparado (investida), Siri Carrasco
+   (executa), Polvo Espinhento (devolve dano), Cavalo Ladrão (rouba recurso).
+   Feitiço criado diz o efeito e de onde vem ("Trovão do Mar"). Sobraram 0
+   tropas sem habilidade e 0 cópias entre as criadas. Pelo estimador elas
+   ficam 4 pontos abaixo do normal pro preço (de propósito, do lado fraco).
+2. *O "papel" não dizia como a carta luta.* Punição, Contra-ataque, Versátil,
+   Finalizador... Reclassificando pelo jeito de lutar e olhando só duelo de
+   preço parecido (±10), a pedra-papel-tesoura **já existia nos números**:
+
+   | linha ganha da coluna | Bando | Matador | Tanque | Área | Atirador | Voador | Lutador |
+   |---|---|---|---|---|---|---|---|
+   | Bando | · | 83% | 88% | 0% | 54% | 0% | 26% |
+   | Matador | 17% | · | 61% | 67% | 87% | 0% | 61% |
+   | Tanque | 12% | 37% | · | 64% | 73% | 11% | 70% |
+   | Área | 100% | 33% | 36% | · | 100% | 0% | 100% |
+   | Atirador | 46% | 9% | 27% | 0% | · | 76% | 16% |
+   | Voador | 94% | 100% | 89% | 100% | 22% | · | 100% |
+   | Lutador | 63% | 28% | 30% | 0% | 67% | 0% | · |
+
+   Só que o jogo não contava isso pra ninguém. Agora toda carta tem um **TIPO**
+   (`Catalogo.kind_of`, sai dos números dela): Bando, Matador, Tanque, Área,
+   Atirador, Voador, Lutador, Derruba-torre, Apoio, Construção, Feitiço. Ele
+   aparece escrito na carta (no lugar de "Chão"/"Chão+Ar") e a info abre com
+   "TIPO — pra que serve — ganha de — perde pra". A tela do baralho avisa o que
+   falta ("nada que limpe Bando", "nada que acerte Voador").
+   - Marcianinhos (bando de atirador) perdia 12 de 15 duelos de preço
+     parecido: dano 48 → 66.
+
+**Versão na tela.** `Scripts/versao.gd` é reescrito pelo build com o número e
+a hora; aparece na tela inicial e em Configurações. (O João baixou o APK novo
+e abriu o antigo sem perceber.)
+
+**Não medido:** nada disto foi jogado no celular. As cartas criadas continuam
+sem duelo de verdade (só estimativa). A tabela acima é das cartas feitas à
+mão, medidas antes das mudanças desta leva.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

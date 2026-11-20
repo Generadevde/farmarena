@@ -979,6 +979,7 @@ func _show_settings():
 		p.add_child(slider)
 		value_label.text = "%d%%" % int(round(slider.value * 100)) if slider.value > 0.01 else "mudo"
 		slider.value_changed.connect(_on_volume.bind(str(spec[1]), value_label))
+	v.add_child(_label(Versao.texto(), 15, ThemeBuilder.COLOR_STAT_LABEL))
 	# LABORATÓRIO: as mudanças da Batalha 2.5, pra ligar/desligar e sentir a diferença
 	var lab = _panel(v)
 	lab.add_child(_label("🧪 Laboratório da batalha", 18, ThemeBuilder.COLOR_GOLD))
@@ -988,7 +989,8 @@ func _show_settings():
 			["visual", "👀 Tropas grandes e cor de time", "Tropa maior, contorno azul (seu) ou vermelho (do bot), barra de vida só em quem apanhou. Cada bicho anda e bate do seu jeito."],
 			["peso", "🔨 Golpe com peso", "1 s pra entrar em campo, a tropa arma o golpe antes de bater, tela treme em pancada forte."],
 			["mao4", "🃏 4 cartas na mão", "Em vez de 3. O baralho continua com 7: sobra menos carta escondida na fila."],
-			["portao", "🚪 Portão na frente (3 torres)", "Uma torre mais fraca no meio, na frente, e as duas de sempre atrás. Quem derrubar mais torres até o tempo acabar, ganha."]]:
+			["portao", "🚪 Portão na frente (3 torres)", "Experiência: uma torre mais fraca no meio, na frente, além das duas de trás. Deixa a partida toda no meio -- por isso vem desligado."],
+			["rotas", "🧭 3 rotas (só com o portão)", "A tropa segue a rota onde você solta: esquerda e direita vão na torre de trás daquele lado, o meio vai no portão."]]:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		lab.add_child(line)
@@ -1356,6 +1358,11 @@ func _build_dock():
 		il.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		il.clip_text = true
 		head.add_child(il)
+		# o que falta no baralho, pelos tipos das cartas
+		var gaps = Catalogo.deck_gaps(Progresso.deck_cards(_deck_slot))
+		var gl = _wrap("⚠ Falta: " + ", ".join(gaps) if !gaps.is_empty() else "✔ Baralho completo: tem como ganhar e resposta pra bando, voador e tanque", 14,
+			Color(1.0, 0.75, 0.4) if !gaps.is_empty() else Color(0.6, 1.0, 0.6))
+		col.add_child(gl)
 		if !is_active:
 			var ub = _button("Usar este", _pick_active_deck.bind(_deck_slot), 15)
 			ub.custom_minimum_size.y = 42
@@ -2598,7 +2605,7 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	if adj_text != "":
 		side.add_child(_wrap("⚖ Ajustada pela Assembleia: " + adj_text, 15, Color(0.8, 0.95, 1.0)))
 	side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[rarity], card.get_nation_name() if card.get_nation_name() != "" else "Coringa"], 17, Catalogo.RARITY_COLORS[rarity]))
-	var role_line = CardData.role_name(card.role)
+	var role_line = str(Catalogo.KINDS[Catalogo.kind_of(card)]["nome"])  # o TIPO (como ela luta), não mais o "papel" antigo
 	if level_view > 0:
 		role_line += "  ·  nível %d de %s" % [lv, whose]
 	elif !owned:
@@ -2639,6 +2646,16 @@ func _show_card_popup(card: CardData, deck_index: int = -1, level_view: int = 0,
 	var next_mult = PlayerProfile.compute_stat_multiplier(lv + 1) * star_factor if can_level else mult
 	if can_level:
 		v.add_child(_label("Em verde: quanto melhora no nível %d" % (lv + 1), 13, ThemeBuilder.COLOR_STAT_LABEL))
+	# TIPO: como a carta luta, pra que serve, de quem ganha e de quem perde
+	var kind: Dictionary = Catalogo.KINDS[Catalogo.kind_of(card)]
+	var kp = _panel(v)
+	var kt = _label("TIPO: %s" % str(kind["nome"]).to_upper(), 19, Color(str(kind["cor"])))
+	kp.add_child(kt)
+	kp.add_child(_wrap(str(kind["serve"]), 15))
+	if str(kind["ganha"]) != "":
+		kp.add_child(_wrap("✔ Ganha de: " + str(kind["ganha"]), 15, Color(0.6, 1.0, 0.6)))
+	if str(kind["perde"]) != "":
+		kp.add_child(_wrap("✘ Perde pra: " + str(kind["perde"]), 15, Color(1.0, 0.62, 0.55)))
 	# ATAQUE bem definido: de perto ou de longe, num alvo ou em área (e de que
 	# tamanho), e em quem acerta (chão, ar, só torre)
 	var chips = _attack_chips(card)
@@ -4205,7 +4222,7 @@ func _show_safra():
 		cv.badge = "" if Progresso.is_owned(c) else "falta achar"
 		cv.tapped.connect(_show_card_popup)
 		row.add_child(cv)
-		row.add_child(_wrap("%s\n%s · %s · custo %d" % [c.card_name, c.get_nation_name(), CardData.role_name(c.role), c.cost], 16))
+		row.add_child(_wrap("%s\n%s · %s · custo %d" % [c.card_name, c.get_nation_name(), str(Catalogo.KINDS[Catalogo.kind_of(c)]["nome"]), c.cost], 16))
 	var m = Safra.mission()
 	if !m.is_empty():
 		var p = _panel(v)

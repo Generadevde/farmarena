@@ -39,7 +39,7 @@ case "$modo" in
     um() {
       i=$1
       LAB_PLAN='[]' LAB_END=330 LAB_FAIR=1 LAB_QUIET=1 LAB_SEED=$i HOME="$OUT/home_${nome}_$i" \
-        timeout 900 "$GODOT" --headless --fixed-fps 30 res://ci/lab/lab.tscn 2>&1 | grep -E "^LABFIM|SCRIPT ERROR|at: res" | head -40 > "$OUT/${nome}_$i.log"
+        timeout 900 "$GODOT" --headless --fixed-fps 30 res://ci/lab/lab.tscn 2>&1 | grep -E "^LABFIM|^LAB justo|^LABROTAS|SCRIPT ERROR|at: res" | head -40 > "$OUT/${nome}_$i.log"
       rm -rf "$OUT/home_${nome}_$i"
     }
     export -f um; export GODOT OUT nome

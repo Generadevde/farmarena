@@ -1114,10 +1114,28 @@ func _save_match_replay(player_won: bool):
 class PlaceGuide extends Node2D:
 	var battle: Node
 	var enemy_half := Rect2()
+	var mouse := Vector2.ZERO   # onde a tropa vai ser solta (mostra a rota)
+
+	func _process(_d):
+		if Regras.routes():
+			mouse = get_global_mouse_position()
+			queue_redraw()
 
 	func _draw():
 		draw_rect(enemy_half, Color(1.0, 0.2, 0.15, 0.13), true)
 		draw_line(Vector2(enemy_half.position.x, enemy_half.end.y), enemy_half.end, Color(1.0, 0.35, 0.3, 0.55), 2.0)
+		if Regras.routes():
+			# as 3 rotas: onde você solta decide em qual torre a tropa vai
+			var c0 = to_local(ArenaBuilder.CENTER)
+			var y0 = c0.y + ArenaBuilder.RIVER_HALF + 6.0
+			var y1 = c0.y + ArenaBuilder.HALF.y - ArenaBuilder.MARGIN
+			for sx in [-1.0, 1.0]:
+				draw_dashed_line(Vector2(c0.x + sx * Regras.LANE_HALF, y0), Vector2(c0.x + sx * Regras.LANE_HALF, y1), Color(1, 1, 1, 0.4), 2.0, 10.0)
+			var tw = Regras.route_tower(get_tree(), GameManager.Team.PLAYER, Regras.lane_of(mouse.x))
+			if tw != null:
+				var goal = to_local(tw.global_position)
+				draw_dashed_line(to_local(mouse), goal, Color(1.0, 0.92, 0.35, 0.85), 3.0, 12.0)
+				draw_arc(goal, 40.0, 0.0, TAU, 36, Color(1.0, 0.92, 0.35, 0.95), 4.0, true)
 		if !Regras.on("torres"):
 			return
 		for t in get_tree().get_nodes_in_group("enemy_base"):
@@ -1645,6 +1663,8 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 	for i in count:
 		var unit = first_unit if i == 0 else unit_scene.instantiate()
 		unit.team = team
+		if "lane" in unit:
+			unit.lane = Regras.lane_of(spawn_position.x)  # a carta inteira segue a rota de onde foi solta
 		unit.deploy_clock = i == 0
 		unit.card_level = level
 		if card_data != null:

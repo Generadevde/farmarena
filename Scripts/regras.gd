@@ -20,7 +20,18 @@ class_name Regras
 ##   "portao"  3 torres por lado: o PORTÃO na frente (no meio, mais fraco) e as
 ##             2 de sempre atrás. O contrário do Clash, que põe 2 na frente
 
-const KEYS = ["torres", "visual", "peso", "mao4", "portao"]
+##   "rotas"   (só com o portão) a tropa segue a ROTA onde foi solta: esquerda
+##             e direita vão na torre de trás daquele lado, meio vai no portão.
+##             Sem isso toda tropa ia na torre mais perto -- sempre o portão --
+##             e a partida virava "solta tudo no meio"
+
+const KEYS = ["torres", "visual", "peso", "mao4", "portao", "rotas"]
+# O PORTÃO nasce DESLIGADO. Foi testado em 19/11 e o João sentiu na hora: "o jogo
+# virou ficar jogando carta no meio". Medido entre bots: com ele, 67% de TODAS as
+# cartas caem na rota do meio e o portão é a primeira torre a cair em 15 de 15
+# partidas -- mesmo com as 3 rotas e com ele coberto pelas torres de trás. Sendo a
+# torre mais fraca e a mais na frente, ele É o jogo. Fica no Laboratório pra comparar.
+const DEFAULT_OFF = ["portao"]
 
 # ---------------------------------------------------------------- mão e portão
 const HAND_OLD = 3
@@ -30,7 +41,10 @@ const HAND_NEW = 4
 const GATE_HP_SHARE = 0.6
 const GATE_DAMAGE_SHARE = 0.75
 const GATE_RANGE_SHARE = 0.85
-const GATE_DY = 196.0               # distância do rio até o portão (as torres de trás ficam a 380)
+const GATE_DY = 270.0               # distância do rio até o portão (as torres de trás ficam a 380). Era 196:
+                                    # lá ele ficava SOZINHO, fora do tiro das de trás, e era sempre o alvo mais
+                                    # barato. A 270 quem bate nele apanha das 3 torres, e ele cobre as 2 rotas do lado
+const LANE_HALF = 75.0              # até 75 do centro é a rota do MEIO; além disso, esquerda ou direita
 
 
 static func hand_size() -> int:
@@ -39,6 +53,31 @@ static func hand_size() -> int:
 
 static func three_towers() -> bool:
 	return on("portao")
+
+
+static func routes() -> bool:
+	return on("rotas") and three_towers()
+
+
+## rota de quem é solto na posição x: -1 esquerda, 0 meio, 1 direita
+static func lane_of(x: float) -> int:
+	var dx = x - ArenaBuilder.CENTER.x
+	return 0 if absf(dx) <= LANE_HALF else (-1 if dx < 0.0 else 1)
+
+
+## a torre do ADVERSÁRIO no fim da rota (null se ela já caiu): meio = portão,
+## lado = a torre de trás daquele lado
+static func route_tower(tree: SceneTree, attacker_team, lane: int) -> Node:
+	var group = "enemy_base" if attacker_team == GameManager.Team.PLAYER else "player_base"
+	for t in tree.get_nodes_in_group(group):
+		if !is_instance_valid(t) or t.is_queued_for_deletion() or t.hp <= 0:
+			continue
+		if lane == 0:
+			if t.is_gate:
+				return t
+		elif !t.is_gate and signf(t.global_position.x - ArenaBuilder.CENTER.x) == float(lane):
+			return t
+	return null
 
 
 static func gate_hp_share() -> float:
@@ -83,7 +122,7 @@ static func on(key: String) -> bool:
 		_env_off = Array(OS.get_environment("REGRAS_OFF").split(",", false))  # só pra laboratório/testes
 	if _env_off.has(key):
 		return false
-	return bool(Config.data.get("regra_" + key, true))
+	return bool(Config.data.get("regra_" + key, !DEFAULT_OFF.has(key)))
 
 
 static func set_on(key: String, value: bool):

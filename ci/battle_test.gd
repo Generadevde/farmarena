@@ -40,6 +40,10 @@ func _ready():
 	# atrapalharia a medida. Torres, simulação e partidas usam o campo de verdade
 	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo"]:
 		Regras.forced["portao"] = false
+	if mode == "torres":
+		# o portão e as rotas nascem desligados (ficam no Laboratório): este teste liga os dois
+		Regras.forced["portao"] = true
+		Regras.forced["rotas"] = true
 	Engine.time_scale = 3.0
 	battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child.call_deferred(battle)
@@ -399,6 +403,22 @@ func _towers_test():
 			nearest = t
 	var gate_first: bool = nearest.is_gate
 	print("RESULTADO alvo: saindo da ponte do lado, a torre mais perto é o portão? ", gate_first)
+	# ROTAS: quem é solto no lado vai na torre de trás daquele lado; quem é solto no meio, no portão
+	var rt_left = Regras.route_tower(get_tree(), GameManager.Team.PLAYER, Regras.lane_of(c.x - 150.0))
+	var rt_mid = Regras.route_tower(get_tree(), GameManager.Team.PLAYER, Regras.lane_of(c.x + 20.0))
+	var rt_right = Regras.route_tower(get_tree(), GameManager.Team.PLAYER, Regras.lane_of(c.x + 150.0))
+	var routes_ok = rt_left != null and rt_mid != null and rt_right != null and !rt_left.is_gate and rt_left.global_position.x < c.x \
+		and rt_mid.is_gate and !rt_right.is_gate and rt_right.global_position.x > c.x
+	var scout_card: CardData = Catalogo.card("peao_forcado")
+	battle.spawn_unit(scout_card.unit_scene, GameManager.Team.PLAYER, Vector2(c.x - 150.0, c.y + 120.0), scout_card)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	var scout = get_tree().get_nodes_in_group("units").back()
+	scout._refresh_enemy_tower()
+	var scout_ok = scout.lane == -1 and scout.enemy_base == rt_left
+	print("RESULTADO rotas: esquerda/meio/direita levam na torre certa? ", routes_ok, " | tropa solta na esquerda mira a torre de trás da esquerda? ", scout_ok)
+	scout.queue_free()
+	await get_tree().process_frame
 	# PLACAR: fim do tempo sem nada derrubado e vida igual = empate (-1);
 	# arranhou uma torre minha = eu perco; derrubei UMA do bot = eu ganho mesmo assim
 	var tie = battle.time_up_loser()
@@ -420,7 +440,9 @@ func _towers_test():
 	_check("espelhadas", mirror_ok)
 	_check("portão no meio, na frente e mais fraco", gate_ok)
 	_check("mão do tamanho da regra", DeckManager.hand.size() == Regras.hand_size(), "%d cartas" % DeckManager.hand.size())
-	_check("portão é o primeiro alvo", gate_first)
+	_check("portão é a torre mais perto", gate_first)
+	_check("3 rotas levam na torre certa", routes_ok)
+	_check("tropa segue a rota onde foi solta", scout_ok)
 	_check("placar: tudo igual empata", tie == -1, str(tie))
 	_check("placar: sem torre caída decide na vida", by_hp == GameManager.Team.PLAYER, str(by_hp))
 	_check("placar: uma torre derrubada já ganha", by_count == GameManager.Team.ENEMY, str(by_count))

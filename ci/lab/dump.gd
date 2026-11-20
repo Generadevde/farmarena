@@ -5,7 +5,7 @@ func _ready():
 	var out = []
 	for c in CardDatabase.all_cards:
 		if c == null: continue
-		var d = {"nome": c.card_name, "custo": c.cost, "papel": CardData.role_name(c.role), "arena": c.unlock_arena, "rar": Catalogo.rarity_of(c), "turma": c.get_nation_name(), "spell": c.is_spell(), "ficha": Catalogo.tokens().has(c), "safra": !Catalogo.cards().has(c) and !Catalogo.tokens().has(c)}
+		var d = {"gerada": c.has_meta("arena_card"), "nome": c.card_name, "custo": c.cost, "papel": CardData.role_name(c.role), "arena": c.unlock_arena, "rar": Catalogo.rarity_of(c), "turma": c.get_nation_name(), "spell": c.is_spell(), "ficha": Catalogo.tokens().has(c), "safra": !Catalogo.cards().has(c) and !Catalogo.tokens().has(c)}
 		if c.is_spell():
 			var sp = c.spell_data
 			d["dmg"] = sp.damage; d["raio"] = sp.radius; d["dur"] = sp.duration; d["base_mult"] = sp.base_damage_multiplier

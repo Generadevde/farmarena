@@ -396,7 +396,7 @@ const CARTAS = [
 		"pros": ["Quatro atirando junto", "Acertam voador"], "cons": ["Um golpe derruba cada um", "Dano em área varre todos"],
 		"receita": {"pernas": "bota", "corpo": "redondo", "bracos": "patas", "cabeca": "et", "arma": "espingarda"}, "paleta": {"P": "#78c878", "K": "#a8e0a0", "A": "#f04848", "M": "#b0b8c0", "W": "#484858"},
 		"proj": "raio",
-		"u": {"hp": 95, "damage": 48, "attack_speed": 1.0, "move_speed": 60.0, "unit_scale": 0.7, "unit_count": 4, "push_weight": 0.6, "is_ranged": true, "attack_range": 120.0, "target_type": "ALL"}},
+		"u": {"hp": 95, "damage": 66, "attack_speed": 1.0, "move_speed": 60.0, "unit_scale": 0.7, "unit_count": 4, "push_weight": 0.6, "is_ranged": true, "attack_range": 120.0, "target_type": "ALL"}},
 	{"id": "tripe_invasor", "nome": "Tripé Invasor", "turma": "Coisa Estranha", "custo": 55, "papel": "PUNICAO", "raridade": EPICA, "arena": 9, "perigo": 9,
 		"desc": "Três pernas, um olho e um raio que esquenta quanto mais tempo fica no mesmo alvo.",
 		"pros": ["O raio fica até 4x mais forte no mesmo alvo", "Derrete tanque", "Acerta voador"], "cons": ["Bando faz o raio recomeçar toda hora", "Lento"],
@@ -600,9 +600,238 @@ static func arena_of(c: CardData) -> int:
 	return maxi(1, c.unlock_arena)
 
 
+# ---------------------------------------------------------------- TIPO
+# O "papel" antigo (Punição, Contra-ataque, Versátil...) não dizia como a
+# carta LUTA. O TIPO sai dos números dela e diz: e cada tipo tem de quem
+# ganha e de quem perde -- medido em duelo com carta de preço parecido
+# (19/11, 1326 duelos): Bando ganha de Matador em 83% e de Tanque em 88%,
+# perde de Área em 100%; Matador ganha de Tanque em 61% e de Atirador em 87%;
+# Atirador ganha de Voador em 76%; Voador ganha de quem não atira pra cima
+# em 89 a 100%; Lutador ganha de Bando em 63% e de Atirador em 67%.
+const KINDS = {
+	"bando": {"nome": "Bando", "cor": "#ffd24a", "serve": "Muitos e frágeis. Cercam quem bate num alvo só e derretem ele.",
+		"ganha": "Matador e Tanque", "perde": "Área, Voador e Lutador"},
+	"matador": {"nome": "Matador", "cor": "#ff8a6a", "serve": "Golpe pesado num alvo só. É quem derruba tanque e bicho grande.",
+		"ganha": "Tanque, Área, Atirador e Lutador", "perde": "Bando e Voador"},
+	"tanque": {"nome": "Tanque", "cor": "#8fb4ff", "serve": "Muita vida. Vai na frente segurando o tiro pra quem vem atrás bater.",
+		"ganha": "Atirador, Lutador e Área", "perde": "Bando, Matador e Voador"},
+	"area": {"nome": "Área", "cor": "#ff9be0", "serve": "Cada golpe acerta todo mundo junto. Limpa bando de uma vez.",
+		"ganha": "Bando, Atirador e Lutador", "perde": "Matador, Tanque e Voador"},
+	"atirador": {"nome": "Atirador", "cor": "#9be88a", "serve": "Bate de longe e é quem derruba voador. Frágil: precisa de alguém na frente.",
+		"ganha": "Voador", "perde": "Matador, Tanque, Lutador e Área, se encostarem nele"},
+	"voador": {"nome": "Voador", "cor": "#9fe0ff", "serve": "Passa por cima de tudo. Quem só bate no chão não encosta nele.",
+		"ganha": "tudo que não atira pra cima", "perde": "Atirador e torre"},
+	"lutador": {"nome": "Lutador", "cor": "#e8d8b0", "serve": "Barato e equilibrado. Bom pra parar bando e pegar atirador.",
+		"ganha": "Bando e Atirador", "perde": "Matador, Tanque e Área"},
+	"ariete": {"nome": "Derruba-torre", "cor": "#ffb060", "serve": "Ignora as tropas e vai direto na torre. É a carta que GANHA a partida, mas precisa de escolta.",
+		"ganha": "torre sem defesa", "perde": "qualquer tropa que pare ele no caminho"},
+	"apoio": {"nome": "Apoio", "cor": "#7fe0c0", "serve": "Cura ou ajuda quem está perto. Sozinho não ganha de ninguém.",
+		"ganha": "", "perde": "quase tudo, se ficar sozinho"},
+	"construcao": {"nome": "Construção", "cor": "#c8b090", "serve": "Fica parada no seu lado defendendo (ou soltando tropa) enquanto durar.", "ganha": "", "perde": ""},
+	"feitico": {"nome": "Feitiço", "cor": "#d0a8ff", "serve": "Não é tropa: um efeito que você solta em qualquer lugar do campo.", "ganha": "", "perde": ""},
+}
+const KIND_TANK_HP = 1100     # no nível 1
+const KIND_KILLER_DAMAGE = 120
+static var _kind_cache: Dictionary = {}
+
+
+## como a carta LUTA (chave de KINDS)
+static func kind_of(c: CardData) -> String:
+	if c == null:
+		return "lutador"
+	var key = c.get_instance_id()
+	if _kind_cache.has(key):
+		return _kind_cache[key]
+	var k = "lutador"
+	var st: UnitData = null if c.is_spell() else DeckBuilder.get_unit_stats(c)
+	if c.is_spell() or st == null:
+		k = "feitico"
+	elif st.unit_type == UnitData.UnitType.BUILDING:
+		k = "construcao"
+	elif st.unit_type == UnitData.UnitType.AIR:
+		k = "voador"
+	elif st.target_type == UnitData.TargetType.BUILDING:
+		k = "ariete"
+	elif st.can_heal_allies:
+		k = "apoio"
+	elif st.is_ranged or st.attack_range >= 80.0:
+		k = "atirador"
+	elif st.unit_count >= 3:
+		k = "bando"
+	elif st.is_aoe or st.spin_attack or st.frontal_cone_attack or st.aoe_hits_extra_one:
+		k = "area"
+	elif st.hp >= KIND_TANK_HP:
+		k = "tanque"
+	elif st.damage >= KIND_KILLER_DAMAGE:
+		k = "matador"
+	_kind_cache[key] = k
+	return k
+
+
+## o que falta num baralho, pelos tipos (as mesmas perguntas de quem monta
+## deck no Clash: tem como ganhar? tem resposta pra bando, pra voador, pra tanque?)
+static func deck_gaps(cards: Array) -> Array:
+	var have := {}
+	var hits_air = false
+	var splash = false
+	for c in cards:
+		if c == null:
+			continue
+		var k = kind_of(c)
+		have[k] = true
+		if c.is_spell():
+			if c.spell_data != null and c.spell_data.damage > 0:
+				splash = true
+				hits_air = true
+		else:
+			var st: UnitData = DeckBuilder.get_unit_stats(c)
+			if st != null and st.damage > 0 and st.target_type in [UnitData.TargetType.AIR, UnitData.TargetType.ALL]:
+				hits_air = true
+	var out: Array = []
+	if !have.has("ariete"):
+		out.append("nenhuma Derruba-torre")
+	if !have.has("area") and !splash:
+		out.append("nada que limpe Bando")
+	if !hits_air:
+		out.append("nada que acerte Voador")
+	if !have.has("matador") and !have.has("bando"):
+		out.append("nada que derrube Tanque")
+	return out
+
+
+# ---------------------------------------------------------------- assinatura
+# Diagnóstico de 19/11: das 58 tropas que o criador fez pra completar as
+# arenas, 41 não tinham habilidade NENHUMA (só números) e 15 eram quase cópia
+# de outra carta. Carta sem nada de seu não tem identidade. Agora toda tropa
+# criada pro elenco tem UMA habilidade que é a cara dela, combinando com o
+# papel, sem repetir no mesmo papel -- e o nome diz qual é ("Tamanduá Ladrão").
+const SIGN_BY_ROLE = {
+	0: ["cura_matar", "ouro_matar", "explode", "furia_morte", "clone", "primeiro"],            # bando
+	1: ["escudo", "casca", "regen", "devolve", "inabalavel", "levanta", "contra", "onda"],     # tanque
+	2: ["primeiro", "executa", "investida", "avanco", "cresce", "roubo", "mais_um"],           # matador
+	3: ["efeito", "onda", "corrente", "inabalavel", "contra"],                                 # controle
+	4: ["contra", "devolve", "avanco", "investida", "primeiro", "roubo"],                      # contra-ataque
+	5: ["efeito", "corrente", "longe", "regen", "escudo"],                                     # suporte
+	6: ["rouba", "investida", "furia_morte", "cresce", "levanta", "escudo", "inabalavel"],     # derruba-torre
+	7: ["efeito", "corrente", "longe", "casca", "escudo"],                                     # construção
+	8: ["longe", "corrente", "executa", "cura_matar", "explode", "efeito", "roubo"],           # voador
+	9: ["cresce", "mais_um", "furia_entrada", "levanta", "roubo", "ouro_matar"],               # versátil
+	10: ["escudo", "casca", "regen"],                                                          # invocador
+	11: ["longe", "casca", "escudo", "corrente"],                                              # cerco
+}
+# nome da habilidade (como aparece na carta) -> título [masculino, feminino]
+const SIGN_TITLE = {
+	"Investida": ["Disparado", "Disparada"], "Furtivo": ["Sorrateiro", "Sorrateira"], "1º golpe em dobro": ["Emboscador", "Emboscadora"],
+	"Entra em fúria": ["Esquentado", "Esquentada"], "Onda de choque": ["Pé-de-Chumbo", "Pé-de-Chumbo"], "Roubo de vida": ["Vampiro", "Vampira"],
+	"Provoca": ["Provocador", "Provocadora"], "Casca dura": ["Casca-Grossa", "Casca-Grossa"], "Regenera": ["Teimoso", "Teimosa"],
+	"Explode": ["Bomba", "Bomba"], "Tiro em corrente": ["Faísca", "Faísca"], "Cura aliados": ["Benzedor", "Benzedeira"],
+	"Vai ficando mais forte": ["Embalado", "Embalada"], "Fúria na beira da morte": ["Valente", "Valente"], "Executa": ["Carrasco", "Carrasca"],
+	"Devolve dano": ["Espinhento", "Espinhenta"], "Cura ao matar": ["Comilão", "Comilona"], "Levanta de novo": ["Sete-Vidas", "Sete-Vidas"],
+	"Inabalável": ["Cabeça-Dura", "Cabeça-Dura"], "Clone ao morrer": ["Gêmeo", "Gêmea"], "Revida": ["Vingador", "Vingadora"],
+	"Recurso ao matar": ["Garimpeiro", "Garimpeira"], "Rouba recurso": ["Ladrão", "Ladra"], "Golpe duplo": ["Duas-Mãos", "Duas-Mãos"],
+	"Bote": ["Saltador", "Saltadora"], "Mais dano de longe": ["Mira-Longe", "Mira-Longe"], "Começa com escudo": ["Blindado", "Blindada"],
+	"Golpe: Lentidão": ["Gelado", "Gelada"], "Golpe: Fraqueza": ["Azarento", "Azarenta"], "Golpe: Congelar": ["Geladeira", "Geladeira"],
+	"Golpe: Veneno": ["Venenoso", "Venenosa"], "Golpe: Atordoar": ["Atordoador", "Atordoadora"], "Golpe: Empurrão": ["Coiceiro", "Coiceira"],
+	"Golpe: Choque": ["Elétrico", "Elétrica"], "Golpe: Confusão": ["Hipnotizador", "Hipnotizadora"], "Golpe: Puxão": ["Laçador", "Laçadora"],
+	"Golpe: Enraizar": ["Cipó", "Cipó"], "Golpe: Silêncio": ["Cala-Boca", "Cala-Boca"], "Golpe: Marcar": ["Dedo-Duro", "Dedo-Duro"],
+}
+const TURMA_DE = {"Curral": "do Curral", "Galinheiro": "do Galinheiro", "Brejo": "do Brejo", "Roçado": "do Roçado", "Peões": "dos Peões",
+	"Mar": "do Mar", "Mata": "da Mata", "Coisa Estranha": "do Além", "Lendas": "das Lendas", "Mitos": "dos Mitos"}
+const SPELL_THINGS = ["Ovo Surpresa", "Carinho", "Modão", "Tampa", "Pimenta", "Geada", "Lama", "Trovão", "Cogumelo", "Redemoinho", "Vaca", "Raio", "Melancia"]
+const SPELL_NICE = {"Vaca": "Vaca Voadora", "Tampa": "Tampa de Panela", "Lama": "Lamaçal", "Cogumelo": "Cogumelo Podre", "Carinho": "Abraço",
+	"Pimenta": "Pimenta Braba", "Melancia": "Melancia Madura", "Redemoinho": "Redemoinho"}
+const FEM_OBJECTS = ["colmeia", "fornalha", "tenda", "barraca", "cerca", "carroca"]
+
+
+## Dá a assinatura e o nome novo pra uma carta de arena recém-criada. Devolve
+## false quando não sobrou assinatura livre pra ela (aí tenta outra semente).
+static func _sign_arena_card(gen: Dictionary, used: Dictionary) -> bool:
+	var def: Dictionary = gen["def"]
+	if gen["spell"] != null:
+		if str(def.get("especial", "")) != "":
+			return true  # feitiço especial (barril, cemitério, tornado) já tem nome e jeito próprios
+		# feitiço: o nome diz o EFEITO e de onde vem ("Geada da Mata"), e a arena não repete efeito
+		for thing in SPELL_THINGS:
+			if str(def["nome"]).contains(thing):
+				var key = "feitico/%d/%s" % [int(def.get("arena_alvo", 0)), thing]
+				if used.has(key):
+					return false
+				used[key] = true
+				def["nome"] = "%s %s" % [SPELL_NICE.get(thing, thing), TURMA_DE.get(str(def["turma"]), "da Roça")]
+				return true
+		return true
+	var st: UnitData = gen["stats"]
+	if st == null:
+		return true
+	var role = int(def.get("papel", CardData.CardRole.VERSATIL))
+	var before: Array = unit_abilities(st).map(func(p): return str(p[0]))
+	var sign_name = ""
+	if before.is_empty():
+		var rng = RandomNumberGenerator.new()
+		rng.seed = hash("assinatura " + str(def["nome"]))
+		var cost = int(def.get("custo", 0))
+		for k in SIGN_BY_ROLE.get(role, []) + CardGenerator.EXTRA_POOL:
+			# roubo de vida, "cada golpe mais forte" e "levanta de novo" seguram tiro de torre:
+			# em carta barata, ela derrubava a torre sozinha (só carta de 50+ pode)
+			if cost < 50 and k in ["roubo", "cresce", "levanta"]:
+				continue
+			var trial: UnitData = st.duplicate()
+			if CardGenerator.add_extras(trial, rng, 1, [k]).size() != 1:
+				continue
+			var now: Array = unit_abilities(trial).map(func(p): return str(p[0]))
+			if now.is_empty() or !SIGN_TITLE.has(now[0]):
+				continue
+			# nunca a mesma assinatura duas vezes no mesmo papel, e no máximo 2 no elenco todo
+			if used.has("%d/%s" % [role, now[0]]) or int(used.get(now[0], 0)) >= 2:
+				continue
+			# a habilidade entra no lugar de um pouquinho de número (não fica de graça)
+			trial.hp = maxi(int(round(trial.hp * 0.97 / 5.0)) * 5, 20)
+			trial.damage = int(round(trial.damage * 0.97))
+			# bando criado batia devagar demais pra ser bando (perdia de quase tudo pro preço):
+			# bando é frágil MAS bate muito
+			if trial.unit_count >= 3 and !trial.is_ranged:
+				trial.attack_speed = minf(trial.attack_speed, 1.0)
+			gen["stats"] = trial
+			used["%d/%s" % [role, now[0]]] = true
+			used[now[0]] = int(used.get(now[0], 0)) + 1
+			sign_name = now[0]
+			break
+		if sign_name == "":
+			return false
+	else:
+		if str(def.get("especial", "")) != "":
+			return true  # unidade especial (mineiro, balão, bruxa...) já tem nome e jeito próprios
+		sign_name = before[0]
+		var key2 = "%d/%s" % [role, sign_name]
+		if used.has(key2) or int(used.get(sign_name, 0)) >= 2:
+			return false
+		used[key2] = true
+		used[sign_name] = int(used.get(sign_name, 0)) + 1
+	if !SIGN_TITLE.has(sign_name):
+		return true
+	var recipe: Dictionary = def.get("receita", {})
+	var who = ""
+	var fem = 0
+	if recipe.has("objeto"):
+		who = str(CardGenerator.BUILDING_NAMES.get(recipe["objeto"], "Barraca"))
+		fem = 1 if FEM_OBJECTS.has(str(recipe["objeto"])) else 0
+	else:
+		var head = str(recipe.get("cabeca", ""))
+		who = str(CardGenerator.HEAD_NAMES.get(head, "Bicho"))
+		fem = 1 if CardGenerator.HEAD_FEMININE.has(head) else 0
+		var unit_count = int((gen["stats"] as UnitData).unit_count)
+		if unit_count >= 5:
+			who = "Bando de " + who
+		elif unit_count >= 2:
+			who = ["", "", "Dupla de ", "Trio de ", "Quarteto de "][unit_count] + who
+	def["nome"] = "%s %s" % [who, SIGN_TITLE[sign_name][fem]]
+	return true
+
+
 static func _build_arena_cards():
 	var have := {}
 	var names := {}
+	var sign_used := {}
 	for c in _cards:
 		have[arena_of(c)] = int(have.get(arena_of(c), 0)) + 1
 		names[c.card_name] = true
@@ -613,7 +842,7 @@ static func _build_arena_cards():
 	for a in range(1, ARENA_COUNT + 1):
 		var made = 0
 		var guard = 0
-		while int(have.get(a, 0)) < ARENA_SIZE and guard < 80:
+		while int(have.get(a, 0)) < ARENA_SIZE and guard < 400:
 			guard += 1
 			var rng = RandomNumberGenerator.new()
 			rng.seed = hash("arena_%d_%d" % [a, guard])
@@ -628,6 +857,9 @@ static func _build_arena_cards():
 				cost = [50, 55, 60, 65][rng.randi() % 4]  # arena dos campeões: carta cara
 			var gen: Dictionary = CardGenerator.generate_def(rng.randi(), turma, kind, role, cost)
 			var def: Dictionary = gen["def"]
+			def["arena_alvo"] = a
+			if !_sign_arena_card(gen, sign_used):
+				continue
 			if names.has(def["nome"]):
 				continue
 			names[def["nome"]] = true

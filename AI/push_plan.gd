@@ -58,7 +58,7 @@ func threshold(max_money: int, double_time: bool, profile: AIProfile) -> int:
 			t += 6.0
 	if double_time:
 		t += 6.0  # no x2 o recurso volta rápido: dá pra encher e despejar
-	t += (clampi(arena, 1, 7) - 4) * 4.0  # arena 1: ataques menores (-12); arena 7: maiores (+12)
+	t += (clampf(arena, 1.0, 12.0) - 6.5) * 2.2  # arena 1: ataques menores (-12); arena 12: maiores (+12)
 	return int(clampf(t + _jitter, 48.0, float(max_money) - 4.0))
 
 
@@ -73,7 +73,7 @@ func decide(now: float, money: int, max_money: int, double_time: bool, profile: 
 		start = true
 	elif opp_money >= 0 and opp_money <= PUNISH_OPP_MONEY and money >= PUNISH_MY_MONEY and now >= _no_punish_until:
 		# PUNIÇÃO: ele está sem recurso pra defender. Bot de arena baixa nem sempre percebe
-		if randf() < clampf(0.2 + clampi(arena, 1, 7) * 0.15, 0.3, 0.95):
+		if randf() < clampf(0.2 + clampi(arena, 1, 12) * 0.07, 0.3, 0.95):
 			start = true
 		else:
 			_no_punish_until = now + 7.0
@@ -89,6 +89,38 @@ func decide(now: float, money: int, max_money: int, double_time: bool, profile: 
 	if randf() < CHIP_CHANCE:
 		return {"chip": true}
 	return {"wait": true}
+
+
+## 3 ROTAS: cada torre do adversário é o fim de uma rota (portão = meio, as de
+## trás = os lados). Pesa a vida que falta, quanta tropa dele está naquela
+## rota e QUANTAS TORRES atiram em quem chega lá: no portão atiram as 3; numa
+## torre de trás, ela e o portão. Sem a última conta o bot ia sempre no meio
+func _pick_route(tree: SceneTree, _my_team, foe, towers: Array) -> float:
+	var gate_up = false
+	var backs_up = 0
+	for t in towers:
+		if "is_gate" in t and t.is_gate:
+			gate_up = true
+		else:
+			backs_up += 1
+	var best_x = ArenaBuilder.CENTER.x
+	var best_score = INF
+	for t in towers:
+		if !is_instance_valid(t) or !("hp" in t):
+			continue
+		var is_gate = "is_gate" in t and t.is_gate
+		var x = ArenaBuilder.CENTER.x if is_gate else ArenaBuilder.CENTER.x + ArenaBuilder.BRIDGE_X * signf(t.global_position.x - ArenaBuilder.CENTER.x)
+		var frac = float(t.hp) / maxf(float(t.max_hp), 1.0)
+		var guards = 0.0
+		for u in tree.get_nodes_in_group("units"):
+			if is_instance_valid(u) and u.team == foe and absf(u.global_position.x - x) < 80.0:
+				guards += 0.08
+		var cover = 0.16 * backs_up if is_gate else (0.16 if gate_up else 0.0)
+		var score = frac + guards + cover + randf() * 0.22
+		if score < best_score:
+			best_score = score
+			best_x = x
+	return best_x
 
 
 ## sobrou tropa minha viva depois de uma defesa (do meu lado, sem inimigo por
@@ -122,6 +154,8 @@ func _pick_lane(tree: SceneTree, my_team) -> float:
 	var towers = BattleBrain.get_bases(tree, foe)
 	if towers.is_empty():
 		return ArenaBuilder.CENTER.x
+	if Regras.routes() and BattleBrain.smart(my_team):
+		return _pick_route(tree, my_team, foe, towers)
 	var best = null
 	var best_score = INF
 	for t in towers:

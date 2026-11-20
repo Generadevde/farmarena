@@ -252,7 +252,9 @@ func _stat_values() -> Dictionary:
 		"right": [Ico.AREA if (st.is_aoe or st.spin_attack or st.frontal_cone_attack) else Ico.SWORD, str(int(round(st.damage * mult))) if st.damage > 0 else "-"],
 		"bl": [Ico.RANGE, str(int(st.attack_range)) if st.is_ranged else "perto"],
 		"br": [Ico.SPEED, str(int(st.move_speed)) if st.move_speed > 0 else "fixo"],
-		"mid": ("Voa · " if st.unit_type == UnitData.UnitType.AIR else "") + target,
+		# o TIPO da carta (Bando, Matador, Tanque...) na cor dele: é a identidade dela de relance
+		"mid": str(Catalogo.KINDS[Catalogo.kind_of(card)]["nome"]).to_upper(),
+		"mid_color": Color(str(Catalogo.KINDS[Catalogo.kind_of(card)]["cor"])),
 	}
 
 
@@ -288,7 +290,7 @@ func _draw_stats(art_box: Rect2, foot: Rect2, u: float):
 		mfs -= 1
 	var mw = font.get_string_size(mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs).x
 	var mx = foot.position.x + left_w + 3 * u + (room - mw) * 0.5
-	draw_string(font, Vector2(mx, base_y + mfs * 0.36), mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs, Color("#ffb060") if mid.contains("Só torres") else (Color("#9fe0ff") if mid.begins_with("Voa") else Color("#c8f0a0")))
+	draw_string(font, Vector2(mx, base_y + mfs * 0.36), mid, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs, vals.get("mid_color", Color("#c8f0a0")))
 
 
 func _chip(corner: Vector2, val: Array, fs: int, h: float, u: float, right_side: bool):

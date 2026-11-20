@@ -65,7 +65,11 @@ func _ready():
 			c.setup(battle, sp[0], sp[1], sp[2], [0.22, 0.78][randi() % 2])
 			battle.add_child(c)
 			battle._extra_ai_controllers.append(c)
-		print("LAB justo P=", pa.deck.map(func(x): return x.card_name), " | E=", pb.deck.map(func(x): return x.card_name))
+		# LAB_AB=1: um lado joga com a IA antiga (troca de lado a cada semente)
+		var legacy = OS.get_environment("LAB_AB")   # "P" ou "E": esse lado joga com a IA antiga
+		if legacy != "":
+			BattleBrain.legacy_teams = [GameManager.Team.PLAYER if legacy == "P" else GameManager.Team.ENEMY]
+		print("LAB justo legado=", legacy, " P=", pa.deck.map(func(x): return x.card_name), " | E=", pb.deck.map(func(x): return x.card_name))
 	elif OS.get_environment("LAB_ALLY") != "":
 		var si2 = int(OS.get_environment("LAB_SEED")) if OS.get_environment("LAB_SEED") != "" else 0
 		var prof: AIProfile = BotLearning.get_or_create_profile(BotSimulator.roster_names[(7 + si2 * 3) % BotSimulator.roster_names.size()])
@@ -242,10 +246,19 @@ func _frac(group: String) -> float:
 	return now / total if total > 0 else 0.0
 
 
+var _kind: Dictionary = {}
+
+
 func _finish(reason: String):
 	if _done:
 		return
 	_done = true
+	# em que rota cada jogada caiu (esquerda, meio, direita), somando os dois lados
+	var lanes = [0, 0, 0]
+	for a in battle.match_action_log:
+		if a.has("x"):
+			lanes[Regras.lane_of(float(a["x"])) + 1] += 1
+	print("LABROTAS ", lanes)
 	var plays_p := 0
 	var plays_e := 0
 	for a in battle.match_action_log:
@@ -271,12 +284,13 @@ func _track():
 			var key = "%s#%d" % [g, b.get_instance_id()]
 			if !_init_hp.has(key) and "max_hp" in b and t > 0.3:
 				_init_hp[key] = float(b.max_hp)
+				_kind[key] = "g" if ("is_gate" in b and b.is_gate) else "l"   # g = portão, l = torre de trás (lado)
 				_seen_towers[key] = b
 			i += 1
 	for key in _seen_towers.keys():
 		var b = _seen_towers[key]
 		if !is_instance_valid(b) or b.is_queued_for_deletion():
-			_falls.append("%s@%d" % ["P" if key.begins_with("player") else "E", int(t)])
+			_falls.append("%s%s@%d" % ["P" if key.begins_with("player") else "E", str(_kind.get(key, "")), int(t)])
 			_seen_towers.erase(key)
 	for u in get_tree().get_nodes_in_group("units"):
 		var id = u.get_instance_id()

@@ -221,6 +221,28 @@ static func best_spell_target(tree: SceneTree, spell: SpellData, caster_team) ->
 
 # ------------------------------------------------------------------ defesa
 
+## laboratório: times que jogam com a IA ANTIGA (pra medir bot novo x bot velho)
+static var legacy_teams: Array = []
+static var _duel_cache: Dictionary = {}
+
+
+static func smart(team) -> bool:
+	return !legacy_teams.has(team)
+
+
+## quem ganha o duelo "no papel" entre a minha carta e a carta que está vindo:
+## de -1 (perco feio) a +1 (ganho sobrando). 0 quando não dá pra saber
+## (feitiço, construção, carta que só bate em torre). É o mesmo cálculo que
+## a carta mostra em "Força estimada" (acerta o vencedor em 93% dos duelos medidos)
+static func duel_margin(mine: CardData, theirs: CardData) -> float:
+	if mine == null or theirs == null or !DueloPapel.duels(mine) or !DueloPapel.duels(theirs):
+		return 0.0
+	var key = mine.resource_path + "|" + theirs.resource_path
+	if !_duel_cache.has(key):
+		_duel_cache[key] = clampf(DueloPapel.duel(mine, theirs), -1.0, 1.0)
+	return _duel_cache[key]
+
+
 static func _card_threat_fit(card: CardData, threats: Dictionary) -> bool:
 	var primary = threats["primary"]
 	if primary == null:
@@ -280,7 +302,15 @@ static func choose_defense(tree: SceneTree, my_team, affordable: Array, hand: Ar
 			if stats != null and stats.target_type == UnitData.TargetType.BUILDING:
 				continue  # só bate em construção, não defende nada
 			score = 2.0
-			if CardData.role_beats(card.role, threat_role):
+			var threat_card: CardData = primary.card_data if "card_data" in primary else null
+			var margin = duel_margin(card, threat_card) if smart(my_team) else 0.0
+			if margin != 0.0:
+				# IA nova: escolhe pela conta do duelo de verdade, não só pelo "papel".
+				# E prefere a TROCA BOA: ganhar gastando menos do que ele gastou
+				score += 3.5 * margin
+				if margin > 0.1 and threat_card != null:
+					score += 1.5 * clampf((threat_card.cost - card.cost) / 30.0, -1.0, 1.0)
+			elif CardData.role_beats(card.role, threat_role):
 				score += 3.0
 			if stats != null and stats.is_aoe and threats["units"].size() >= 3:
 				score += 2.5  # dano em área contra enxame

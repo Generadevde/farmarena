@@ -914,9 +914,10 @@ const EXTRA_POOL = ["escudo", "roubo", "casca", "regen", "primeiro", "furia_entr
 	"cura_matar", "devolve", "inabalavel", "explode", "clone", "contra", "ouro_matar", "rouba", "corrente", "longe", "mais_um", "avanco", "levanta", "efeito"]
 
 
-static func add_extras(st: UnitData, rng: RandomNumberGenerator, n: int) -> Array:
+## `only`: sorteia só entre essas habilidades (a ASSINATURA das cartas de arena usa pra escolher qual)
+static func add_extras(st: UnitData, rng: RandomNumberGenerator, n: int, only: Array = []) -> Array:
 	var labels: Array = []
-	var pool = EXTRA_POOL.duplicate()
+	var pool = (EXTRA_POOL if only.is_empty() else only).duplicate()
 	var is_b = st.unit_type == UnitData.UnitType.BUILDING
 	var melee = !st.is_ranged
 	var tries = 0

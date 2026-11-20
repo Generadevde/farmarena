@@ -16,6 +16,20 @@ func _ready():
 	var center = CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
+	# número da versão, embaixo: pra conferir de relance se o jogo atualizou
+	var ver = Label.new()
+	ver.name = "Versao"
+	ver.text = Versao.texto()
+	ver.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	ver.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	ver.offset_bottom = -18
+	ver.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ver.add_theme_font_size_override("font_size", 22)
+	ver.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	ver.add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
+	ver.add_theme_constant_override("outline_size", 6)
+	ver.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(ver)
 	var col = VBoxContainer.new()
 	col.add_theme_constant_override("separation", 18)
 	col.custom_minimum_size.x = 600

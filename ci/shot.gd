@@ -70,6 +70,18 @@ func _ready():
 	await get_tree().create_timer(0.4).timeout
 	await _shot("carta_forca")
 	if OS.get_environment("SHOT_SO_CARTA") != "":
+		# tela inicial (login), com o número da versão embaixo
+		var login = load("res://Scenes/profile_setup.tscn").instantiate()
+		login.z_index = 4000
+		get_tree().root.add_child(login)
+		await get_tree().create_timer(0.4).timeout
+		await _shot("login")
+		login.queue_free()
+		for n in get_tree().get_nodes_in_group("hub_popup"):
+			n.queue_free()
+		hub._go_tab(1)
+		await get_tree().create_timer(0.4).timeout
+		await _shot("baralho")
 		# conferência rápida da info: SHOT_SO_CARTA="id1,id2" (ou "safra" pra carta da safra atual)
 		for id in OS.get_environment("SHOT_SO_CARTA").split(",", false):
 			for n in get_tree().get_nodes_in_group("hub_popup"):

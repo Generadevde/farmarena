@@ -56,6 +56,14 @@ jobs:
           head, tail = s[:i], s[i:]
           tail = re.sub(r"^version/code=\d+", "version/code=" + os.environ["GITHUB_RUN_NUMBER"], tail, count=1, flags=re.M)
           open(p, "w", encoding="utf-8").write(head + tail)
+          # o mesmo número aparece DENTRO do jogo (tela inicial e Configurações)
+          import datetime, zoneinfo
+          agora = datetime.datetime.now(zoneinfo.ZoneInfo("America/Manaus")).strftime("%d/%m %H:%M")
+          v = "Scripts/versao.gd"
+          t = open(v, encoding="utf-8").read()
+          t = t.replace('const NUMERO = "dev"', 'const NUMERO = "%s"' % os.environ["GITHUB_RUN_NUMBER"]).replace('const DATA = ""', 'const DATA = "%s"' % agora)
+          assert os.environ["GITHUB_RUN_NUMBER"] in t
+          open(v, "w", encoding="utf-8").write(t)
           PY
 
       - name: Importar projeto

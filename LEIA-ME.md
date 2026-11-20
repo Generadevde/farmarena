@@ -7,9 +7,9 @@ Jogo de cartas e torres offline (estilo Clash Royale, tema roça), feito em Godo
 
 ## O que tem
 
-- **Batalha**: arena simétrica, 3 torres por lado — o **portão** na frente (no meio, mais fraco) e duas atrás —, rio com 3 passagens. Quando o tempo acaba ganha quem derrubou mais torres (uma já basta); empatou, quem tem mais vida nas torres; derrubou as três, acaba na hora. Partida de 4 minutos, 4 cartas na mão (baralho de 7), recurso de 0 a 100, em dobro no último minuto.
-- **144 cartas em 10 turmas** (Curral, Galinheiro, Brejo, Roçado, Peões, Coisa Estranha, Mar, Mata, Lendas, Mitos), incluindo cartas com unidades diferentes juntas.
-- **12 arenas**, uma por faixa de troféu, cada uma com tema, cenário e 12 cartas próprias (73 feitas à mão; as outras 71 saem do criador automático, com semente fixa).
+- **Batalha**: arena simétrica, 2 torres por lado, rio com 3 passagens. Derrubou as duas, acaba na hora; se o tempo acabar, ganha quem derrubou mais torres e, empatando, quem tem mais vida nelas. Partida de 4 minutos, 4 cartas na mão (baralho de 7), recurso de 0 a 100, em dobro no último minuto. No Laboratório dá pra ligar o **portão** (terceira torre, na frente) com as 3 rotas.
+- **144 cartas em 10 turmas** (Curral, Galinheiro, Brejo, Roçado, Peões, Coisa Estranha, Mar, Mata, Lendas, Mitos). Toda carta tem um **TIPO** que diz como ela luta e de quem ganha/perde (Bando, Matador, Tanque, Área, Atirador, Voador, Lutador, Derruba-torre, Apoio, Construção, Feitiço).
+- **12 arenas**, uma por faixa de troféu, cada uma com tema, cenário e 12 cartas próprias (73 feitas à mão; as outras 71 saem do criador automático com semente fixa, cada uma com a sua assinatura no nome).
 - **Menu em 5 abas** (toque embaixo ou arraste para o lado): Feira, Cartas, Batalha, Troféus, Sítio.
 - **Progressão**: baús de colheita (tempo curto, cada partida adianta 1 minuto; a abertura é rápida; baú pronto não trava a fila), Feira diária, Mascate surpresa, Caminho dos Troféus, nível do jogador, cópias + ouro para subir carta, maestria visual pelo uso, 4 baralhos.
 - **Torneio da Roça**: mata-mata de 3 fases com cartas niveladas e uma regra especial sorteada.
