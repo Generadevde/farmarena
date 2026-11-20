@@ -158,17 +158,21 @@ func pool() -> Array:
 const FEATURED_DAYS = 3
 
 
+var _feat_busy := false
 var _feat_key := ""
 var _feat_card: CardData = null
 
 
 func featured_card() -> CardData:
 	# (é perguntado pra cada carta da coleção: guarda a resposta enquanto o dia e a lista não mudam)
+	if _feat_busy:
+		return null   # perguntaram de dentro da montagem das cartas: ainda não tem resposta (e não pode dar a volta)
+	_feat_busy = true
 	var key = "%d/%d" % [int(Time.get_unix_time_from_system() / 86400.0) / FEATURED_DAYS, CardDatabase.all_cards.size()]
-	if key == _feat_key and _feat_card != null and CardDatabase.all_cards.has(_feat_card):
-		return _feat_card
-	_feat_key = key
-	_feat_card = _pick_featured()
+	if !(key == _feat_key and _feat_card != null and CardDatabase.all_cards.has(_feat_card)):
+		_feat_key = key
+		_feat_card = _pick_featured()
+	_feat_busy = false
 	return _feat_card
 
 

@@ -1232,10 +1232,16 @@ func _pick_active_deck(i: int):
 
 
 func _start_battle():
+	if !CustomContent.can_battle():
+		_toast("Sem carta não dá pra batalhar. Crie a primeira no Criador.")
+		return
 	MatchSetup.start_1v1(get_tree())
 
 
 func _start_2v2():
+	if !CustomContent.can_battle():
+		_toast("Sem carta não dá pra batalhar. Crie a primeira no Criador.")
+		return
 	MatchSetup.start_2v2(get_tree())
 
 
@@ -3794,6 +3800,9 @@ func _show_bot(who: String):
 
 
 func _friendly(who: String):
+	if !CustomContent.can_battle():
+		_toast("Sem carta não dá pra batalhar. Crie a primeira no Criador.")
+		return
 	Cla.start_friendly(get_tree(), who)
 
 
@@ -4284,6 +4293,9 @@ func _show_replays():
 func _watch_replay(r: Dictionary):
 	MatchSetup.clear_special()
 	MatchSetup.replay_data = r
+	if !CustomContent.can_battle():
+		_toast("Sem carta não dá pra batalhar. Crie a primeira no Criador.")
+		return
 	get_tree().change_scene_to_file(MatchSetup.BATTLE_SCENE)
 
 

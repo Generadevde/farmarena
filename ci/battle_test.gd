@@ -2090,7 +2090,9 @@ func _new_mechanics_test():
 	var zero_n = CardDatabase.all_cards.size()
 	var zero_want = CustomContent.zero_pool().size()
 	var zd = CustomContent.zero_deck("bot qualquer")
+	var blocked_ok = CustomContent.can_battle() == (zero_want > 0)
 	Config.data["do_zero"] = false
 	CustomContent.apply_zero()
-	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == zero_want and zero_n < all_n and zd.size() == 8 and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
+	_check("começar do zero sem carta: coleção vazia e batalha travada (sem fechar o jogo)", blocked_ok and CustomContent.can_battle())
+	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == zero_want and zero_n < all_n and zd.size() == (8 if zero_want > 0 else 0) and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
 	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

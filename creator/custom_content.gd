@@ -1044,15 +1044,18 @@ func zero_on() -> bool:
 
 
 func zero_pool() -> Array:
-	# só as SUAS cartas, mesmo que seja uma só. O baralho inicial do jogo só entra
-	# enquanto você não criou nenhuma (com zero carta não tem como jogar).
+	# só as SUAS cartas, mesmo que seja uma só -- ou NENHUMA: aí a coleção fica vazia de
+	# verdade e só não dá pra entrar em batalha (can_battle)
 	var out: Array = []
 	for c in custom_cards:
 		if c != null and !is_spawn_only(c):
 			out.append(c)
-	if out.is_empty():
-		out = Catalogo.starter_deck().duplicate()
 	return out
+
+
+## dá pra entrar em batalha? No "começar do zero" precisa de pelo menos uma carta sua.
+func can_battle() -> bool:
+	return !zero_on() or !zero_pool().is_empty()
 
 
 ## quantas das cartas em jogo ainda são emprestadas do jogo (0 = só as suas)

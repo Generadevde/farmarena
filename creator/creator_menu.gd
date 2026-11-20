@@ -1742,7 +1742,7 @@ func _build_collection_panel():
 	if zero:
 		var mine = CustomContent.zero_pool().size() - CustomContent.zero_borrowed()
 		v.add_child(_note("Em jogo: %d carta(s) sua(s)%s. Baralho e bots usam só essas. Carta de arena 0 já nasce com você; as de arena maior caem nos baús e na Feira quando você chega nessa arena, e o bot só usa as da arena dele. As cartas do jogo não foram apagadas: desligue aqui e voltam todas." % [mine,
-			" (com menos de 8, elas se repetem no baralho)" if (mine > 0 and mine < 8) else (" ainda: por enquanto vale o baralho inicial, até você criar a primeira" if mine == 0 else "")], Color(0.75, 0.95, 1.0)))
+			" (com menos de 8, elas se repetem no baralho)" if (mine > 0 and mine < 8) else (". A coleção está vazia e não dá pra batalhar até você criar a primeira" if mine == 0 else "")], Color(0.75, 0.95, 1.0)))
 	else:
 		v.add_child(_note("Ligado, o jogo passa a usar só as cartas que você criar, uma por uma. Nada é apagado de verdade."))
 	var paused = bool(Config.data.get("safra_pausa", false))

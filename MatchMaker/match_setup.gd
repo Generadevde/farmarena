@@ -76,6 +76,8 @@ func clear_special():
 
 ## partida de torneio contra um bot específico
 func start_tournament_match(tree: SceneTree, bot_name: String, rule_id: int, arena_i: int):
+	if !CustomContent.can_battle():
+		return   # "começar do zero" sem nenhuma carta criada: não tem com o que jogar
 	mode = MODE_1V1
 	tournament = true
 	rule = rule_id
@@ -87,6 +89,8 @@ func start_tournament_match(tree: SceneTree, bot_name: String, rule_id: int, are
 ## Desafio do Dia: você joga com o baralho do dia (emprestado), tudo no nível
 ## de torneio, contra alguém da sua faixa. Não vale troféu.
 func start_daily_match(tree: SceneTree, deck: Array):
+	if !CustomContent.can_battle():
+		return   # "começar do zero" sem nenhuma carta criada: não tem com o que jogar
 	clear_special()
 	mode = MODE_1V1
 	tournament = true
@@ -98,6 +102,8 @@ func start_daily_match(tree: SceneTree, deck: Array):
 
 
 func start_1v1(tree: SceneTree):
+	if !CustomContent.can_battle():
+		return   # "começar do zero" sem nenhuma carta criada: não tem com o que jogar
 	clear_special()
 	# "clima maluco": de vez em quando a partida normal vem com uma regra doida
 	if randf() < 0.15:
@@ -108,6 +114,8 @@ func start_1v1(tree: SceneTree):
 
 
 func start_2v2(tree: SceneTree):
+	if !CustomContent.can_battle():
+		return   # "começar do zero" sem nenhuma carta criada: não tem com o que jogar
 	clear_special()
 	mode = MODE_2V2
 	var main_enemy = choose_opponent()
