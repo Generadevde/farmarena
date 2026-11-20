@@ -35,6 +35,7 @@ var _live_labels: Array = []         # [Label, Callable] -- textos de relógio a
 
 
 func _ready():
+	CustomContent.apply_zero()
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	theme = ThemeBuilder.game_theme
 	_tab = last_tab

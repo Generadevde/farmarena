@@ -225,6 +225,7 @@ func _build_card_list():
 	_body.add_child(new_row)
 	new_row.add_child(_button("+ Unidade", func(): _open_card_form(CustomContent.make_blank_card(false))))
 	new_row.add_child(_button("+ Feitiço", func(): _open_card_form(CustomContent.make_blank_card(true))))
+	_build_collection_panel()
 
 	# gerador
 	var gen_panel = PanelContainer.new()
@@ -350,6 +351,7 @@ func _power_hint() -> Label:
 
 func _save_card():
 	var card: CardData = _orig["card"]
+	_apply_zero_later.call_deferred()
 	if _recipe_touched:
 		card.art_recipe = _recipe.duplicate()
 		card.art_palette = _palette.duplicate()
@@ -1700,3 +1702,52 @@ func _tab_teste_feitico():
 	for l in lines:
 		_field_box.add_child(_note(str(l[0]), l[1]))
 	_field_box.add_child(_note("Conta feita com os números da tela, no nível 1. Feitiço que fica no chão só dá o dano total em quem ficar dentro até o fim."))
+
+
+func _apply_zero_later():
+	CustomContent.apply_zero()
+
+
+## Coleção do jogo: começar do zero, pausar o criador automático e a cópia de segurança
+func _build_collection_panel():
+	var p = PanelContainer.new()
+	_body.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	p.add_child(v)
+	var t = _label("⚙ Coleção do jogo", 20)
+	t.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	v.add_child(t)
+	var zero = CustomContent.zero_on()
+	var zb = _button("Começar do zero: " + ("LIGADO (só as suas cartas)" if zero else "desligado (todas as cartas do jogo)"), func():
+		Config.data["do_zero"] = !CustomContent.zero_on()
+		Config.save()
+		CustomContent.apply_zero()
+		_show_list())
+	zb.add_theme_color_override("font_color", Color(0.5, 1, 0.5) if zero else Color(1, 1, 1))
+	v.add_child(zb)
+	if zero:
+		var mine = CustomContent.zero_pool().size() - CustomContent.zero_borrowed()
+		v.add_child(_note("Em jogo: %d carta(s) sua(s)%s. Baralho e bots usam só essas. As cartas do jogo não foram apagadas: desligue aqui e voltam todas." % [mine,
+			(" + %d do baralho inicial emprestada(s) até você ter 7" % CustomContent.zero_borrowed()) if CustomContent.zero_borrowed() > 0 else ""], Color(0.75, 0.95, 1.0)))
+	else:
+		v.add_child(_note("Ligado, o jogo passa a usar só as cartas que você criar, uma por uma. Nada é apagado de verdade."))
+	var paused = bool(Config.data.get("safra_pausa", false))
+	v.add_child(_button("Criador automático da safra: " + ("PAUSADO" if paused else "ligado"), func():
+		Config.data["safra_pausa"] = !bool(Config.data.get("safra_pausa", false))
+		Config.save()
+		_show_list()))
+	var when = CustomContent.backup_when()
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	v.add_child(row)
+	row.add_child(_button("💾 Guardar cópia", func():
+		var n = CustomContent.backup_save()
+		_show_list()
+		_say("✔ Cópia guardada (%d arquivo(s)) do que você criou e editou." % n)))
+	if when != "":
+		row.add_child(_button("↩ Voltar a cópia", func():
+			_confirm("Pôr de volta a cópia de %s por cima do que tem agora?" % when, func():
+				var n = CustomContent.backup_restore()
+				_say("✔ Cópia de volta (%d arquivo(s)). Feche e abra o jogo pra ela valer." % n))))
+	v.add_child(_note("Cópia guardada: %s" % (when if when != "" else "nenhuma ainda")))

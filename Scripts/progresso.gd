@@ -153,6 +153,8 @@ func pool() -> Array:
 
 
 func is_owned(c: CardData) -> bool:
+	if c != null and CustomContent.zero_on() and CardDatabase.all_cards.has(c):
+		return true   # "começar do zero": toda carta em jogo é sua
 	return c != null and d["owned"].has(c.resource_path)
 
 

@@ -19,6 +19,9 @@ func _ready():
 	CustomContent.load_all()
 
 	var mode = OS.get_environment("CI_MODE")
+	if OS.get_environment("CI_ZERO") != "":
+		Config.data["do_zero"] = true   # a partida inteira no modo "começar do zero"
+		print("TESTE começar do zero: em jogo ", CustomContent.zero_pool().map(func(c): return c.card_name))
 	if mode == "arte":
 		_art_sheet()
 		get_tree().quit()
@@ -2035,4 +2038,21 @@ func _new_mechanics_test():
 	var far = await _dummy(E, mid + Vector2(-260, -300))
 	await get_tree().create_timer(2.0).timeout
 	_check("segundo ataque acerta tropa perto e não a de longe", near.current_hp < 99999 and far.current_hp == 99999, "%d %d" % [near.current_hp, far.current_hp])
+	# 7) bot não joga o Espelho sem ter o que repetir
+	var mcard = CardData.new()
+	mcard.cost = 20
+	mcard.spell_data = mir
+	battle._last_card.erase(E)
+	var no_last = battle.ai_can_play(E, mcard)
+	battle._last_card[E] = Catalogo.card("vaca_brava")
+	_check("bot só joga o Espelho quando tem o que repetir", !no_last and battle.ai_can_play(E, mcard) and battle.ai_can_play(E, raio))
+	# 8) COMEÇAR DO ZERO: liga, o jogo fica só com o baralho inicial emprestado; desliga, volta tudo
+	var all_n = CardDatabase.all_cards.size()
+	Config.data["do_zero"] = true
+	CustomContent.apply_zero()
+	var zero_n = CardDatabase.all_cards.size()
+	var zd = CustomContent.zero_deck("bot qualquer")
+	Config.data["do_zero"] = false
+	CustomContent.apply_zero()
+	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == 7 and zd.size() == 7 and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
 	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

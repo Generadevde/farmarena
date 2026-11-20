@@ -226,7 +226,7 @@ func add_storage_capacity(unit_team, amount: int):
 
 # a cada quantos segundos o recurso sobe, pros dois lados (antes dos módulos
 # de produção entrarem em ação) -- MUDA AQUI pra ajustar a taxa de geração
-const BASE_PRODUCTION_INTERVAL = 0.25
+const BASE_PRODUCTION_INTERVAL = 0.28   # 1 ponto a cada 0,28 s = 10 pontos em 2,8 s, o ritmo do Clash (era 0,25: 12% mais rápido)
 
 # quanto o recurso sobe a cada tick de produção
 const PRODUCTION_AMOUNT_PER_TICK = 1
@@ -245,6 +245,7 @@ var _resource_bar: ProgressBar  # encontrado pelo nome -- não usa mais $Resourc
 
 
 func _ready():
+	CustomContent.apply_zero()
 	MusicPlayer.play_battle_music()
 
 	add_to_group("battle_scene")
@@ -615,6 +616,10 @@ func _apply_ai_decision_speed():
 # sem isso, o bot escolhia direto do deck inteiro toda vez, podendo repetir
 # a mesma carta em ticks seguidos sem nenhuma rotação
 func _start_ai_hand():
+	if CustomContent.zero_on():
+		# "começar do zero": o bot joga só com as cartas que existem agora (as suas)
+		ai_profile = ai_profile.duplicate()
+		ai_profile.deck.assign(CustomContent.zero_deck(str(ai_profile.profile_name)))
 	ai_hand.resize(Regras.hand_size())
 	ai_draw_queue = ai_profile.deck.duplicate()
 	ai_draw_queue.shuffle()
@@ -2098,7 +2103,7 @@ func _on_timer_timeout():
 	var affordable: Array[CardData] = []
 	var affordable_ignoring_reserve: Array[CardData] = []
 	for card in ai_hand:
-		if card == null:
+		if card == null or !ai_can_play(GameManager.Team.ENEMY, card):
 			continue
 		if spendable >= card.cost:
 			affordable.append(card)
@@ -2308,7 +2313,7 @@ func _poll_ai_defense(delta):
 	_ai_defense_accum = 0.0
 	var affordable: Array[CardData] = []
 	for card in ai_hand:
-		if card != null and GameManager.enemy_money >= card.cost:
+		if card != null and GameManager.enemy_money >= card.cost and ai_can_play(GameManager.Team.ENEMY, card):
 			affordable.append(card)
 	var mistake = _get_mistake_chance() + (0.0 if ai_profile.reacts_to_threats else 0.3)
 	var defense = BattleBrain.choose_defense(get_tree(), GameManager.Team.ENEMY, affordable,
@@ -2584,6 +2589,16 @@ func select_card(card_data: CardData, hand_index: int = -1):
 
 
 var _last_card: Dictionary = {}   # time -> última carta jogada (o Espelho repete)
+
+
+## o bot pode jogar esta carta agora? Só barra o ESPELHO sem serventia: ele repete a
+## última carta do bot, então sem carta anterior (ou repetindo coisa bem mais barata
+## que ele) era recurso jogado fora.
+func ai_can_play(team, card: CardData) -> bool:
+	if card == null or !card.is_spell() or card.spell_data == null or !card.spell_data.mirror:
+		return true
+	var last: CardData = _last_card.get(team, null)
+	return last != null and !(last.spell_data != null and last.spell_data.mirror) and last.cost >= card.cost - 5
 
 
 func cast_spell(spell_data: SpellData, position: Vector2, caster_team, source_card_path: String = ""):

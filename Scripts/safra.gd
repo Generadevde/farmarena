@@ -21,7 +21,7 @@ func _ready():
 	var now = current_period()
 	if periods.is_empty():
 		periods.append(now)
-	elif now > int(periods[-1]):
+	elif now > int(periods[-1]) and !bool(Config.data.get("safra_pausa", false)):   # pausado: não colhe safra nova
 		# no máximo 2 safras atrasadas de uma vez (voltou depois de muito tempo)
 		var first = maxi(int(periods[-1]) + 1, now - 1)
 		for p in range(first, now + 1):

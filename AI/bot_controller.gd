@@ -9,7 +9,7 @@ class_name BotController
 const STARTING_MONEY = 5
 # mesmos valores da cena de batalha (batlhe_scene.gd) -- se mudar lá, muda aqui
 const MAX_MONEY = 100
-const PRODUCTION_INTERVAL = 0.25
+const PRODUCTION_INTERVAL = 0.28   # igual ao da batalha (ritmo do Clash)
 const PRODUCTION_PER_TICK = 1
 const DOUBLE_TIME_MULT = 2.0
 
@@ -34,6 +34,9 @@ var _label: Label
 func setup(p_battle: Node, p_profile: AIProfile, p_team, p_area: CollisionShape2D, lane_fraction: float):
 	battle = p_battle
 	profile = p_profile
+	if CustomContent.zero_on():
+		profile = p_profile.duplicate()
+		profile.deck.assign(CustomContent.zero_deck(str(p_profile.profile_name)))
 	team = p_team
 	spawn_area = p_area
 	max_money = MAX_MONEY
@@ -84,7 +87,7 @@ func _process(delta):
 func _affordable(reserve: int) -> Array:
 	var out: Array = []
 	for c in hand:
-		if c != null and money - reserve >= c.cost:
+		if c != null and money - reserve >= c.cost and battle.ai_can_play(team, c):
 			out.append(c)
 	return out
 

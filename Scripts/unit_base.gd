@@ -462,7 +462,7 @@ func _process(delta):
 	var moving = _really_moving and velocity.length() > 4.0 and stats.unit_type != UnitData.UnitType.BUILDING
 	# dá pra VER o estado: intocável/furtiva fica transparente; sólida quando dá pra bater nela
 	var ghostly = (stats.immune_while_moving and _really_moving) or (stats.can_stealth and !_has_attacked_before)
-	sprite.self_modulate.a = lerpf(sprite.self_modulate.a, 0.4 if ghostly else 1.0, minf(1.0, delta * 10.0))
+	sprite.self_modulate.a = lerpf(sprite.self_modulate.a, 0.6 if ghostly else 1.0, minf(1.0, delta * 10.0))
 	var pos = _sprite_home
 	var rot = 0.0
 	var squash = Vector2.ONE
@@ -521,7 +521,7 @@ func _process(delta):
 		_hit_squash = lerpf(_hit_squash, 0.0, minf(1.0, delta * 14.0))
 	if _deploy_until > GameManager.game_time:
 		var left = _deploy_until - GameManager.game_time
-		sprite.self_modulate.a = minf(sprite.self_modulate.a, 0.78)
+		sprite.self_modulate.a = minf(sprite.self_modulate.a, 0.92)
 		squash *= Vector2(1.0, 1.0 + 0.05 * sin(left * 14.0))
 	sprite.scale = _base_sprite_scale * squash
 	sprite.position = pos

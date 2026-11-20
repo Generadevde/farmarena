@@ -617,6 +617,24 @@ O "Goblin Gigante" sai de segundo ataque com `rider_count` > 1 mais "invoca ao
 morrer", que já existia. A régua e o duelo de papel do Criador não enxergam
 estas mecânicas, e os bots jogam o Espelho como um feitiço qualquer.
 
+### Décima leva (20/11) — começar do zero, Espelho do bot, recurso e transparência
+
+- **Começar do zero** (`CustomContent.zero_on/zero_pool/apply_zero`, chave
+  `do_zero`): o jogo passa a usar só as cartas criadas no Criador (coleção,
+  baralho do jogador em `DeckManager.start_deck`, baralho dos bots em
+  `_start_ai_hand` e `BotController.setup`). Nada é apagado: as cartas do jogo
+  saem de `CardDatabase.all_cards` e voltam ao desligar. Com menos de 7 cartas
+  próprias, o baralho inicial completa. Feira, baús, arenas e torneio NÃO foram
+  revistos nesse modo.
+- **Cópia de segurança**: `backup_save/backup_restore` copiam `user://custom`
+  pra `user://custom_copia` e de volta.
+- **Safra pausada** (`safra_pausa`): não colhe safra nova; as já colhidas ficam.
+- **Bot e Espelho** (`ai_can_play`): só joga com carta anterior de custo parecido.
+- **Recurso**: 1 ponto a cada 0,28 s (era 0,25). No Clash é 1 de elixir a cada
+  2,8 s, e 1 de elixir = 10 pontos daqui.
+- **Transparência**: tropa entrando em campo 78% → 92% de opacidade; invisível
+  ou imune andando 40% → 60%.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

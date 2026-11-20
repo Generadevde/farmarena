@@ -1027,3 +1027,97 @@ func remove_last_arena() -> bool:
 func _write_arenas():
 	var f = FileAccess.open(ARENAS_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify(_arena_data, "\t"))
+
+
+# ================================================================ COMEÇAR DO ZERO
+# Chave "do_zero" (Criador > Coleção do jogo). Ligada, o jogo passa a usar SÓ as cartas
+# criadas por você: coleção, baralho e bots. Nada é apagado de verdade: as cartas do jogo
+# ficam guardadas e voltam ao desligar. Enquanto você tem menos de 7 cartas suas, o
+# baralho inicial do jogo completa o que falta, senão não dá pra jogar.
+const ZERO_MIN = 7
+const BACKUP_DIR = "user://custom_copia/"
+var _full_cards: Array = []
+
+
+func zero_on() -> bool:
+	return bool(Config.data.get("do_zero", false))
+
+
+func zero_pool() -> Array:
+	var out: Array = []
+	for c in custom_cards:
+		if c != null and !is_spawn_only(c):
+			out.append(c)
+	for c in Catalogo.starter_deck():
+		if out.size() >= ZERO_MIN:
+			break
+		if c != null and !out.has(c):
+			out.append(c)
+	return out
+
+
+## quantas das cartas em jogo ainda são emprestadas do jogo (0 = só as suas)
+func zero_borrowed() -> int:
+	return zero_pool().filter(func(c): return !custom_cards.has(c)).size()
+
+
+func apply_zero():
+	if zero_on():
+		if _full_cards.is_empty():
+			_full_cards = CardDatabase.all_cards.duplicate()
+		CardDatabase.all_cards.assign(zero_pool())
+	elif !_full_cards.is_empty():
+		var back: Array = _full_cards.duplicate()
+		for c in custom_cards:
+			if c != null and !is_spawn_only(c) and !back.has(c):
+				back.append(c)
+		CardDatabase.all_cards.assign(back)
+		_full_cards = []
+	DeckBuilder.clear_cache()
+
+
+## 7 cartas pra um baralho (o do bot muda com o nome dele quando tem mais de 7)
+func zero_deck(seed_name: String, prefer: Array = []) -> Array:
+	var pool = zero_pool()
+	var out: Array = []
+	for c in prefer:
+		if pool.has(c) and !out.has(c) and out.size() < ZERO_MIN:
+			out.append(c)
+	var rng = RandomNumberGenerator.new()
+	rng.seed = abs(hash(seed_name))
+	var rest = pool.filter(func(c): return !out.has(c))
+	while out.size() < ZERO_MIN and !rest.is_empty():
+		out.append(rest.pop_at(rng.randi() % rest.size()))
+	return out
+
+
+func _copy_dir(from: String, to: String) -> int:
+	DirAccess.make_dir_recursive_absolute(to)
+	var n = 0
+	var dir = DirAccess.open(from)
+	if dir == null:
+		return 0
+	for sub in dir.get_directories():
+		n += _copy_dir(from.path_join(sub), to.path_join(sub))
+	for f in dir.get_files():
+		if dir.copy(from.path_join(f), to.path_join(f)) == OK:
+			n += 1
+	return n
+
+
+## guarda uma cópia de tudo que você criou e editou (cartas, módulos, arenas, desenhos)
+func backup_save() -> int:
+	var n = _copy_dir(ROOT, BACKUP_DIR)
+	var f = FileAccess.open(BACKUP_DIR.path_join("quando.txt"), FileAccess.WRITE)
+	if f != null:
+		f.store_string(Time.get_datetime_string_from_system(false, true))
+	return n
+
+
+func backup_when() -> String:
+	return FileAccess.get_file_as_string(BACKUP_DIR.path_join("quando.txt")) if FileAccess.file_exists(BACKUP_DIR.path_join("quando.txt")) else ""
+
+
+## põe a cópia de volta por cima do que tem agora (vale depois de fechar e abrir o jogo)
+func backup_restore() -> int:
+	return _copy_dir(BACKUP_DIR, ROOT) if backup_when() != "" else 0
