@@ -489,6 +489,80 @@ população sobe até 220, no máximo 12 por vez (pra não travar), espalhados
 pela tabela. **Atenção:** telas que percorrem todos os bots (ranking,
 Assembleia) vão trabalhar o dobro; não foi medido no celular.
 
+### Sétima leva (20/11, depois de jogar a 107/108) — "não acaba", "as cartas perderam a noção", espaços por nível
+
+O João mandou uma foto: 3 minutos de partida, 0 × 0, todas as torres cheias.
+"Praticamente impossível acabar, [a torre] tá muito forte e as coisas fracas."
+E sobre as tropas: "tem umas que são fracas e estão gigantes", "olha o tamanho
+das abelhas".
+
+**O erro de medida era meu.** Tudo que estava escrito acima foi medido em
+partida "justa": dois robôs completos, cartas no nível 5, baralhos de bots de
+todas as arenas. O caso dele nunca tinha sido medido: perfil novo, baralho
+inicial, nível 1, contra o bot que o pareamento escolhe. Agora tem o modo
+`LAB_NOVATO=1` (com `LAB_HUMANO=1 LAB_BOT=1`, sem `LAB_FAIR`) e o
+`placar.py` continua valendo; o resumo do ponto de vista do jogador é o `ci/lab/novato.py`. 24 partidas de cada:
+
+| caso de quem começa | acaba antes do tempo | ninguém derruba nada | jogador não derruba nada |
+|---|---|---|---|
+| versão 108, 2 módulos | 4 | 2 | 5 |
+| 1 módulo (regra nova dos espaços), sem mais nada | 6 | **11** | 12 |
+| + Casa Grande dormindo | 5 | 6 | 9 |
+| + tiro da torre 74 → 58 (1 módulo) | 9 | 4 | 9 |
+| idem, 2 módulos | 7 | 0 | 7 |
+
+O "jogador" dessas partidas é um robô simples (defende e, com 55 de recurso,
+solta uma tropa qualquer), então o número absoluto vale pouco; a comparação
+entre linhas é o que conta. Entre robôs fortes (justa, 2 módulos, 40 partidas)
+o mesmo ajuste dá base derrubada em 29, duração mediana 214 s e 14 partidas com
+menos de 2 minutos: lá a partida já é rápida, por isso a vida não desceu mais.
+
+**O que mudou na batalha.**
+
+- **A Casa Grande dorme** (`player_base.asleep`, `Regras.main_sleeps`): não
+  atira até levar dano ou perder um módulo. É a torre do rei do Clash. Antes,
+  quem atacava um módulo da frente ficava no alcance do módulo E da Casa Grande
+  (178 de distância entre os dois, alcance 215): 148 de dano por segundo em
+  cima de um Peão de 640 de vida.
+- **Tiro de torre 2,3× → 1,8×** (Celeiro 74 → 58) e **vida 1,3 → 1,2**
+  (Casa Grande 2600 → 2400, Celeiro 1690 → 1560 no nível 1).
+- Testei encurtar o alcance da Casa Grande (130) e não serve: a distância do
+  tiro das tropas é medida da borda, então atirador comum (alcance 125) batia
+  nela de fora. Ficou o alcance de sempre, com o sono.
+
+**Espaços de módulo por nível** (`Regras.MODULE_SLOT_LEVELS = [1, 5, 13]`):
+nível dos módulos 1 a 4 = 1 módulo, 5 a 12 = 2, 13 e 14 = 3. Na partida os
+dois lados entram com a quantidade do jogador (`bot_module_loadout(perfil,
+espaços)`), pra ninguém jogar com um módulo a mais. O que estava guardado além
+dos espaços de hoje continua guardado. Entre robôs fortes as três faixas
+saíram parecidas (base derrubada em 21/22/22 de 40, mediana 231/231/233 s).
+Com um módulo só **na frente do meio**, 98% das jogadas dos bots foram no
+meio (o mesmo defeito do portão): módulo sozinho agora vai pra um lado.
+
+**Módulo repetido.** O mesmo módulo pode ocupar todos os espaços. 60 pares de
+partidas, mesmo sorteio, o lado P com dois iguais ou com dois diferentes: 23
+vitórias nos dois casos. 1 em cada 5 bots leva dois iguais (nunca de recurso).
+Dois módulos de velocidade somam (teto +60%).
+
+**Tamanho = força × porte** (`Regras.strength_scale`, `Catalogo.porte`). O
+tamanho era um número escrito carta por carta e a curva do desenho espremia
+todo mundo (galinha de 150 de vida com 87% do tamanho do Peão). Agora sai da
+vida (+ um pouco do dano do golpe) vezes o porte do bicho, tirado do desenho:
+abelha/mosquito/formiga 0,6, galinha/pato/sapo 0,8, gente 1,0, vaca/cavalo
+1,15, mapinguari 1,25. Na tela (1,00 = desenho original): abelha 0,97 → 0,49,
+pintinho 0,90 → 0,53, galinha 1,31 → 0,74, Peão 1,50 → 1,31, Vaca Brava 2,12
+→ 2,11, Robô Balde 3,04 → 2,41. Construção fica com o tamanho da carta.
+
+**Defeito achado no laboratório.** Na partida "justa" os dois lados são
+`BotController`, que têm o próprio dinheiro: módulo de recurso (Moinho,
+Tanque de Leite, Armazém) não faz nada lá. O valor deles nunca foi medido.
+
+**Bug da coleção (105 a 107).** O aviso "o que falta no baralho" usava texto
+com quebra automática dentro da doca fixa; a doca "media" 2031 px e o espaço
+reservado embaixo dela empurrava a coleção pra fora da tela. Teste novo
+`CI_MODE=telas` abre o menu de verdade e confere isso, os espaços e os
+tamanhos.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

@@ -44,11 +44,22 @@ func _ready():
 	MatchSetup.arena_override = 1
 	var si = int(OS.get_environment("LAB_SEED")) if OS.get_environment("LAB_SEED") != "" else 0
 	MatchSetup.next_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[(3 + si * 2) % BotSimulator.roster_names.size()])
+	if OS.get_environment("LAB_NOVATO") != "":
+		# LAB_NOVATO=1: a partida de quem ACABOU de instalar -- perfil novo (baralho inicial, tudo nível 1,
+		# 0 troféu) contra o bot que o pareamento de verdade escolheria. Use com LAB_HUMANO=1 LAB_BOT=1
+		# e SEM LAB_FAIR. É o caso que a partida "justa" (nível 5, baralhos de todas as arenas) não mostra.
+		MatchSetup.tournament = false
+		MatchSetup.next_ai_profile = MatchSetup.choose_opponent()
+		print("LAB novato: bot=", MatchSetup.next_ai_profile.profile_name, " trofeus=", ArenaManager.get_trophies(MatchSetup.next_ai_profile.profile_name),
+			" deck=", MatchSetup.next_ai_profile.deck.map(func(x): return "%s:%d" % [x.card_name, MatchSetup.next_ai_profile.get_card_level(x)]),
+			" | meu=", Progresso.deck_cards(Progresso.active_deck()).map(func(x): return x.card_name))
 	if OS.get_environment("LAB_MODULOS") != "":
 		# LAB_MODULOS=1: os dois lados entram com módulos e pontos sorteados entre TODOS (pra medir a variedade)
+		# A quantidade por lado vem do nível; REGRAS_TUNE="slots=3" força 1, 2 ou 3.
 		var all_mods: Array = BotSimulator.available_bases.filter(func(b): return b != null)
 		for b in all_mods:
 			b.unlock_arena = 0
+		var n_slots = Progresso.module_slots()
 		var rng = RandomNumberGenerator.new()
 		rng.seed = 9000 + si
 		var a: BaseData = all_mods[rng.randi() % all_mods.size()]
@@ -57,17 +68,32 @@ func _ready():
 			b2 = all_mods[rng.randi() % all_mods.size()]
 		var pa2 = rng.randi() % 6
 		var pb2 = (pa2 + 1 + rng.randi() % 5) % 6
-		Progresso.set_module(0, a, pa2)
-		Progresso.set_module(1, b2, pb2)
+		var lo: Array = [{"base": a, "ponto": pa2}, {"base": b2, "ponto": pb2}]
 		if OS.get_environment("LAB_MODULOS") == "2":
 			# LAB_MODULOS=2: módulos sorteados, mas POSTOS com juízo (a mesma regra que o bot usa), nos dois lados
 			var pp = BotLearning.get_or_create_profile(BotSimulator.roster_names[(11 + si * 5) % BotSimulator.roster_names.size()])
 			pp.equipped_base = a
-			var lo = Progresso.bot_module_loadout(pp)
-			for i in lo.size():
-				Progresso.set_module(i, lo[i]["base"], int(lo[i]["ponto"]))
+			lo = Progresso.bot_module_loadout(pp, n_slots)
+		if OS.get_environment("LAB_DUPLO") != "":
+			# LAB_DUPLO=1: o lado P leva TODOS iguais ao módulo sorteado (recurso atrás, o resto na frente)
+			var eco = a.base_type in [BaseData.BaseType.PRODUCTION, BaseData.BaseType.CAPACITY]
+			lo = []
+			for i in n_slots:
+				lo.append({"base": a, "ponto": ([3, 5, 4] if eco else [0, 2, 1])[i]})
 		if MatchSetup.next_ai_profile != null:
 			MatchSetup.next_ai_profile.equipped_base = all_mods[rng.randi() % all_mods.size()]
+		if OS.get_environment("LAB_MODULOS") != "2" and OS.get_environment("LAB_DUPLO") == "":
+			lo = lo.slice(0, n_slots)
+			while lo.size() < n_slots:   # 3º sorteado: outro módulo, noutro ponto
+				var extra: BaseData = all_mods[rng.randi() % all_mods.size()]
+				var ep = rng.randi() % 6
+				if lo.any(func(o): return o["base"] == extra or int(o["ponto"]) == ep):
+					continue
+				lo.append({"base": extra, "ponto": ep})
+		Progresso.d["modulos"] = []
+		Progresso.set_module_loadout(lo)
+		print("LABBASE mods P=", Progresso.module_loadout().map(func(o): return "%s@%d" % [o["base"].base_name, int(o["ponto"])]),
+			" E=", Progresso.bot_module_loadout(MatchSetup.next_ai_profile, n_slots).map(func(o): return "%s@%d" % [o["base"].base_name, int(o["ponto"])]))
 	battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child(battle)
 	await get_tree().create_timer(0.6).timeout

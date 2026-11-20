@@ -1297,60 +1297,102 @@ func daily_result(won: bool) -> String:
 
 
 # ================================================================ MÓDULOS (base principal + 6 pontos)
-## os 2 módulos do jogador e o ponto de cada um: [{"base": BaseData, "ponto": int}, ...]
+## quantos espaços de módulo o jogador tem agora: 1 até o nível 4 dos módulos,
+## 2 do nível 5 ao 12 e 3 do 13 em diante (Regras.MODULE_SLOT_LEVELS)
+func module_slots() -> int:
+	return Regras.module_slots(tower_level())
+
+
+## os módulos do jogador e o ponto de cada um: [{"base": BaseData, "ponto": int}, ...]
+## Vem sempre um por espaço aberto. Pode REPETIR: o mesmo módulo pode ocupar
+## mais de um espaço (o que não repete é o ponto).
 func module_loadout() -> Array:
+	var n = module_slots()
 	var out: Array = []
 	var points := {}
 	for it in d.get("modulos", []):
+		if out.size() >= n:
+			break
 		var b: BaseData = Catalogo.base_by_path(str(it.get("path", "")))
 		var p = int(it.get("ponto", -1))
 		if b == null or !PlayerProfile.is_base_unlocked(b) or p < 0 or p >= Regras.MODULE_POINTS.size() or points.has(p):
 			continue
-		if out.any(func(o): return o["base"] == b):
-			continue
 		points[p] = true
 		out.append({"base": b, "ponto": p})
-	# completa o que falta: primeiro a torre que já estava equipada, depois as liberadas
+	# completa o que falta: primeiro a torre que já estava equipada, depois as liberadas.
+	# De preferência um módulo diferente; se não tiver outro, repete (espaço não fica vazio)
 	var pool: Array = [PlayerProfile.get_equipped_base()]
 	for b in BotSimulator.available_bases:
 		if b != null and PlayerProfile.is_base_unlocked(b):
 			pool.append(b)
+	pool = pool.filter(func(b): return b != null)
+	var order: Array = Regras.FILL_POINTS
 	for b in pool:
-		if out.size() >= Regras.MODULES_PER_SIDE:
+		if out.size() >= n:
 			break
-		if b == null or out.any(func(o): return o["base"] == b):
+		if out.any(func(o): return o["base"] == b):
 			continue
-		for p in Regras.DEFAULT_POINTS + [1, 3, 5, 4]:
+		for p in order:
 			if !points.has(p):
 				points[p] = true
 				out.append({"base": b, "ponto": p})
 				break
+	var k = 0
+	while out.size() < n and !pool.is_empty() and k < 12:
+		for p in order:
+			if !points.has(p):
+				points[p] = true
+				out.append({"base": pool[k % pool.size()], "ponto": p})
+				break
+		k += 1
 	return out
 
 
-## põe o módulo `b` no espaço `slot` (0 ou 1), no ponto `point`. Se o outro
-## espaço já usava esse módulo ou esse ponto, os dois trocam.
+## põe o módulo `b` no espaço `slot`, no ponto `point`. Se outro espaço já
+## usava esse ponto, os dois trocam de ponto. O MÓDULO pode repetir à vontade:
+## pôr o mesmo em todos os espaços vale (dois canhões, dois moinhos...).
 func set_module(slot: int, b: BaseData, point: int):
 	var cur = module_loadout()
 	if slot < 0 or slot >= cur.size() or b == null:
 		return
-	var other = 1 - slot
-	if other < cur.size():
-		if cur[other]["base"] == b:
-			cur[other]["base"] = cur[slot]["base"]
-		if int(cur[other]["ponto"]) == point:
+	for other in cur.size():
+		if other != slot and int(cur[other]["ponto"]) == point:
 			cur[other]["ponto"] = cur[slot]["ponto"]
 	cur[slot] = {"base": b, "ponto": point}
-	d["modulos"] = cur.map(func(o): return {"path": o["base"].resource_path, "ponto": int(o["ponto"])})
+	set_module_loadout(cur)
+
+
+## grava o conjunto inteiro de uma vez. O que estava guardado ALÉM dos espaços
+## de hoje continua guardado: quem perde um espaço por um tempo (trocou pra um
+## baralho mais fraco e o nível dos módulos caiu) não perde a escolha.
+func set_module_loadout(list: Array):
+	var keep: Array = []
+	var used := {}
+	for o in list:
+		if o.get("base") == null or keep.size() >= Regras.MODULE_SLOTS_MAX:
+			continue
+		keep.append({"path": o["base"].resource_path, "ponto": int(o["ponto"])})
+		used[int(o["ponto"])] = true
+	var old: Array = d.get("modulos", [])
+	for i in range(list.size(), old.size()):
+		var p = int(old[i].get("ponto", -1))
+		if keep.size() < Regras.MODULE_SLOTS_MAX and p >= 0 and !used.has(p):
+			keep.append({"path": str(old[i].get("path", "")), "ponto": p})
+			used[p] = true
+	d["modulos"] = keep
 	_commit()
 
 
-## os módulos do bot: a torre que ele já usava + outra, sempre as mesmas pra cada
-## bot. Ele nunca deixa a base sozinha: quem tem um módulo de recurso leva um de
-## defesa junto. Dois de defesa guardam as duas rotas do lado; um só fica na
-## frente do meio (é o mais perto de quem vem por qualquer ponte). Módulo de
-## recurso vai pros pontos de trás.
-func bot_module_loadout(profile) -> Array:
+## os módulos do bot: a torre que ele já usava + os outros, sempre os mesmos pra
+## cada bot. Ele entra com a MESMA quantidade do jogador (`slots`), pra partida
+## ser igual pros dois. Ele nunca deixa a base sozinha: leva no máximo um módulo
+## de recurso, e quem tem um de recurso leva defesa junto (quando cabe mais de
+## um). Defesa vai pra frente: um só fica num LADO (cada bot tem o seu; no meio
+## ele deixaria uma rota só pra atacar e a partida virava "tudo no meio"), dois
+## guardam as rotas dos lados, três fecham a frente toda. Módulo de recurso vai
+## pros pontos de trás.
+func bot_module_loadout(profile, slots: int = -1) -> Array:
+	var n = slots if slots > 0 else module_slots()
 	var first: BaseData = profile.equipped_base if profile != null and profile.equipped_base != null else null
 	var top = maxi(ArenaManager.get_player_arena(), first.unlock_arena if first != null else 0)
 	var pool: Array = BotSimulator.available_bases.filter(func(b): return b != null and b.unlock_arena <= top)
@@ -1360,26 +1402,34 @@ func bot_module_loadout(profile) -> Array:
 	if first == null:
 		first = pool[0]
 	var eco_types = [BaseData.BaseType.PRODUCTION, BaseData.BaseType.CAPACITY]
-	var first_eco = first.base_type in eco_types
-	var rest = pool.filter(func(b): return b != first and (!first_eco or !(b.base_type in eco_types)))
-	if rest.is_empty():
-		rest = pool.filter(func(b): return b != first)
-	var second: BaseData = rest[seed % rest.size()] if !rest.is_empty() else null
+	# 1 em cada 5 bots aposta tudo num módulo só e leva DOIS iguais (nunca dois de recurso).
+	# "botduplo" é só pro laboratório forçar sim (1) ou não (0).
+	var dbl = Regras._t("botduplo", -1.0)
+	var doubles = !(first.base_type in eco_types) and ((seed / 11) % 5 == 0 if dbl < 0.0 else dbl > 0.5)
+	var picks: Array = [first]
+	while picks.size() < n:
+		if doubles and picks.size() == 1:
+			picks.append(first)
+			continue
+		var has_eco = picks.any(func(b): return b.base_type in eco_types)
+		var rest = pool.filter(func(b): return !picks.has(b) and (!has_eco or !(b.base_type in eco_types)))
+		if rest.is_empty():
+			rest = pool.filter(func(b): return !picks.has(b))
+		if rest.is_empty():
+			rest = pool
+		picks.append(rest[(seed / (1 if picks.size() == 1 else 13)) % rest.size()])
 	var fronts: Array = []
 	var backs: Array = []
-	for b in [first, second]:
-		if b != null:
-			(backs if b.base_type in eco_types else fronts).append(b)
+	for b in picks:
+		(backs if b.base_type in eco_types else fronts).append(b)
 	var out: Array = []
-	if fronts.size() >= 2:
-		var flip = (seed / 3) % 2 == 1
-		out.append({"base": fronts[0], "ponto": 2 if flip else 0})
-		out.append({"base": fronts[1], "ponto": 0 if flip else 2})
-	elif fronts.size() == 1:
-		out.append({"base": fronts[0], "ponto": 1})
+	var flip = (seed / 3) % 2 == 1
+	var front_points: Array = [2, 0, 1] if flip else [0, 2, 1]
+	for i in fronts.size():
+		out.append({"base": fronts[i], "ponto": front_points[i]})
 	var back_points = [3, 5, 4]
-	for k in backs.size():
-		out.append({"base": backs[k], "ponto": back_points[((seed / 7) + k) % back_points.size()]})
+	for i in backs.size():
+		out.append({"base": backs[i], "ponto": back_points[((seed / 7) + i) % back_points.size()]})
 	return out
 
 

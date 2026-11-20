@@ -60,16 +60,56 @@ static func three_towers() -> bool:
 
 
 # ---------------------------------------------------------------- módulos
-const MODULES_PER_SIDE = 2
+## quantos módulos cabem por lado: abre com o NÍVEL DOS MÓDULOS (o mesmo 1 a 14 das cartas).
+## Na partida os DOIS lados entram com a mesma quantidade: a do jogador.
+const MODULE_SLOTS_MAX = 3
+const MODULE_SLOT_LEVELS = [1, 5, 13]   # nível em que abre o 1º, o 2º e o 3º espaço
 const MAIN_BASE_POS = Vector2(0, 330)   # a partir do meio do rio, pro lado de quem é o dono
 # os 6 pontos: 3 na frente (esquerda, meio, direita), 2 nos lados da base e 1 atrás dela
 const MODULE_POINTS = [Vector2(-150, 235), Vector2(0, 225), Vector2(150, 235), Vector2(-140, 395), Vector2(0, 435), Vector2(140, 395)]
 const MODULE_POINT_NAMES = ["Frente esquerda", "Frente meio", "Frente direita", "Lado esquerdo", "Atrás da base", "Lado direito"]
-const DEFAULT_POINTS = [0, 2]
+const DEFAULT_POINTS = [0, 2, 1]             # onde os módulos nascem, antes de a batalha pôr cada um no ponto escolhido
+# ordem dos pontos pra completar espaço vazio. O primeiro é um LADO da frente, não o meio: com o
+# único módulo na frente do meio, tudo que o adversário tem pra bater fica na rota do meio e a
+# partida vira "jogar carta no meio" (medido: 98% das jogadas dos bots no meio)
+const FILL_POINTS = [0, 2, 1, 3, 5, 4]
+
+
+static func module_slots(level: int) -> int:
+	var forced = int(_t("slots", 0.0))   # laboratório e testes: REGRAS_TUNE="slots=3"
+	if forced > 0:
+		return clampi(forced, 1, MODULE_SLOTS_MAX)
+	var n = 0
+	for lv in MODULE_SLOT_LEVELS:
+		if level >= lv:
+			n += 1
+	return clampi(n, 1, MODULE_SLOTS_MAX)
+
+
+## nível em que abre o próximo espaço (0 = já abriu todos)
+static func next_slot_level(level: int) -> int:
+	for lv in MODULE_SLOT_LEVELS:
+		if lv > level:
+			return lv
+	return 0
 
 
 static func modules() -> bool:
 	return on("modulos")
+
+
+## a Casa Grande começa DORMINDO: só atira depois de levar dano ou de perder um módulo
+## (a torre do rei do Clash). Laboratório: REGRAS_TUNE="sono=0" desliga.
+static func main_sleeps() -> bool:
+	return modules() and _t("sono", 1.0) > 0.5
+
+
+## alcance do tiro da Casa Grande
+const MAIN_RANGE = 215.0
+
+
+static func main_range() -> float:
+	return _t("mainrange", MAIN_RANGE)
 
 
 static func routes() -> bool:
@@ -116,9 +156,9 @@ static func gate_range_share() -> float:
 const TOWER_HP_FRACTION_OLD = 0.65
 # 20/11: 1.62 -> 1.3. O João achou vida demais nas torres. Com módulos, medido entre bots:
 # com 1.62 a base caía em 14 de 36 partidas; ver DIAGNOSTICO pra conta com 1.3.
-const TOWER_HP_FRACTION = 1.3
+const TOWER_HP_FRACTION = 1.2       # era 1.3 (e antes 1.62): no caso de quem começa (baralho inicial, nível 1) a torre não caía
                                    # batem bem mais; com 1.45 quase metade das partidas entre bots acabava em nocaute
-const TOWER_DAMAGE_MULT = 2.3        # Celeiro: 32 -> 74 por tiro
+const TOWER_DAMAGE_MULT = 1.8        # Celeiro: 32 -> 58 por tiro (era 2.3 = 74: tropa de quem começa morria antes de encostar)
 const TOWER_RANGE_BONUS = 90.0       # Celeiro: 125 -> 215 (passa de todo atirador comum)
 const TOWER_RANGE_MAX = 280.0
 # torre que não é "de tiro" (moinho, armazém, forte, cura, aura) ganha o
@@ -186,6 +226,15 @@ static var _tune: Dictionary = {}
 static var _tune_read := false
 
 
+## testes: força (ou solta, com `on = false`) um ajuste sem depender do ambiente
+static func set_tune(key: String, value: float, on: bool = true):
+	_t(key, 0.0)   # lê o ambiente antes, pra ele não passar por cima depois
+	if on:
+		_tune[key] = value
+	else:
+		_tune.erase(key)
+
+
 static func _t(key: String, fallback: float) -> float:
 	if !_tune_read:
 		_tune_read = true
@@ -237,11 +286,31 @@ static func double_time() -> float:
 
 
 # ---------------------------------------------------------------- visual
-const SPRITE_BOOST = 1.5       # tropa "normal" (escala 1.0) fica 50% maior na tela
-const SPRITE_CURVE = 0.85      # quase proporcional: pintinho é miúdo, vaca é grande, robô é enorme
-                               # (era 0.6 -- espremia todo mundo pro mesmo tamanho)
-const BODY_BOOST = 1.28        # o corpo (colisão) cresce menos que o desenho
+const SPRITE_BOOST = 1.3       # tropa "normal" (escala 1.0) fica 30% maior na tela (era 1.5: tudo grande demais)
+const SPRITE_CURVE = 1.0       # proporcional à escala: pintinho é miúdo, vaca é grande, robô é enorme
+                               # (era 0.85 -- galinha de 150 de vida ficava quase do tamanho do peão)
+const BODY_BOOST = 1.11        # o corpo (colisão) cresce menos que o desenho (era 1.28; desceu junto com o desenho)
 const BODY_CURVE = 0.8
+
+
+## TAMANHO = FORÇA x PORTE.
+## Força, igual ao Clash: quanto mais forte, maior. A vida pesa mais; o dano de um
+## golpe pesa um pouco (pra matador não virar formiga). O Peão do Forcado (640 de
+## vida) é o 1,0.
+## Porte é o tamanho do bicho de verdade (Catalogo.porte): abelha é miúda, galinha
+## é menor que gente, vaca é maior. Sem isso, abelha e moleque de 90 de vida saíam
+## do mesmo tamanho.
+## Vale pra toda tropa do catálogo, das arenas e da safra; construção fica com o
+## tamanho escrito na carta.
+const SIZE_REF = 700.0
+const SIZE_POWER = 0.28
+const SIZE_MIN = 0.38
+const SIZE_MAX = 2.0
+
+
+static func strength_scale(hp: float, damage: float, porte: float = 1.0) -> float:
+	var s = maxf(hp + 0.8 * maxf(damage, 0.0), 20.0)
+	return snappedf(clampf(pow(s / SIZE_REF, SIZE_POWER) * porte, SIZE_MIN, SIZE_MAX), 0.01)
 const COLOR_ALLY = Color("#4aa8ff")
 const COLOR_ENEMY = Color("#ff5648")
 

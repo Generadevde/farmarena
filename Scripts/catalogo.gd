@@ -1190,6 +1190,29 @@ static func _enum_value(enum_dict: Dictionary, value, fallback: int = 0) -> int:
 
 
 ## stats_override / spell_override: números já prontos (gerador / Safra)
+## PORTE: o tamanho do bicho de verdade, tirado do desenho da carta (a "receita").
+## Multiplica o tamanho que sai da força. 1,0 = gente.
+const PORTE_QUATRO = {"formiga": 0.6, "sapo": 0.8, "gato": 0.8, "caranguejo": 0.8, "cachorro": 0.85, "casca": 0.85, "aguaviva": 0.85,
+	"bezerro": 0.9, "bode": 0.9, "capivara": 0.9, "rasteiro": 0.9, "cobra": 0.95, "polvo": 1.0, "onca": 1.05, "jegue": 1.1, "cerbero": 1.1,
+	"vaca": 1.15, "cavalo": 1.15, "montado": 1.15, "tripe": 1.2, "dragao": 1.2, "mapinguari": 1.25}
+const PORTE_CABECA = {"abelha": 0.6, "galinha": 0.8, "pato": 0.8, "sapo": 0.8, "siri": 0.8, "coruja": 0.85, "gato": 0.85, "tatu": 0.85,
+	"urubu": 0.9, "cachorro": 0.9, "peixe": 0.9, "cebola": 0.9, "milho": 0.9, "abobora": 0.9, "cacto": 0.9, "et": 0.9,
+	"elmo": 1.05, "onca": 1.05, "vaca": 1.1, "boi": 1.1, "cavalo": 1.1, "burro": 1.1, "jacare": 1.1, "tubarao": 1.1,
+	"balde": 1.15, "ciclope": 1.15, "baleia": 1.2}
+const PORTE_OBJETO = {"ovni": 1.15, "trator": 1.2}
+
+
+static func porte(recipe: Dictionary) -> float:
+	if recipe == null or recipe.is_empty():
+		return 1.0
+	if recipe.has("quatro"):
+		return float(PORTE_QUATRO.get(str(recipe["quatro"]), 1.0))
+	# (perna ou asa de inseto num bicho misturado das arenas NÃO faz dele um inseto: quem manda é a cabeça)
+	if recipe.has("objeto"):
+		return float(PORTE_OBJETO.get(str(recipe["objeto"]), 1.0))
+	return float(PORTE_CABECA.get(str(recipe.get("cabeca", "")), 1.0))
+
+
 static func build_card(def: Dictionary, path: String = "", stats_override: UnitData = null, spell_override: SpellData = null) -> CardData:
 	_ensure()
 	if _template == null:
@@ -1219,6 +1242,10 @@ static func build_card(def: Dictionary, path: String = "", stats_override: UnitD
 	else:
 		var stats = stats_override if stats_override != null else UnitData.new()
 		_apply_fields(stats, def.get("u", {}))
+		# o tamanho sai da força (Regras.strength_scale), não do número escrito carta por carta:
+		# era aí que tropa fraca aparecia gigante. "tamanho_fixo": true na carta mantém o escrito.
+		if stats.unit_type != UnitData.UnitType.BUILDING and !bool(def.get("tamanho_fixo", false)):
+			stats.unit_scale = Regras.strength_scale(stats.hp, stats.damage, porte(def.get("receita", {})))
 		stats.role = card.role
 		if stats.is_ranged:
 			stats.detection_range = maxf(stats.detection_range, stats.attack_range + 20.0)

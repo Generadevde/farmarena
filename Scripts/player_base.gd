@@ -10,7 +10,7 @@ signal damaged(amount)
 
 var hp: int
 var is_main := false       # a BASE PRINCIPAL (regra "modulos"): caiu, a partida acaba
-var module_slot := -1      # 0 ou 1: qual dos módulos do lado é este (-1 = não é módulo)
+var module_slot := -1      # 0, 1 ou 2: qual dos módulos do lado é este (-1 = não é módulo)
 var module_point := -1     # em qual dos 6 pontos ele está
 var _spawn_clock := 0.0
 var is_gate := false   # o PORTÃO: a torre da frente (regra "portao"), mais fraca que as de trás
@@ -127,7 +127,42 @@ func _process(delta):
 # CANHÃO
 # ============================================================
 
+# ---- a Casa Grande DORME (igual a torre do rei do Clash): não atira até levar dano
+# ou perder um módulo. Sem isso, quem atacava um módulo da frente apanhava do módulo
+# E da Casa Grande ao mesmo tempo, e a partida de quem está começando não acabava
+# (medido: 11 de 24 partidas sem nenhuma torre cair).
+var asleep := false
+var _zzz: Label
+
+
+func set_asleep(v: bool):
+	asleep = v
+	if v and !is_instance_valid(_zzz):
+		_zzz = Label.new()
+		_zzz.text = "💤"
+		_zzz.add_theme_font_size_override("font_size", 30)
+		_zzz.position = Vector2(18, -112)
+		_zzz.z_index = 50
+		_zzz.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_zzz)
+	elif !v and is_instance_valid(_zzz):
+		_zzz.queue_free()
+		_zzz = null
+
+
+func wake():
+	if !asleep:
+		return
+	set_asleep(false)
+	_shot_cooldown = 0.5   # um instante pra reagir
+	if is_inside_tree() and hp > 0:
+		Fx.text(get_parent(), position + Vector2(0, -84), "ACORDOU!", Color(1.0, 0.9, 0.4), 1.2)
+		Sfx.play("torre_dano", 0.1, -1.0, 1.4)
+
+
 func _shot_range() -> float:
+	if is_main and Regras.modules():
+		return Regras.main_range()
 	return Regras.tower_range(base_data) * (Regras.gate_range_share() if is_gate else 1.0)
 
 
@@ -142,6 +177,8 @@ func _shot_texture() -> Texture2D:
 
 
 func _process_cannon(delta):
+	if asleep:
+		return
 	_shot_cooldown -= delta
 
 	if _shot_cooldown > 0:
@@ -391,6 +428,8 @@ func _apply_base_effect_to(body):
 
 func take_damage(amount):
 	hp = clamp(hp - amount, 0, max_hp)
+	if asleep and amount > 0:
+		wake()
 	# módulo de guarda: apanhou, solta tropa (com um intervalo mínimo)
 	if base_data != null and base_data.spawn_on_hit and base_data.spawn_card_id != "" and hp > 0 and amount > 0 \
 			and _spawn_clock >= maxf(base_data.spawn_cooldown, 1.0):

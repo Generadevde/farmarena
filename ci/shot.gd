@@ -82,6 +82,20 @@ func _ready():
 		hub._go_tab(1)
 		await get_tree().create_timer(0.4).timeout
 		await _shot("baralho")
+		# aba Módulos: como o perfil está (nível baixo = 1 espaço) e depois com os 3 espaços, dois iguais
+		hub._set_cards_view(1)
+		await get_tree().create_timer(0.5).timeout
+		await _shot("modulos")
+		Regras.set_tune("slots", 3)
+		var lo0 = Progresso.module_loadout()
+		if lo0.size() >= 2:
+			Progresso.set_module(1, lo0[0]["base"], int(lo0[1]["ponto"]))
+		hub._queue_refresh()
+		await get_tree().create_timer(0.5).timeout
+		await _shot("modulos3")
+		Regras.set_tune("slots", 0, false)
+		hub._set_cards_view(0)
+		await get_tree().create_timer(0.3).timeout
 		# conferência rápida da info: SHOT_SO_CARTA="id1,id2" (ou "safra" pra carta da safra atual)
 		for id in OS.get_environment("SHOT_SO_CARTA").split(",", false):
 			for n in get_tree().get_nodes_in_group("hub_popup"):

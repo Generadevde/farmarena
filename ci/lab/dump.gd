@@ -15,6 +15,7 @@ func _ready():
 				for k in ["hp","damage","attack_speed","move_speed","attack_range","unit_count","is_ranged","unit_type","target_type","is_aoe","aoe_radius","unit_scale","push_weight","detection_range","initial_stun_duration","duration","projectile_speed"]:
 					d[k] = st.get(k)
 				d["comp"] = c.companions.size()
+				d["receita"] = c.art_recipe
 				d["abil"] = Catalogo.abilities_detail(c).map(func(p): return str(p[0]))
 		out.append(d)
 	var where = OS.get_environment("LAB_DUMP") if OS.get_environment("LAB_DUMP") != "" else "/tmp/lab/cards.json"

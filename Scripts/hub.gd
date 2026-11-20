@@ -991,7 +991,7 @@ func _show_settings():
 			["mao4", "🃏 4 cartas na mão", "Em vez de 3. O baralho continua com 7: sobra menos carta escondida na fila."],
 			["portao", "🚪 Portão na frente (3 torres)", "Experiência: uma torre mais fraca no meio, na frente, além das duas de trás. Deixa a partida toda no meio -- por isso vem desligado."],
 			["rotas", "🧭 3 rotas (só com o portão)", "A tropa segue a rota onde você solta: esquerda e direita vão na torre de trás daquele lado, o meio vai no portão."],
-			["modulos", "🧩 Base principal + módulos", "Casa Grande no meio (caiu, acabou) e 6 pontos em volta pra pôr 2 módulos. Desligado, voltam as 2 torres iguais."]]:
+			["modulos", "🧩 Base principal + módulos", "Casa Grande no meio (caiu, acabou) e 6 pontos em volta pra pôr os módulos (1 a 3, conforme o nível). Desligado, voltam as 2 torres iguais."]]:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		lab.add_child(line)
@@ -1238,14 +1238,21 @@ func _set_cards_view(v: int):
 	_queue_refresh()
 
 
-var _mod_sel := -1   # módulo tocado no mapa (0 ou 1), esperando o toque no ponto novo
+var _mod_sel := -1   # módulo tocado no mapa (o espaço dele), esperando o toque no ponto novo
 
 
 ## o mapa da sua base: a Casa Grande no meio e os 6 pontos em volta (em cima = lado do rio)
 func _build_modulos_map(box: Node, loadout: Array):
 	var tp = _panel(box)
-	tp.add_child(_label("🧩 Sua base: Casa Grande + 2 módulos", 22, ThemeBuilder.COLOR_GOLD))
-	tp.add_child(_wrap("A Casa Grande é igual pros dois lados e não muda: se ela cair, a partida acaba. Em volta dela tem 6 pontos e você põe 2 módulos onde quiser. Módulo derrubado para de funcionar e vale 1 no placar. Só módulo de tiro atira. Nível dos seus módulos: %d." % Progresso.tower_level(), 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var n_mods = loadout.size()
+	var mlv = Progresso.tower_level()
+	tp.add_child(_label("🧩 Sua base: Casa Grande + %d módulo%s" % [n_mods, "" if n_mods == 1 else "s"], 22, ThemeBuilder.COLOR_GOLD))
+	tp.add_child(_wrap("A Casa Grande é igual pros dois lados e não muda: se ela cair, a partida acaba. Em volta dela tem 6 pontos pra pôr módulo, e pode repetir o mesmo. Módulo derrubado para de funcionar e vale 1 no placar. Só módulo de tiro atira. A Casa Grande começa dormindo 💤: só atira depois de levar dano ou de perder um módulo.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	# os espaços abrem com o nível dos módulos (1, 2 ou 3) e o adversário entra com a mesma quantidade
+	var nxt = Regras.next_slot_level(mlv)
+	var slots_txt = "🔓 Espaços de módulo: %d de %d (nível dos módulos %d). " % [n_mods, Regras.MODULE_SLOTS_MAX, mlv]
+	slots_txt += "O próximo abre no nível %d. " % nxt if nxt > 0 and n_mods < Regras.MODULE_SLOTS_MAX else "Já abriu todos. "
+	tp.add_child(_wrap(slots_txt + "O adversário entra sempre com a mesma quantidade que você.", 15, Color(1.0, 0.9, 0.55)))
 	tp.add_child(_label("▲ rio (a frente é em cima)", 14, Color(0.6, 0.85, 1.0)))
 	var grid = GridContainer.new()
 	grid.columns = 3
@@ -1329,7 +1336,7 @@ func _build_torres(box: Node):
 	else:
 		why += " Agora falta subir o seu nível de jogador."
 	tp.add_child(_wrap(why, 15, ThemeBuilder.COLOR_STAT_LABEL))
-	box.add_child(_wrap("Cada módulo faz uma coisa. Escolha 2 e ponha cada um num ponto. Os novos liberam conforme você sobe de arena." if mods_on else "Sua torre vale pras DUAS torres do seu lado. Cada tipo muda o jeito de jogar. As novas liberam conforme você sobe de arena.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	box.add_child(_wrap(("Cada módulo faz uma coisa. Escolha %s e ponha no ponto que quiser (pode repetir o mesmo). Os novos liberam conforme você sobe de arena." % ("o seu" if loadout.size() <= 1 else "os seus %d" % loadout.size())) if mods_on else "Sua torre vale pras DUAS torres do seu lado. Cada tipo muda o jeito de jogar. As novas liberam conforme você sobe de arena.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	var list: Array = BotSimulator.available_bases.filter(func(b): return b != null)
 	list.sort_custom(func(a, b): return a.unlock_arena < b.unlock_arena)
 	for b in list:
@@ -1350,8 +1357,9 @@ func _build_torres(box: Node):
 		row.add_child(side)
 		if b.has_meta("safra"):
 			side.add_child(_label("🆕 NOVIDADE da safra" if b == Safra.current_tower() else "🌱 Módulo de safra", 14, Color(0.5, 1, 0.6)))
-		var in_use = loadout.any(func(o): return o["base"] == b) if mods_on else b == equipped
-		side.add_child(_label(b.base_name + ("   ✔ EM USO" if in_use else ""), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
+		var uses: int = loadout.filter(func(o): return o["base"] == b).size() if mods_on else int(b == equipped)
+		var in_use = uses > 0
+		side.add_child(_label(b.base_name + ("   ✔ EM USO ×%d" % uses if uses > 1 else ("   ✔ EM USO" if in_use else "")), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
 		var brar = Catalogo.base_rarity(b)
 		var bab = Catalogo.base_ability(b)
 		side.add_child(_label("%s  ·  %s" % [Catalogo.RARITY_NAMES[brar], "Habilidade: " + str(bab[0]) if !bab.is_empty() else "sem habilidade"], 15, Catalogo.RARITY_COLORS[brar]))
@@ -1365,9 +1373,12 @@ func _build_torres(box: Node):
 		if !unlocked:
 			p.add_child(_label("🔒 Libera na Arena %d (%s)" % [b.unlock_arena, ArenaManager.get_arena_info(b.unlock_arena).get("name", "")], 16, Color(1, 0.85, 0.5)))
 		elif mods_on:
-			if !in_use:
-				for i in loadout.size():
-					p.add_child(_button("Pôr no lugar de %s" % loadout[i]["base"].base_name, _use_module.bind(i, b), 18))
+			# dá pra repetir: o mesmo módulo pode ocupar todos os espaços. O ponto entre
+			# parênteses diz QUAL espaço troca (quando os dois já são iguais, o nome não diz)
+			for i in loadout.size():
+				if loadout[i]["base"] != b:
+					p.add_child(_button(("Pôr mais um no lugar de %s (%s)" if in_use else "Pôr no lugar de %s (%s)") % [loadout[i]["base"].base_name,
+						Regras.MODULE_POINT_NAMES[int(loadout[i]["ponto"])].to_lower()], _use_module.bind(i, b), 17))
 		elif b != equipped:
 			p.add_child(_button("Usar esta torre", _equip_base_direct.bind(b), 19))
 	box.add_child(_button("🎨 Criar minha própria torre (Criador)", _goto.bind(CREATOR_SCENE), 18))

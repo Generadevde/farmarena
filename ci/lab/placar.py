@@ -11,7 +11,7 @@ for pre in sys.argv[2:]:
         legacy=""; base_down=""
         lines=list(open(f))
         for l in lines:
-            if l.startswith("LABBASE"):
+            if l.startswith("LABBASE") and not l.startswith("LABBASE mods"):
                 base_down=l.split()[1] if len(l.split())>1 else ""
         for l in lines:
             if l.startswith("LAB justo"):

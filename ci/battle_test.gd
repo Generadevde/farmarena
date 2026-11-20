@@ -23,6 +23,10 @@ func _ready():
 		_art_sheet()
 		get_tree().quit()
 		return
+	if mode == "telas":
+		await _screens_test()
+		get_tree().quit()
+		return
 	var bot_name = BotSimulator.roster_names[0]
 	var prof = BotLearning.get_or_create_profile(bot_name)
 	print("TESTE bot=", bot_name, " deck=", prof.deck.map(func(c): return c.card_name + ":" + str(c.cost)))
@@ -359,6 +363,106 @@ func _art_sheet():
 	print("RESULTADO catálogo: unidades sem stats=", sem_stats)
 
 
+## TELAS: abre o menu de verdade e confere que o conteúdo CABE na tela.
+## (Versões 105 a 107: um texto com quebra automática dentro da doca fixa fazia
+## ela "medir" milhares de pixels e empurrava a coleção inteira pra fora da tela.)
+func _screens_test():
+	_aud_bad.clear()
+	for id in ["pato_ninja", "espantalho", "sapo_linguarudo"]:
+		Progresso.give_card(Catalogo.card(id), 3)
+	Progresso.pop_pending()
+	var hub = load("res://Scenes/hub.tscn").instantiate()
+	add_child(hub)
+	await get_tree().create_timer(0.6).timeout
+	hub._go_tab(1)
+	await get_tree().create_timer(0.6).timeout
+	var screen_h = get_viewport().get_visible_rect().size.y
+	var first_y = -1.0
+	for c in hub._col_views:
+		var v = hub._col_views[c]
+		if is_instance_valid(v):
+			first_y = v.global_position.y if first_y < 0.0 else minf(first_y, v.global_position.y)
+	_check("coleção aparece na tela, embaixo do baralho", hub._col_views.size() > 0 and first_y > 0.0 and first_y < screen_h,
+		"primeira carta em y=%d, tela=%d, cartas=%d" % [first_y, screen_h, hub._col_views.size()])
+	var dock_h = hub._deck_dock.size.y if is_instance_valid(hub._deck_dock) else -1.0
+	_check("doca do baralho não passa de metade da tela", dock_h > 0.0 and dock_h < screen_h * 0.5, "%d de %d" % [dock_h, screen_h])
+	# ESPAÇOS: perfil novo (nível 1) tem 1 módulo só, e a tela diz quando abre o próximo
+	var mods: Array = BotSimulator.available_bases.filter(func(b): return b != null)
+	for b in mods:
+		b.unlock_arena = 0
+	hub._set_cards_view(1)
+	await get_tree().create_timer(0.5).timeout
+	_check("nível 1 tem 1 espaço de módulo", Progresso.module_loadout().size() == 1 and _find_text(hub, "Espaços de módulo: 1 de 3") and _find_text(hub, "abre no nível 5"),
+		"módulos=%d" % Progresso.module_loadout().size())
+	Regras.set_tune("slots", 3)
+	hub._queue_refresh()
+	await get_tree().create_timer(0.5).timeout
+	var lo3 = Progresso.module_loadout()
+	var pts3 := {}
+	for o in lo3:
+		pts3[int(o["ponto"])] = true
+	_check("com 3 espaços a tela mostra 3 módulos, cada um num ponto", lo3.size() == 3 and pts3.size() == 3 and _find_text(hub, "Casa Grande + 3 módulos"), str(lo3.map(func(o): return [o["base"].base_name, o["ponto"]])))
+	hub._use_module(2, mods[0])
+	hub._use_module(1, mods[0])
+	hub._use_module(0, mods[0])
+	await get_tree().create_timer(0.5).timeout
+	_check("dá pra pôr três iguais", Progresso.module_loadout().all(func(o): return o["base"] == mods[0]) and _find_text(hub, "EM USO ×3"))
+	# MÓDULOS: dá pra pôr dois iguais pela tela, e a lista mostra isso
+	Regras.set_tune("slots", 2)
+	Progresso.d["modulos"] = []
+	Progresso.set_module(0, mods[0], 0)
+	Progresso.set_module(1, mods[1], 2)
+	hub._set_cards_view(1)
+	await get_tree().create_timer(0.5).timeout
+	hub._use_module(1, mods[0])
+	await get_tree().create_timer(0.5).timeout
+	var lo = Progresso.module_loadout()
+	_check("tela põe dois módulos iguais", lo.size() == 2 and lo[0]["base"] == mods[0] and lo[1]["base"] == mods[0] and int(lo[0]["ponto"]) != int(lo[1]["ponto"]))
+	_check("lista mostra o módulo repetido", _find_text(hub, "EM USO ×2") and _find_text(hub, "Pôr mais um no lugar") == false, "x2=%s" % _find_text(hub, "EM USO ×2"))
+	hub._use_module(0, mods[1])
+	await get_tree().create_timer(0.5).timeout
+	lo = Progresso.module_loadout()
+	_check("tela troca só o espaço escolhido", lo.size() == 2 and lo[0]["base"] == mods[1] and lo[1]["base"] == mods[0])
+	_check("lista oferece pôr mais um igual", _find_text(hub, "Pôr mais um no lugar"))
+	Regras.set_tune("slots", 0, false)
+	# TAMANHO pela força: tropa fraca pequena, tropa forte grande -- em TODAS as cartas de tropa
+	var weak_max = 0.0
+	var strong_min = 99.0
+	var weak_name = ""
+	var strong_name = ""
+	for c in CardDatabase.all_cards:
+		if c == null or c.is_spell() or c.has_meta("custom"):
+			continue
+		var st: UnitData = DeckBuilder.get_unit_stats(c)
+		if st == null or st.unit_type == UnitData.UnitType.BUILDING:
+			continue
+		if st.hp + 0.8 * st.damage < 250.0 and st.unit_scale > weak_max:
+			weak_max = st.unit_scale
+			weak_name = c.card_name
+		if st.hp >= 1800.0 and st.unit_scale < strong_min:
+			strong_min = st.unit_scale
+			strong_name = c.card_name
+	_check("nenhuma tropa fraca é maior que uma tropa forte", weak_max < strong_min and weak_max <= 0.9 and strong_min >= 1.05,
+		"fraca maior: %s %.2f | forte menor: %s %.2f" % [weak_name, weak_max, strong_name, strong_min])
+	var sizes = ["abelhas", "pintaiada", "galinha_atiradeira", "molecada", "peao_forcado", "vaca_brava", "robo_balde"].map(func(id): return DeckBuilder.get_unit_stats(Catalogo.card(id)).unit_scale)
+	var growing = true
+	for i in range(1, sizes.size()):
+		growing = growing and sizes[i] > sizes[i - 1]
+	_check("abelha < pintinho < galinha < moleque < peão < vaca < robô", growing, str(sizes))
+	print("RESULTADO telas: coleção em y=", int(first_y), " doca=", int(dock_h), " tela=", int(screen_h))
+	print("RESULTADO telas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
+
+
+## tem algum texto (rótulo ou botão) com esse pedaço debaixo de `node`?
+func _find_text(node: Node, piece: String) -> bool:
+	if (node is Label or node is Button) and str(node.text).contains(piece):
+		return true
+	for ch in node.get_children():
+		if _find_text(ch, piece):
+			return true
+	return false
+
+
 ## MÓDULOS: base principal + 6 pontos + 2 módulos por lado
 func _modules_test():
 	_aud_bad.clear()
@@ -378,6 +482,19 @@ func _modules_test():
 		elif b.resource_path.ends_with("torre_forte.tres"):
 			forte = b
 	_check("os módulos novos existem", moinho != null and guarita != null and estabulo != null and forte != null)
+	# ESPAÇOS por nível dos módulos: 1 até o 4, 2 do 5 ao 12, 3 do 13 em diante
+	_check("espaços por nível: 1-4 = 1, 5-12 = 2, 13+ = 3", [1, 4, 5, 12, 13, 14].map(func(lv): return Regras.module_slots(lv)) == [1, 1, 2, 2, 3, 3],
+		str([1, 4, 5, 12, 13, 14].map(func(lv): return Regras.module_slots(lv))))
+	_check("perfil novo (nível 1) começa com 1 módulo", Progresso.module_slots() == 1 and Progresso.module_loadout().size() == 1, str(Progresso.module_loadout().size()))
+	for want in [1, 3]:
+		var bl = Progresso.bot_module_loadout(MatchSetup.next_ai_profile, want)
+		var bp := {}
+		for o in bl:
+			bp[int(o["ponto"])] = true
+		var eco_n = bl.filter(func(o): return o["base"].base_type in [BaseData.BaseType.PRODUCTION, BaseData.BaseType.CAPACITY]).size()
+		_check("bot monta %d módulo(s), cada um num ponto, no máximo 1 de recurso" % want, bl.size() == want and bp.size() == want and eco_n <= 1,
+			str(bl.map(func(o): return [o["base"].base_name, o["ponto"]])))
+	Regras.set_tune("slots", 2)   # a partida deste teste é a de 2 módulos por lado
 	# o jogador entra com Moinho (ponto 4, atrás da base) e Guarita (ponto 0); o teste libera os módulos na marra
 	for b in [moinho, guarita, estabulo]:
 		if b != null:
@@ -386,6 +503,16 @@ func _modules_test():
 	Progresso.set_module(1, guarita, 0)
 	var saved = Progresso.module_loadout()
 	_check("guarda os 2 módulos e os pontos", saved.size() == 2 and saved[0]["base"] == moinho and int(saved[0]["ponto"]) == 4 and saved[1]["base"] == guarita and int(saved[1]["ponto"]) == 0)
+	# REPETIR: o mesmo módulo nos dois espaços vale (e continua valendo depois de salvar e ler de novo)
+	Progresso.set_module(1, moinho, 0)
+	var dup = Progresso.module_loadout()
+	_check("dá pra pôr dois módulos iguais", dup.size() == 2 and dup[0]["base"] == moinho and dup[1]["base"] == moinho and int(dup[0]["ponto"]) == 4 and int(dup[1]["ponto"]) == 0,
+		str(dup.map(func(o): return [o["base"].base_name, o["ponto"]])))
+	Progresso.set_module(0, moinho, 0)   # mesmo ponto do outro: os dois trocam de ponto, ninguém some
+	dup = Progresso.module_loadout()
+	_check("dois iguais trocam de ponto sem sumir", dup.size() == 2 and int(dup[0]["ponto"]) == 0 and int(dup[1]["ponto"]) == 4 and dup[1]["base"] == moinho)
+	Progresso.set_module(0, moinho, 4)
+	Progresso.set_module(1, guarita, 0)
 	await get_tree().create_timer(1.0).timeout
 	battle.get_node("Timer").stop()
 	var c = ArenaBuilder.CENTER
@@ -399,12 +526,16 @@ func _modules_test():
 	_check("1 base principal + 2 módulos de cada lado", my_main.size() == 1 and my_mods.size() == 2 and bot_main.size() == 1 and bot_mods.size() == 2)
 	_check("base principal igual pros dois", my_main[0].max_hp == bot_main[0].max_hp and my_main[0].base_data == bot_main[0].base_data, "%d x %d" % [my_main[0].max_hp, bot_main[0].max_hp])
 	_check("base principal no meio", abs(my_main[0].global_position.x - c.x) < 2.0 and abs(bot_main[0].global_position.x - c.x) < 2.0)
+	# a Casa Grande começa DORMINDO (não atira) e acorda quando leva dano ou perde um módulo
+	_check("Casa Grande começa dormindo", my_main[0].asleep and bot_main[0].asleep)
+	bot_main[0].take_damage(10)
+	_check("levou dano: a Casa Grande acorda", !bot_main[0].asleep and my_main[0].asleep)
 	var m_moinho = my_mods.filter(func(t): return t.base_data == moinho)
 	var m_guarita = my_mods.filter(func(t): return t.base_data == guarita)
 	_check("módulos nos pontos escolhidos", m_moinho.size() == 1 and m_guarita.size() == 1
 		and m_moinho[0].global_position.distance_to(ArenaBuilder.module_position(GameManager.Team.PLAYER, 4)) < 2.0
 		and m_guarita[0].global_position.distance_to(ArenaBuilder.module_position(GameManager.Team.PLAYER, 0)) < 2.0)
-	_check("módulos do bot em pontos diferentes", bot_mods[0].module_point != bot_mods[1].module_point and bot_mods[0].base_data != bot_mods[1].base_data)
+	_check("módulos do bot em pontos diferentes", bot_mods[0].module_point != bot_mods[1].module_point)
 	_check("só módulo de tiro atira", !Regras.tower_shoots(moinho) and Regras.tower_shoots(Catalogo.main_base()))
 	# PRODUÇÃO: o Moinho acelera o recurso enquanto está de pé; caiu, volta ao normal
 	var with_mill = battle.get_node("ProductionTimer").wait_time
@@ -423,6 +554,11 @@ func _modules_test():
 	m_guarita[0].base_data = estabulo
 	var speed_cheap = battle.module_speed_for(GameManager.Team.PLAYER, cheap)
 	var speed_costly = battle.module_speed_for(GameManager.Team.PLAYER, costly)
+	# dois Estábulos somam (dá pra levar dois iguais)
+	m_moinho[0].base_data = estabulo
+	var speed_two = battle.module_speed_for(GameManager.Team.PLAYER, cheap)
+	m_moinho[0].base_data = moinho
+	_check("dois estábulos somam a velocidade", speed_two > speed_cheap + 0.2 and speed_two <= 1.0 + battle.MODULE_SPEED_CAP + 0.001, "%s -> %s" % [speed_cheap, speed_two])
 	m_guarita[0].base_data = guarita
 	_check("estábulo acelera só carta barata", speed_none == 1.0 and speed_cheap > 1.2 and speed_costly == 1.0, "%s %s %s" % [speed_none, speed_cheap, speed_costly])
 	# PLACAR: derrubar um módulo não acaba a partida, mas conta
@@ -430,6 +566,7 @@ func _modules_test():
 	await get_tree().process_frame
 	var after_mill = battle.get_node("ProductionTimer").wait_time
 	_check("moinho acelera o recurso e para quando cai", with_mill < after_mill - 0.0001, "%.3f -> %.3f" % [with_mill, after_mill])
+	_check("perdeu um módulo: a Casa Grande acorda", !my_main[0].asleep)
 	_check("perder módulo não acaba a partida", !battle.match_over)
 	_check("no fim do tempo, quem perdeu módulo perde", battle.time_up_loser() == GameManager.Team.PLAYER, str(battle.time_up_loser()))
 	bot_mods[0].take_damage(999999)
@@ -580,7 +717,9 @@ func _rules_test():
 	_check("chave 'torres' desligada volta ao antigo", off_ok)
 
 	# 3) VANTAGEM DE QUEM DEFENDE: tropa sozinha não derruba torre
-	for spec in [["peao_forcado", 0.6, 45.0], ["pintaiada", 0.75, 30.0]]:
+	# (o Peão sozinho tirava até 40% da torre; com o tiro mais fraco da versão 109 passou a tirar perto de 45%.
+	# Continua sem derrubar: a regra é "metade, no máximo")
+	for spec in [["peao_forcado", 0.5, 45.0], ["pintaiada", 0.75, 30.0]]:
 		await _wipe()
 		tower.install_base_data(celeiro, 1)
 		tower.scale_hp(Regras.tower_hp_fraction())
@@ -625,7 +764,7 @@ func _rules_test():
 	# 6) tropa maior e com cor de time
 	var sp: Sprite2D = u.get_node("Sprite2D")
 	var bar: ProgressBar = u.get_node("ProgressBar")
-	_check("tropa grande com cor de time", sp.scale.x >= 1.6 and sp.material != null and !bar.visible, "escala %.2f, contorno? %s, barra escondida com vida cheia? %s" % [sp.scale.x, str(sp.material != null), str(!bar.visible)])
+	_check("tropa grande com cor de time", sp.scale.x >= 1.3 and sp.material != null and !bar.visible, "escala %.2f, contorno? %s, barra escondida com vida cheia? %s" % [sp.scale.x, str(sp.material != null), str(!bar.visible)])
 	u.take_damage(50)
 	_check("barra aparece quando apanha", bar.visible)
 

@@ -34,7 +34,10 @@ static func module_position(team, point: int) -> Vector2:
 
 static func tower_positions(team) -> Array:
 	if Regras.modules():
-		return [module_position(team, -1), module_position(team, Regras.DEFAULT_POINTS[0]), module_position(team, Regras.DEFAULT_POINTS[1])]
+		var out_m: Array = [module_position(team, -1)]
+		for p in Regras.DEFAULT_POINTS:
+			out_m.append(module_position(team, p))
+		return out_m
 	var side = 1.0 if team == GameManager.Team.PLAYER else -1.0
 	var y = CENTER.y + TOWER_DY * side
 	var out = [Vector2(CENTER.x - TOWER_DX, y), Vector2(CENTER.x + TOWER_DX, y)]
@@ -169,7 +172,8 @@ static func _towers(battle: Node):
 			first.position = battle.to_local(pos[0])
 			first.name = "Base_Jogador" if team == GameManager.Team.PLAYER else "Base_Bot"
 			first.is_main = true
-			for i in Regras.MODULES_PER_SIDE:
+			# nasce o máximo de espaços; a batalha tira os que o nível ainda não abriu
+			for i in Regras.MODULE_SLOTS_MAX:
 				var m = first.duplicate()
 				m.name = ("Modulo_Jogador_" if team == GameManager.Team.PLAYER else "Modulo_Bot_") + str(i + 1)
 				m.is_main = false

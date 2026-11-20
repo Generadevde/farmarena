@@ -432,6 +432,7 @@ func _build_replay_deck_row(deck_paths: Array, is_top: bool):
 
 # ---------------------------------------------------------------- MÓDULOS
 var _main_down: Dictionary = {}      # time -> a base principal caiu
+const MODULE_SPEED_CAP = 0.6   # o máximo que módulos de velocidade somados dão
 var _module_bonus: Dictionary = {}   # torre -> o que ela está dando pro dono (some quando ela cai)
 
 
@@ -449,6 +450,7 @@ func _install_side_modules(group: String, team, loadout: Array, level: int):
 		if t.is_main:
 			t.install_base_data(Catalogo.main_base(), _main_level())
 			t.scale_hp(Regras.tower_hp_fraction() * Regras._t("mainhp", 1.0))
+			t.set_asleep(Regras.main_sleeps())
 		elif t.module_slot >= 0:
 			mods.append(t)
 	mods.sort_custom(func(a, b): return a.module_slot < b.module_slot)
@@ -483,6 +485,11 @@ func _install_side_modules(group: String, team, loadout: Array, level: int):
 func on_tower_lost(tower):
 	if tower.is_main:
 		_main_down[tower.team] = true
+	else:
+		# perdeu um módulo: a Casa Grande desse lado acorda
+		for t in get_tree().get_nodes_in_group("player_base" if tower.team == GameManager.Team.PLAYER else "enemy_base"):
+			if is_instance_valid(t) and t.is_main and t != tower:
+				t.wake()
 	if !_module_bonus.has(tower):
 		return
 	var bn: Dictionary = _module_bonus[tower]
@@ -500,12 +507,13 @@ func on_tower_lost(tower):
 func module_speed_for(team, card: CardData) -> float:
 	if card == null:
 		return 1.0
-	var best = 1.0
+	# dois módulos de velocidade SOMAM (dá pra levar dois iguais), até o teto
+	var bonus = 0.0
 	for t in get_tree().get_nodes_in_group("player_base" if team == GameManager.Team.PLAYER else "enemy_base"):
 		if is_instance_valid(t) and !t.is_queued_for_deletion() and t.base_data != null and t.base_data.ally_speed_bonus > 0.0 \
 				and card.cost <= t.base_data.ally_speed_max_cost:
-			best = maxf(best, 1.0 + t.base_data.ally_speed_bonus)
-	return best
+			bonus += t.base_data.ally_speed_bonus
+	return 1.0 + minf(bonus, MODULE_SPEED_CAP)
 
 
 func _apply_player_base():
@@ -533,7 +541,8 @@ func _apply_player_base():
 
 func _apply_ai_base():
 	if Regras.modules():
-		_install_side_modules("enemy_base", GameManager.Team.ENEMY, Progresso.bot_module_loadout(ai_profile),
+		# o bot entra com a mesma QUANTIDADE de módulos do jogador (o nível dele só muda a força de cada um)
+		_install_side_modules("enemy_base", GameManager.Team.ENEMY, Progresso.bot_module_loadout(ai_profile, Progresso.module_slots()),
 			MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.bot_tower_level(ai_profile))
 		return
 	if ai_profile == null or ai_profile.equipped_base == null:
