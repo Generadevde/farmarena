@@ -152,9 +152,50 @@ func pool() -> Array:
 	return out
 
 
+# ---- CARTA DA VEZ: uma carta em destaque que troca a cada 3 dias, sorteada entre TODAS as
+# cartas em jogo (as que você criar também). Enquanto está em destaque, todo mundo pode usar,
+# tendo ou não, de qualquer arena, e ela joga no nível da sua torre (o nível dos módulos).
+const FEATURED_DAYS = 3
+
+
+var _feat_key := ""
+var _feat_card: CardData = null
+
+
+func featured_card() -> CardData:
+	# (é perguntado pra cada carta da coleção: guarda a resposta enquanto o dia e a lista não mudam)
+	var key = "%d/%d" % [int(Time.get_unix_time_from_system() / 86400.0) / FEATURED_DAYS, CardDatabase.all_cards.size()]
+	if key == _feat_key and _feat_card != null and CardDatabase.all_cards.has(_feat_card):
+		return _feat_card
+	_feat_key = key
+	_feat_card = _pick_featured()
+	return _feat_card
+
+
+func _pick_featured() -> CardData:
+	var list: Array = []
+	for c in CardDatabase.all_cards:
+		if c != null and !CustomContent.is_spawn_only(c):
+			list.append(c)
+	if list.is_empty():
+		return null
+	list.sort_custom(func(a, b): return a.resource_path < b.resource_path)
+	var turn = int(Time.get_unix_time_from_system() / 86400.0) / FEATURED_DAYS
+	return list[abs(hash("carta da vez %d" % turn)) % list.size()]
+
+
+func featured_days_left() -> int:
+	var day = int(Time.get_unix_time_from_system() / 86400.0)
+	return FEATURED_DAYS - (day % FEATURED_DAYS)
+
+
+func is_featured(c: CardData) -> bool:
+	return c != null and c == featured_card()
+
+
 func is_owned(c: CardData) -> bool:
-	if c != null and CustomContent.zero_on() and CardDatabase.all_cards.has(c):
-		return true   # "começar do zero": toda carta em jogo é sua
+	if is_featured(c):
+		return true
 	return c != null and d["owned"].has(c.resource_path)
 
 
@@ -181,6 +222,11 @@ func copies(c: CardData) -> int:
 
 func level(c: CardData) -> int:
 	return PlayerProfile.get_card_level(c)
+
+
+## nível com que a carta entra em campo pra qualquer um enquanto é a carta da vez
+func featured_level() -> int:
+	return tower_level()
 
 
 func copies_needed(c: CardData) -> int:

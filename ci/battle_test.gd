@@ -470,9 +470,14 @@ func _screens_test():
 	var got = Progresso.take_opportunity()
 	_check("oportunidade do dia fecha uma vez só e cobra o preço", !got.is_empty() and Progresso.opportunity()["feito"] and Progresso.take_opportunity().is_empty()
 		and PlayerProfile.coins <= coins0 - int(op["preco"]) + 250, "%s: %s" % [op["id"], str(got.get("texto", ""))])
+	var feat: CardData = Progresso.featured_card()
+	var botp = BotLearning.get_or_create_profile(BotSimulator.roster_names[0])
+	_check("carta da vez: liberada pra todos no nível da torre", feat != null and Progresso.is_owned(feat) and Progresso.level(feat) == Progresso.tower_level()
+		and botp.get_card_level(feat) == Progresso.tower_level() and Progresso.featured_days_left() >= 1 and Progresso.featured_days_left() <= 3,
+		"%s" % (feat.card_name if feat != null else "nenhuma"))
 	hub._go_tab(0)
 	await get_tree().create_timer(0.4).timeout
-	_check("feira mostra a oportunidade de hoje", _find_text(hub, "Oportunidade de hoje"))
+	_check("feira mostra a oportunidade de hoje e a carta da vez", _find_text(hub, "Oportunidade de hoje") and _find_text(hub, "Carta da vez"))
 	hub._show_card_popup(Catalogo.card("vaca_brava"))
 	await get_tree().create_timer(0.3).timeout
 	_check("carta: detalhes ficam atrás de um botão", _find_text(hub, "Mais detalhes"))

@@ -58,21 +58,25 @@ func _ready():
 	root.theme = ThemeBuilder.game_theme
 	add_child(root)
 
-	# ---------------- topo
+	# ---------------- topo: uma barra só, com moldura -- sair | adversário | placar | relógio
+	var top_panel = PanelContainer.new()
+	top_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	top_panel.offset_left = 8
+	top_panel.offset_right = -8
+	top_panel.offset_top = 6
+	top_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top_panel.add_theme_stylebox_override("panel", _plate(Color(0.16, 0.10, 0.06, 0.88), Color("#c89a48"), 12, 3))
+	root.add_child(top_panel)
 	var top = HBoxContainer.new()
-	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top.offset_left = 14
-	top.offset_right = -14
-	top.offset_top = 10
+	top.add_theme_constant_override("separation", 10)
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(top)
+	top_panel.add_child(top)
 	# setinha de sair (pergunta antes; sair custa metade dos troféus de uma derrota)
 	var back = Button.new()
 	back.text = "←"
-	back.custom_minimum_size = Vector2(64, 56)
-	back.add_theme_font_size_override("font_size", 30)
+	back.custom_minimum_size = Vector2(58, 52)
+	back.add_theme_font_size_override("font_size", 28)
 	back.add_theme_font_override("font", ThemeDB.fallback_font)
-	back.modulate = Color(1, 1, 1, 0.85)
 	back.pressed.connect(func():
 		var battle = get_parent()
 		if battle != null and battle.has_method("ask_leave"):
@@ -81,39 +85,41 @@ func _ready():
 	var opp = Label.new()
 	opp.name = "OpponentNameLabel"
 	opp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	opp.add_theme_font_size_override("font_size", 24)
-	opp.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	opp.add_theme_font_size_override("font_size", 21)
+	opp.add_theme_color_override("font_color", Color("#ffb0a0"))
 	opp.add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
-	opp.add_theme_constant_override("outline_size", 6)
+	opp.add_theme_constant_override("outline_size", 5)
 	opp.clip_text = true
 	top.add_child(opp)
-	var timer = Label.new()
-	timer.name = "BattleTimerLabel"
-	timer.add_theme_font_size_override("font_size", 30)
-	timer.add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
-	timer.add_theme_constant_override("outline_size", 8)
-	top.add_child(timer)
-
-	# placar de torres derrubadas, logo abaixo do relógio: é ele que decide
-	# a partida quando o tempo acaba (quem derrubou mais, ganha)
+	# placar de torres derrubadas: é ele que decide a partida quando o tempo acaba
+	var score_plate = PanelContainer.new()
+	score_plate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	score_plate.add_theme_stylebox_override("panel", _plate(Color(0.08, 0.06, 0.05, 0.9), Color("#e8c060"), 10, 2))
+	score_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(score_plate)
 	_score = Label.new()
 	_score.name = "PlacarTorres"
-	_score.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_score.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_score.offset_right = -14
-	_score.offset_top = 56
-	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_score.add_theme_font_override("font", ThemeDB.fallback_font)
-	_score.add_theme_font_size_override("font_size", 22)
-	_score.add_theme_color_override("font_outline_color", ThemeBuilder.COLOR_PANEL_BG)
-	_score.add_theme_constant_override("outline_size", 6)
+	_score.add_theme_font_size_override("font_size", 24)
 	_score.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(_score)
+	score_plate.add_child(_score)
+	var time_plate = PanelContainer.new()
+	time_plate.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	time_plate.add_theme_stylebox_override("panel", _plate(Color(0.08, 0.06, 0.05, 0.9), Color("#8a6a3a"), 10, 2))
+	time_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_child(time_plate)
+	var timer = Label.new()
+	timer.name = "BattleTimerLabel"
+	timer.add_theme_font_size_override("font_size", 26)
+	timer.custom_minimum_size.x = 96
+	timer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	time_plate.add_child(timer)
 
 	# ---------------- embaixo
 	var bottom = PanelContainer.new()
 	bottom.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bottom.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	bottom.add_theme_stylebox_override("panel", _plate(Color(0.16, 0.10, 0.06, 0.94), Color("#c89a48"), 14, 3))
 	root.add_child(bottom)
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
@@ -149,12 +155,20 @@ func _ready():
 	var res_row = HBoxContainer.new()
 	res_row.add_theme_constant_override("separation", 10)
 	v.add_child(res_row)
+	# o número do recurso num disco azul (igual à gota de elixir do Clash)
+	var drop = PanelContainer.new()
+	drop.add_theme_stylebox_override("panel", _plate(Color("#2a78c8"), Color("#bfe6ff"), 26, 3))
+	drop.custom_minimum_size = Vector2(62, 52)
+	drop.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	res_row.add_child(drop)
 	_money_label = Label.new()
-	_money_label.custom_minimum_size.x = 64
 	_money_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_money_label.add_theme_font_size_override("font_size", 28)
-	_money_label.add_theme_color_override("font_color", Color("#7fd0ff"))
-	res_row.add_child(_money_label)
+	_money_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_money_label.add_theme_font_size_override("font_size", 26)
+	_money_label.add_theme_color_override("font_color", Color.WHITE)
+	_money_label.add_theme_color_override("font_outline_color", Color("#103a66"))
+	_money_label.add_theme_constant_override("outline_size", 5)
+	drop.add_child(_money_label)
 	_bar = ProgressBar.new()
 	_bar.name = "ResourceBar"
 	_bar.show_percentage = false
@@ -162,11 +176,12 @@ func _ready():
 	_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var fill = StyleBoxFlat.new()
-	fill.bg_color = Color("#58b8f0")
-	fill.border_color = Color("#2a78b0")
-	fill.set_border_width_all(2)
-	fill.set_corner_radius_all(6)
+	fill.bg_color = Color("#4aa8f0")
+	fill.border_color = Color("#bfe6ff")
+	fill.border_width_top = 4      # faixa clara em cima: dá o brilho de "tubo cheio"
+	fill.set_corner_radius_all(8)
 	_bar.add_theme_stylebox_override("fill", fill)
+	_bar.add_theme_stylebox_override("background", _plate(Color(0.07, 0.05, 0.04, 0.95), Color("#6a4a28"), 8, 2))
 	res_row.add_child(_bar)
 	if Regras.on("visual"):
 		# gomos de 10 em 10: dá pra ler de relance quantas cartas cabem
@@ -180,6 +195,20 @@ func _ready():
 	_refresh_next()
 
 
+## moldura arredondada com borda (as placas do topo, o painel das cartas, o disco do recurso)
+static func _plate(bg: Color, border: Color, radius: int, width: int) -> StyleBoxFlat:
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(width)
+	sb.set_corner_radius_all(radius)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	return sb
+
+
 func _refresh_next():
 	_next_view.card = DeckManager.draw_queue[0] if !DeckManager.draw_queue.is_empty() else null
 	_next_view.queue_redraw()
@@ -191,6 +220,6 @@ func _process(_delta):
 		# torres que VOCÊ derrubou x torres que o bot derrubou
 		var mine = int(battle.towers_destroyed[GameManager.Team.ENEMY])
 		var bot = int(battle.towers_destroyed[GameManager.Team.PLAYER])
-		_score.text = "🏰 %d × %d" % [mine, bot]
+		_score.text = "🏰 %d × %d" % [mine, bot]   # você × bot
 		_score.modulate = Color(0.6, 1.0, 0.6) if mine > bot else (Color(1.0, 0.6, 0.55) if bot > mine else Color.WHITE)
 	_money_label.text = str(int(GameManager.player_money))

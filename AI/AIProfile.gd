@@ -94,6 +94,8 @@ const ARCHETYPE_NAMES = {
 
 
 func get_card_level(card: CardData) -> int:
+	if card != null and Progresso.is_featured(card):
+		return Progresso.featured_level()   # carta da vez: no bot ela também joga no nível da torre do jogador
 	var lv = int(card_levels.get(card.resource_path, 1))
 	# a carta favorita joga 1 nível acima: é a que o bot mais treinou
 	if favorite_card != null and card == favorite_card:

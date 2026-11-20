@@ -36,7 +36,8 @@ func setup(p_battle: Node, p_profile: AIProfile, p_team, p_area: CollisionShape2
 	profile = p_profile
 	if CustomContent.zero_on():
 		profile = p_profile.duplicate()
-		profile.deck.assign(CustomContent.zero_deck(str(p_profile.profile_name)))
+		profile.deck.assign(CustomContent.zero_deck(str(p_profile.profile_name), [], false,
+			ArenaManager.get_participant_arena(str(p_profile.profile_name)) + DeckBuilder.ARENA_PEEK))
 	team = p_team
 	spawn_area = p_area
 	max_money = MAX_MONEY

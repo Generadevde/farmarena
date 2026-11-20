@@ -1065,6 +1065,9 @@ func apply_zero():
 		if _full_cards.is_empty():
 			_full_cards = CardDatabase.all_cards.duplicate()
 		CardDatabase.all_cards.assign(zero_pool())
+		# carta de arena 0 nasce na sua coleção; as de arena maior vêm dos baús e da Feira dessa arena
+		if PlayerProfile.active_profile_id >= 0 and Progresso.d.has("owned"):
+			Progresso._ensure_defaults()
 	elif !_full_cards.is_empty():
 		var back: Array = _full_cards.duplicate()
 		for c in custom_cards:
@@ -1077,8 +1080,14 @@ func apply_zero():
 
 ## o baralho de quem joga no "começar do zero". Com menos cartas que o tamanho do
 ## baralho, elas se REPETEM até encher: com uma carta só, o baralho são 8 dela.
-func zero_deck(seed_name: String, prefer: Array = []) -> Array:
+## `owned_only`: só as que o jogador já TEM (as de arena 0 nascem com ele; as outras
+## vêm dos baús e da Feira da arena). `arena_cap`: o bot só usa carta até essa arena.
+## Se o filtro não deixar nenhuma, vale a coleção inteira (senão não tem como jogar).
+func zero_deck(seed_name: String, prefer: Array = [], owned_only: bool = false, arena_cap: int = -1) -> Array:
 	var pool = zero_pool()
+	var allowed = pool.filter(func(c): return (!owned_only or Progresso.is_owned(c)) and (arena_cap < 0 or c.unlock_arena <= arena_cap))
+	if !allowed.is_empty():
+		pool = allowed
 	var out: Array = []
 	for c in prefer:
 		if pool.has(c) and !out.has(c) and out.size() < ZERO_MIN:

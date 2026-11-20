@@ -243,6 +243,8 @@ func save_profile():
 
 
 func get_card_level(card: CardData) -> int:
+	if card != null and Progresso.is_featured(card):
+		return Progresso.featured_level()   # carta da vez: joga no nível da sua torre
 	return card_levels.get(card.resource_path, 1)
 
 

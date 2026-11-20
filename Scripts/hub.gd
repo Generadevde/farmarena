@@ -3182,6 +3182,20 @@ func _build_feira(box: Node):
 		gift.modulate = Color(1, 1, 0.7)
 	box.add_child(gift)
 
+	# carta da vez: troca a cada 3 dias, todo mundo pode usar, joga no nível da sua torre
+	var feat: CardData = Progresso.featured_card()
+	if feat != null:
+		var fp = _panel(box)
+		fp.add_child(_label("⭐ Carta da vez  ·  troca em %d dia(s)" % Progresso.featured_days_left(), 20, Color(1.0, 0.9, 0.5)))
+		var frow = HBoxContainer.new()
+		frow.add_theme_constant_override("separation", 12)
+		fp.add_child(frow)
+		var fv = CardView.make(feat, 150, true)
+		fv.tapped.connect(_show_card_popup)
+		frow.add_child(fv)
+		var ft = _wrap("%s está liberada pra todo mundo: você pode pôr no baralho mesmo sem ter e de qualquer arena, e os bots também. Ela joga no nível da sua torre (hoje nível %d)." % [feat.card_name, Progresso.featured_level()], 15)
+		ft.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		frow.add_child(ft)
 	# oportunidade do dia: um negócio diferente a cada data
 	var oport = Progresso.opportunity()
 	var opp = _panel(box)

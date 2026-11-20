@@ -683,6 +683,20 @@ cartas do jogo vivem na memória).
 Jogo novo, 101 bots, todos na arena 1: 37 cartas diferentes em uso, 2,6 cartas
 em comum entre dois bots (de 8).
 
+### Décima quarta leva (20/11) — HUD da batalha, começar do zero por arena, carta da vez
+
+- **HUD da batalha** (`battle_hud.gd`): barra de cima com moldura (sair,
+  adversário, placa do placar, placa do relógio), bandeja das cartas com
+  moldura, recurso num disco azul e barra com brilho.
+- **Começar do zero por arena**: a posse voltou a ser de verdade. Carta de arena
+  0 nasce com o jogador; as outras caem nos baús e na Feira da arena
+  (`Progresso.pool` já filtrava por arena) e o bot só usa as da arena dele + 2
+  (`zero_deck(..., arena_cap)`). Torneio e arenas usam os mesmos baralhos.
+- **Carta da vez** (`Progresso.featured_card`): troca a cada 3 dias, sorteada
+  entre todas as cartas em jogo (as criadas também). Enquanto dura, conta como
+  sua, de qualquer arena, e joga no nível da torre do jogador, pra ele e pros
+  bots (1 em cada 3 bots leva no baralho). Aparece na Feira.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

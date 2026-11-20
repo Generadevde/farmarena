@@ -619,7 +619,13 @@ func _start_ai_hand():
 	if CustomContent.zero_on():
 		# "começar do zero": o bot joga só com as cartas que existem agora (as suas)
 		ai_profile = ai_profile.duplicate()
-		ai_profile.deck.assign(CustomContent.zero_deck(str(ai_profile.profile_name)))
+		ai_profile.deck.assign(CustomContent.zero_deck(str(ai_profile.profile_name), [], false,
+			ArenaManager.get_participant_arena(str(ai_profile.profile_name)) + DeckBuilder.ARENA_PEEK))
+	# CARTA DA VEZ: 1 em cada 3 bots leva ela no baralho (no lugar da última), de qualquer arena
+	var feat: CardData = Progresso.featured_card()
+	if feat != null and !ai_profile.deck.has(feat) and !ai_profile.deck.is_empty() and abs(hash(str(ai_profile.profile_name) + feat.resource_path)) % 3 == 0:
+		ai_profile = ai_profile.duplicate()
+		ai_profile.deck[ai_profile.deck.size() - 1] = feat
 	ai_hand.resize(Regras.hand_size())
 	ai_draw_queue = ai_profile.deck.duplicate()
 	ai_draw_queue.shuffle()
