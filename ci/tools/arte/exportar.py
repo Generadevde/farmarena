@@ -3,12 +3,12 @@
 """
 import os, sys
 from PIL import Image
-import pecas, objetos
+import pecas, objetos, militar
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 COLS = 16
 cats = {}
-for src in (pecas.PECAS, objetos.OBJETOS):
+for src in (pecas.PECAS, objetos.OBJETOS, militar.MILITAR):
     for c, d in src.items():
         cats.setdefault(c, {}).update(d)
 cells = [(c, n) for c in cats for n in cats[c]]

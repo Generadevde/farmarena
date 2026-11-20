@@ -1215,7 +1215,8 @@ const PORTE_CABECA = {"abelha": 0.6, "galinha": 0.8, "pato": 0.8, "sapo": 0.8, "
 	"urubu": 0.9, "cachorro": 0.9, "peixe": 0.9, "cebola": 0.9, "milho": 0.9, "abobora": 0.9, "cacto": 0.9, "et": 0.9,
 	"elmo": 1.05, "onca": 1.05, "vaca": 1.1, "boi": 1.1, "cavalo": 1.1, "burro": 1.1, "jacare": 1.1, "tubarao": 1.1,
 	"balde": 1.15, "ciclope": 1.15, "baleia": 1.2}
-const PORTE_OBJETO = {"ovni": 1.15, "trator": 1.2}
+const PORTE_OBJETO = {"ovni": 1.15, "trator": 1.2, "jipe": 1.05, "tanque": 1.2, "tanque_duplo": 1.3, "lanca_missil": 1.2, "artilharia": 1.15,
+	"helicoptero": 1.15, "dirigivel": 1.35, "andador": 1.25, "submarino": 1.2, "caminhao": 1.2}
 
 
 static func porte(recipe: Dictionary) -> float:

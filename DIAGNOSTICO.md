@@ -649,6 +649,17 @@ estas mecânicas, e os bots jogam o Espelho como um feitiço qualquer.
 - **Criador** com botão próprio na barra de baixo.
 - O "HUD em geral" não foi redesenhado: ficou pra uma rodada própria, com foto.
 
+### Décima segunda leva (20/11) — 35 peças de arte novas (guerra e máquina)
+
+`ci/tools/arte/militar.py`, no clima dos jogos de estratégia dos anos 2000,
+com desenhos próprios: 10 veículos (tanque, tanque duplo, jipe, lança-míssil,
+artilharia, helicóptero, dirigível, andador, submarino, caminhão), 8 prédios
+(bobina, prisma, bunker, radar, usina, refinaria, quartel, canhão grande), 8
+ícones (míssil, bomba, paraquedas, mira, engrenagem, estrela, onda, relógio), 3
+chapéus, 3 armas e 3 projéteis. Atlas: 187 → 222 peças. Aparecem no Criador
+(montar por peças); nenhuma carta do jogo usa ainda, e o criador automático
+tem lista própria de peças, então as cartas dele não mudaram.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro
