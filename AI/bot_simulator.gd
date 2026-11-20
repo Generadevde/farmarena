@@ -63,7 +63,12 @@ var _profile_ready: bool = false
 # Eles entram no elenco de vez: jogam entre si, sobem, entram em clã.
 const MIN_RIVALS = 8
 const RIVAL_RANGE = 150
-const MAX_EXTRA_BOTS = 120
+const MAX_EXTRA_BOTS = 170
+# 20/11 -- "só tem 100 bots hoje": a população sobe até 220. Nascem no máximo 12
+# por vez (cada um vem com a história de quem já chegou naqueles troféus, e isso
+# custa), espalhados pela tabela inteira, não só perto de você.
+const POPULATION_TARGET = 220
+const POPULATION_STEP = 12
 const NAME_A = ["Zé", "Tião", "Dona", "Seu", "Chico", "Nhô", "Mané", "Tonho", "Bastião", "Juca", "Dito", "Nena", "Cida", "Tonha", "Zeca", "Biu", "Lurdes", "Quinzinho", "Totonho", "Maroca"]
 const NAME_B = ["da Porteira", "do Brejo", "do Trator", "da Pamonha", "do Curral", "Pé de Cana", "da Roça", "do Milharal", "Sem Freio", "da Viola", "do Rodeio", "Capivara", "do Açude", "da Farinha", "Bota Suja", "do Galinheiro", "Lampião", "da Enxada", "Carrapato", "do Berrante"]
 var _base_roster: Array = []
@@ -117,6 +122,16 @@ func ensure_rivals() -> int:
 		newborn.append(n)
 		near += 1
 		born += 1
+	var grown = 0
+	while roster_names.size() < POPULATION_TARGET and extra_bots.size() < MAX_EXTRA_BOTS and grown < POPULATION_STEP:
+		var n2 = _new_bot_name()
+		roster_names.append(n2)
+		extra_bots.append(n2)
+		var top = maxi(mine + 600, 1500)
+		ArenaManager.trophies[n2] = int(top * pow(randf(), 1.6))   # mais gente embaixo, alguns lá em cima
+		newborn.append(n2)
+		born += 1
+		grown += 1
 	if born > 0:
 		ArenaManager._save()
 		var f = FileAccess.open(_extra_path(), FileAccess.WRITE)

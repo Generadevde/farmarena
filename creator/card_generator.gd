@@ -1579,6 +1579,11 @@ static func generate_base_def(seed_value: int) -> Dictionary:
 	var target = _roll_extra(rng)
 	var kind = "HP"
 	var b: Dictionary = {}
+	# MÓDULOS (20/11): da safra 6928 em diante o criador também faz os três tipos
+	# novos -- acelera cartas baratas, solta tropa quando apanha, dá tropa de graça.
+	# Safra antiga não muda (o sorteio delas continua igual).
+	var modern = seed_value >= 6928
+	var guards = ["caramelo", "peao_forcado", "pintaiada", "galinha_atiradeira"]
 	var pros: Array = []
 	var cons: Array = []
 	var category = "DEFENSIVO"
@@ -1597,7 +1602,14 @@ static func generate_base_def(seed_value: int) -> Dictionary:
 		Catalogo.RARA:
 			kind = "CANNON"
 			category = "OFENSIVO"
-			if rng.randf() < 0.5:
+			if modern and rng.randf() < 0.34:
+				kind = "HP"
+				var sp = rng.randi_range(4, 6) * 5
+				var mc = rng.randi_range(5, 7) * 5
+				b = {"base_hp": rng.randi_range(110, 120) * 10, "ally_speed_bonus": sp / 100.0, "ally_speed_max_cost": mc}
+				pros = ["Cartas de até %d de custo andam %d%% mais rápido" % [mc, sp]]
+				cons = ["Não atira", "Não ajuda carta cara"]
+			elif rng.randf() < 0.5:
 				b = {"base_hp": rng.randi_range(100, 110) * 10, "attack_damage": rng.randi_range(8, 10) * 5, "attack_range": float(rng.randi_range(34, 37) * 5), "attack_speed": 2.4, "is_aoe": true, "aoe_radius": 55.0, "projectile_speed": 250.0}
 				pros = ["Tiro em área", "Alcance longo"]
 				cons = ["Atira devagar", "Menos vida"]
@@ -1607,7 +1619,14 @@ static func generate_base_def(seed_value: int) -> Dictionary:
 				cons = ["Pouca vida", "Atira devagar"]
 		Catalogo.EPICA:
 			var pick = rng.randi() % 3
-			if pick == 0:
+			if modern and rng.randf() < 0.3:
+				kind = "HP"
+				var cd = rng.randi_range(6, 8)
+				var who = guards[rng.randi() % guards.size()]
+				b = {"base_hp": rng.randi_range(120, 130) * 10, "spawn_card_id": who, "spawn_on_hit": true, "spawn_cooldown": float(cd)}
+				pros = ["Solta tropa quando apanha (a cada %d s)" % cd]
+				cons = ["Não atira", "Parada, não faz nada"]
+			elif pick == 0:
 				kind = "PRODUCTION"
 				category = "ECONOMICO"
 				var boost = rng.randi_range(10, 14) / 100.0
@@ -1627,7 +1646,15 @@ static func generate_base_def(seed_value: int) -> Dictionary:
 				pros = ["Cura aliados próximos"]
 				cons = ["Não ataca"]
 		Catalogo.LENDARIA:
-			if rng.randf() < 0.35:
+			if modern and rng.randf() < 0.3:
+				kind = "HP"
+				category = "OFENSIVO"
+				var cd2 = rng.randi_range(26, 32)
+				var who2 = guards[rng.randi() % 2]
+				b = {"base_hp": rng.randi_range(95, 105) * 10, "spawn_card_id": who2, "spawn_cooldown": float(cd2)}
+				pros = ["Solta tropa de graça a cada %d s" % cd2]
+				cons = ["Não atira", "Pouca vida"]
+			elif rng.randf() < 0.35:
 				kind = "PRODUCTION"
 				category = "ECONOMICO"
 				var boost2 = rng.randi_range(18, 22) / 100.0

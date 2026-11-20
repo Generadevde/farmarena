@@ -114,7 +114,9 @@ static func gate_range_share() -> float:
 # lá a torre mata 1 elixir de Cavaleiro em ~4 s e aguenta ~55 "elixir-segundos"
 # de pancada. Aqui dava 10 s e 21. Com os números abaixo: ~4 s e ~47.
 const TOWER_HP_FRACTION_OLD = 0.65
-const TOWER_HP_FRACTION = 1.62     # (era 1.45) as tropas ficaram mais "afiadas" em 19/11 -- bando e matador
+# 20/11: 1.62 -> 1.3. O João achou vida demais nas torres. Com módulos, medido entre bots:
+# com 1.62 a base caía em 14 de 36 partidas; ver DIAGNOSTICO pra conta com 1.3.
+const TOWER_HP_FRACTION = 1.3
                                    # batem bem mais; com 1.45 quase metade das partidas entre bots acabava em nocaute
 const TOWER_DAMAGE_MULT = 2.3        # Celeiro: 32 -> 74 por tiro
 const TOWER_RANGE_BONUS = 90.0       # Celeiro: 125 -> 215 (passa de todo atirador comum)

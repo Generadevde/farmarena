@@ -452,6 +452,43 @@ Vida aparece em número redondo (3890, não 3888). **Efeito colateral:** carta
 que já estava no nível 2 a 9 fica um pouco mais fraca do que era (nível 9:
 2,2x → 1,8x), igual pra você e pros bots.
 
+### Sexta leva (20/11, depois de jogar a 106) — vida das torres, criador de módulos, votação, mais bots
+
+**"Tá com HP demais."** Vida de torre/módulo: 1,62 → **1,3** da vida de base
+(−20%); Casa Grande: 2300 → **2000** de base. No nível 1 o Celeiro fica com
+1690 (era 2110) e a Casa Grande com 2600 (era 3730). Medido entre bots, 36
+partidas cada, módulos variados:
+
+| | antes (1,62 / 2300) | agora (1,3 / 2000) |
+|---|---|---|
+| base principal derrubada | 14 (39%) | 24 (67%) |
+| duração (mediana) | 240 s | 214 s |
+| partidas com menos de 2 min | 3 | 9 |
+| acabou sem nada cair | 2 | 0 |
+
+É a troca: menos vida = partida mais curta e decidida na base. Outras duas
+tentativas (base ainda mais baixa) deram 24 e 21 de 36 — nessa faixa a vida da
+base quase não muda o resultado, quem manda é a vida dos módulos da frente.
+
+**Criador automático de módulos.** A Safra já criava uma torre a cada 2
+safras, com raridade. Da safra 6928 em diante ela também sorteia os três tipos
+novos (acelera cartas baratas, solta tropa quando apanha, dá tropa de graça).
+Safras antigas não mudam. **Não medido:** nenhum módulo criado foi posto em
+partida; só confere que a ficha sai dentro da faixa dos feitos à mão.
+
+**Votação (Assembleia).** O João: *"acontece tudo de uma vez e os bots votam
+tudo igual"*. Os dois termos que mandavam no voto eram iguais pra todo bot (a
+taxa de vitória e o uso da carta); o que era de cada bot valia no máximo 0,1.
+Agora cada bot tem temperamento e opinião por carta (sempre os mesmos pra
+ele), e vota num momento dele dentro dos 3 dias: os votos chegam aos poucos e
+a tela mostra quantos ainda vão votar. No fechamento conta todo mundo.
+**Não medido:** não rodei uma pauta de ponta a ponta com a população nova.
+
+**Mais bots.** Eram 101 fixos + os que nasciam perto de você. Agora a
+população sobe até 220, no máximo 12 por vez (pra não travar), espalhados
+pela tabela. **Atenção:** telas que percorrem todos os bots (ranking,
+Assembleia) vão trabalhar o dobro; não foi medido no celular.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

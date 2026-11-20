@@ -1349,7 +1349,7 @@ func _build_torres(box: Node):
 		side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(side)
 		if b.has_meta("safra"):
-			side.add_child(_label("🆕 NOVIDADE da safra" if b == Safra.current_tower() else "🌱 Torre de safra", 14, Color(0.5, 1, 0.6)))
+			side.add_child(_label("🆕 NOVIDADE da safra" if b == Safra.current_tower() else "🌱 Módulo de safra", 14, Color(0.5, 1, 0.6)))
 		var in_use = loadout.any(func(o): return o["base"] == b) if mods_on else b == equipped
 		side.add_child(_label(b.base_name + ("   ✔ EM USO" if in_use else ""), 21, ThemeBuilder.COLOR_GOLD if unlocked else Color(0.6, 0.58, 0.55)))
 		var brar = Catalogo.base_rarity(b)
@@ -4085,7 +4085,7 @@ func _show_assembleia():
 		bar.show_percentage = false
 		bar.custom_minimum_size.y = 22
 		p.add_child(bar)
-		p.add_child(_label("👍 %d a favor  ·  👎 %d contra  ·  😐 %d neutros  ·  %s" % [vt[0], vt[1], vt[2], "passando" if vt[0] > vt[1] else "sendo recusada"], 15, Color(0.6, 1, 0.6) if vt[0] > vt[1] else Color(1, 0.7, 0.6)))
+		p.add_child(_label("👍 %d a favor  ·  👎 %d contra  ·  😐 %d neutros  ·  ⏳ %d ainda vão votar  ·  %s" % [vt[0], vt[1], vt[2], vt[3], "passando" if vt[0] > vt[1] else "sendo recusada"], 15, Color(0.6, 1, 0.6) if vt[0] > vt[1] else Color(1, 0.7, 0.6)))
 		var mine = int(pa.get("voto", 0))
 		var vr = HBoxContainer.new()
 		vr.add_theme_constant_override("separation", 8)

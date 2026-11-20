@@ -103,19 +103,41 @@ static func usage_share(path: String) -> float:
 
 
 ## quanto ESTE bot quer um nerf nessa carta (positivo = quer nerf, negativo = quer buff)
+## 20/11 -- o João reparou: "os bots votam tudo igual". Era verdade: os dois
+## primeiros termos são iguais pra todo bot e mandavam no resultado; o que era
+## de cada um valia no máximo 0,1. Agora cada bot tem TEMPERAMENTO (uns gostam
+## de mexer nas cartas, outros são do contra) e OPINIÃO sobre cada carta,
+## sempre as mesmas pra ele. Os números da carta ainda pesam -- carta forte
+## demais continua levando mais "nerf" -- mas a votação deixa de ser unânime.
 static func _nerf_wish(bot: String, deck: Array, path: String, share: float, avg_share: float) -> float:
-	var s = (card_win_rate(path) - 0.5) * 4.0        # carta que vence demais incomoda
-	s += (share - avg_share) * 3.0                    # carta que todo mundo usa também
+	var s = (card_win_rate(path) - 0.5) * 2.5        # carta que vence demais incomoda
+	s += (share - avg_share) * 2.0                    # carta que todo mundo usa também
+	s += (float(abs(hash(bot + "/temperamento")) % 201) - 100.0) / 100.0 * 0.45   # o jeito do bot: reformista ou do contra
+	s += (float(abs(hash(bot + "/opiniao/" + path)) % 201) - 100.0) / 100.0 * 0.55  # o que ELE acha dessa carta
 	if deck.has(path):
-		s -= 0.8                                      # é a carta DELE: defende
+		s -= 1.1                                      # é a carta DELE: defende
 	else:
 		s += (0.5 - Leaderboard.get_win_rate(bot)) * 1.0 if Leaderboard.get_record(bot)["wins"] + Leaderboard.get_record(bot)["losses"] > 0 else 0.0
 	s += (float(abs(hash(bot + path)) % 21) - 10.0) / 100.0  # desempate fixo (não é sorteio: sempre o mesmo)
 	return s
 
 
-## [sim, não, neutros] de uma pauta, contando bots + o seu voto
-static func votes(pauta: Dictionary) -> Array:
+## quanto do período de votação já passou (0 a 1)
+static func elapsed_share() -> float:
+	var period_len = SafraTempo.PERIOD_DAYS * 86400.0
+	return clampf(1.0 - seconds_left() / period_len, 0.0, 1.0)
+
+
+## o bot vota num momento DELE dentro do período (sempre o mesmo pra cada
+## pauta): os votos vão chegando aos poucos, não todos de uma vez. Todo mundo
+## já votou quando passa 85% do tempo.
+static func has_voted(bot: String, path: String, elapsed: float) -> bool:
+	return float(abs(hash(bot + "/hora/" + path)) % 1000) / 1000.0 * 0.85 <= elapsed
+
+
+## [sim, não, neutros, ainda não votaram] de uma pauta, contando bots + o seu
+## voto. `final` = fechamento da pauta: conta todo mundo.
+static func votes(pauta: Dictionary, final: bool = false) -> Array:
 	var path = str(pauta["path"])
 	var want_nerf = str(pauta["tipo"]) == "nerf"
 	var decks = _decks()
@@ -124,7 +146,12 @@ static func votes(pauta: Dictionary) -> Array:
 	var yes = 0
 	var no = 0
 	var neutral = 0
+	var pending = 0
+	var elapsed = 1.0 if final else elapsed_share()
 	for dk in decks:
+		if !has_voted(str(dk[0]), path, elapsed):
+			pending += 1
+			continue
 		var wish = _nerf_wish(dk[0], dk[1], path, share, avg_share)
 		if absf(wish) < NEUTRAL_BAND:
 			neutral += 1   # tanto faz pra ele: não vota
@@ -139,7 +166,7 @@ static func votes(pauta: Dictionary) -> Array:
 		no += PLAYER_WEIGHT
 	else:
 		neutral += 1
-	return [yes, no, neutral]
+	return [yes, no, neutral, pending]
 
 
 # ---------------------------------------------------------------- pautas
@@ -229,7 +256,7 @@ static func _close(pauta: Dictionary, period: int):
 	var card = Catalogo.find_card(str(pauta["path"]))
 	if card == null:
 		return
-	var v = votes(pauta)
+	var v = votes(pauta, true)
 	var passed = v[0] > v[1]
 	if passed:
 		var st = step_for(card)

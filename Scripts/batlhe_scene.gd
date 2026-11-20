@@ -448,7 +448,7 @@ func _install_side_modules(group: String, team, loadout: Array, level: int):
 	for t in get_tree().get_nodes_in_group(group):
 		if t.is_main:
 			t.install_base_data(Catalogo.main_base(), _main_level())
-			t.scale_hp(Regras.tower_hp_fraction())
+			t.scale_hp(Regras.tower_hp_fraction() * Regras._t("mainhp", 1.0))
 		elif t.module_slot >= 0:
 			mods.append(t)
 	mods.sort_custom(func(a, b): return a.module_slot < b.module_slot)

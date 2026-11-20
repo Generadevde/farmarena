@@ -905,7 +905,7 @@ static func tokens() -> Array:
 const SEDE = {"id": "sede", "nome": "Casa Grande", "turma": "Peões", "arena": 0, "tipo": "CANNON", "categoria": "DEFENSIVO",
 	"desc": "A sede da fazenda. Caiu ela, acabou a partida.", "pros": [], "cons": [],
 	"receita": {"torre": "celeiro"}, "paleta": {"A": "#f0f0e8", "W": "#5a3820", "K": "#e8b830"}, "proj": "milho",
-	"b": {"base_hp": 2300, "attack_damage": 32, "attack_range": 125.0, "attack_speed": 1.0}}
+	"b": {"base_hp": 2000, "attack_damage": 32, "attack_range": 125.0, "attack_speed": 1.0}}
 static var _main_base: BaseData = null
 
 
