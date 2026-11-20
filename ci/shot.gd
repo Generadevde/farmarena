@@ -39,6 +39,10 @@ func _ready():
 	Progresso.give_card(Catalogo.card("peao_forcado"), 30)
 	Progresso.pop_pending()
 
+	if OS.get_environment("SHOT_CRIADOR") != "":
+		await _creator_shots()
+		get_tree().quit()
+		return
 	var prof = load("res://Scenes/profile_setup.tscn").instantiate()
 	add_child(prof)
 	await get_tree().create_timer(0.4).timeout
@@ -323,3 +327,50 @@ func _ready():
 	await get_tree().create_timer(0.3, true, false, true).timeout
 	await _shot("resultado")
 	get_tree().quit()
+
+
+## SHOT_CRIADOR=1: só as telas do Criador novo (editor em abas)
+func _creator_shots():
+	var cr = load("res://creator/creator_menu.tscn").instantiate()
+	add_child(cr)
+	await get_tree().create_timer(0.5).timeout
+	await _shot("criador_lista")
+	cr._open_card_form(CustomContent.open_card_for_edit(Catalogo.card("vaca_brava")))
+	for i in 5:
+		cr._show_ed_tab(i)
+		await get_tree().create_timer(0.4).timeout
+		await _shot("criador_tropa_%d" % i)
+	# liga uma habilidade e abre a montagem por peças
+	cr._show_ed_tab(2)
+	await get_tree().create_timer(0.2).timeout
+	cr._toggle_ability(cr.ABILITIES[2][1][0], true)
+	await get_tree().create_timer(0.5).timeout
+	await _shot("criador_habilidade_ligada")
+	cr._parts_open = true
+	cr._show_ed_tab(3)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("criador_pecas")
+	cr._close_form()
+	# carta nova preenchida pelo padrão
+	cr._open_card_form(CustomContent.make_blank_card(false))
+	cr._fill_kind = 1
+	cr._apply_standard()
+	cr._recipe = cr.MODE_DEFAULTS["quatro"].duplicate()
+	cr._regen_art()
+	await get_tree().create_timer(0.4).timeout
+	await _shot("criador_nova")
+	cr._close_form()
+	# módulo
+	cr._set_tab(1)
+	await get_tree().create_timer(0.4).timeout
+	cr._open_base_form(CustomContent.open_base_for_edit(BotSimulator.available_bases[0]))
+	cr._show_ed_tab(1)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("criador_modulo")
+	cr._close_form()
+	# feitiço
+	cr._set_tab(0)
+	cr._open_card_form(CustomContent.open_card_for_edit(Catalogo.card("raio")))
+	cr._show_ed_tab(1)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("criador_feitico")

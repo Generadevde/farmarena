@@ -563,6 +563,40 @@ reservado embaixo dela empurrava a coleção pra fora da tela. Teste novo
 `CI_MODE=telas` abre o menu de verdade e confere isso, os espaços e os
 tamanhos.
 
+### Oitava leva (20/11) — Criador novo ("oficina")
+
+Pedido do João: um Criador "profissional", que mexa em tudo (visual e lógica)
+de qualquer carta, módulo e feitiço, sem ser uma lista comprida, mantendo o
+criador automático da safra. A parte de salvar já existia e ficou igual
+(`CustomContent`: carta do jogo editada fica guardada à parte e tem "↺
+Original"). O que mudou foi a tela (`creator/creator_menu.gd`):
+
+- **Cabeçalho fixo**: arte ao vivo, tipo detectado pelos números
+  (`Catalogo.kind_from`), a **régua** (vida, dano e força em % do padrão) e a
+  tropa desenhada no tamanho de campo ao lado de um Peão e da Casa Grande.
+- **Abas**: Básico, Combate, Habilidades, Visual, Teste (tropa); Básico,
+  Efeito, Visual (feitiço); Básico, Função, Visual (módulo).
+- **Habilidades** como botõezinhos em 6 grupos (`ABILITIES`): só a ligada abre
+  os números dela, já com um valor inicial. Campo novo do `UnitData` que não
+  estiver em nenhum grupo aparece em "Outros números".
+- **Régua** (`creator/regua.gd`): o padrão de cada tipo é a mediana das cartas
+  do próprio jogo (vida total por custo, dano por segundo por custo,
+  quantidade, velocidade, alcance). "Preencher pelo padrão" põe os números do
+  tipo escolhido pro custo da carta, e o tamanho pela regra força × porte.
+- **Arte por peças**: postura, cabeça, corpo, braços, pernas, chapéu, arma,
+  costas e 6 cores (`SpriteForge`), além do desenho pixel a pixel.
+- **Teste**: contas feitas na hora com os números da tela
+  (`DueloPapel.duel_stats`, `tower_share_stats`): quanto tira de uma torre
+  sozinha e o duelo contra 10 cartas de custo parecido.
+- **Módulo**: função com só os campos dela, os campos novos (solta tropa,
+  velocidade, arena) e o que os números viram no campo.
+- O `−`/`+` não arredonda mais o número que já estava na carta (2300 de vida
+  aparecia como 2301; 32 de dano como 30).
+
+A régua mostra que várias cartas do jogo fogem do padrão do próprio tipo
+(Vaca Brava: 192% da vida de um Derruba-torre de custo 40). Não mexi nelas:
+é o que o João quer acertar à mão pelo Criador.
+
 ## Ficou pra depois (não mexido)
 
 - (19/11, pedido do João) A partida passou pra 4 minutos, com recurso em dobro

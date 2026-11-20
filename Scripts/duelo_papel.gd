@@ -378,6 +378,10 @@ static func tower_share(card: CardData) -> float:
 	var sa = side_of(card)
 	if sa.groups.is_empty() or DeckBuilder.get_unit_stats(card).unit_type == UnitData.UnitType.BUILDING:
 		return 0.0
+	return _tower_share(sa)
+
+
+static func _tower_share(sa: Lado) -> float:
 	var base: BaseData = Catalogo.bases()[0] if !Catalogo.bases().is_empty() else null
 	if base == null:
 		return 0.0
@@ -397,6 +401,31 @@ static func tower_share(card: CardData) -> float:
 	sb.hp0 = float(tw.hp)
 	_run(sa, sb, TOWER_GAP, TOWER_T)
 	return clampf(1.0 - sb.hp() / sb.hp0, 0.0, 1.0)
+
+
+# ---- pro Criador: as mesmas contas em cima de números que ainda não foram salvos
+static func side_of_stats(st: UnitData) -> Lado:
+	var s = Lado.new()
+	if st == null:
+		return s
+	s.groups.append(_group(st, st.unit_count))
+	s.hp0 = maxf(s.hp(), 1.0)
+	return s
+
+
+## duelo dos números `st` contra a carta `b`: > 0 = `st` vence (quanto da vida sobra), < 0 = perde
+static func duel_stats(st: UnitData, b: CardData) -> float:
+	var sa = side_of_stats(st)
+	var sb = side_of(b)
+	if sa.groups.is_empty() or sb.groups.is_empty():
+		return 0.0
+	return _run(sa, sb, GAP, MAX_T)
+
+
+static func tower_share_stats(st: UnitData) -> float:
+	if st == null or st.unit_type == UnitData.UnitType.BUILDING:
+		return 0.0
+	return _tower_share(side_of_stats(st))
 
 
 ## resumo pra carta que o laboratório não mediu, no mesmo formato do

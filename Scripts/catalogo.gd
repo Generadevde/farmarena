@@ -658,30 +658,35 @@ static func kind_of(c: CardData) -> String:
 	var key = c.get_instance_id()
 	if _kind_cache.has(key):
 		return _kind_cache[key]
-	var k = "lutador"
 	var st: UnitData = null if c.is_spell() else DeckBuilder.get_unit_stats(c)
-	if c.is_spell() or st == null:
-		k = "feitico"
-	elif st.unit_type == UnitData.UnitType.BUILDING:
-		k = "construcao"
-	elif st.unit_type == UnitData.UnitType.AIR:
-		k = "voador"
-	elif st.target_type == UnitData.TargetType.BUILDING:
-		k = "ariete"
-	elif st.can_heal_allies:
-		k = "apoio"
-	elif st.is_ranged or st.attack_range >= 80.0:
-		k = "atirador"
-	elif st.unit_count >= 3:
-		k = "bando"
-	elif st.is_aoe or st.spin_attack or st.frontal_cone_attack or st.aoe_hits_extra_one:
-		k = "area"
-	elif st.hp >= KIND_TANK_HP:
-		k = "tanque"
-	elif st.damage >= KIND_KILLER_DAMAGE:
-		k = "matador"
+	var k = "feitico" if (c.is_spell() or st == null) else kind_from(st)
 	_kind_cache[key] = k
 	return k
+
+
+## o TIPO de uma tropa só pelos NÚMEROS dela (o Criador usa na carta que ainda está sendo mexida)
+static func kind_from(st: UnitData) -> String:
+	if st == null:
+		return "feitico"
+	if st.unit_type == UnitData.UnitType.BUILDING:
+		return "construcao"
+	if st.unit_type == UnitData.UnitType.AIR:
+		return "voador"
+	if st.target_type == UnitData.TargetType.BUILDING:
+		return "ariete"
+	if st.can_heal_allies:
+		return "apoio"
+	if st.is_ranged or st.attack_range >= 80.0:
+		return "atirador"
+	if st.unit_count >= 3:
+		return "bando"
+	if st.is_aoe or st.spin_attack or st.frontal_cone_attack or st.aoe_hits_extra_one:
+		return "area"
+	if st.hp >= KIND_TANK_HP:
+		return "tanque"
+	if st.damage >= KIND_KILLER_DAMAGE:
+		return "matador"
+	return "lutador"
 
 
 ## o que falta num baralho, pelos tipos (as mesmas perguntas de quem monta

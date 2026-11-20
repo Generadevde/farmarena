@@ -449,6 +449,50 @@ func _screens_test():
 	for i in range(1, sizes.size()):
 		growing = growing and sizes[i] > sizes[i - 1]
 	_check("abelha < pintinho < galinha < moleque < peão < vaca < robô", growing, str(sizes))
+	# CRIADOR novo: abre uma carta do jogo, mexe, salva (fica guardado à parte) e restaura
+	hub.queue_free()
+	await get_tree().process_frame
+	var cr = load("res://creator/creator_menu.tscn").instantiate()
+	add_child(cr)
+	await get_tree().create_timer(0.4).timeout
+	var peao: CardData = Catalogo.card("peao_forcado")
+	var hp_before = DeckBuilder.get_unit_stats(peao).hp
+	cr._open_card_form(CustomContent.open_card_for_edit(peao))
+	var tabs_ok = true
+	for i in 5:
+		cr._show_ed_tab(i)
+		await get_tree().process_frame
+		tabs_ok = tabs_ok and cr._field_box.get_child_count() > 0
+	_check("criador: as 5 abas da tropa montam, com o cabeçalho fixo", tabs_ok and cr._head.visible)
+	cr._work["stats"].hp = hp_before + 500
+	cr._toggle_ability(cr.ABILITIES[2][1][0], true)   # Escudo
+	await get_tree().create_timer(0.3).timeout
+	_check("criador: ligar habilidade já põe um valor inicial", cr._work["stats"].has_shield and cr._work["stats"].shield_amount > 0)
+	cr._save_card()
+	await get_tree().process_frame
+	var st2: UnitData = DeckBuilder.get_unit_stats(peao)
+	_check("criador: salvar muda a carta do jogo e guarda à parte", st2.hp == hp_before + 500 and st2.has_shield and CustomContent.has_override(peao), "vida %d" % st2.hp)
+	CustomContent.restore_original_card(peao)
+	var st3: UnitData = DeckBuilder.get_unit_stats(peao)
+	_check("criador: restaurar volta ao original", st3.hp == hp_before and !st3.has_shield, "vida %d (era %d)" % [st3.hp, hp_before])
+	cr._open_card_form(CustomContent.make_blank_card(false))
+	cr._work["card"].cost = 40
+	cr._fill_kind = Regua.KIND_ORDER.find("bando")
+	cr._apply_standard()
+	var cmp = Regua.compare(cr._work["stats"], 40)
+	_check("criador: preencher pelo padrão dá carta do tipo pedido, perto de 100%", cmp["kind"] == "bando" and abs(int(cmp["vida"]) - 100) <= 20 and abs(int(cmp["dano"]) - 100) <= 25, str(cmp))
+	_check("criador: carta nova já nasce com desenho", !cr._work["image"].is_invisible())
+	cr._close_form()
+	cr._set_tab(1)
+	cr._open_base_form(CustomContent.open_base_for_edit(mods[0]))
+	var mod_ok = cr._head.visible
+	for i in 3:
+		cr._show_ed_tab(i)
+		await get_tree().process_frame
+		mod_ok = mod_ok and cr._field_box.get_child_count() > 0
+	_check("criador: editor de módulo monta as 3 abas", mod_ok)
+	cr._close_form()
+	_check("criador: fechar esconde o cabeçalho", !cr._head.visible)
 	print("RESULTADO telas: coleção em y=", int(first_y), " doca=", int(dock_h), " tela=", int(screen_h))
 	print("RESULTADO telas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
 

@@ -1381,7 +1381,7 @@ func _build_torres(box: Node):
 						Regras.MODULE_POINT_NAMES[int(loadout[i]["ponto"])].to_lower()], _use_module.bind(i, b), 17))
 		elif b != equipped:
 			p.add_child(_button("Usar esta torre", _equip_base_direct.bind(b), 19))
-	box.add_child(_button("🎨 Criar minha própria torre (Criador)", _goto.bind(CREATOR_SCENE), 18))
+	box.add_child(_button("🛠 Abrir o Criador (cartas, módulos, arenas)", _goto.bind(CREATOR_SCENE), 18))
 
 
 func _base_summary(b: BaseData) -> String:

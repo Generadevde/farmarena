@@ -42,6 +42,8 @@ const CARD_FIELDS = [
 	["role", "Categoria", "enum", ROLE_NAMES],
 	["nation_data", "Nação", "nation", []],
 	["danger_level", "Perigo (pra IA)", "int", [1, 10, 1]],
+	["rarity", "Raridade", "enum", ["Normal", "Rara", "Épica", "Lendária", "Mística"]],
+	["unlock_arena", "Libera na arena (0 = desde o começo)", "int", [0, 12, 1]],
 	["description", "Descrição", "multiline", []],
 ]
 
@@ -248,6 +250,12 @@ const BASE_FIELDS = [
 	["aura_radius", "Raio da aura", "float", [10.0, 400.0, 10.0]],
 	["effect", "Efeito da aura", "enum", EFFECT_NAMES],
 	["effect_strength", "Força do efeito", "float", [0.0, 500.0, 0.05]],
+	["unlock_arena", "Libera na arena (0 = desde o começo)", "int", [0, 12, 1]],
+	["spawn_card_id", "Solta esta tropa", "cardid", []],
+	["spawn_on_hit", "Solta quando APANHA (desligado: solta sozinho, de tempos em tempos)", "bool", []],
+	["spawn_cooldown", "Intervalo entre as tropas (s)", "float", [1.0, 120.0, 1.0]],
+	["ally_speed_bonus", "Suas tropas andam mais rápido (0.25 = +25%)", "float", [0.0, 1.0, 0.05]],
+	["ally_speed_max_cost", "...só as cartas de custo até", "int", [0, 100, 5]],
 ]
 
 var _extra_fields_cache: Array = []

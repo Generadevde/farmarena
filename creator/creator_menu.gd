@@ -73,7 +73,7 @@ func _ready():
 	root.add_child(tabs)
 	for i in 3:
 		var t = i
-		var b = _button(["🃏 Cartas", "🏰 Bases", "🏟 Arenas"][i], func(): _set_tab(t))
+		var b = _button(["🃏 Cartas", "🧩 Módulos", "🏟 Arenas"][i], func(): _set_tab(t))
 		b.toggle_mode = true
 		tabs.add_child(b)
 		_tab_buttons.append(b)
@@ -83,6 +83,11 @@ func _ready():
 	_status.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(_status)
+
+	# cabeçalho fixo do editor (só aparece com uma carta ou módulo aberto)
+	_head = PanelContainer.new()
+	_head.visible = false
+	root.add_child(_head)
 
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -163,6 +168,8 @@ func _say(text: String):
 
 func _set_tab(t: int):
 	_tab = t
+	if is_instance_valid(_head):
+		_head.visible = false
 	for i in _tab_buttons.size():
 		_tab_buttons[i].button_pressed = (i == t)
 	_orig = {}
@@ -250,6 +257,30 @@ func _build_card_list():
 	)
 	_body.add_child(filter)
 
+	var se = LineEdit.new()
+	se.placeholder_text = "🔎 Procurar carta pelo nome"
+	se.text = _search
+	se.custom_minimum_size = Vector2(0, 56)
+	se.add_theme_font_size_override("font_size", FONT)
+	se.text_changed.connect(func(t):
+		_search = t
+		_fill_card_rows())
+	_body.add_child(se)
+	_rows_box = VBoxContainer.new()
+	_rows_box.add_theme_constant_override("separation", 8)
+	_body.add_child(_rows_box)
+	_fill_card_rows()
+
+
+var _search := ""
+var _rows_box: VBoxContainer
+
+
+func _fill_card_rows():
+	if !is_instance_valid(_rows_box):
+		return
+	for c in _rows_box.get_children():
+		c.queue_free()
 	var cards: Array = CardDatabase.all_cards.duplicate() + CustomContent.spawn_only_cards()
 	cards.sort_custom(func(a, b):
 		if a == null or b == null:
@@ -260,18 +291,21 @@ func _build_card_list():
 			return ac
 		return a.card_name < b.card_name
 	)
+	var want = _search.strip_edges().to_lower()
 	for card in cards:
 		if card == null:
 			continue
 		var custom = CustomContent.is_custom(card)
 		if _show_custom_only and !custom:
 			continue
+		if want != "" and !card.card_name.to_lower().contains(want):
+			continue
 		var tag = "⭐ criada por você" if custom else ("✏️ editada" if CustomContent.has_override(card) else "do jogo")
 		if CustomContent.is_spawn_only(card):
 			tag = "🐣 só invocação"
-		var kind_text = "Feitiço" if card.is_spell() else CardData.role_name(card.role)
+		var kind_text = str(Catalogo.KINDS.get(Catalogo.kind_of(card), {}).get("nome", "Tropa"))
 		var c = card
-		_body.add_child(_list_row(card.icon, card.card_name, "%s · custo %d · %s" % [kind_text, card.cost, tag],
+		_rows_box.add_child(_list_row(card.icon, card.card_name, "%s · custo %d · %s" % [kind_text, card.cost, tag],
 			func(): _open_card_form(CustomContent.open_card_for_edit(c))))
 
 
@@ -290,43 +324,15 @@ func _open_card_form(pack: Dictionary):
 		"proj_image": pack.get("proj_image", CustomContent.default_projectile_image()).duplicate(),
 	}
 	_proj_changed = false
-	_clear_body()
-
-	_body.add_child(_label("Editando: " + card.card_name, 22))
-	_build_art_block(CustomContent.CARD_ART_SIZE, "Arte da carta", Vector2(160, 160))
-
-	_field_box = VBoxContainer.new()
-	_field_box.add_theme_constant_override("separation", 6)
-	_body.add_child(_field_box)
-
-	_section("Carta")
-	for f in CustomContent.CARD_FIELDS:
-		_field(_work["card"], f)
-	if _work["stats"] != null and (pack.get("is_new", false) or CustomContent.is_custom(card)):
-		var so = CheckButton.new()
-		so.text = "🐣 Só invocação (não vai pro baralho nem pra coleção; serve de filhote pra outra carta)"
-		so.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		so.custom_minimum_size = Vector2(0, 64)
-		so.button_pressed = CustomContent.is_spawn_only(card)
-		so.toggled.connect(func(on): _work["card"].set_meta("spawn_only", on))
-		_field_box.add_child(so)
-	if _work["spell"] != null:
-		_section("Feitiço")
-		for f in CustomContent.SPELL_FIELDS:
-			_field(_work["spell"], f)
-	elif _work["stats"] != null:
-		_section("Unidade")
-		for f in CustomContent.UNIT_FIELDS:
-			_field(_work["stats"], f)
-		_section("Projétil (só vale com \"Ataque à distância\" ligado)")
-		_build_proj_block()
-		_section("Habilidades e efeitos (todas)")
-		_field_box.add_child(_label("Liga a habilidade e ajusta os números logo abaixo dela.", 14))
-		for f in CustomContent.unit_extra_fields():
-			_field(_work["stats"], f)
-
-	_body.add_child(_power_hint())
-	_form_buttons(_save_card, CustomContent.is_custom(card), CustomContent.has_override(card),
+	_recipe_touched = false
+	_recipe = card.art_recipe.duplicate() if card.art_recipe != null else {}
+	_palette = card.art_palette.duplicate() if (card.art_palette != null and !card.art_palette.is_empty()) else SpriteForge.DEFAULT_PALETTE.duplicate()
+	if pack.get("is_new", false) and _recipe.is_empty() and _work["image"].is_invisible():
+		_recipe = MODE_DEFAULTS["icone" if _work["spell"] != null else "pe"].duplicate()
+		_work["image"] = SpriteForge.make_image(_recipe, _palette)
+		_recipe_touched = true
+		_image_changed = true
+	_start_editor("feitico" if _work["spell"] != null else "tropa", _save_card, CustomContent.is_custom(card), CustomContent.has_override(card),
 		_delete_card.bind(card), _restore_card.bind(card))
 
 
@@ -344,6 +350,10 @@ func _power_hint() -> Label:
 
 func _save_card():
 	var card: CardData = _orig["card"]
+	if _recipe_touched:
+		card.art_recipe = _recipe.duplicate()
+		card.art_palette = _palette.duplicate()
+	Regua.clear()
 	CustomContent.apply_snapshot(card, CustomContent.snapshot(_work["card"], CustomContent.CARD_FIELDS), CustomContent.CARD_FIELDS)
 	if _work["card"].has_meta("spawn_only"):
 		card.set_meta("spawn_only", _work["card"].get_meta("spawn_only"))
@@ -389,8 +399,8 @@ func _remove_from_player_deck(path: String):
 # ============================================================ BASES
 
 func _build_base_list():
-	_body.add_child(_button("+ Nova base", func(): _open_base_form(CustomContent.make_blank_base())))
-	_body.add_child(_label("Dica: a arte da base é 32x64 (em pé).", 14))
+	_body.add_child(_button("+ Novo módulo", func(): _open_base_form(CustomContent.make_blank_base())))
+	_body.add_child(_label("Módulo é o que você põe em volta da Casa Grande. Toque num pra mexer na função, nos números e no desenho.", 14))
 	for b in CustomContent.all_bases([]):
 		var custom = CustomContent.is_custom(b)
 		var tag = "⭐ criada por você" if custom else ("✏️ editada" if CustomContent.has_override(b) else "do jogo")
@@ -409,23 +419,14 @@ func _open_base_form(pack: Dictionary):
 	_work = {"base": b.duplicate(), "image": pack["image"].duplicate(),
 		"proj_image": pack.get("proj_image", CustomContent.default_projectile_image()).duplicate()}
 	_proj_changed = false
-	_clear_body()
-	_body.add_child(_label("Editando: " + b.base_name, 22))
-	_build_art_block(CustomContent.BASE_ART_SIZE, "Arte da torre", Vector2(160, 160))
-	_field_box = VBoxContainer.new()
-	_body.add_child(_field_box)
-	_section("Base")
-	for f in CustomContent.BASE_FIELDS:
-		_field(_work["base"], f)
-	_section("Projétil do canhão")
-	_build_proj_block()
-	_body.add_child(_label("Canhão usa dano/alcance/tempo. Produção usa \"produção extra\". Cura usa cura/raio/intervalo. Espaço usa \"espaço extra\". Aura usa raio + efeito.", 14))
-	_form_buttons(_save_base, CustomContent.is_custom(b), CustomContent.has_override(b),
-		_delete_base.bind(b), _restore_base.bind(b))
+	_recipe_touched = false
+	_recipe = {}
+	_palette = SpriteForge.DEFAULT_PALETTE.duplicate()
+	_start_editor("modulo", _save_base, CustomContent.is_custom(b), CustomContent.has_override(b), _delete_base.bind(b), _restore_base.bind(b))
 
 
 func _delete_base(b: BaseData):
-	_confirm("Apagar essa base?", _do_delete_base.bind(b))
+	_confirm("Apagar esse módulo?", _do_delete_base.bind(b))
 
 
 func _do_delete_base(b: BaseData):
@@ -434,13 +435,13 @@ func _do_delete_base(b: BaseData):
 		PlayerProfile.save_profile()
 	CustomContent.delete_custom_base(b)
 	_close_form()
-	_say("Base apagada.")
+	_say("Módulo apagado.")
 
 
 func _restore_base(b: BaseData):
 	CustomContent.restore_original_base(b)
 	_close_form()
-	_say("Base voltou ao original.")
+	_say("Módulo voltou ao original.")
 
 
 func _save_base():
@@ -451,7 +452,7 @@ func _save_base():
 	_orig["proj_changed"] = _proj_changed
 	CustomContent.save_base(_orig, _image_changed)
 	_close_form()
-	_say("✔ Base \"%s\" salva! Aparece na Coleção > Bases." % b.base_name)
+	_say("✔ Módulo \"%s\" salvo! Aparece em Cartas > Módulos." % b.base_name)
 
 
 # ============================================================ ARENAS
@@ -639,6 +640,8 @@ func _form_buttons(on_save: Callable, can_delete: bool, can_restore: bool, on_de
 func _close_form():
 	_orig = {}
 	_work = {}
+	if is_instance_valid(_head):
+		_head.visible = false
 	_show_list()
 
 
@@ -674,8 +677,23 @@ func _field(obj: Object, f: Array):
 			le.custom_minimum_size = Vector2(0, 56)
 			le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			le.add_theme_font_size_override("font_size", FONT)
-			le.text_changed.connect(func(t): obj.set(prop, t))
+			le.text_changed.connect(func(t):
+				obj.set(prop, t)
+				_refresh_hint())
 			row.add_child(le)
+		"cardid":
+			# escolhe uma tropa do jogo e guarda o id dela (módulo que solta tropa)
+			row.add_child(_field_label(f[1]))
+			var ids: Array = [""]
+			var id_names: Array = ["(nenhuma)"]
+			for c in Catalogo.cards() + Catalogo.tokens():
+				if c == null or c.is_spell():
+					continue
+				var id = c.resource_path.get_file().get_basename()
+				if Catalogo.card(id) == c and !ids.has(id):
+					ids.append(id)
+					id_names.append(c.card_name)
+			row.add_child(_option(id_names, max(ids.find(str(value)), 0), func(i): obj.set(prop, ids[i])))
 		"multiline":
 			var col = VBoxContainer.new()
 			col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -702,7 +720,9 @@ func _field(obj: Object, f: Array):
 			row.add_child(cb)
 		"enum":
 			row.add_child(_field_label(f[1]))
-			row.add_child(_option(opts, int(value), func(i): obj.set(prop, i)))
+			row.add_child(_option(opts, int(value), func(i):
+				obj.set(prop, i)
+				_refresh_hint()))
 		"nation":
 			# nação da carta/base -- "Coringa" = sem nação (só XP livre)
 			row.add_child(_field_label(f[1]))
@@ -734,13 +754,8 @@ func _field(obj: Object, f: Array):
 
 
 func _refresh_hint():
-	# atualiza o aviso de força (último Label laranja antes dos botões)
-	for c in _body.get_children():
-		if c is Label and c.text.begins_with("⚖️"):
-			var fresh = _power_hint()
-			c.text = fresh.text
-			fresh.free()
-			return
+	# qualquer número mexido atualiza o cabeçalho (tipo, régua e tamanho) na hora
+	_refresh_head()
 
 
 func _option(items: Array, selected: int, on_select: Callable) -> OptionButton:
@@ -763,7 +778,9 @@ func _stepper(value, mn, mx, step, on_change: Callable) -> Control:
 	var sb = SpinBox.new()
 	sb.min_value = mn
 	sb.max_value = mx
-	sb.step = step
+	# o passo vale só pros botões − e +. O campo aceita qualquer número: com o passo preso
+	# à grade, 2300 de vida aparecia como 2301 e 32 de dano como 30.
+	sb.step = 1.0 if (value is int) else 0.01
 	sb.allow_greater = true
 	sb.value = value
 	sb.custom_minimum_size = Vector2(110, 56)
@@ -813,3 +830,803 @@ func _confirm(text: String, on_yes: Callable):
 		layer.queue_free()
 		on_yes.call()
 	))
+
+
+# ============================================================ OFICINA: o editor em abas
+# O formulário antigo era uma lista só, comprida. Agora o editor tem:
+#  - um CABEÇALHO FIXO (não rola): a arte ao vivo, o tipo que a carta virou, a
+#    RÉGUA (vida, dano e força contra o padrão do tipo), o tamanho no campo ao
+#    lado de um Peão e de uma torre, e os botões de salvar;
+#  - ABAS: cada uma mostra um assunto só (Básico, Combate, Habilidades, Visual, Teste);
+#  - HABILIDADES como botõezinhos: só a que você liga abre os números dela;
+#  - ARTE POR PEÇAS: cabeça, corpo, pernas, arma, chapéu e 6 cores, sem desenhar
+#    pixel por pixel (que continua existindo pra retoque).
+# Vale pra tropa, construção, feitiço e módulo, do jogo ou criados por você.
+
+const ED_TABS = {"tropa": ["Básico", "Combate", "Habilidades", "Visual", "Teste"], "feitico": ["Básico", "Efeito", "Visual"], "modulo": ["Básico", "Função", "Visual"]}
+const CORE_PROPS = ["hp", "damage", "attack_speed", "attack_range", "move_speed", "unit_count", "spawn_formation", "unit_type", "target_type",
+	"is_ranged", "projectile_speed", "detection_range", "duration", "push_weight"]
+const BASE_TYPE_NAMES = ["Canhão (atira)", "Produção (recurso mais rápido)", "Cura", "Só vida", "Espaço (guarda mais recurso)", "Aura (efeito em volta)"]
+const BASE_TYPE_FIELDS = {0: ["attack_damage", "attack_range", "attack_speed", "is_aoe", "aoe_radius"], 1: ["production_speed_boost"],
+	2: ["heal_amount", "heal_radius", "heal_interval"], 3: [], 4: ["capacity_bonus"], 5: ["aura_radius", "effect", "effect_strength"]}
+# [título, propriedade que liga, [números dela], {valor inicial ao ligar}]
+const ABILITIES = [
+	["⚔ Ataque", [
+		["Efeito ao acertar", "on_hit_effect", ["on_hit_effect_strength", "on_hit_effect_duration", "on_hit_effect_tick_interval", "knockback_distance"], {"on_hit_effect": 1, "on_hit_effect_strength": 0.3, "on_hit_effect_duration": 2.0}],
+		["Dano em área", "is_aoe", ["aoe_radius"], {"aoe_radius": 45.0}],
+		["Ataque giratório (360°)", "spin_attack", ["aoe_radius"], {"aoe_radius": 45.0}],
+		["Ataque em cone", "frontal_cone_attack", ["cone_angle_degrees", "aoe_radius"], {"aoe_radius": 45.0}],
+		["Acerta +1 alvo", "aoe_hits_extra_one", [], {}],
+		["Ataque contínuo", "continuous_attack", ["continuous_damage_per_second"], {"continuous_damage_per_second": 60.0}],
+		["Golpe carregado", "charge_attack", ["charge_distance_needed", "charge_damage_multiplier", "charge_knockback_distance"], {}],
+		["Avanço instantâneo", "bandit_dash", ["dash_speed_multiplier", "dash_duration"], {}],
+		["1º ataque mais forte", "first_attack_bonus", ["first_attack_multiplier"], {}],
+		["Dano cresce a cada golpe", "ramping_damage", ["ramping_damage_per_hit", "ramping_damage_max_multiplier"], {}],
+		["Dano cresce no mesmo alvo", "same_target_ramping_damage", ["same_target_ramping_damage_per_hit", "same_target_ramping_damage_max_multiplier"], {}],
+		["Ataca cada vez mais rápido", "ramping_attack_speed", ["attack_speed_ramp_per_hit", "attack_speed_ramp_min_multiplier"], {}],
+		["Acelera ao achar alvo", "pre_attack_speed_boost", ["pre_attack_boost_multiplier", "pre_attack_boost_duration"], {}],
+		["Dano extra de longe", "distance_damage_bonus_per_100px", [], {"distance_damage_bonus_per_100px": 0.1}],
+		["Executa alvo fraco", "execute_threshold", ["execute_damage_mult"], {"execute_threshold": 0.2, "execute_damage_mult": 2.0}],
+		["Dano extra contra uma categoria", "extra_damage_vs_role_mult", ["extra_damage_vs_role"], {"extra_damage_vs_role_mult": 0.5}],
+		["Kamikaze", "kamikaze", [], {}],
+	]],
+	["🎯 Projétil (só pra quem atira)", [
+		["Atravessa", "projectile_pierces", ["projectile_max_targets"], {"projectile_max_targets": 3}],
+		["Se divide", "projectile_splits", ["projectile_split_count", "projectile_split_range"], {}],
+		["Pula em cadeia", "projectile_chains", ["projectile_chain_max_targets", "projectile_chain_range"], {}],
+	]],
+	["🛡 Defesa", [
+		["Escudo", "has_shield", ["shield_amount", "shield_recharge_time"], {"shield_amount": 200}],
+		["Escudo temporário", "has_temp_shield", ["temp_shield_amount", "temp_shield_duration"], {"temp_shield_amount": 200, "temp_shield_duration": 4.0}],
+		["Redução de dano", "damage_reduction_percent", [], {"damage_reduction_percent": 0.2}],
+		["Roubo de vida", "lifesteal_percent", [], {"lifesteal_percent": 0.2}],
+		["Regenera vida", "passive_regen", ["regen_amount", "regen_interval"], {"regen_amount": 20, "regen_interval": 1.0}],
+		["Cura ao matar", "heals_on_kill", ["heal_on_kill_amount"], {"heal_on_kill_amount": 100}],
+		["Ressuscita 1x", "can_resurrect", ["resurrect_hp_percent"], {"resurrect_hp_percent": 0.5}],
+		["Reflete dano", "reflects_damage", ["reflect_damage_percent"], {"reflect_damage_percent": 0.2}],
+		["Contra-ataque", "counter_attack_chance", [], {"counter_attack_chance": 0.25}],
+		["Vida compartilhada", "is_linked", ["link_share_percent"], {}],
+		["Imune a um efeito", "immune_to_effect", [], {"immune_to_effect": 1}],
+		["Imune a empurrão", "immune_to_knockback", [], {}],
+		["Imune a puxão", "immune_to_pull", [], {}],
+		["Imune enquanto anda", "immune_while_moving", [], {}],
+		["Invulnerável ao nascer", "spawn_invulnerability_duration", [], {"spawn_invulnerability_duration": 1.5}],
+		["Fúria com vida baixa", "low_hp_rage_threshold", ["low_hp_rage_damage_mult"], {"low_hp_rage_threshold": 0.3, "low_hp_rage_damage_mult": 1.5}],
+	]],
+	["🚪 Entrada em campo", [
+		["Fúria ao entrar", "entrance_rage_duration", ["entrance_rage_damage_mult", "entrance_rage_speed_mult"], {"entrance_rage_duration": 4.0}],
+		["Onda de choque ao entrar", "entrance_shockwave_damage", ["entrance_shockwave_radius"], {"entrance_shockwave_damage": 100, "entrance_shockwave_radius": 70.0}],
+		["Dano ao chegar", "deals_arrival_damage", ["arrival_damage", "arrival_damage_radius"], {"arrival_damage": 100, "arrival_damage_radius": 70.0}],
+		["Atordoado ao nascer", "initial_stun_duration", [], {"initial_stun_duration": 0.5}],
+		["Nasce disfarçada", "spawns_disguised", [], {}],
+		["Fica invisível", "can_stealth", ["stealth_reveal_range"], {}],
+		["Nasce em qualquer lugar", "can_spawn_anywhere", [], {}],
+		["Atravessa água", "crosses_water", [], {}],
+		["Reforço aéreo (pousa)", "landing_duration", [], {"landing_duration": 1.0}],
+	]],
+	["🐣 Invocação", [
+		["Invoca unidades", "spawns_units", ["spawn_unit_scene", "spawn_interval", "spawn_count"], {"spawn_interval": 6.0, "spawn_count": 1}],
+		["Invoca ao morrer", "spawns_on_death", ["death_spawn_scene", "death_spawn_count"], {"death_spawn_count": 2}],
+		["Invoca ao atacar", "summons_on_attack", ["attack_summon_scene", "attack_summon_chance"], {"attack_summon_chance": 0.25}],
+		["Se clona", "can_clone", ["clone_hp_percent", "clone_count"], {}],
+		["Vira construção", "transforms_into_building", ["transform_after_seconds", "transformed_scene"], {}],
+		["Converte inimigo", "can_convert_enemy", ["convert_max_targets"], {}],
+	]],
+	["💚 Apoio e recurso", [
+		["Cura aliados perto", "can_heal_allies", ["heal_aura_amount", "heal_aura_radius", "heal_aura_interval"], {"heal_aura_amount": 20, "heal_aura_radius": 90.0}],
+		["Provoca (puxa inimigos)", "forces_aggro", ["taunt_radius"], {"taunt_radius": 120.0}],
+		["Explode ao morrer", "explodes_on_death", ["death_explosion_damage", "death_explosion_radius"], {"death_explosion_damage": 150, "death_explosion_radius": 70.0}],
+		["Gera recurso", "generates_resource", ["resource_per_tick", "resource_tick_interval"], {}],
+		["Aumenta o limite de recurso", "stores_resource", ["storage_capacity_bonus"], {}],
+		["Rouba recurso ao bater na base", "steals_resource_on_base_hit", ["resource_steal_amount"], {}],
+		["Dá recurso ao morrer", "grants_resource_on_death", ["death_resource_amount"], {}],
+		["Ganha ouro ao matar", "converts_kills_to_gold", ["gold_per_kill"], {}],
+		["Efeito de maestria (nível alto)", "mastery_effect", ["mastery_effect_duration", "mastery_effect_strength", "mastery_effect_tick_interval"], {"mastery_effect": 1}],
+	]],
+]
+const PALETTE_KEYS = ["P", "S", "A", "K", "M", "W"]
+const PALETTE_NAMES = {"P": "Principal", "S": "Secundária", "A": "Detalhe", "K": "Pele / bico", "M": "Metal", "W": "Madeira"}
+const SWATCHES = ["#f0f0e8", "#c8c8c0", "#888890", "#484850", "#202028", "#e8c040", "#f0a030", "#e87028", "#c84838", "#a02828", "#f0a0b0",
+	"#d860a0", "#9850c0", "#6040a0", "#4060c8", "#48a8e8", "#70d0e0", "#40a878", "#58b848", "#a0c840", "#587830", "#e8b088", "#d89868",
+	"#b07848", "#8a5a34", "#6a4428", "#4a3020", "#d8c8a8", "#a0a8b4", "#f0e0a0"]
+const PIECE_SLOTS = {"pe": ["cabeca", "chapeu", "corpo", "bracos", "pernas", "arma", "costas"], "quatro": ["quatro", "cabeca", "chapeu", "costas"],
+	"objeto": ["objeto"], "icone": ["icone"], "torre": ["torre"]}
+const SLOT_NAMES = {"cabeca": "Cabeça", "chapeu": "Chapéu", "corpo": "Corpo", "bracos": "Braços", "pernas": "Pernas", "arma": "Arma", "costas": "Costas",
+	"quatro": "Corpo (4 patas)", "objeto": "Objeto", "icone": "Ícone", "torre": "Construção"}
+const MODE_DEFAULTS = {"pe": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "humano"}, "quatro": {"quatro": "vaca", "cabeca": "vaca"},
+	"objeto": {"objeto": "silo"}, "icone": {"icone": "raio"}, "torre": {"torre": "celeiro"}}
+
+var _head: PanelContainer
+var _ed_kind := ""          # "tropa" | "feitico" | "modulo"
+var _ed_tab := 0
+var _ed_actions: Array = []  # [salvar, pode apagar, pode restaurar, apagar, restaurar]
+var _recipe: Dictionary = {}
+var _palette: Dictionary = {}
+var _recipe_touched := false
+var _parts_open := false
+var _only_on := false
+var _fill_kind := 0
+var _fdefs: Dictionary = {}
+var _h_art: TextureRect
+var _h_title: Label
+var _h_sub: Label
+var _h_bars: Dictionary = {}
+var _h_size: SizePreview
+var _readout: Label
+var _ed_tab_buttons: Array = []
+
+
+## rótulo de UMA linha (sem quebra): dentro do cabeçalho fixo, texto com quebra
+## automática faz o painel "medir" errado (foi o defeito da coleção sumida)
+func _line(text: String, font_size: int, col: Color = Color.WHITE) -> Label:
+	var l = Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", font_size)
+	l.add_theme_color_override("font_color", col)
+	l.clip_text = true
+	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
+
+
+func _start_editor(kind: String, on_save: Callable, can_delete: bool, can_restore: bool, on_delete: Callable, on_restore: Callable):
+	_ed_kind = kind
+	_ed_tab = 0
+	_only_on = false
+	_parts_open = false
+	_ed_actions = [on_save, can_delete, can_restore, on_delete, on_restore]
+	_build_head()
+	_build_ed_body()
+
+
+func _build_head():
+	for c in _head.get_children():
+		c.queue_free()
+	_head.visible = true
+	_h_bars = {}
+	_h_size = null
+	_ed_tab_buttons = []
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	_head.add_child(v)
+	var top = HBoxContainer.new()
+	top.add_theme_constant_override("separation", 10)
+	v.add_child(top)
+	var frame = PanelContainer.new()
+	top.add_child(frame)
+	_h_art = _icon_rect(ImageTexture.create_from_image(_work["image"]), Vector2(100, 100))
+	frame.add_child(_h_art)
+	var col = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 2)
+	top.add_child(col)
+	_h_title = _line("", 21, ThemeBuilder.COLOR_GOLD)
+	_h_sub = _line("", 15, Color(0.85, 0.95, 1.0))
+	col.add_child(_h_title)
+	col.add_child(_h_sub)
+	if _ed_kind == "tropa":
+		for key in ["vida", "dano", "geral"]:
+			var row = HBoxContainer.new()
+			row.add_theme_constant_override("separation", 6)
+			var nm = _line({"vida": "Vida", "dano": "Dano", "geral": "Força"}[key], 14, Color(0.85, 0.82, 0.75))
+			nm.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			nm.custom_minimum_size.x = 48
+			row.add_child(nm)
+			var bar = ProgressBar.new()
+			bar.min_value = 0
+			bar.max_value = 200
+			bar.show_percentage = false
+			bar.custom_minimum_size = Vector2(50, 14)
+			bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(bar)
+			var pct = _line("", 14)
+			pct.size_flags_horizontal = Control.SIZE_SHRINK_END
+			pct.custom_minimum_size.x = 52
+			row.add_child(pct)
+			col.add_child(row)
+			_h_bars[key] = [bar, pct]
+		_h_size = SizePreview.new()
+		var peao: CardData = Catalogo.card("peao_forcado")
+		_h_size.ref_unit = peao.icon if peao != null else null
+		_h_size.ref_tower = Catalogo.main_base().icon
+		top.add_child(_h_size)
+	var acts = HBoxContainer.new()
+	acts.add_theme_constant_override("separation", 6)
+	v.add_child(acts)
+	var save = _button("💾 Salvar", _ed_actions[0])
+	save.add_theme_color_override("font_color", Color(0.5, 1, 0.5))
+	save.custom_minimum_size.y = 54
+	acts.add_child(save)
+	var cancel = _button("Cancelar", _close_form)
+	cancel.custom_minimum_size.y = 54
+	acts.add_child(cancel)
+	if _ed_actions[1]:
+		var del = _button("🗑 Apagar", _ed_actions[3])
+		del.custom_minimum_size.y = 54
+		acts.add_child(del)
+	elif _ed_actions[2] and _ed_actions[4].is_valid():
+		var res = _button("↺ Original", _ed_actions[4])
+		res.custom_minimum_size.y = 54
+		acts.add_child(res)
+	var tabs = HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 4)
+	v.add_child(tabs)
+	var names: Array = ED_TABS[_ed_kind]
+	for i in names.size():
+		var b = _button(str(names[i]), _show_ed_tab.bind(i))
+		b.toggle_mode = true
+		b.button_pressed = i == _ed_tab
+		b.custom_minimum_size.y = 50
+		b.add_theme_font_size_override("font_size", 16)
+		tabs.add_child(b)
+		_ed_tab_buttons.append(b)
+	_refresh_head()
+
+
+func _show_ed_tab(i: int):
+	_ed_tab = i
+	for k in _ed_tab_buttons.size():
+		if is_instance_valid(_ed_tab_buttons[k]):
+			_ed_tab_buttons[k].button_pressed = k == i
+	_build_ed_body()
+	_refresh_head()
+
+
+func _refresh_head():
+	if !is_instance_valid(_head) or !_head.visible or _work.is_empty() or !is_instance_valid(_h_title):
+		return
+	if is_instance_valid(_h_art):
+		_h_art.texture = ImageTexture.create_from_image(_work["image"])
+	_update_readout()
+	if _ed_kind == "modulo":
+		var b: BaseData = _work["base"]
+		_h_title.text = b.base_name
+		_h_sub.text = "❤ %d  ·  %s" % [b.base_hp, BASE_TYPE_NAMES[clampi(int(b.base_type), 0, BASE_TYPE_NAMES.size() - 1)]]
+		return
+	var card: CardData = _work["card"]
+	_h_title.text = card.card_name
+	if _ed_kind == "feitico":
+		var sp: SpellData = _work["spell"]
+		_h_sub.text = "Feitiço  ·  custo %d  ·  dano %d  ·  raio %d" % [card.cost, sp.damage, int(sp.radius)]
+		return
+	var st: UnitData = _work["stats"]
+	var cmp = Regua.compare(st, card.cost)
+	var kd: Dictionary = Catalogo.KINDS.get(cmp["kind"], {})
+	_h_sub.text = "%s  ·  custo %d  ·  ❤ %d%s  ⚔ %d" % [kd.get("nome", "?"), card.cost, st.hp, (" x%d" % st.unit_count) if st.unit_count > 1 else "", st.damage]
+	for key in _h_bars:
+		var p = int(cmp[key])
+		var bar: ProgressBar = _h_bars[key][0]
+		var pct: Label = _h_bars[key][1]
+		bar.value = clampi(p, 0, 200)
+		pct.text = "%d%%" % p
+		var c = Color(0.5, 1.0, 0.5) if (p >= 85 and p <= 115) else (Color(1.0, 0.85, 0.35) if (p >= 70 and p <= 130) else Color(1.0, 0.45, 0.4))
+		bar.modulate = c
+		pct.add_theme_color_override("font_color", c)
+	if is_instance_valid(_h_size):
+		_h_size.art = _h_art.texture
+		_h_size.unit_scale = st.unit_scale
+		_h_size.queue_redraw()
+
+
+func _build_ed_body():
+	_clear_body()
+	_readout = null
+	_field_box = VBoxContainer.new()
+	_field_box.add_theme_constant_override("separation", 6)
+	_body.add_child(_field_box)
+	match str(ED_TABS[_ed_kind][_ed_tab]):
+		"Básico": _tab_basico()
+		"Combate": _tab_combate()
+		"Habilidades": _tab_habilidades()
+		"Visual": _tab_visual()
+		"Teste": _tab_teste()
+		"Efeito": _tab_efeito()
+		"Função": _tab_funcao()
+	var spacer = Control.new()
+	spacer.custom_minimum_size = Vector2(0, 140)  # espaço pro teclado do celular não cobrir o último campo
+	_body.add_child(spacer)
+
+
+func _note(text: String, col: Color = Color(0.85, 0.82, 0.75)) -> Label:
+	var l = _label(text, 14)
+	l.add_theme_color_override("font_color", col)
+	return l
+
+
+func _field_defs() -> Dictionary:
+	if _fdefs.is_empty():
+		for f in CustomContent.all_unit_fields():
+			_fdefs[f[0]] = f
+	return _fdefs
+
+
+# ---------------------------------------------------------------- aba Básico
+func _tab_basico():
+	if _ed_kind == "modulo":
+		for f in CustomContent.BASE_FIELDS:
+			if f[0] in ["base_name", "description", "nation_data", "category", "unlock_arena"]:
+				_field(_work["base"], f)
+		return
+	for f in CustomContent.CARD_FIELDS:
+		_field(_work["card"], f)
+	if _ed_kind != "tropa":
+		return
+	var card: CardData = _orig["card"]
+	if _orig.get("is_new", false) or CustomContent.is_custom(card):
+		var so = CheckButton.new()
+		so.text = "🐣 Só invocação (não vai pro baralho; serve de filhote pra outra carta)"
+		so.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		so.custom_minimum_size = Vector2(0, 64)
+		so.button_pressed = CustomContent.is_spawn_only(card)
+		so.toggled.connect(func(on): _work["card"].set_meta("spawn_only", on))
+		_field_box.add_child(so)
+	# a régua: preenche os números pelo padrão do tipo
+	var p = PanelContainer.new()
+	_field_box.add_child(p)
+	var v = VBoxContainer.new()
+	p.add_child(v)
+	var t = _label("✨ Preencher pelo padrão", 19)
+	t.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
+	v.add_child(t)
+	v.add_child(_note("Escolha o tipo. O Criador põe vida, dano, velocidade, alcance, quantidade e tamanho no padrão das cartas do jogo desse tipo, pro custo que está acima. Depois você ajusta o que quiser."))
+	var names: Array = []
+	for k in Regua.KIND_ORDER:
+		names.append(str(Catalogo.KINDS[k]["nome"]))
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	v.add_child(row)
+	row.add_child(_option(names, _fill_kind, func(i): _fill_kind = i))
+	row.add_child(_button("Preencher", _apply_standard))
+
+
+func _apply_standard():
+	var st: UnitData = _work["stats"]
+	var kind = str(Regua.KIND_ORDER[clampi(_fill_kind, 0, Regua.KIND_ORDER.size() - 1)])
+	var sug = Regua.suggest(kind, _work["card"].cost)
+	for prop in sug:
+		if st.get(prop) != null:
+			CustomContent.set_prop(st, prop, sug[prop])
+	if st.is_ranged:
+		st.detection_range = maxf(st.detection_range, st.attack_range + 20.0)
+	if st.unit_type != UnitData.UnitType.BUILDING:
+		st.unit_scale = Regras.strength_scale(st.hp, st.damage, Catalogo.porte(_recipe))
+	_refresh_head()
+	_say("✔ Números no padrão de %s pro custo %d. Confira na aba Combate." % [Catalogo.KINDS[kind]["nome"], _work["card"].cost])
+
+
+# ---------------------------------------------------------------- aba Combate
+func _tab_combate():
+	var st: UnitData = _work["stats"]
+	var defs = _field_defs()
+	_readout = _note("", Color(0.75, 0.95, 1.0))
+	_field_box.add_child(_readout)
+	for prop in CORE_PROPS:
+		if defs.has(prop):
+			_field(st, defs[prop])
+	_update_readout()
+
+
+func _update_readout():
+	if is_instance_valid(_readout) and _ed_kind == "modulo" and _work.get("base") != null:
+		# os números do módulo passam pela regra das torres antes de ir pro campo
+		var b: BaseData = _work["base"]
+		var txt = "No campo (nível 1): ❤ %d" % Regras.tower_hp(b)
+		if Regras.tower_shoots(b):
+			txt += "  ·  tiro %d a cada %.1fs  ·  alcance %d" % [int(round(Regras.tower_damage(b))), Regras.tower_interval(b), int(Regras.tower_range(b))]
+		_readout.text = txt + ". A regra das torres multiplica vida e tiro pra todos os módulos por igual."
+		return
+	if !is_instance_valid(_readout) or _work.get("stats") == null:
+		return
+	var st: UnitData = _work["stats"]
+	var n = maxi(st.unit_count, 1)
+	var dps = st.damage / maxf(st.attack_speed, 0.1)
+	var shot = maxf(Regras.tower_damage(Catalogo.main_base()), 1.0)
+	_readout.text = "Dano por segundo: %d%s  ·  vida total: %d  ·  cada uma aguenta %d tiro(s) de torre" % [int(round(dps * n)),
+		(" (%d cada)" % int(round(dps))) if n > 1 else "", st.hp * n, int(ceil(st.hp / shot))]
+
+
+# ---------------------------------------------------------------- aba Habilidades
+func _ability_on(st: UnitData, key: String) -> bool:
+	var v = st.get(key)
+	if v is bool:
+		return v
+	if v is int or v is float:
+		return v != 0
+	return false
+
+
+func _tab_habilidades():
+	var st: UnitData = _work["stats"]
+	var defs = _field_defs()
+	var used := {"unit_scale": true}
+	for p in CORE_PROPS:
+		used[p] = true
+	var on_total = 0
+	for group in ABILITIES:
+		for ab in group[1]:
+			if defs.has(ab[1]) and _ability_on(st, ab[1]):
+				on_total += 1
+	_field_box.add_child(_note("%d habilidade(s) ligada(s). Toque numa pra ligar: só a ligada mostra os números dela." % on_total, Color(0.75, 0.95, 1.0)))
+	_field_box.add_child(_button("Mostrando: " + ("só as ligadas" if _only_on else "todas"), func():
+		_only_on = !_only_on
+		_build_ed_body()))
+	for group in ABILITIES:
+		var on_list: Array = []
+		var off_list: Array = []
+		for ab in group[1]:
+			if !defs.has(ab[1]):
+				continue
+			used[ab[1]] = true
+			for prm in ab[2]:
+				used[prm] = true
+			if _ability_on(st, ab[1]):
+				on_list.append(ab)
+			else:
+				off_list.append(ab)
+		if on_list.is_empty() and (off_list.is_empty() or _only_on):
+			continue
+		_section(str(group[0]))
+		for ab in on_list:
+			_ability_panel(st, ab, defs)
+		if !_only_on and !off_list.is_empty():
+			var flow = HFlowContainer.new()
+			flow.add_theme_constant_override("h_separation", 6)
+			flow.add_theme_constant_override("v_separation", 6)
+			_field_box.add_child(flow)
+			for ab in off_list:
+				var chip = Button.new()
+				chip.text = "＋ " + str(ab[0])
+				chip.custom_minimum_size = Vector2(0, 48)
+				chip.add_theme_font_size_override("font_size", 15)
+				chip.pressed.connect(_toggle_ability.bind(ab, true))
+				flow.add_child(chip)
+	if _only_on:
+		return
+	var rest: Array = []
+	for f in CustomContent.all_unit_fields():
+		if !used.has(f[0]):
+			rest.append(f)
+	if !rest.is_empty():
+		_section("Outros números")
+		for f in rest:
+			_field(st, f)
+
+
+func _ability_panel(st: UnitData, ab: Array, defs: Dictionary):
+	var p = PanelContainer.new()
+	_field_box.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	p.add_child(v)
+	var hb = _button("✔ %s    (toque pra desligar)" % str(ab[0]), _toggle_ability.bind(ab, false))
+	hb.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	hb.custom_minimum_size.y = 50
+	hb.add_theme_color_override("font_color", Color(0.5, 1, 0.5))
+	v.add_child(hb)
+	var keep = _field_box
+	_field_box = v
+	if str(defs[ab[1]][2]) != "bool":
+		_field(st, defs[ab[1]])
+	for prm in ab[2]:
+		if defs.has(prm):
+			_field(st, defs[prm])
+	_field_box = keep
+
+
+func _toggle_ability(ab: Array, on: bool):
+	if _work.get("stats") == null:
+		return
+	var st: UnitData = _work["stats"]
+	var cur = st.get(ab[1])
+	if cur is bool:
+		st.set(ab[1], on)
+	elif !on:
+		CustomContent.set_prop(st, ab[1], 0)
+	if on:
+		var start: Dictionary = ab[3]
+		for prop in start:
+			var val = st.get(prop)
+			if (val is bool and !val) or ((val is int or val is float) and val == 0):
+				CustomContent.set_prop(st, prop, start[prop])
+		if !(cur is bool) and !_ability_on(st, ab[1]):
+			CustomContent.set_prop(st, ab[1], 1)
+	var y = _scroll.scroll_vertical
+	_build_ed_body()
+	_refresh_head()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(_scroll):
+		_scroll.scroll_vertical = y
+
+
+# ---------------------------------------------------------------- aba Visual
+func _set_image(img: Image):
+	_work["image"] = img
+	_image_changed = true
+	if is_instance_valid(_art_rect):
+		_art_rect.texture = ImageTexture.create_from_image(img)
+	_refresh_head()
+
+
+func _recipe_mode() -> String:
+	for m in ["torre", "icone", "objeto", "quatro"]:
+		if str(_recipe.get(m, "")) != "":
+			return m
+	if _recipe.is_empty():
+		return "torre" if _ed_kind == "modulo" else ("icone" if _ed_kind == "feitico" else "pe")
+	return "pe"
+
+
+func _tab_visual():
+	var art_size: Vector2i = CustomContent.BASE_ART_SIZE if _ed_kind == "modulo" else CustomContent.CARD_ART_SIZE
+	var row = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	_field_box.add_child(row)
+	var frame = PanelContainer.new()
+	row.add_child(frame)
+	_art_rect = _icon_rect(ImageTexture.create_from_image(_work["image"]), Vector2(180, 180))
+	frame.add_child(_art_rect)
+	var col = VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(col)
+	col.add_child(_button("🧩 Montar por peças" + (" ▲" if _parts_open else " ▼"), func():
+		_parts_open = !_parts_open
+		_build_ed_body()))
+	col.add_child(_button("🎨 Desenhar pixel a pixel", func():
+		_open_pixel_editor(_work["image"], "Arte", func(img: Image):
+			if !_work.is_empty():
+				_set_image(img))))
+	col.add_child(_button("🎲 Arte aleatória", func():
+		_set_image(CardGenerator.generate_sprite(art_size.x, art_size.y, randi()))))
+	if _parts_open:
+		_parts_picker()
+	if _ed_kind == "tropa":
+		var st: UnitData = _work["stats"]
+		_section("Tamanho no campo")
+		var rule = Regras.strength_scale(st.hp, st.damage, Catalogo.porte(_recipe))
+		_field_box.add_child(_note("O desenho do cabeçalho mostra a tropa ao lado de um Peão e da Casa Grande. Pela regra do jogo (força × porte do bicho) esta carta teria tamanho %.2f." % rule))
+		_field(st, _field_defs()["unit_scale"])
+		_field_box.add_child(_button("📏 Usar o tamanho da regra (%.2f)" % rule, func():
+			st.unit_scale = Regras.strength_scale(st.hp, st.damage, Catalogo.porte(_recipe))
+			_build_ed_body()
+			_refresh_head()))
+		_section("Projétil (só vale com \"Ataque à distância\" ligado)")
+		_build_proj_block()
+	elif _ed_kind == "modulo":
+		_section("Projétil do canhão")
+		_build_proj_block()
+
+
+func _parts_picker():
+	var p = PanelContainer.new()
+	_field_box.add_child(p)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	p.add_child(v)
+	var mode = _recipe_mode()
+	if _ed_kind == "tropa":
+		var modes = ["pe", "quatro", "objeto"]
+		var mrow = HBoxContainer.new()
+		mrow.add_child(_field_label("Postura"))
+		mrow.add_child(_option(["Em pé (peças)", "Quatro patas", "Objeto / construção"], maxi(modes.find(mode), 0), func(i):
+			_recipe = MODE_DEFAULTS[modes[i]].duplicate()
+			_regen_art()
+			_build_ed_body()))
+		v.add_child(mrow)
+	for slot in PIECE_SLOTS[mode]:
+		var solo = PIECE_SLOTS[mode].size() == 1
+		var items: Array = ([] if solo else [""]) + SpriteForge.pieces(slot)
+		var shown: Array = []
+		for it in items:
+			shown.append("(nada)" if str(it) == "" else str(it).replace("_", " ").capitalize())
+		var srow = HBoxContainer.new()
+		srow.add_child(_field_label(str(SLOT_NAMES.get(slot, slot))))
+		var slot_name = str(slot)
+		srow.add_child(_option(shown, maxi(items.find(str(_recipe.get(slot, ""))), 0), func(i):
+			if str(items[i]) == "":
+				_recipe.erase(slot_name)
+			else:
+				_recipe[slot_name] = str(items[i])
+			_regen_art()))
+		v.add_child(srow)
+	var ct = _label("Cores (toque pra trocar)", 16)
+	ct.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
+	v.add_child(ct)
+	var grid = GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(grid)
+	for key in PALETTE_KEYS:
+		var cell = VBoxContainer.new()
+		cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var cb = _color_button(Color(str(_palette.get(key, SpriteForge.DEFAULT_PALETTE[key]))), _pick_color.bind(key))
+		cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cell.add_child(cb)
+		var cl = _line(str(PALETTE_NAMES[key]), 13, Color(0.85, 0.82, 0.75))
+		cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cell.add_child(cl)
+		grid.add_child(cell)
+
+
+func _regen_art():
+	if _recipe.is_empty():
+		_recipe = MODE_DEFAULTS[_recipe_mode()].duplicate()
+	_recipe_touched = true
+	_set_image(SpriteForge.make_image(_recipe, _palette))
+
+
+func _color_button(col: Color, cb: Callable) -> Button:
+	var b = Button.new()
+	b.custom_minimum_size = Vector2(64, 52)
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = col
+	sb.set_corner_radius_all(6)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(0, 0, 0, 0.55)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(state, sb)
+	b.pressed.connect(cb)
+	return b
+
+
+func _pick_color(key: String):
+	var layer = CanvasLayer.new()
+	layer.layer = 110
+	add_child(layer)
+	var dim = ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(dim)
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(center)
+	var panel = PanelContainer.new()
+	panel.theme = ThemeBuilder.game_theme
+	center.add_child(panel)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	panel.add_child(v)
+	v.add_child(_line("Cor: " + str(PALETTE_NAMES[key]), 20, ThemeBuilder.COLOR_GOLD))
+	var grid = GridContainer.new()
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	v.add_child(grid)
+	for hex in SWATCHES:
+		var h = str(hex)
+		grid.add_child(_color_button(Color(h), func():
+			layer.queue_free()
+			_palette[key] = h
+			_regen_art()
+			_build_ed_body()))
+	v.add_child(_button("Cancelar", func(): layer.queue_free()))
+
+
+# ---------------------------------------------------------------- aba Teste
+func _tab_teste():
+	var st: UnitData = _work["stats"]
+	var card: CardData = _work["card"]
+	var cmp = Regua.compare(st, card.cost)
+	var kd: Dictionary = Catalogo.KINDS.get(cmp["kind"], {})
+	var std = Regua.standard(cmp["kind"])
+	var t = _label("Tipo: %s" % kd.get("nome", "?"), 20)
+	t.add_theme_color_override("font_color", Color(str(kd.get("cor", "#ffffff"))))
+	_field_box.add_child(t)
+	_field_box.add_child(_note(str(kd.get("serve", ""))))
+	_field_box.add_child(_note("Ganha de: %s   ·   Perde pra: %s" % [kd.get("ganha", "-"), kd.get("perde", "-")], Color(0.75, 0.95, 1.0)))
+	_section("Régua (padrão de %d cartas desse tipo, custo %d)" % [int(std.get("cartas", 0)), card.cost])
+	var n = maxi(st.unit_count, 1)
+	_field_box.add_child(_note("Vida total: %d  (padrão %d)  →  %d%%" % [st.hp * n, int(round(std["hp_c"] * card.cost)), cmp["vida"]]))
+	_field_box.add_child(_note("Dano por segundo: %d  (padrão %d)  →  %d%%" % [int(round(st.damage / maxf(st.attack_speed, 0.1) * n)), int(round(std["dps_c"] * card.cost)), cmp["dano"]]))
+	_field_box.add_child(_note("Força geral: %d%% do normal pra esse custo. Entre 85%% e 115%% é equilibrada; habilidade especial não entra nessa conta." % cmp["geral"]))
+	if st.unit_type != UnitData.UnitType.BUILDING:
+		_section("Contra uma torre")
+		_field_box.add_child(_note("Sozinha, se ninguém defender, tira %d%% da vida de um módulo de tiro (Celeiro)." % int(round(DueloPapel.tower_share_stats(st) * 100.0))))
+	if st.unit_type == UnitData.UnitType.BUILDING or st.target_type == UnitData.TargetType.BUILDING:
+		_field_box.add_child(_note("Construção e quem só bate em torre não entram em duelo."))
+		return
+	_section("Duelo contra cartas de custo parecido")
+	var refs: Array = []
+	for c in Catalogo.cards():
+		if c != null and DueloPapel.duels(c) and c.card_name != card.card_name:
+			refs.append(c)
+	refs.sort_custom(func(a, b): return absi(a.cost - card.cost) < absi(b.cost - card.cost))
+	var wins = 0
+	var lines: Array = []
+	for c in refs.slice(0, 10):
+		var r = DueloPapel.duel_stats(st, c)
+		if r > 0.02:
+			wins += 1
+			lines.append(["✔ ganha de %s (custo %d): sobra %d%% da vida" % [c.card_name, c.cost, int(round(r * 100.0))], Color(0.6, 1.0, 0.6)])
+		elif r < -0.02:
+			lines.append(["✖ perde pra %s (custo %d): ele fica com %d%%" % [c.card_name, c.cost, int(round(-r * 100.0))], Color(1.0, 0.62, 0.55)])
+		else:
+			lines.append(["= empata com %s (custo %d)" % [c.card_name, c.cost], Color(0.9, 0.9, 0.8)])
+	_field_box.add_child(_note("Ganhou %d de %d." % [wins, lines.size()], Color(0.75, 0.95, 1.0)))
+	for l in lines:
+		_field_box.add_child(_note(str(l[0]), l[1]))
+	_field_box.add_child(_note("É uma conta no papel (vida, dano, alcance, velocidade, quantidade e as habilidades principais), feita na hora com os números que estão na tela. Serve pra comparar; não substitui jogar."))
+
+
+# ---------------------------------------------------------------- feitiço e módulo
+const SPELL_GROUPS = [["Onde e por quanto tempo", ["radius", "duration", "tick_interval", "affects_enemies", "affects_allies"]],
+	["Dano", ["damage", "base_damage_multiplier", "knockback_distance"]],
+	["Efeito em quem é atingido", ["status_effect", "status_effect_strength", "status_effect_duration"]],
+	["Cura e escudo nos aliados", ["heal_amount", "shield_amount"]],
+	["Fúria nos aliados", ["rage_damage_mult", "rage_speed_mult", "rage_attack_speed_mult"]]]
+
+
+func _tab_efeito():
+	var defs := {}
+	for f in CustomContent.SPELL_FIELDS:
+		defs[f[0]] = f
+	var used := {}
+	for g in SPELL_GROUPS:
+		_section(str(g[0]))
+		for prop in g[1]:
+			if defs.has(prop):
+				used[prop] = true
+				_field(_work["spell"], defs[prop])
+	var rest: Array = []
+	for f in CustomContent.SPELL_FIELDS:
+		if !used.has(f[0]):
+			rest.append(f)
+	if !rest.is_empty():
+		_section("Outros")
+		for f in rest:
+			_field(_work["spell"], f)
+
+
+func _tab_funcao():
+	var b: BaseData = _work["base"]
+	var defs := {}
+	for f in CustomContent.BASE_FIELDS:
+		defs[f[0]] = f
+	_readout = _note("", Color(0.75, 0.95, 1.0))
+	_field_box.add_child(_readout)
+	_update_readout()
+	_field(b, defs["base_hp"])
+	var row = HBoxContainer.new()
+	row.add_child(_field_label("Função"))
+	row.add_child(_option(BASE_TYPE_NAMES, int(b.base_type), func(i):
+		b.base_type = i
+		_build_ed_body()
+		_refresh_head()))
+	_field_box.add_child(row)
+	var kind = clampi(int(b.base_type), 0, 5)
+	if BASE_TYPE_FIELDS[kind].is_empty():
+		_field_box.add_child(_note("Esta função não tem número próprio: o módulo vale pela vida e pelo que estiver ligado em \"Especial\" aqui embaixo."))
+	for prop in BASE_TYPE_FIELDS[kind]:
+		_field(b, defs[prop])
+	_section("Especial (vale com qualquer função)")
+	for prop in ["spawn_card_id", "spawn_on_hit", "spawn_cooldown", "ally_speed_bonus", "ally_speed_max_cost"]:
+		if defs.has(prop):
+			_field(b, defs[prop])
+
+
+## a tropa desenhada no tamanho de campo, entre um Peão e a Casa Grande
+class SizePreview extends Control:
+	var art: Texture2D
+	var unit_scale := 1.0
+	var ref_unit: Texture2D
+	var ref_tower: Texture2D
+
+	func _init():
+		custom_minimum_size = Vector2(196, 100)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
+	func _draw():
+		var k = 0.6
+		var ground = size.y - 4.0
+		draw_line(Vector2(0, ground), Vector2(size.x, ground), Color(1, 1, 1, 0.25), 2.0)
+		var unit_px = 48.0 * 1.1 * Regras.SPRITE_BOOST * k
+		var x = 2.0
+		for it in [[ref_unit, unit_px, 0.5], [art, unit_px * clampf(unit_scale, 0.2, 3.0), 1.0], [ref_tower, 150.0 * k, 0.5]]:
+			if it[0] == null:
+				continue
+			var s = float(it[1])
+			draw_texture_rect(it[0], Rect2(x, ground - s, s, s), false, Color(1, 1, 1, float(it[2])))
+			x += s * 0.8 + 4.0
