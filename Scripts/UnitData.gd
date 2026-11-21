@@ -599,3 +599,41 @@ enum OnHitEffect {
 @export var rider_effect: OnHitEffect = OnHitEffect.NONE
 @export var rider_effect_duration: float = 1.5
 @export var rider_effect_strength: float = 0.5
+## AURA: tropas ALIADAS por perto ficam mais fortes enquanto ela estiver viva (vale pra
+## construção também: vira um totem). Não reforça a si mesma.
+@export var aura_buff: bool = false
+@export var aura_radius: float = 110.0
+@export var aura_damage_mult: float = 1.2
+@export var aura_speed_mult: float = 1.0
+@export var aura_attack_speed_mult: float = 1.0
+## PULSO: de tempos em tempos solta uma onda que acerta todo inimigo em volta.
+@export var pulses: bool = false
+@export var pulse_interval: float = 4.0
+@export var pulse_damage: int = 60
+@export var pulse_radius: float = 90.0
+@export var pulse_effect: OnHitEffect = OnHitEffect.NONE
+@export var pulse_effect_duration: float = 1.0
+@export var pulse_effect_strength: float = 0.3
+## RASTRO: enquanto anda, deixa poças no chão que machucam (e podem deixar lento) quem pisa.
+@export var leaves_trail: bool = false
+@export var trail_damage: int = 15
+@export var trail_duration: float = 4.0
+@export var trail_radius: float = 28.0
+@export var trail_slow: float = 0.0
+## CRESCE: quanto mais tempo viva no campo, mais dano causa (até o teto).
+@export var grows_over_time: bool = false
+@export var grow_interval: float = 5.0
+@export var grow_damage_step: float = 0.1
+@export var grow_max_mult: float = 2.0
+## ARMADILHA (construção): fica escondida e intocável até um inimigo do chão chegar perto;
+## aí explode e some.
+@export var is_trap: bool = false
+@export var trap_trigger_radius: float = 45.0
+@export var trap_damage: int = 250
+@export var trap_radius: float = 80.0
+@export var trap_effect: OnHitEffect = OnHitEffect.NONE
+@export var trap_effect_duration: float = 1.5
+## PISCA: de tempos em tempos se teleporta pra cima do alvo que está longe.
+@export var blinks: bool = false
+@export var blink_interval: float = 6.0
+@export var blink_range: float = 240.0

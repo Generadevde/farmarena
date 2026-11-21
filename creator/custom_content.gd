@@ -89,6 +89,18 @@ const UNIT_FIELDS = [
 # só os nomes em português. Campo novo que você criar no UnitData aparece
 # sozinho no Criador, com o nome técnico mesmo.
 const UNIT_EXTRA_LABELS = {
+	"aura_buff": "Aura: reforça os aliados em volta", "aura_radius": "Raio da aura", "aura_damage_mult": "Aura: dano dos aliados (x)",
+	"aura_speed_mult": "Aura: passo dos aliados (x)", "aura_attack_speed_mult": "Aura: velocidade de ataque dos aliados (x)",
+	"pulses": "Pulso: onda em volta de tempos em tempos", "pulse_interval": "Tempo entre pulsos (s)", "pulse_damage": "Dano do pulso",
+	"pulse_radius": "Raio do pulso", "pulse_effect": "Efeito do pulso", "pulse_effect_duration": "Duração do efeito do pulso (s)",
+	"pulse_effect_strength": "Força do efeito do pulso",
+	"leaves_trail": "Rastro: deixa poças que machucam", "trail_damage": "Dano da poça (a cada meio segundo)", "trail_duration": "Quanto a poça dura (s)",
+	"trail_radius": "Tamanho da poça", "trail_slow": "Lentidão da poça (0 = não deixa lento)",
+	"grows_over_time": "Cresce: mais dano quanto mais tempo viva", "grow_interval": "Cresce a cada (s)", "grow_damage_step": "Quanto cresce por vez (0.1 = +10%)",
+	"grow_max_mult": "Teto do crescimento (x)",
+	"is_trap": "Armadilha: escondida até pisarem, aí explode", "trap_trigger_radius": "Distância que dispara a armadilha", "trap_damage": "Dano da armadilha",
+	"trap_radius": "Raio da explosão da armadilha", "trap_effect": "Efeito da armadilha", "trap_effect_duration": "Duração do efeito da armadilha (s)",
+	"blinks": "Pisca: teleporta pra cima do alvo", "blink_interval": "Tempo entre teleportes (s)", "blink_range": "Distância máxima do teleporte",
 	"hides_underground": "Construção que se esconde (só aparece pra atirar)",
 	"heals_on_attack": "Cura quem está perto a cada golpe",
 	"attack_heal_amount": "Cura por golpe",
@@ -270,6 +282,7 @@ const BASE_FIELDS = [
 	["effect", "Efeito da aura", "enum", EFFECT_NAMES],
 	["effect_strength", "Força do efeito", "float", [0.0, 500.0, 0.05]],
 	["unlock_arena", "Libera na arena (0 = desde o começo)", "int", [0, 12, 1]],
+	["rarity_pick", "Raridade (mais raro = mais caro pra subir de nível)", "enum", ["Automática (pela habilidade)", "Normal", "Rara", "Épica", "Lendária", "Mística"]],
 	["spawn_card_id", "Solta esta tropa", "cardid", []],
 	["spawn_on_hit", "Solta quando APANHA (desligado: solta sozinho, de tempos em tempos)", "bool", []],
 	["spawn_cooldown", "Intervalo entre as tropas (s)", "float", [1.0, 120.0, 1.0]],

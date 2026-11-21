@@ -947,6 +947,14 @@ const ABILITIES = [
 		["Fúria com vida baixa", "low_hp_rage_threshold", ["low_hp_rage_damage_mult"], {"low_hp_rage_threshold": 0.3, "low_hp_rage_damage_mult": 1.5}],
 		["Construção que se esconde", "hides_underground", [], {}],
 	]],
+	["✨ Novas (campo e construção)", [
+		["Aura: reforça os aliados em volta", "aura_buff", ["aura_radius", "aura_damage_mult", "aura_speed_mult", "aura_attack_speed_mult"], {}],
+		["Pulso: onda em volta de tempos em tempos", "pulses", ["pulse_interval", "pulse_damage", "pulse_radius", "pulse_effect", "pulse_effect_duration", "pulse_effect_strength"], {}],
+		["Rastro: deixa poças que machucam", "leaves_trail", ["trail_damage", "trail_duration", "trail_radius", "trail_slow"], {}],
+		["Cresce: mais dano quanto mais tempo viva", "grows_over_time", ["grow_interval", "grow_damage_step", "grow_max_mult"], {}],
+		["Armadilha (construção): escondida até pisarem", "is_trap", ["trap_trigger_radius", "trap_damage", "trap_radius", "trap_effect", "trap_effect_duration"], {}],
+		["Pisca: teleporta pra cima do alvo", "blinks", ["blink_interval", "blink_range"], {}],
+	]],
 	["🚪 Entrada em campo", [
 		["Fúria ao entrar", "entrance_rage_duration", ["entrance_rage_damage_mult", "entrance_rage_speed_mult"], {"entrance_rage_duration": 4.0}],
 		["Onda de choque ao entrar", "entrance_shockwave_damage", ["entrance_shockwave_radius"], {"entrance_shockwave_damage": 100, "entrance_shockwave_radius": 70.0}],
@@ -1212,7 +1220,7 @@ func _field_defs() -> Dictionary:
 func _tab_basico():
 	if _ed_kind == "modulo":
 		for f in CustomContent.BASE_FIELDS:
-			if f[0] in ["base_name", "description", "nation_data", "category", "unlock_arena"]:
+			if f[0] in ["base_name", "description", "nation_data", "category", "unlock_arena", "rarity_pick"]:
 				_field(_work["base"], f)
 		return
 	for f in CustomContent.CARD_FIELDS:
@@ -1884,6 +1892,13 @@ func _build_collection_panel():
 	var t = _label("⚙ Coleção do jogo", 20)
 	t.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
 	v.add_child(t)
+	# PERFIL DE DESENVOLVEDOR: só neste perfil, nada fica bloqueado
+	var dev_on = Progresso.is_dev()
+	v.add_child(_button("🛠 Perfil de desenvolvedor: " + ("LIGADO (tudo liberado)" if dev_on else "desligado (libera pela arena, como no jogo normal)"), func():
+		Progresso.d["dev"] = !Progresso.is_dev()
+		Progresso.save()
+		_show_list()))
+	v.add_child(_note("Ligado: neste perfil toda carta e todo módulo ficam liberados, em qualquer arena. Os outros perfis continuam precisando chegar na arena (o campo \"Libera na arena\" de cada carta e módulo) e ganhar a carta nos baús ou na Feira."))
 	var zero = CustomContent.zero_on()
 	var zb = _button("Começar do zero: " + ("LIGADO (só as suas cartas)" if zero else "desligado (todas as cartas do jogo)"), func():
 		Config.data["do_zero"] = !CustomContent.zero_on()

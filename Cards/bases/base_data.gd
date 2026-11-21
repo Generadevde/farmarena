@@ -42,6 +42,9 @@ func get_nation_name() -> String:
 @export var tier: int = 1
 ## 2.0 -- arena do Caminho dos Troféus que libera essa torre (0 = inicial)
 @export var unlock_arena: int = 0
+## Raridade do módulo: 0 = automática (pela habilidade); 1 Normal, 2 Rara, 3 Épica, 4 Lendária, 5 Mística.
+## Módulo mais raro custa mais ouro pra subir de nível, igual carta.
+@export var rarity_pick: int = 0
 
 ## Vida total dessa base -- cada tipo pode ter um valor bem diferente (ex:
 ## uma base Canhão pode ter menos vida que uma base de Vida, como

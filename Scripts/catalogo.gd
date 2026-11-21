@@ -1175,6 +1175,8 @@ static func base_ability(b: BaseData) -> Array:
 
 
 static func base_rarity(b: BaseData) -> int:
+	if b != null and b.rarity_pick > 0:
+		return clampi(b.rarity_pick - 1, 0, RARITY_NAMES.size() - 1)   # escolhida no Criador
 	var ab = base_ability(b)
 	if ab.is_empty():
 		# sem habilidade: Rara se tiver um "jeitão" (tiro em área ou alcance longo)

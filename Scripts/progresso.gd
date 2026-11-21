@@ -197,8 +197,16 @@ func is_featured(c: CardData) -> bool:
 	return c != null and c == featured_card()
 
 
+## PERFIL DE DESENVOLVEDOR (liga no Criador, vale só pra este perfil): nada fica bloqueado --
+## toda carta conta como sua e todo módulo como liberado, em qualquer arena
+func is_dev() -> bool:
+	return bool(d.get("dev", false))
+
+
 func is_owned(c: CardData) -> bool:
 	if is_featured(c):
+		return true
+	if c != null and is_dev():
 		return true
 	return c != null and d["owned"].has(c.resource_path)
 
@@ -817,7 +825,7 @@ func claim_road(trophies: int) -> Array:
 
 
 func is_base_unlocked(b: BaseData) -> bool:
-	return b != null and b.unlock_arena <= ArenaManager.get_player_arena()
+	return b != null and (is_dev() or b.unlock_arena <= ArenaManager.get_player_arena())
 
 
 # ================================================================ baralhos

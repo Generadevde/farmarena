@@ -79,11 +79,27 @@ func _physics_process(delta):
 		_finish()
 
 
+## quem atira só em construção não acerta tropa (nem a que está no caminho, nem na corrente)
+var buildings_only := false
+
+
+func _allowed(body) -> bool:
+	if !buildings_only:
+		return true
+	return !("stats" in body) or body.stats == null or body.stats.unit_type == UnitData.UnitType.BUILDING
+
+
 func _check_hits():
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body in _hit_targets:
 			continue
 		if !("team" in body) or body.team == attacker_team:
+			continue
+		if !_allowed(body):
+			continue
+		# tiro teleguiado acerta o ALVO dele, não quem estiver no caminho (antes a tropa
+		# encostada no atirador "comia" o tiro que era pra torre). Só o que atravessa pega o caminho
+		if !pierces and is_instance_valid(target) and body != target:
 			continue
 		if global_position.distance_to(body.global_position) <= HIT_DISTANCE:
 			_hit_targets.append(body)
@@ -104,7 +120,7 @@ func _retarget_to_nearest():
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body in _hit_targets:
 			continue
-		if !("team" in body) or body.team == attacker_team:
+		if !("team" in body) or body.team == attacker_team or !_allowed(body):
 			continue
 		var dist = global_position.distance_to(body.global_position)
 		if dist <= chain_range and dist < nearest_dist:
@@ -120,7 +136,7 @@ func _retarget_to_nearest():
 func _apply_hit(body):
 	if is_aoe:
 		for other in get_tree().get_nodes_in_group("damageable"):
-			if !("team" in other) or other.team == attacker_team:
+			if !("team" in other) or other.team == attacker_team or !_allowed(other):
 				continue
 			if other.global_position.distance_to(body.global_position) <= aoe_radius:
 				other.take_damage(damage)
@@ -172,7 +188,7 @@ func _spawn_splits():
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body in _hit_targets:
 			continue
-		if !("team" in body) or body.team == attacker_team:
+		if !("team" in body) or body.team == attacker_team or !_allowed(body):
 			continue
 		if global_position.distance_to(body.global_position) <= split_range:
 			nearby.append(body)
@@ -207,6 +223,7 @@ func _spawn_splits():
 		new_proj.speed = speed
 		new_proj.texture = texture
 		new_proj.attacker_team = attacker_team
+		new_proj.buildings_only = buildings_only
 		new_proj.source_card_path = source_card_path
 		new_proj.on_hit_effect = on_hit_effect
 		new_proj.on_hit_effect_duration = on_hit_effect_duration

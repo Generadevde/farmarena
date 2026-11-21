@@ -688,6 +688,7 @@ func _physics_process(delta):
 	_prev_pos = global_position
 
 	_process_extras(delta)
+	_process_new_mechanics(delta)
 	_process_poison(delta)
 	_update_status_modulate()
 
@@ -1392,12 +1393,113 @@ func _get_effective_damage() -> int:
 		if "stats" in target and target.stats != null and target.stats.role == stats.extra_damage_vs_role:
 			dmg *= (1.0 + stats.extra_damage_vs_role_mult)
 
+	if stats.grows_over_time:
+		dmg *= _grow_mult
 	return round(dmg)
 
 
 ## construção escondida debaixo da terra: sem alvo, ninguém acerta nem escolhe ela
 func is_hidden() -> bool:
+	if stats != null and stats.is_trap and !_trap_sprung and current_hp > 0:
+		return true   # armadilha armada: ninguém vê nem acerta
 	return stats != null and stats.hides_underground and (target == null or !is_instance_valid(target)) and current_hp > 0
+
+
+# ---- mecânicas da leva "aura, pulso, rastro, cresce, armadilha, pisca"
+var _grow_mult := 1.0
+var _grow_clock := 0.0
+var _aura_clock := 0.0
+var _pulse_clock := 0.0
+var _trail_last := Vector2.INF
+var _trap_sprung := false
+var _trap_shown := false
+var _blink_clock := 0.0
+
+
+func _enemies_within(r: float, ground_only: bool = false) -> Array:
+	var out: Array = []
+	for body in get_tree().get_nodes_in_group("units"):
+		if !is_instance_valid(body) or body == self or !("team" in body) or body.team == team or body.is_queued_for_deletion() or body.stats == null:
+			continue
+		if body.has_method("is_hidden") and body.is_hidden():
+			continue
+		if ground_only and body.stats.unit_type == UnitData.UnitType.AIR:
+			continue
+		if global_position.distance_to(body.global_position) <= r:
+			out.append(body)
+	return out
+
+
+func _process_new_mechanics(delta):
+	if current_hp <= 0:
+		return
+	# AURA: reforça os aliados em volta (a fúria vale o maior valor, então duas auras não somam)
+	if stats.aura_buff:
+		_aura_clock -= delta
+		if _aura_clock <= 0.0:
+			_aura_clock = 0.5
+			for body in get_tree().get_nodes_in_group("units"):
+				if is_instance_valid(body) and body != self and "team" in body and body.team == team and body.has_method("apply_rage") \
+						and global_position.distance_to(body.global_position) <= stats.aura_radius:
+					body.apply_rage(stats.aura_damage_mult, stats.aura_speed_mult, stats.aura_attack_speed_mult, 0.8)
+			if Regras.on("visual"):
+				Fx.ring(get_parent(), position, stats.aura_radius, Color(1.0, 0.85, 0.35, 0.5), 0.5)
+	# PULSO: onda em volta de tempos em tempos
+	if stats.pulses:
+		_pulse_clock += delta
+		if _pulse_clock >= maxf(stats.pulse_interval, 0.5):
+			var hit = _enemies_within(stats.pulse_radius)
+			if !hit.is_empty():
+				_pulse_clock = 0.0
+				Fx.ring(get_parent(), position, stats.pulse_radius, Color(0.7, 0.9, 1.0), 0.4)
+				for body in hit:
+					if stats.pulse_damage > 0:
+						body.take_damage(int(round(stats.pulse_damage * _level_mult_safe())))
+					if stats.pulse_effect != UnitData.OnHitEffect.NONE and is_instance_valid(body) and body.has_method("apply_on_hit_effect"):
+						body.apply_on_hit_effect(stats.pulse_effect, stats.pulse_effect_strength, stats.pulse_effect_duration, 1.0, 30.0, global_position)
+	# RASTRO: uma poça a cada pedaço andado
+	if stats.leaves_trail and stats.unit_type != UnitData.UnitType.BUILDING:
+		if _trail_last == Vector2.INF or _trail_last.distance_to(global_position) >= stats.trail_radius * 1.3:
+			_trail_last = global_position
+			Poca.drop(get_parent(), position, team, int(round(stats.trail_damage * _level_mult_safe())), stats.trail_radius, stats.trail_duration,
+				stats.trail_slow, Color(0.5, 0.85, 0.3) if stats.trail_slow <= 0.0 else Color(0.55, 0.4, 0.25))
+	# CRESCE: mais dano a cada intervalo no campo
+	if stats.grows_over_time and _grow_mult < stats.grow_max_mult:
+		_grow_clock += delta
+		if _grow_clock >= maxf(stats.grow_interval, 0.5):
+			_grow_clock = 0.0
+			_grow_mult = minf(_grow_mult + stats.grow_damage_step, stats.grow_max_mult)
+			if Regras.on("visual"):
+				Fx.text(get_parent(), position + Vector2(0, -30), "+%d%%" % int(round((_grow_mult - 1.0) * 100.0)), Color(1.0, 0.8, 0.3))
+	# ARMADILHA: armada (quase invisível) até um inimigo do chão chegar perto
+	if stats.is_trap and !_trap_sprung:
+		if !_trap_shown:
+			_trap_shown = true
+			var sp = get_node_or_null("Sprite2D")
+			if sp != null:
+				sp.modulate.a = 0.35
+		_trap_sprung = !_enemies_within(stats.trap_trigger_radius, true).is_empty()
+		if _trap_sprung:
+			Fx.ring(get_parent(), position, stats.trap_radius, Color(1.0, 0.5, 0.2), 0.45)
+			Fx.burst(get_parent(), position, Color(1.0, 0.6, 0.25), 16, stats.trap_radius * 2.0, 4.0)
+			Sfx.play("explosao")
+			for body in _enemies_within(stats.trap_radius):
+				body.take_damage(int(round(stats.trap_damage * _level_mult_safe())))
+				if stats.trap_effect != UnitData.OnHitEffect.NONE and is_instance_valid(body) and body.has_method("apply_on_hit_effect"):
+					body.apply_on_hit_effect(stats.trap_effect, 0.5, stats.trap_effect_duration, 1.0, 40.0, global_position)
+			die()
+			return
+	# PISCA: teleporta pra perto do alvo que está longe
+	if stats.blinks and stats.unit_type != UnitData.UnitType.BUILDING:
+		_blink_clock += delta
+		if _blink_clock >= maxf(stats.blink_interval, 1.0) and target != null and is_instance_valid(target) and !_is_incapacitated():
+			var d = global_position.distance_to(target.global_position)
+			var reach = stats.attack_range + 40.0
+			if d > reach + 30.0 and d <= stats.blink_range:
+				_blink_clock = 0.0
+				Fx.puff(get_parent(), position)
+				global_position = target.global_position + (global_position - target.global_position).normalized() * reach * 0.8
+				Fx.ring(get_parent(), position, 22.0, Color(0.8, 0.6, 1.0), 0.3)
 
 
 var _rider_clock := 0.0
@@ -1472,6 +1574,7 @@ func _perform_attack():
 		Sfx.play("tiro", 0.2, -4.0)
 		var proj = Projectile.new()
 		proj.target = target
+		proj.buildings_only = stats.target_type == UnitData.TargetType.BUILDING
 		proj.damage = dmg
 		proj.speed = stats.projectile_speed
 		proj.texture = stats.projectile_texture

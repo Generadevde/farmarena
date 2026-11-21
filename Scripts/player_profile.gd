@@ -381,7 +381,8 @@ func get_upgrade_cost_base(base_data: BaseData) -> int:
 
 func get_upgrade_coin_cost_base(base_data: BaseData) -> int:
 	var level_now = get_base_level(base_data)
-	return BASE_UPGRADE_COST + (level_now - 1) * BASE_UPGRADE_COST_GROWTH
+	# módulo mais raro custa mais ouro, na mesma proporção das cartas
+	return int(round((BASE_UPGRADE_COST + (level_now - 1) * BASE_UPGRADE_COST_GROWTH) * float(Progresso.COIN_FACTOR[clampi(Catalogo.base_rarity(base_data), 0, Progresso.COIN_FACTOR.size() - 1)])))
 
 
 func is_max_level_base(base_data: BaseData) -> bool:

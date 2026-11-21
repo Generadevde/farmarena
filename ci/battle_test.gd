@@ -2094,6 +2094,33 @@ func _new_mechanics_test():
 	else:
 		_aud_bad.append("combo: bot sem par de cartas")
 	PushPlan.forced = {}
+	# perfil de desenvolvedor: tudo liberado só com a chave ligada
+	var dev_keep = Progresso.d.get("dev", false)
+	var locked_card: CardData = null
+	for c in CardDatabase.all_cards:
+		if c != null and !Progresso.is_featured(c) and !Progresso.d["owned"].has(c.resource_path):
+			locked_card = c
+			break
+	var locked_base: BaseData = null
+	for b in BotSimulator.available_bases:
+		if b != null and b.unlock_arena > ArenaManager.get_player_arena():
+			locked_base = b
+			break
+	Progresso.d["dev"] = false
+	var off_ok = (locked_card == null or !Progresso.is_owned(locked_card)) and (locked_base == null or !Progresso.is_base_unlocked(locked_base))
+	Progresso.d["dev"] = true
+	var on_ok = (locked_card == null or Progresso.is_owned(locked_card)) and (locked_base == null or Progresso.is_base_unlocked(locked_base))
+	Progresso.d["dev"] = dev_keep
+	if !off_ok or !on_ok or (locked_card == null and locked_base == null):
+		_aud_bad.append("perfil dev: desligado=%s ligado=%s (carta %s, modulo %s)" % [str(off_ok), str(on_ok), str(locked_card != null), str(locked_base != null)])
+	# raridade do módulo escolhida no Criador: vale por cima da automática e encarece o nível
+	var rb: BaseData = BotSimulator.available_bases[0].duplicate()
+	rb.rarity_pick = 0
+	var cost_auto = PlayerProfile.get_upgrade_coin_cost_base(rb)
+	var rar_auto = Catalogo.base_rarity(rb)
+	rb.rarity_pick = 4
+	if Catalogo.base_rarity(rb) != 3 or (rar_auto < 3 and PlayerProfile.get_upgrade_coin_cost_base(rb) <= cost_auto):
+		_aud_bad.append("raridade de modulo: %d custo %d -> %d" % [Catalogo.base_rarity(rb), cost_auto, PlayerProfile.get_upgrade_coin_cost_base(rb)])
 	# tipos de projétil: todos desenham alguma coisa em 16x16 e são bastante
 	var proj_bad: Array = []
 	for k in SpriteForge.pieces("proj"):
@@ -2192,6 +2219,79 @@ func _new_mechanics_test():
 	var far = await _dummy(E, mid + Vector2(-260, -300))
 	await get_tree().create_timer(2.0).timeout
 	_check("segundo ataque acerta tropa perto e não a de longe", near.current_hp < 99999 and far.current_hp == 99999, "%d %d" % [near.current_hp, far.current_hp])
+	# --- leva "aura, pulso, rastro, cresce, armadilha, pisca"
+	await _wipe()
+	var chief = (await _put("vaca_brava", P, mid + Vector2(0, 100)))[0]
+	chief.stats = chief.stats.duplicate()
+	chief.stats.aura_buff = true
+	chief.stats.aura_damage_mult = 1.5
+	chief.stats.pulses = true
+	chief.stats.pulse_interval = 0.6
+	chief.stats.pulse_damage = 50
+	chief.stats.grows_over_time = true
+	chief.stats.grow_interval = 0.5
+	chief.stats.grow_damage_step = 0.25
+	chief.stats.leaves_trail = true
+	var buddy = (await _put("vaca_brava", P, mid + Vector2(40, 110)))[0]
+	var lonely = (await _put("vaca_brava", P, mid + Vector2(-250, 330)))[0]
+	var p_near = await _dummy(E, mid + Vector2(50, 70))
+	var p_far = await _dummy(E, mid + Vector2(-260, -300))
+	await get_tree().create_timer(1.6).timeout
+	_check("aura reforça o aliado perto e não o de longe", is_instance_valid(buddy) and is_instance_valid(lonely) and buddy._rage_damage >= 1.49 and buddy._rage_until > GameManager.game_time and lonely._rage_until <= GameManager.game_time,
+		"%s" % str([buddy._rage_damage if is_instance_valid(buddy) else -1, lonely._rage_damage if is_instance_valid(lonely) else -1]))
+	_check("pulso acerta quem está em volta e não o de longe", p_near.current_hp < 99999 and p_far.current_hp == 99999, "%d %d" % [p_near.current_hp, p_far.current_hp])
+	_check("cresce com o tempo (até o teto)", is_instance_valid(chief) and chief._grow_mult >= 1.5 and chief._grow_mult <= chief.stats.grow_max_mult, str(chief._grow_mult if is_instance_valid(chief) else -1))
+	var pocas = 0
+	for n in battle.get_children() + (chief.get_parent().get_children() if is_instance_valid(chief) else []):
+		pocas += 1 if n is Poca else 0
+	_check("rastro deixa poça no chão", pocas >= 1, str(pocas))
+	# armadilha: construção escondida, não leva dano, explode quando pisam
+	await _wipe()
+	var trap = await _dummy(P, mid + Vector2(0, 60))
+	trap.stats.is_trap = true
+	trap.stats.trap_damage = 300
+	await get_tree().create_timer(0.3).timeout
+	var trap_hid = trap.is_hidden()
+	var hp_t = trap.current_hp
+	trap.take_damage(500)
+	var trap_imm = trap.current_hp == hp_t
+	var victim2 = await _dummy(E, mid + Vector2(20, 70))
+	var safe2 = await _dummy(E, mid + Vector2(-260, -300))
+	await get_tree().create_timer(0.6).timeout
+	_check("armadilha fica escondida e intocável, explode em quem pisa e some", trap_hid and trap_imm and victim2.current_hp <= 99999 - 300 and safe2.current_hp == 99999 and (!is_instance_valid(trap) or trap.current_hp <= 0 or trap.is_queued_for_deletion()),
+		"%s" % str([trap_hid, trap_imm, victim2.current_hp, safe2.current_hp, is_instance_valid(trap)]))
+	# pisca: com alvo longe, aparece do lado dele
+	await _wipe()
+	var blinker = (await _put("vaca_brava", P, mid + Vector2(0, 200)))[0]
+	blinker.stats = blinker.stats.duplicate()
+	blinker.stats.blinks = true
+	blinker.stats.blink_interval = 1.0
+	blinker.stats.blink_range = 400.0
+	var prey = await _dummy(E, mid + Vector2(0, 20))
+	blinker.target = prey
+	await get_tree().create_timer(1.5).timeout
+	_check("pisca teleporta pra perto do alvo", is_instance_valid(blinker) and blinker.global_position.distance_to(prey.global_position) < 120.0, str(blinker.global_position.distance_to(prey.global_position) if is_instance_valid(blinker) else -1))
+	# atirador que só ataca construção: a tropa encostada nele NÃO come o tiro (bug do João)
+	await _wipe()
+	var snipers = await _put("galinha_atiradeira", P, mid + Vector2(0, 140))
+	var sniper = snipers[0]
+	for sn in snipers:
+		sn.stats = sn.stats.duplicate()
+		sn.stats.target_type = UnitData.TargetType.BUILDING
+		sn.stats.is_aoe = true
+		sn.stats.aoe_radius = 60.0
+		sn.stats.attack_range = 260.0
+		sn.stats.detection_range = 320.0
+		sn.stats.move_speed = 0.0
+		sn.stats.damage = 1000   # dano bem diferente do da torre aliada (que também atira no intruso)
+		sn._reset_aggro()   # o alvo pego antes de virar "só construção" não vale
+	var hut = await _dummy(E, mid + Vector2(0, 30))
+	hut.stats.unit_type = UnitData.UnitType.BUILDING
+	var blocker = await _dummy(E, mid + Vector2(0, 110))    # colado no atirador, no caminho do tiro
+	var beside = await _dummy(E, mid + Vector2(24, 30))    # colado na construção (pegaria o dano em área)
+	await get_tree().create_timer(4.0).timeout
+	_check("quem só ataca construção acerta a construção e nenhuma tropa", sniper.stats.is_ranged and hut.current_hp <= 99999 - 1000 and blocker.current_hp > 99999 - 1000 and beside.current_hp > 99999 - 1000,
+		"atira=%s construcao=%d no_caminho=%d do_lado=%d" % [str(sniper.stats.is_ranged), hut.current_hp, blocker.current_hp, beside.current_hp])
 	# 7) bot não joga o Espelho sem ter o que repetir
 	var mcard = CardData.new()
 	mcard.cost = 20
