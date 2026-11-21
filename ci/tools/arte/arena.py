@@ -45,62 +45,46 @@ def build(seed=7):
         if 0 <= x < PW and 0 <= my < PH:
             px[x, my] = c
 
-    # caminhos de terra: da torre até a ponte, dos dois lados (espelhado)
-    for side_x in (-1, 1):
-        bx = CX + side_x * BRIDGE_X
-        tx = CX + side_x * TOWER_DX
-        for y in range(CY + RIVER_HALF, int(CY + TOWER_DY) + 12):
-            t = (y - (CY + RIVER_HALF)) / (TOWER_DY + 12 - RIVER_HALF)
-            x_center = bx + (tx - bx) * t
-            half = 5
-            for x in range(int(x_center - half - 1), int(x_center + half + 2)):
-                d = abs(x + 0.5 - x_center)
+    # ---- LAYOUT "TECLADO NUMÉRICO": a base é o 5 e os módulos ficam nos outros 8 números.
+    # 3 colunas (as mesmas das 3 pontes) x 3 fileiras, tudo simétrico.
+    COLS = (CX - BRIDGE_X, CX, CX + BRIDGE_X)
+    ROWS = (CY + 57.5, CY + 82.5, CY + 107.5)          # mundo: 230, 330, 430 a partir do rio
+
+    def dirt(x, y, edge=False):
+        c = DIRT[1] if edge else DIRT[0]
+        if rnd.random() < 0.07:
+            c = DIRT[2]
+        mirror_set(x, y, c)
+
+    # três caminhos RETOS: cada ponte desce direto pra sua coluna do pátio
+    for col_x, half in ((COLS[0], 5), (COLS[1], 4), (COLS[2], 5)):
+        for y in range(CY + RIVER_HALF, int(ROWS[0])):
+            for x in range(int(col_x - half - 1), int(col_x + half + 1)):
+                d = abs(x + 0.5 - col_x)
                 if d <= half:
-                    c = DIRT[0] if d < half - 2 else DIRT[1]
-                    if rnd.random() < 0.08:
-                        c = DIRT[2]
-                    mirror_set(x, y, c)
+                    dirt(x, y, d >= half - 2)
                 elif d <= half + 1:
                     mirror_set(x, y, G3)
 
-    # caminho do meio: sai da ponte central, desce e se divide em "Y" até
-    # os caminhos das duas torres
-    fork_y = CY + 30
-    for y in range(CY + RIVER_HALF, fork_y + 1):
-        for x in range(CX - 4, CX + 4):
-            c = DIRT[0] if abs(x + 0.5 - CX) < 2.5 else DIRT[1]
-            mirror_set(x, y, c)
-        mirror_set(CX - 5, y, G3)
-        mirror_set(CX + 4, y, G3)
-    for side_x in (-1, 1):
-        target_x = CX + side_x * (BRIDGE_X + (TOWER_DX - BRIDGE_X) * 0.55)
-        target_y = CY + RIVER_HALF + int((TOWER_DY + 12 - RIVER_HALF) * 0.55)
-        steps = 60
-        for i in range(steps + 1):
-            t = i / steps
-            x_c = CX + (target_x - CX) * t
-            y_c = fork_y + (target_y - fork_y) * t
-            for dx in range(-3, 4):
-                for dy in range(-1, 2):
-                    c = DIRT[0] if abs(dx) < 2 else DIRT[1]
-                    if rnd.random() < 0.05:
-                        c = DIRT[2]
-                    mirror_set(int(x_c) + dx, int(y_c) + dy, c)
-
-    # base de terra embaixo de cada torre (círculo batido)
-    for side_x in (-1, 1):
-        tx = CX + side_x * TOWER_DX
-        ty = CY + TOWER_DY
-        for y in range(int(ty - 12), int(ty + 13)):
-            for x in range(int(tx - 12), int(tx + 13)):
-                d = math.hypot(x + 0.5 - tx, y + 0.5 - ty)
-                if d <= 10.5:
-                    c = DIRT[0] if d < 8 else DIRT[1]
-                    if rnd.random() < 0.06:
-                        c = DIRT[2]
-                    mirror_set(x, y, c)
-                elif d <= 11.5:
-                    mirror_set(x, y, G3)
+    # o pátio: um quadrado de terra batida em volta da base, com borda
+    yx0, yx1 = int(COLS[0] - 14), int(COLS[2] + 14)
+    yy0, yy1 = int(ROWS[0] - 11), min(int(ROWS[2] + 11), PH - 2)
+    for y in range(yy0 - 1, yy1 + 2):
+        for x in range(yx0 - 1, yx1 + 2):
+            if x < yx0 or x > yx1 or y < yy0 or y > yy1:
+                mirror_set(x, y, G3)
+            else:
+                dirt(x, y, x - yx0 < 2 or yx1 - x < 2 or y - yy0 < 2 or yy1 - y < 2)
+    # os 9 lugares: o do meio (a base) maior, os 8 em volta marcados no chão
+    for ri, ry in enumerate(ROWS):
+        for ci, cx_ in enumerate(COLS):
+            main = ri == 1 and ci == 1
+            r = 12.5 if main else 9.0
+            for y in range(int(ry - r - 1), int(ry + r + 2)):
+                for x in range(int(cx_ - r - 1), int(cx_ + r + 2)):
+                    d = math.hypot(x + 0.5 - cx_, y + 0.5 - ry)
+                    if r - 1.2 <= d <= r and y <= PH - 2:
+                        mirror_set(x, y, DIRT[2])
 
     # rio no meio (com espuma nas margens e brilho)
     for y in range(CY - RIVER_HALF - 1, CY + RIVER_HALF + 1):

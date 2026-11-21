@@ -1013,7 +1013,7 @@ func _show_settings():
 			["mao4", "🃏 4 cartas na mão", "Em vez de 3. O baralho tem 8, como no Clash."],
 			["portao", "🚪 Portão na frente (3 torres)", "Experiência: uma torre mais fraca no meio, na frente, além das duas de trás. Deixa a partida toda no meio -- por isso vem desligado."],
 			["rotas", "🧭 3 rotas (só com o portão)", "A tropa segue a rota onde você solta: esquerda e direita vão na torre de trás daquele lado, o meio vai no portão."],
-			["modulos", "🧩 Base principal + módulos", "Casa Grande no meio (caiu, acabou) e 6 pontos em volta pra pôr os módulos (1 a 3, conforme o nível). Desligado, voltam as 2 torres iguais."]]:
+			["modulos", "🧩 Base principal + módulos", "Casa Grande no meio (caiu, acabou) e 8 pontos em volta (igual teclado numérico) pra pôr os módulos (1 a 3, conforme o nível). Desligado, voltam as 2 torres iguais."]]:
 		var line = HBoxContainer.new()
 		line.add_theme_constant_override("separation", 8)
 		lab.add_child(line)
@@ -1275,7 +1275,7 @@ func _build_modulos_map(box: Node, loadout: Array):
 	var n_mods = loadout.size()
 	var mlv = Progresso.tower_level()
 	tp.add_child(_label("🧩 Sua base: Casa Grande + %d módulo%s" % [n_mods, "" if n_mods == 1 else "s"], 22, ThemeBuilder.COLOR_GOLD))
-	tp.add_child(_wrap("A Casa Grande é igual pros dois lados e não muda: se ela cair, a partida acaba. Em volta dela tem 6 pontos pra pôr módulo, e pode repetir o mesmo. Módulo derrubado para de funcionar e vale 1 no placar. Só módulo de tiro atira. A Casa Grande começa dormindo 💤: só atira depois de levar dano ou de perder um módulo.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	tp.add_child(_wrap("A Casa Grande é igual pros dois lados e não muda: se ela cair, a partida acaba. Em volta dela tem 8 pontos pra pôr módulo (3 na frente, 1 de cada lado e 3 atrás, igual um teclado numérico com a base no 5), e pode repetir o mesmo. Módulo derrubado para de funcionar e vale 1 no placar. Só módulo de tiro atira. A Casa Grande começa dormindo 💤: só atira depois de levar dano ou de perder um módulo.", 15, ThemeBuilder.COLOR_STAT_LABEL))
 	# os espaços abrem com o nível dos módulos (1, 2 ou 3) e o adversário entra com a mesma quantidade
 	var nxt = Regras.next_slot_level(mlv)
 	var slots_txt = "🔓 Espaços de módulo: %d de %d (nível dos módulos %d). " % [n_mods, Regras.MODULE_SLOTS_MAX, mlv]
@@ -1287,7 +1287,7 @@ func _build_modulos_map(box: Node, loadout: Array):
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	tp.add_child(grid)
-	for cell in [0, 1, 2, 3, -1, 5, -2, 4, -2]:   # -1 = a base, -2 = canto sem ponto
+	for cell in [0, 1, 2, 3, -1, 5, 6, 4, 7]:   # teclado numérico: -1 = a base (o "5"), o resto são os 8 pontos
 		var b = Button.new()
 		b.custom_minimum_size = Vector2(196, 150)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
