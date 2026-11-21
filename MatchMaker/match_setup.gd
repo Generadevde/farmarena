@@ -64,10 +64,32 @@ var friendly := false   # amistoso de clã: não vale troféu nem baú
 var rule := 0
 var arena_override := 0
 var daily := false      # Desafio do Dia: baralho pronto, cartas niveladas, não vale troféu
+var teste := false      # Modo teste (Criador): batalha normal com TUDO no nível 1, não vale troféu nem baú
+
+
+## nível forçado pros dois lados (cartas, feitiços e torres): torneio = 5, modo teste = 1, senão 0
+func fixed_level() -> int:
+	if teste:
+		return 1
+	return TOURNAMENT_LEVEL if tournament else 0
+
+
+## Modo teste: batalha normal contra alguém da sua faixa, com cartas e torres dos dois no
+## nível 1. Usa as regras do amistoso: não mexe em troféu, baú nem no aprendizado dos bots
+func start_test_match(tree: SceneTree):
+	if !CustomContent.can_battle():
+		return
+	clear_special()
+	mode = MODE_1V1
+	friendly = true
+	teste = true
+	next_ai_profile = choose_opponent()
+	tree.change_scene_to_file(BATTLE_SCENE)
 
 
 func clear_special():
 	daily = false
+	teste = false
 	friendly = false
 	tournament = false
 	rule = 0

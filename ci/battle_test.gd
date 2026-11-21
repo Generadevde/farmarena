@@ -44,6 +44,9 @@ func _ready():
 		" textura=", prof.equipped_base.base_texture.resource_path if prof.equipped_base and prof.equipped_base.base_texture else "nenhuma")
 	print("TESTE reserva=", prof.min_money_reserve, " intervalo=", prof.decision_interval, " arquétipo=", prof.get_archetype_name())
 	MatchSetup.next_ai_profile = prof
+	if OS.get_environment("CI_TESTE") != "":
+		MatchSetup.friendly = true   # partida inteira no "modo teste" do Criador: tudo no nível 1
+		MatchSetup.teste = true
 	if mode == "2v2":
 		MatchSetup.mode = MatchSetup.MODE_2V2
 		MatchSetup.ally_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[1])
@@ -2029,6 +2032,27 @@ func _new_mechanics_test():
 	if placed or !kept or battle.selected_card != null or GameManager.player_money != 0:
 		_aud_bad.append("selecionar sem recurso: jogou=%s manteve=%s limpou=%s" % [str(placed), str(kept), str(battle.selected_card == null)])
 	GameManager.player_money = money_keep
+	# histórico de partidas: guarda resultado, placar e os dois baralhos; não passa do limite
+	var h_before = Historico.list().size()
+	for k in Historico.MAX + 3:
+		Historico.record(1, 30, 2, 1, 150.0, battle.ai_profile, DeckManager.full_deck)
+	var h_e: Dictionary = Historico.list()[0]
+	if Historico.list().size() != Historico.MAX or int(h_e["res"]) != 1 or h_e["placar"] != [2, 1] or (h_e["meu"] as Array).is_empty() or (battle.ai_profile != null and (h_e["dele"] as Array).is_empty()):
+		_aud_bad.append("historico: tamanho %d (antes %d), entrada %s" % [Historico.list().size(), h_before, str(h_e).substr(0, 120)])
+	# modo teste: nível travado em 1 pros dois lados; torneio continua 5; normal não trava
+	var t_keep = [MatchSetup.teste, MatchSetup.tournament]
+	MatchSetup.teste = true
+	var lv_test = MatchSetup.fixed_level()
+	var lv_main = battle._main_level()
+	MatchSetup.teste = false
+	MatchSetup.tournament = true
+	var lv_tour = MatchSetup.fixed_level()
+	MatchSetup.tournament = false
+	var lv_none = MatchSetup.fixed_level()
+	MatchSetup.teste = t_keep[0]
+	MatchSetup.tournament = t_keep[1]
+	if lv_test != 1 or lv_main != 1 or lv_tour != MatchSetup.TOURNAMENT_LEVEL or lv_none != 0:
+		_aud_bad.append("modo teste: niveis %s" % str([lv_test, lv_main, lv_tour, lv_none]))
 	# tipos de projétil: todos desenham alguma coisa em 16x16 e são bastante
 	var proj_bad: Array = []
 	for k in SpriteForge.pieces("proj"):

@@ -1875,6 +1875,12 @@ func _build_collection_panel():
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
 	p.add_child(v)
+	# MODO TESTE: batalha normal contra um bot, tudo no nível 1 pros dois lados, sem valer nada
+	var tb = _button("🧪 Modo teste: batalhar com tudo no nível 1", func():
+		MatchSetup.start_test_match(get_tree()))
+	tb.disabled = !CustomContent.can_battle()
+	v.add_child(tb)
+	v.add_child(_note("Batalha normal com o seu baralho atual contra um bot. Cartas, feitiços e torres dos dois lados no nível 1. Não vale troféu nem baú." if CustomContent.can_battle() else "Crie pelo menos uma carta pra poder testar em batalha."))
 	var t = _label("⚙ Coleção do jogo", 20)
 	t.add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
 	v.add_child(t)

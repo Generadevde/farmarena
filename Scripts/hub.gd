@@ -3430,6 +3430,7 @@ func _build_sitio(box: Node):
 	_tile(g1, "📰", "Gazeta", _show_jornal, Gazeta.unread() > 0, "%d novidade(s)" % Gazeta.unread() if Gazeta.unread() > 0 else "")
 	_tile(g1, "📜", "Temporadas", _show_registro)
 	_tile(g1, "🎬", "Replays", _show_replays)
+	_tile(g1, "⚔", "Histórico", _show_history)
 
 	box.add_child(_label("Cartas e baralho", 16, ThemeBuilder.COLOR_STAT_LABEL))
 	var g2 = _grid(box, 3)
@@ -3773,6 +3774,59 @@ func _show_ranking(view: int = 0):
 func _switch_ranking(popup_box: Node, view: int):
 	_close(popup_box)
 	_show_ranking.call_deferred(view)
+
+
+## histórico de partidas: resultado, placar, troféus e os dois baralhos, da mais nova pra mais velha
+func _show_history():
+	var v = _popup(680)
+	v.add_child(_title("⚔ Histórico de partidas"))
+	var l: Array = Historico.list()
+	if l.is_empty():
+		v.add_child(_label("Nenhuma partida ainda. Jogue uma batalha e ela aparece aqui, com os dois baralhos.", 16, ThemeBuilder.COLOR_STAT_LABEL))
+		return
+	var wins = 0
+	for e in l:
+		wins += 1 if int(e.get("res", 0)) == 1 else 0
+	v.add_child(_label("Últimas %d partidas: %d vitória(s)" % [l.size(), wins], 15, ThemeBuilder.COLOR_STAT_LABEL))
+	for e in l:
+		var res = int(e.get("res", 0))
+		var p = _panel(v)
+		var col = Color(0.55, 1.0, 0.55) if res == 1 else (Color(1.0, 0.5, 0.45) if res == 0 else Color(0.9, 0.9, 0.6))
+		var pl: Array = e.get("placar", [0, 0])
+		var tr = int(e.get("tr", 0))
+		var head = "%s   🏰 %d × %d" % ["VITÓRIA" if res == 1 else ("DERROTA" if res == 0 else "EMPATE"), int(pl[0]), int(pl[1])]
+		if tr != 0:
+			head += "   🏆 %+d" % tr
+		p.add_child(_label(head, 20, col))
+		var sub = "%s  ·  %d:%02d  ·  %s" % [str(e.get("modo", "Normal")), int(e.get("dur", 0)) / 60, int(e.get("dur", 0)) % 60, Historico.ago(int(e.get("t", 0)))]
+		if str(e.get("regra", "")) != "":
+			sub += "  ·  🌪 " + str(e["regra"])
+		p.add_child(_label(sub, 14, ThemeBuilder.COLOR_STAT_LABEL))
+		p.add_child(_label("%s  🏆 %d" % [PlayerProfile.player_name, int(e.get("tr_meu", 0))], 15, Color(0.6, 0.8, 1.0)))
+		_history_deck(p, e.get("meu", []), "")
+		var bot = str(e.get("bot", ""))
+		if bot != "":
+			var bl = _button("%s  🏆 %d  ▸" % [bot, int(e.get("tr_bot", 0))], _show_bot.bind(bot), 15)
+			bl.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			p.add_child(bl)
+			_history_deck(p, e.get("dele", []), bot)
+
+
+func _history_deck(parent: Control, deck: Array, who: String):
+	var g = GridContainer.new()
+	g.columns = 8
+	g.add_theme_constant_override("h_separation", 3)
+	parent.add_child(g)
+	for it in deck:
+		var path = str(it[0])
+		var c: CardData = load(path) if ResourceLoader.exists(path) else null
+		if c == null:
+			continue   # carta apagada no Criador depois da partida
+		var cv = CardView.make(c, 70)
+		cv.level_override = int(it[1])
+		cv.mastery_override = 0
+		cv.tapped.connect(_show_card_popup.bind(-1, int(it[1]), who))
+		g.add_child(cv)
 
 
 func _show_bot(who: String):

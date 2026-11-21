@@ -439,8 +439,8 @@ var _module_bonus: Dictionary = {}   # torre -> o que ela está dando pro dono (
 
 ## a base principal é IGUAL pros dois: o maior nível de torre dos dois lados
 func _main_level() -> int:
-	if MatchSetup.tournament:
-		return MatchSetup.TOURNAMENT_LEVEL
+	if MatchSetup.fixed_level() > 0:
+		return MatchSetup.fixed_level()
 	return maxi(Progresso.tower_level(), Progresso.bot_tower_level(ai_profile))
 
 
@@ -520,7 +520,7 @@ func module_speed_for(team, card: CardData) -> float:
 func _apply_player_base():
 	if Regras.modules():
 		var loadout = Progresso.module_loadout()
-		_install_side_modules("player_base", GameManager.Team.PLAYER, loadout, MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.tower_level())
+		_install_side_modules("player_base", GameManager.Team.PLAYER, loadout, MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.tower_level())
 		for it in loadout:
 			PlayerProfile.record_base_usage(it["base"])
 		return
@@ -528,7 +528,7 @@ func _apply_player_base():
 	if base_data == null:
 		return  # ainda não escolheu nenhuma -- base fica com o HP padrão genérico
 
-	_install_base_data_on("player_base", base_data, MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.tower_level())
+	_install_base_data_on("player_base", base_data, MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.tower_level())
 	PlayerProfile.record_base_usage(base_data)
 
 	if base_data.base_type == BaseData.BaseType.PRODUCTION:
@@ -544,7 +544,7 @@ func _apply_ai_base():
 	if Regras.modules():
 		# o bot entra com a mesma QUANTIDADE de módulos do jogador (o nível dele só muda a força de cada um)
 		_install_side_modules("enemy_base", GameManager.Team.ENEMY, Progresso.bot_module_loadout(ai_profile, Progresso.module_slots()),
-			MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.bot_tower_level(ai_profile))
+			MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.bot_tower_level(ai_profile))
 		return
 	if ai_profile == null or ai_profile.equipped_base == null:
 		return
@@ -552,7 +552,7 @@ func _apply_ai_base():
 
 	# nível de base de verdade agora -- upado com o mesmo custo híbrido
 	# (ouro + partidas jogadas) que o jogador usa, não mais uma aproximação
-	_install_base_data_on("enemy_base", base_data, MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.bot_tower_level(ai_profile))
+	_install_base_data_on("enemy_base", base_data, MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.bot_tower_level(ai_profile))
 
 	if base_data.base_type == BaseData.BaseType.PRODUCTION:
 		$EnemyProductionTimer.wait_time *= (1.0 - base_data.production_speed_boost)
@@ -598,7 +598,7 @@ func _show_opponent_name():
 		return
 	_opp_label().text = "%s   🏆 %d\n%s" % [ai_profile.profile_name, ArenaManager.get_trophies(ai_profile.profile_name), Cla.clan_of(ai_profile.profile_name)]
 	if MatchSetup.friendly:
-		_opp_label().text += "  ·  AMISTOSO"
+		_opp_label().text += "  ·  TESTE nv 1" if MatchSetup.teste else "  ·  AMISTOSO"
 	_opp_label().add_theme_font_override("font", ThemeDB.fallback_font)
 	_opp_label().add_theme_color_override("font_color", ThemeBuilder.COLOR_GOLD)
 	_opp_label().add_theme_font_size_override("font_size", 20)
@@ -1026,6 +1026,10 @@ func _end_match(team):
 
 
 func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, trophies_gained: int, nation_xp_gained: Dictionary, free_xp_gained: int, is_draw: bool = false):
+	# histórico de partidas (igual o do Clash): resultado, placar, troféus e os dois baralhos
+	Historico.record(-1 if is_draw else (1 if player_won else 0), trophies_gained,
+		int(towers_destroyed[GameManager.Team.ENEMY]), int(towers_destroyed[GameManager.Team.PLAYER]),
+		_get_match_elapsed(), ai_profile, DeckManager.full_deck)
 	var overlay = CanvasLayer.new()
 	overlay.layer = 100
 	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -1099,7 +1103,10 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 	for power_text in prog.get("poderes", []):
 		vbox.add_child(_build_reward_row("⚡ Poder", power_text, Color(0.8, 0.9, 1.0)))
 	if MatchSetup.friendly:
-		vbox.add_child(_build_reward_row("🤝 Amistoso", "não vale troféu nem baú", Color(0.8, 0.8, 0.8)))
+		if MatchSetup.teste:
+			vbox.add_child(_build_reward_row("🧪 Modo teste", "tudo no nível 1 · não vale troféu nem baú", Color(0.8, 0.8, 0.8)))
+		else:
+			vbox.add_child(_build_reward_row("🤝 Amistoso", "não vale troféu nem baú", Color(0.8, 0.8, 0.8)))
 	if ai_profile != null and !is_replay_mode:
 		Gazeta.report_match(ai_profile.profile_name, _kills_player, _kills_enemy, player_won and !is_draw)
 	if MatchSetup.daily:
@@ -1208,8 +1215,8 @@ func _save_match_replay(player_won: bool):
 		"bot_deck_paths": ai_profile.deck.map(func(c): return c.resource_path if c != null else "") if ai_profile != null else [],
 		"player_base_path": player_base.resource_path if player_base != null else "",
 		"bot_base_path": bot_base.resource_path if bot_base != null else "",
-		"player_base_level": (MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.tower_level()) if player_base != null else 1,
-		"bot_base_level": (MatchSetup.TOURNAMENT_LEVEL if MatchSetup.tournament else Progresso.bot_tower_level(ai_profile)) if ai_profile != null else 1,
+		"player_base_level": (MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.tower_level()) if player_base != null else 1,
+		"bot_base_level": (MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.bot_tower_level(ai_profile)) if ai_profile != null else 1,
 		"action_log": match_action_log,
 	}
 	var replays = []
@@ -1629,7 +1636,7 @@ func _show_intro():
 	if MatchSetup.tournament:
 		kind = "🏟 " + Progresso.tournament_stage_text() if !MatchSetup.daily else "📅 DESAFIO DO DIA · vitória %d de %d" % [Progresso.daily_wins() + 1, Progresso.DAILY_WINS]
 	elif MatchSetup.friendly:
-		kind = "🤝 AMISTOSO DE CLÃ"
+		kind = "🧪 MODO TESTE · tudo no nível 1" if MatchSetup.teste else "🤝 AMISTOSO DE CLÃ"
 	elif _is_2v2:
 		kind = "👥 2 CONTRA 2"
 	_intro_label(col, kind, 26, ThemeBuilder.COLOR_GOLD)
@@ -1769,8 +1776,8 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 		elif ai_profile != null:
 			mult *= 1.0 + Progresso.STAR_BOOST * ai_profile.get_stars(card_data)
 
-	if MatchSetup.tournament:
-		level = MatchSetup.TOURNAMENT_LEVEL  # torneio: todo mundo no mesmo nível
+	if MatchSetup.fixed_level() > 0:
+		level = MatchSetup.fixed_level()  # torneio (nível 5) ou modo teste (nível 1): todo mundo no mesmo nível
 		mult = PlayerProfile.compute_stat_multiplier(level)
 
 	var spawned_units: Array = []
@@ -2636,8 +2643,8 @@ func cast_spell(spell_data: SpellData, position: Vector2, caster_team, source_ca
 	# feitiço não mudava NADA na batalha)
 	var sp_card: CardData = Catalogo.find_card(source_card_path) if source_card_path != "" else null
 	var sp_level = 1
-	if MatchSetup.tournament:
-		sp_level = MatchSetup.TOURNAMENT_LEVEL
+	if MatchSetup.fixed_level() > 0:
+		sp_level = MatchSetup.fixed_level()
 	elif sp_card != null:
 		if caster_team == GameManager.Team.PLAYER:
 			sp_level = PlayerProfile.get_card_level(sp_card)

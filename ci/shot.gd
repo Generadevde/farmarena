@@ -73,6 +73,18 @@ func _ready():
 	hub._show_card_popup(Catalogo.card("galo_rei"))
 	await get_tree().create_timer(0.4).timeout
 	await _shot("carta_forca")
+	# histórico de partidas, com 3 partidas de mentira
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
+	var h_bot: AIProfile = BotLearning.get_or_create_profile(MatchSetup.choose_opponent().profile_name)
+	Historico.record(0, -24, 0, 1, 180.0, h_bot, PlayerProfile.active_deck_cards() if PlayerProfile.has_method("active_deck_cards") else h_bot.deck)
+	Historico.record(-1, 0, 1, 1, 240.0, h_bot, h_bot.deck)
+	Historico.record(1, 30, 3, 1, 143.0, h_bot, h_bot.deck)
+	hub._show_history()
+	await get_tree().create_timer(0.5).timeout
+	await _shot("historico")
+	for n in get_tree().get_nodes_in_group("hub_popup"):
+		n.queue_free()
 	if OS.get_environment("SHOT_SO_CARTA") != "":
 		# tela inicial (login), com o número da versão embaixo
 		var login = load("res://Scenes/profile_setup.tscn").instantiate()
