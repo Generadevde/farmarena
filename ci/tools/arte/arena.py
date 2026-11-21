@@ -56,8 +56,8 @@ def build(seed=7):
             c = DIRT[2]
         mirror_set(x, y, c)
 
-    # três caminhos RETOS: cada ponte desce direto pra sua coluna do pátio
-    for col_x, half in ((COLS[0], 5), (COLS[1], 4), (COLS[2], 5)):
+    # dois caminhos RETOS: cada ponte desce direto pra sua coluna do pátio
+    for col_x, half in ((COLS[0], 5), (COLS[2], 5)):
         for y in range(CY + RIVER_HALF, int(ROWS[0])):
             for x in range(int(col_x - half - 1), int(col_x + half + 1)):
                 d = abs(x + 0.5 - col_x)
@@ -119,17 +119,7 @@ def build(seed=7):
                         c = WOOD[2]  # pregos
                 px[x, y] = c
 
-    # ponte do meio (estreita, de corda e tábua)
-    for y in range(CY - RIVER_HALF - 2, CY + RIVER_HALF + 2):
-        for x in range(CX - CENTER_BRIDGE_HALF, CX + CENTER_BRIDGE_HALF):
-            rel = x - (CX - CENTER_BRIDGE_HALF)
-            if rel in (0, 2 * CENTER_BRIDGE_HALF - 1):
-                c = OUT
-            elif y % 2 == 0:
-                c = WOOD[0]
-            else:
-                c = WOOD[2] if rel in (1, 2 * CENTER_BRIDGE_HALF - 2) else WOOD[1]
-            px[x, y] = c
+    # (sem ponte do meio: só os dois lados atravessam o rio, igual o Clash)
 
     # cerca em volta do campo (só nas laterais e pontas, sem atrapalhar)
     for y in range(PH):

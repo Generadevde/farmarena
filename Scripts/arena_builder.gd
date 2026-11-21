@@ -13,7 +13,7 @@ const MARGIN = 10.0                      # folga da cerca
 const RIVER_HALF = 36.0   # rio de 72 de largura (era 40): estreito, quem brigava corpo a corpo de uma margem pra outra ia parar no meio da água
 const BRIDGE_X = 150.0
 const BRIDGE_HALF = 24.0                 # meia-largura útil da ponte lateral (desenho tem 28)
-const CENTER_BRIDGE_HALF = 12.0          # ponte do MEIO, mais estreita (desenho tem 16) -- gargalo
+const CENTER_BRIDGE_HALF = 12.0          # (antiga ponte do meio: hoje é água -- só os dois lados atravessam)
 const TOWER_DX = 135.0
 const TOWER_DY = 380.0
 const TOWER_HP_FRACTION = 0.65           # cada torre tem 65% da vida da base (2 torres = 130%)
@@ -115,18 +115,19 @@ static func _navigation(battle: Node):
 	var cb0 = CENTER.x - CENTER_BRIDGE_HALF
 	var cb1 = CENTER.x + CENTER_BRIDGE_HALF
 
-	# 3 passagens: esquerda, MEIO (estreita) e direita
+	# 2 passagens: esquerda e direita (o meio do rio é água, igual o Clash). Os pontos cb0/cb1
+	# continuam nas bordas pra os pedaços de chão e de água se ligarem certinho
 	var ground = _poly_builder()
 	_add_poly(ground, [Vector2(x0, rb), Vector2(lb0, rb), Vector2(lb1, rb), Vector2(cb0, rb), Vector2(cb1, rb), Vector2(rb0, rb), Vector2(rb1, rb), Vector2(x1, rb), Vector2(x1, y_bot), Vector2(x0, y_bot)])
 	_add_poly(ground, [Vector2(x0, y_top), Vector2(x1, y_top), Vector2(x1, rt), Vector2(rb1, rt), Vector2(rb0, rt), Vector2(cb1, rt), Vector2(cb0, rt), Vector2(lb1, rt), Vector2(lb0, rt), Vector2(x0, rt)])
 	_add_poly(ground, [Vector2(lb0, rt), Vector2(lb1, rt), Vector2(lb1, rb), Vector2(lb0, rb)])
-	_add_poly(ground, [Vector2(cb0, rt), Vector2(cb1, rt), Vector2(cb1, rb), Vector2(cb0, rb)])
 	_add_poly(ground, [Vector2(rb0, rt), Vector2(rb1, rt), Vector2(rb1, rb), Vector2(rb0, rb)])
 	_make_region(battle, "NavChao", ground, 0b01)
 
 	var water = _poly_builder()
 	_add_poly(water, [Vector2(x0, rt), Vector2(lb0, rt), Vector2(lb0, rb), Vector2(x0, rb)])
 	_add_poly(water, [Vector2(lb1, rt), Vector2(cb0, rt), Vector2(cb0, rb), Vector2(lb1, rb)])
+	_add_poly(water, [Vector2(cb0, rt), Vector2(cb1, rt), Vector2(cb1, rb), Vector2(cb0, rb)])
 	_add_poly(water, [Vector2(cb1, rt), Vector2(rb0, rt), Vector2(rb0, rb), Vector2(cb1, rb)])
 	_add_poly(water, [Vector2(rb1, rt), Vector2(x1, rt), Vector2(x1, rb), Vector2(rb1, rb)])
 	_make_region(battle, "NavAgua", water, 0b10)

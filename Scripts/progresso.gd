@@ -1443,7 +1443,7 @@ func daily_result(won: bool) -> String:
 
 # ================================================================ MÓDULOS (base principal + 6 pontos)
 ## quantos espaços de módulo o jogador tem agora: 1 até o nível 4 dos módulos,
-## 2 do nível 5 ao 12 e 3 do 13 em diante (Regras.MODULE_SLOT_LEVELS)
+## 1 do nível 1 ao 7 e 2 do 8 em diante (Regras.MODULE_SLOT_LEVELS)
 func module_slots() -> int:
 	return Regras.module_slots(tower_level())
 

@@ -62,11 +62,11 @@ static func three_towers() -> bool:
 # ---------------------------------------------------------------- módulos
 ## quantos módulos cabem por lado: abre com o NÍVEL DOS MÓDULOS (o mesmo 1 a 14 das cartas).
 ## Na partida os DOIS lados entram com a mesma quantidade: a do jogador.
-const MODULE_SLOTS_MAX = 3
-const MODULE_SLOT_LEVELS = [1, 5, 13]   # nível em que abre o 1º, o 2º e o 3º espaço
+const MODULE_SLOTS_MAX = 2
+const MODULE_SLOT_LEVELS = [1, 8]   # nível em que abre o 1º e o 2º espaço (1 do nível 1 ao 7; 2 do 8 em diante)
 const MAIN_BASE_POS = Vector2(0, 330)   # a partir do meio do rio, pro lado de quem é o dono
 # TECLADO NUMÉRICO: a base é o 5 e os 8 pontos são os outros números -- 3 na frente, 1 de cada
-# lado da base e 3 atrás. Três colunas (as das 3 pontes: -150, 0, 150) e três fileiras
+# lado da base e 3 atrás. Três colunas (-150, 0, 150; as pontes ficam só nas dos lados) e três fileiras
 # (230, 330, 430 a partir do rio), tudo simétrico. Os índices 0 a 5 são os de sempre (os
 # baralhos de módulo salvos continuam valendo); 6 e 7 são os cantos de trás, novos.
 const MODULE_POINTS = [Vector2(-150, 230), Vector2(0, 230), Vector2(150, 230), Vector2(-150, 330), Vector2(0, 430), Vector2(150, 330),

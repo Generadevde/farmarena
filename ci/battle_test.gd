@@ -413,21 +413,20 @@ func _screens_test():
 		b.unlock_arena = 0
 	hub._set_cards_view(1)
 	await get_tree().create_timer(0.5).timeout
-	_check("nível 1 tem 1 espaço de módulo", Progresso.module_loadout().size() == 1 and _find_text(hub, "Espaços de módulo: 1 de 3") and _find_text(hub, "abre no nível 5"),
+	_check("nível 1 tem 1 espaço de módulo", Progresso.module_loadout().size() == 1 and _find_text(hub, "Espaços de módulo: 1 de 2") and _find_text(hub, "abre no nível 8"),
 		"módulos=%d" % Progresso.module_loadout().size())
-	Regras.set_tune("slots", 3)
+	Regras.set_tune("slots", 2)
 	hub._queue_refresh()
 	await get_tree().create_timer(0.5).timeout
 	var lo3 = Progresso.module_loadout()
 	var pts3 := {}
 	for o in lo3:
 		pts3[int(o["ponto"])] = true
-	_check("com 3 espaços a tela mostra 3 módulos, cada um num ponto", lo3.size() == 3 and pts3.size() == 3 and _find_text(hub, "Casa Grande + 3 módulos"), str(lo3.map(func(o): return [o["base"].base_name, o["ponto"]])))
-	hub._use_module(2, mods[0])
+	_check("no máximo 2 espaços: a tela mostra 2 módulos, cada um num ponto", Regras.MODULE_SLOTS_MAX == 2 and lo3.size() == 2 and pts3.size() == 2 and _find_text(hub, "Casa Grande + 2 módulos"), str(lo3.map(func(o): return [o["base"].base_name, o["ponto"]])))
 	hub._use_module(1, mods[0])
 	hub._use_module(0, mods[0])
 	await get_tree().create_timer(0.5).timeout
-	_check("dá pra pôr três iguais", Progresso.module_loadout().all(func(o): return o["base"] == mods[0]) and _find_text(hub, "EM USO ×3"))
+	_check("dá pra pôr dois iguais", Progresso.module_loadout().all(func(o): return o["base"] == mods[0]) and _find_text(hub, "EM USO ×2"))
 	# MÓDULOS: dá pra pôr dois iguais pela tela, e a lista mostra isso
 	Regras.set_tune("slots", 2)
 	Progresso.d["modulos"] = []
@@ -669,8 +668,8 @@ func _modules_test():
 		elif b.resource_path.ends_with("torre_forte.tres"):
 			forte = b
 	_check("os módulos novos existem", moinho != null and guarita != null and estabulo != null and forte != null)
-	# ESPAÇOS por nível dos módulos: 1 até o 4, 2 do 5 ao 12, 3 do 13 em diante
-	_check("espaços por nível: 1-4 = 1, 5-12 = 2, 13+ = 3", [1, 4, 5, 12, 13, 14].map(func(lv): return Regras.module_slots(lv)) == [1, 1, 2, 2, 3, 3],
+	# ESPAÇOS por nível dos módulos: 1 do nível 1 ao 7, 2 do 8 em diante (máximo 2)
+	_check("espaços por nível: 1-7 = 1, 8+ = 2", [1, 4, 7, 8, 12, 14].map(func(lv): return Regras.module_slots(lv)) == [1, 1, 1, 2, 2, 2],
 		str([1, 4, 5, 12, 13, 14].map(func(lv): return Regras.module_slots(lv))))
 	_check("perfil novo (nível 1) começa com 1 módulo", Progresso.module_slots() == 1 and Progresso.module_loadout().size() == 1, str(Progresso.module_loadout().size()))
 	for want in [1, 3]:
@@ -806,11 +805,14 @@ func _towers_test():
 			crosses_bridge = true
 	var reaches = !path.is_empty() and path[-1].distance_to(to) < 30.0
 	print("RESULTADO caminho: ", path.size(), " pontos, chega na torre? ", reaches, " | passa pela ponte? ", crosses_bridge)
-	# tropa no MEIO indo pra torre da esquerda: deve usar a ponte do meio
+	# SEM PONTE DO MEIO: a tropa solta no meio atravessa por uma das pontes do lado
 	var from_mid = Vector2(c.x, c.y + 60)
 	var path_mid = NavigationServer2D.map_get_path(map_rid, from_mid, to, true, 0b01)
-	var uses_center = Array(path_mid).any(func(pt): return abs(pt.y - c.y) <= ArenaBuilder.RIVER_HALF + 1 and abs(pt.x - c.x) <= ArenaBuilder.CENTER_BRIDGE_HALF + 1)
-	print("RESULTADO ponte do meio: tropa no meio usa a ponte central? ", uses_center)
+	var uses_center = Array(path_mid).any(func(pt): return abs(pt.y - c.y) <= ArenaBuilder.RIVER_HALF - 4 and abs(pt.x - c.x) <= ArenaBuilder.BRIDGE_X * 0.5)
+	var mid_side = Array(path_mid).any(func(pt): return abs(pt.y - c.y) <= ArenaBuilder.RIVER_HALF + 1 and abs(abs(pt.x - c.x) - ArenaBuilder.BRIDGE_X) <= ArenaBuilder.BRIDGE_HALF + 1)
+	print("RESULTADO ponte do meio: atravessa pelo meio do rio? ", uses_center, " | vai por uma ponte do lado? ", mid_side)
+	if uses_center or !mid_side:
+		_aud_bad.append("meio do rio: tropa do meio passou pelo meio=%s, pela ponte do lado=%s" % [str(uses_center), str(mid_side)])
 	# PORTÃO: 3 torres por lado, a da frente no meio e com menos vida
 	var gates = bots.filter(func(t): return t.is_gate)
 	var backs = bots.filter(func(t): return !t.is_gate)

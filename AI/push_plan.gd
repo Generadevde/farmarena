@@ -235,7 +235,7 @@ func decide(now: float, money: int, max_money: int, double_time: bool, profile: 
 	_want_building = false
 	if is_pushing(now):
 		if fam == Fam.CAOS and randf() < 0.18:
-			lane_x = _family_lane(tree, my_team)   # muda de lado no meio do ataque
+			lane_x = _side(_family_lane(tree, my_team))   # muda de lado no meio do ataque
 		return {"go": true, "lane_x": lane_x, "first": false}
 	# CERCO: antes de pensar em atacar, quer construção de pé (até 2)
 	if fam == Fam.CERCO and money >= 30 and _own_buildings(tree, my_team).size() < 2:
@@ -268,7 +268,7 @@ func decide(now: float, money: int, max_money: int, double_time: bool, profile: 
 		_chaos = randf_range(-30.0, 10.0)
 		_combo_patience = now + 26.0
 		active_until = now + push_seconds()
-		lane_x = counter_lane if counter_lane != INF else _family_lane(tree, my_team)
+		lane_x = _side(counter_lane if counter_lane != INF else _family_lane(tree, my_team))
 		played = 0
 		return {"go": true, "lane_x": lane_x, "first": counter_lane == INF}
 	if randf() < chip_chance():
@@ -367,7 +367,23 @@ func _counter_lane(tree: SceneTree, my_team) -> float:
 
 ## rota do ataque: a torre adversária mais machucada; empate = onde o
 ## adversário tem menos tropa; empate de novo = sorteio
+## o ataque vai SEMPRE por uma das duas pontes: a rota no meio (a Casa Grande, o portão)
+## vira o lado em que a torre está, ou o lado da casa do bot se ela estiver bem no meio
+func _side(x: float) -> float:
+	var dx = x - ArenaBuilder.CENTER.x
+	if absf(dx) < ArenaBuilder.BRIDGE_X * 0.5:
+		var s = home_side if home_side != 0.0 else (-1.0 if randf() < 0.5 else 1.0)
+		if fam == Fam.CAOS:
+			s = -1.0 if randf() < 0.5 else 1.0
+		return ArenaBuilder.CENTER.x + ArenaBuilder.BRIDGE_X * s
+	return ArenaBuilder.CENTER.x + ArenaBuilder.BRIDGE_X * signf(dx)
+
+
 func _pick_lane(tree: SceneTree, my_team) -> float:
+	return _side(_pick_lane_raw(tree, my_team))
+
+
+func _pick_lane_raw(tree: SceneTree, my_team) -> float:
 	var foe = BattleBrain.other_team(my_team)
 	var towers = BattleBrain.get_bases(tree, foe)
 	if towers.is_empty():

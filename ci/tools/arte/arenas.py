@@ -1,6 +1,6 @@
 """Gera os 12 cenários de arena (um por faixa de troféu) em Resources/arena/arena_bg_<n>.png
     python3 ci/tools/arte/arenas.py
-Todos têm exatamente o mesmo traçado (rio, 3 pontes, caminhos) -- só muda o tema.
+Todos têm exatamente o mesmo traçado (rio, 2 pontes, caminhos) -- só muda o tema.
 """
 import os, random, math
 from PIL import Image
