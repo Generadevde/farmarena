@@ -19,6 +19,8 @@ class_name SpriteForge
 const ATLAS_PATH = "res://Resources/pecas/pecas.png"
 const CELL = 48
 const SOLO = ["objeto", "torre", "icone"]
+const RIDER_OFFSET = Vector2i(-7, -8)   # cavaleiro: mais pra trás e pra cima, sentado no lombo
+const MOUNT_DROP = 2                     # a montaria desce um tico pra caber os dois no quadro
 const DEFAULT_PALETTE = {"P": "#d8c8a8", "S": "#7a5a3a", "A": "#c8483c", "K": "#e8b088", "M": "#a0a8b4", "W": "#7a5030"}
 const SLOT_BY_BITS = {4: "P", 2: "S", 1: "A", 6: "K", 5: "M", 3: "W"}  # bits r g b
 
@@ -101,6 +103,20 @@ static func make_image(recipe: Dictionary, palette: Dictionary = {}) -> Image:
 	# POSTURA: bicho de quatro patas / rasteiro / agachado. O corpo inteiro é
 	# uma peça só ("quatro") e a cabeça + chapéu encaixam deslocados.
 	var stance = str(recipe.get("quatro", ""))
+	# MONTADO: uma unidade em cima da outra (cavaleiro no cavalo). A montaria é a peça "quatro"
+	# (com a cabeça dela em "montaria_cabeca") e o cavaleiro são as peças de gente, sem as pernas,
+	# desenhadas mais pra cima e por trás do lombo.
+	if order.is_empty() and stance != "" and has_piece("quatro", stance) and str(recipe.get("corpo", "")) != "":
+		for cat in ["costas", "corpo", "bracos", "cabeca", "chapeu", "arma"]:
+			var rp = str(recipe.get(cat, ""))
+			if rp != "" and has_piece(cat, rp):
+				_stamp(out, int(PecasIndex.PECAS[cat][rp]), ramps, RIDER_OFFSET.x, RIDER_OFFSET.y)
+		_stamp(out, int(PecasIndex.PECAS["quatro"][stance]), ramps, 0, MOUNT_DROP)
+		var mh = str(recipe.get("montaria_cabeca", ""))
+		if mh != "" and has_piece("cabeca", mh):
+			var mo: Vector2i = PecasIndex.QUATRO_CABECA.get(stance, Vector2i.ZERO)
+			_stamp(out, int(PecasIndex.PECAS["cabeca"][mh]), ramps, mo.x, mo.y + MOUNT_DROP)
+		return Image.create_from_data(CELL, CELL, false, Image.FORMAT_RGBA8, out)
 	if order.is_empty() and stance != "" and has_piece("quatro", stance):
 		_stamp(out, int(PecasIndex.PECAS["quatro"][stance]), ramps)
 		var load_piece = str(recipe.get("costas", ""))

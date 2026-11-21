@@ -91,6 +91,9 @@ const UNIT_FIELDS = [
 const UNIT_EXTRA_LABELS = {
 	"anim_gait": "Jeito de andar", "anim_hit": "Jeito de bater", "anim_death": "Jeito de morrer", "anim_speed": "Velocidade da animação (1 = normal)",
 	"anim_amount": "Tamanho do balanço (1 = normal, 0 = parado)",
+	"repairs_buildings": "Conserta: devolve vida pras construções em volta", "repair_amount": "Vida devolvida por vez", "repair_radius": "Raio do conserto",
+	"repair_interval": "Tempo entre consertos (s)", "repair_towers": "Conserta as torres também",
+	"ward_allies": "Cúpula: aliados em volta levam menos dano", "ward_radius": "Raio da cúpula", "ward_reduction": "Quanto de dano a cúpula tira (0.3 = 30%)",
 	"aura_buff": "Aura: reforça os aliados em volta", "aura_radius": "Raio da aura", "aura_damage_mult": "Aura: dano dos aliados (x)",
 	"aura_speed_mult": "Aura: passo dos aliados (x)", "aura_attack_speed_mult": "Aura: velocidade de ataque dos aliados (x)",
 	"pulses": "Pulso: onda em volta de tempos em tempos", "pulse_interval": "Tempo entre pulsos (s)", "pulse_damage": "Dano do pulso",

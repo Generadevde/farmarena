@@ -3,12 +3,12 @@
 """
 import os, sys
 from PIL import Image
-import pecas, objetos, militar, temas, variacoes, megapack
+import pecas, objetos, militar, temas, variacoes, megapack, silhuetas
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 COLS = 16
 cats = {}
-for src in (pecas.PECAS, objetos.OBJETOS, militar.MILITAR, temas.NOVAS, variacoes.VARIACOES, megapack.MEGA):
+for src in (pecas.PECAS, objetos.OBJETOS, militar.MILITAR, temas.NOVAS, variacoes.VARIACOES, megapack.MEGA, silhuetas.SILHUETAS):
     for c, d in src.items():
         cats.setdefault(c, {}).update(d)
 cells = [(c, n) for c in cats for n in cats[c]]
@@ -29,7 +29,7 @@ with open(os.path.join(ROOT, "Scripts", "pecas_index.gd"), "w") as f:
         f.write('\t"%s": {%s},\n' % (c, ", ".join('"%s": %d' % (n, i) for n, i in d.items())))
     f.write("}\n")
     # posturas: onde a cabeça/chapéu encaixam quando o corpo é uma peça "quatro"
-    f.write("const QUATRO_CABECA = {%s}\n" % ", ".join('"%s": Vector2i(%d, %d)' % (k, v[0], v[1]) for k, v in pecas.QUATRO_CABECA.items()))
+    f.write("const QUATRO_CABECA = {%s}\n" % ", ".join('"%s": Vector2i(%d, %d)' % (k, v[0], v[1]) for k, v in list(pecas.QUATRO_CABECA.items()) + list(silhuetas.QUATRO_CABECA_EXTRA.items())))
     f.write("const QUATRO_COSTAS = {%s}\n" % ", ".join('"%s": Vector2i(%d, %d)' % (k, v[0], v[1]) for k, v in pecas.QUATRO_COSTAS.items()))
     # tema de cada peça (o Criador filtra por tema); a que não aparece em nenhum é "Fazenda"
     f.write("const TEMAS = {\n")

@@ -2121,6 +2121,21 @@ func _new_mechanics_test():
 	rb.rarity_pick = 4
 	if Catalogo.base_rarity(rb) != 3 or (rar_auto < 3 and PlayerProfile.get_upgrade_coin_cost_base(rb) <= cost_auto):
 		_aud_bad.append("raridade de modulo: %d custo %d -> %d" % [Catalogo.base_rarity(rb), cost_auto, PlayerProfile.get_upgrade_coin_cost_base(rb)])
+	# MONTADO: cavaleiro em cima da montaria -- a imagem tem os dois (mais pixels que a montaria sozinha
+	# e gente acima do lombo), e sem cavaleiro continua igual a antes
+	var only_mount: Image = SpriteForge.make_image({"quatro": "cavalo", "cabeca": "cavalo"}, SpriteForge.DEFAULT_PALETTE)
+	var mounted: Image = SpriteForge.make_image({"quatro": "cavalo", "montaria_cabeca": "cavalo", "corpo": "armadura", "bracos": "humanos", "cabeca": "humano"}, SpriteForge.DEFAULT_PALETTE)
+	var px_a = 0
+	var px_b = 0
+	var top_b = 0
+	for yy in 48:
+		for xx in 48:
+			px_a += 1 if only_mount.get_pixel(xx, yy).a > 0.0 else 0
+			if mounted.get_pixel(xx, yy).a > 0.0:
+				px_b += 1
+				top_b += 1 if yy < 14 and xx < 30 else 0
+	if px_b < px_a + 60 or top_b < 40:
+		_aud_bad.append("montado: %d pixels contra %d da montaria, %d do cavaleiro em cima" % [px_b, px_a, top_b])
 	# tipos de projétil: todos desenham alguma coisa em 16x16 e são bastante
 	var proj_bad: Array = []
 	for k in SpriteForge.pieces("proj"):
@@ -2260,6 +2275,31 @@ func _new_mechanics_test():
 	await get_tree().create_timer(0.6).timeout
 	_check("armadilha fica escondida e intocável, explode em quem pisa e some", trap_hid and trap_imm and victim2.current_hp <= 99999 - 300 and safe2.current_hp == 99999 and (!is_instance_valid(trap) or trap.current_hp <= 0 or trap.is_queued_for_deletion()),
 		"%s" % str([trap_hid, trap_imm, victim2.current_hp, safe2.current_hp, is_instance_valid(trap)]))
+	# conserta e cúpula (mecânicas de construção)
+	await _wipe()
+	var mender = await _dummy(P, mid + Vector2(0, 240), 5000)
+	mender.stats.unit_type = UnitData.UnitType.BUILDING
+	mender.stats.repairs_buildings = true
+	mender.stats.repair_amount = 200
+	mender.stats.repair_interval = 0.4
+	mender.stats.ward_allies = true
+	mender.stats.ward_reduction = 0.5
+	var broken = await _dummy(P, mid + Vector2(50, 250), 5000)
+	broken.stats.unit_type = UnitData.UnitType.BUILDING
+	broken.current_hp = 1000
+	var troop = await _dummy(P, mid + Vector2(-40, 250), 5000)     # tropa não é consertada
+	troop.current_hp = 1000
+	var far_b = await _dummy(P, mid + Vector2(-250, 380), 5000)
+	far_b.stats.unit_type = UnitData.UnitType.BUILDING
+	far_b.current_hp = 1000
+	await get_tree().create_timer(1.2).timeout
+	_check("conserta só construção aliada perto", broken.current_hp > 1000 and troop.current_hp == 1000 and far_b.current_hp == 1000, "%d %d %d" % [broken.current_hp, troop.current_hp, far_b.current_hp])
+	var w_before = [troop.current_hp, far_b.current_hp, mender.current_hp]
+	troop.take_damage(200)
+	far_b.take_damage(200)
+	mender.take_damage(200)
+	_check("cúpula tira dano de quem está perto (não de longe, nem dela mesma)", w_before[0] - troop.current_hp == 100 and w_before[1] - far_b.current_hp == 200 and w_before[2] - mender.current_hp == 200,
+		"%s" % str([w_before[0] - troop.current_hp, w_before[1] - far_b.current_hp, w_before[2] - mender.current_hp]))
 	# pisca: com alvo longe, aparece do lado dele
 	await _wipe()
 	var blinker = (await _put("vaca_brava", P, mid + Vector2(0, 200)))[0]
@@ -2284,6 +2324,8 @@ func _new_mechanics_test():
 		sn.stats.detection_range = 320.0
 		sn.stats.move_speed = 0.0
 		sn.stats.damage = 1000   # dano bem diferente do da torre aliada (que também atira no intruso)
+		sn.stats.hp = 99999      # a torre inimiga às vezes alcança: o atirador não pode morrer no meio do teste
+		sn.current_hp = 99999
 		sn._reset_aggro()   # o alvo pego antes de virar "só construção" não vale
 	var hut = await _dummy(E, mid + Vector2(0, 30))
 	hut.stats.unit_type = UnitData.UnitType.BUILDING

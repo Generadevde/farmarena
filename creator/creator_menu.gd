@@ -954,6 +954,8 @@ const ABILITIES = [
 		["Cresce: mais dano quanto mais tempo viva", "grows_over_time", ["grow_interval", "grow_damage_step", "grow_max_mult"], {}],
 		["Armadilha (construção): escondida até pisarem", "is_trap", ["trap_trigger_radius", "trap_damage", "trap_radius", "trap_effect", "trap_effect_duration"], {}],
 		["Pisca: teleporta pra cima do alvo", "blinks", ["blink_interval", "blink_range"], {}],
+		["Conserta (construção): devolve vida pras construções em volta", "repairs_buildings", ["repair_amount", "repair_radius", "repair_interval", "repair_towers"], {}],
+		["Cúpula (construção): aliados em volta levam menos dano", "ward_allies", ["ward_radius", "ward_reduction"], {}],
 	]],
 	["🚪 Entrada em campo", [
 		["Fúria ao entrar", "entrance_rage_duration", ["entrance_rage_damage_mult", "entrance_rage_speed_mult"], {"entrance_rage_duration": 4.0}],
@@ -993,10 +995,17 @@ const SWATCHES = ["#f0f0e8", "#c8c8c0", "#888890", "#484850", "#202028", "#e8c04
 	"#d860a0", "#9850c0", "#6040a0", "#4060c8", "#48a8e8", "#70d0e0", "#40a878", "#58b848", "#a0c840", "#587830", "#e8b088", "#d89868",
 	"#b07848", "#8a5a34", "#6a4428", "#4a3020", "#d8c8a8", "#a0a8b4", "#f0e0a0"]
 const PIECE_SLOTS = {"pe": ["cabeca", "chapeu", "corpo", "bracos", "pernas", "arma", "costas"], "quatro": ["quatro", "cabeca", "chapeu", "costas"],
+	"montado": ["quatro", "montaria_cabeca", "cabeca", "chapeu", "corpo", "bracos", "arma", "costas"],
 	"objeto": ["objeto"], "icone": ["icone"], "torre": ["torre"]}
 const SLOT_NAMES = {"cabeca": "Cabeça", "chapeu": "Chapéu", "corpo": "Corpo", "bracos": "Braços", "pernas": "Pernas", "arma": "Arma", "costas": "Costas",
-	"quatro": "Corpo (4 patas)", "objeto": "Objeto", "icone": "Ícone", "torre": "Construção"}
+	"quatro": "Corpo (4 patas)", "objeto": "Objeto", "icone": "Ícone", "torre": "Construção", "montaria_cabeca": "Cabeça da montaria"}
+
+
+## em qual categoria de peça cada lugar procura ("montaria_cabeca" usa as cabeças)
+static func _slot_cat(slot: String) -> String:
+	return "cabeca" if slot == "montaria_cabeca" else slot
 const MODE_DEFAULTS = {"pe": {"pernas": "bota", "corpo": "macacao", "bracos": "humanos", "cabeca": "humano"}, "quatro": {"quatro": "vaca", "cabeca": "vaca"},
+	"montado": {"quatro": "cavalo", "montaria_cabeca": "cavalo", "corpo": "armadura", "bracos": "humanos", "cabeca": "humano", "arma": "espada"},
 	"objeto": {"objeto": "silo"}, "icone": {"icone": "raio"}, "torre": {"torre": "celeiro"}}
 
 var _head: PanelContainer
@@ -1432,6 +1441,8 @@ func _set_image(img: Image):
 
 
 func _recipe_mode() -> String:
+	if str(_recipe.get("quatro", "")) != "" and str(_recipe.get("corpo", "")) != "":
+		return "montado"   # uma unidade em cima da outra
 	for m in ["torre", "icone", "objeto", "quatro"]:
 		if str(_recipe.get(m, "")) != "":
 			return m
@@ -1488,10 +1499,10 @@ func _parts_picker():
 	p.add_child(v)
 	var mode = _recipe_mode()
 	if _ed_kind == "tropa":
-		var modes = ["pe", "quatro", "objeto"]
+		var modes = ["pe", "quatro", "montado", "objeto"]
 		var mrow = HBoxContainer.new()
 		mrow.add_child(_field_label("Postura"))
-		mrow.add_child(_option(["Em pé (peças)", "Quatro patas", "Objeto / construção"], maxi(modes.find(mode), 0), func(i):
+		mrow.add_child(_option(["Em pé (peças)", "Quatro patas", "Montado (um em cima do outro)", "Objeto / construção"], maxi(modes.find(mode), 0), func(i):
 			_recipe = MODE_DEFAULTS[modes[i]].duplicate()
 			_regen_art()
 			_build_ed_body()))
@@ -1507,7 +1518,7 @@ func _parts_picker():
 	for slot in PIECE_SLOTS[mode]:
 		var solo = PIECE_SLOTS[mode].size() == 1
 		var items: Array = ([] if solo else [""])
-		for piece in SpriteForge.pieces(slot):
+		for piece in SpriteForge.pieces(_slot_cat(str(slot))):
 			if _piece_in_theme(str(piece)) or str(piece) == str(_recipe.get(slot, "")):
 				items.append(piece)
 		if items.is_empty() or (items.size() == 1 and str(items[0]) == ""):
@@ -2066,9 +2077,9 @@ func _shuffle_pieces():
 	for slot in PIECE_SLOTS[_recipe_mode()]:
 		if str(_recipe.get(slot, "")) == "":
 			continue
-		var options: Array = SpriteForge.pieces(slot).filter(func(p): return _piece_in_theme(str(p)))
+		var options: Array = SpriteForge.pieces(_slot_cat(str(slot))).filter(func(p): return _piece_in_theme(str(p)))
 		if options.is_empty():
-			options = SpriteForge.pieces(slot)
+			options = SpriteForge.pieces(_slot_cat(str(slot)))
 		if options.size() > 1:
 			options.erase(_recipe[slot])
 		_recipe[slot] = str(options[randi() % options.size()])

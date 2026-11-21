@@ -645,3 +645,15 @@ enum OnHitEffect {
 ## velocidade e tamanho do balanço (1.0 = normal)
 @export var anim_speed: float = 1.0
 @export var anim_amount: float = 1.0
+## CONSERTA (construção): de tempos em tempos devolve vida pras construções aliadas em volta
+## (e pras torres, se ligar). Não conserta a si mesma.
+@export var repairs_buildings: bool = false
+@export var repair_amount: int = 40
+@export var repair_radius: float = 140.0
+@export var repair_interval: float = 2.0
+@export var repair_towers: bool = false
+## CÚPULA (construção): aliados dentro do raio levam menos dano enquanto ela estiver de pé.
+## Não protege a si mesma; duas cúpulas não somam (vale a mais forte).
+@export var ward_allies: bool = false
+@export var ward_radius: float = 110.0
+@export var ward_reduction: float = 0.3

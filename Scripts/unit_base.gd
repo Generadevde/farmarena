@@ -1488,6 +1488,9 @@ var _trail_last := Vector2.INF
 var _trap_sprung := false
 var _trap_shown := false
 var _blink_clock := 0.0
+var _repair_clock := 0.0
+var _ward_listed := false
+var _ward_fx := 0.0
 
 
 func _enemies_within(r: float, ground_only: bool = false) -> Array:
@@ -1537,6 +1540,36 @@ func _process_new_mechanics(delta):
 			_trail_last = global_position
 			Poca.drop(get_parent(), position, team, int(round(stats.trail_damage * _level_mult_safe())), stats.trail_radius, stats.trail_duration,
 				stats.trail_slow, Color(0.5, 0.85, 0.3) if stats.trail_slow <= 0.0 else Color(0.55, 0.4, 0.25))
+	# CONSERTA: devolve vida pras construções aliadas em volta (e torres, se ligado)
+	if stats.repairs_buildings:
+		_repair_clock += delta
+		if _repair_clock >= maxf(stats.repair_interval, 0.3):
+			_repair_clock = 0.0
+			var amount_r = int(round(stats.repair_amount * _level_mult_safe()))
+			for body in get_tree().get_nodes_in_group("units"):
+				if is_instance_valid(body) and body != self and "team" in body and body.team == team and body.stats != null \
+						and body.stats.unit_type == UnitData.UnitType.BUILDING and body.current_hp > 0 and body.current_hp < body.stats.hp \
+						and global_position.distance_to(body.global_position) <= stats.repair_radius:
+					body.heal(amount_r)
+			if stats.repair_towers:
+				for t in BattleBrain.get_bases(get_tree(), team):
+					if is_instance_valid(t) and "hp" in t and "max_hp" in t and t.hp > 0 and t.hp < t.max_hp and global_position.distance_to(t.global_position) <= stats.repair_radius:
+						if t.has_method("heal"):
+							t.heal(amount_r)
+						else:
+							t.hp = mini(t.hp + amount_r, t.max_hp)
+			if Regras.on("visual"):
+				Fx.ring(get_parent(), position, stats.repair_radius, Color(0.45, 1.0, 0.5, 0.5), 0.45)
+	# CÚPULA: entra na lista de quem protege (sai sozinha quando morre)
+	if stats.ward_allies and !_ward_listed:
+		_ward_listed = true
+		wards = wards.filter(func(w): return is_instance_valid(w) and w.current_hp > 0)
+		wards.append(self)
+	if stats.ward_allies and Regras.on("visual"):
+		_ward_fx -= delta
+		if _ward_fx <= 0.0:
+			_ward_fx = 1.2
+			Fx.ring(get_parent(), position, stats.ward_radius, Color(0.5, 0.75, 1.0, 0.45), 0.6)
 	# CRESCE: mais dano a cada intervalo no campo
 	if stats.grows_over_time and _grow_mult < stats.grow_max_mult:
 		_grow_clock += delta
@@ -2060,9 +2093,20 @@ func _on_area_2d_body_exited(body):
 		target = null
 
 
+static var wards: Array = []   # quem está com a CÚPULA ligada no campo
+
+
 func take_damage(amount, _is_shared_damage: bool = false):
 	if amount > 0 and is_hidden():
 		return   # escondida debaixo da terra: nem feitiço acerta
+	# CÚPULA aliada por perto: leva menos dano (vale a mais forte)
+	if amount > 0 and !wards.is_empty():
+		var cut = 0.0
+		for w in wards:
+			if is_instance_valid(w) and w != self and w.team == team and w.current_hp > 0 and global_position.distance_to(w.global_position) <= w.stats.ward_radius:
+				cut = maxf(cut, w.stats.ward_reduction)
+		if cut > 0.0:
+			amount = amount * (1.0 - clampf(cut, 0.0, 0.9))
 	# invulnerável logo ao nascer -- nem dano de área/feitiço passa nessa janela
 	if _spawn_invulnerable_until > GameManager.game_time:
 		return

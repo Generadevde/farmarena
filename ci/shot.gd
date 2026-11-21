@@ -348,10 +348,21 @@ func _creator_shots():
 	await get_tree().create_timer(0.5).timeout
 	await _shot("criador_lista")
 	cr._open_card_form(CustomContent.open_card_for_edit(Catalogo.card("vaca_brava")))
-	for i in 5:
+	for i in 6:
 		cr._show_ed_tab(i)
 		await get_tree().create_timer(0.4).timeout
 		await _shot("criador_tropa_%d" % i)
+	# postura "Montado": cavaleiro em cima da montaria
+	cr._show_ed_tab(3)
+	cr._recipe = cr.MODE_DEFAULTS["montado"].duplicate()
+	cr._regen_art()
+	cr._build_ed_body()
+	await get_tree().create_timer(0.5).timeout
+	await _shot("criador_montado")
+	cr._shuffle_pieces()
+	cr._recipe = cr.MODE_DEFAULTS["quatro"].duplicate()
+	cr._regen_art()
+	cr._build_ed_body()
 	# liga uma habilidade e abre a montagem por peças
 	cr._show_ed_tab(2)
 	await get_tree().create_timer(0.2).timeout
