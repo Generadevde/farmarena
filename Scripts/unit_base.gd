@@ -2287,12 +2287,16 @@ func take_damage(amount, _is_shared_damage: bool = false):
 	_last_damage_time = GameManager.game_time
 
 	# escudo absorve o que sobrar
+	# ESCUDO (igual no Clash): o golpe que QUEBRA o escudo é segurado inteiro -- o que sobra do
+	# dano não passa pra vida. Antes passava: tropa de 1 de vida + 1 de escudo morria na bomba.
 	if current_shield > 0:
-		var absorbed = min(current_shield, amount)
-		current_shield -= absorbed
-		amount -= absorbed
-		if amount <= 0:
-			return
+		var broke = amount >= current_shield
+		current_shield = maxi(current_shield - int(ceil(amount)), 0)
+		if broke and Regras.on("visual") and is_inside_tree():
+			Fx.ring(get_parent(), position, 18.0 * _visual_scale, Color(0.6, 0.85, 1.0), 0.3)
+			Fx.text(get_parent(), position + Vector2(0, -26.0 * _visual_scale), "ESCUDO!", Color(0.6, 0.85, 1.0), 0.7)
+		_refresh_bar()
+		return
 
 	current_hp = clamp(current_hp - amount, 0, stats.hp)
 	$ProgressBar.value = current_hp

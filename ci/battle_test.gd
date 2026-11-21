@@ -2739,6 +2739,21 @@ func _general_audit():
 				lay_bad.append("%s sozinho no meio" % bn)
 	_check("bots usam os pontos novos da base", lay_bad.is_empty() and seen_points.size() >= 6, "pontos usados %s, problemas %s" % [str(seen_points.keys()), str(lay_bad.slice(0, 3))])
 
+	# escudo segura inteiro o golpe que quebra ele: 1 de vida + 1 de escudo sobrevive à bomba
+	await _wipe()
+	u = (await _put_card(_make({"hp": 1, "has_shield": true, "shield_amount": 1, "shield_recharge_time": 0.0, "move_speed": 0.0}), P, mid + Vector2(0, 40)))[0]
+	u.take_damage(500)
+	var alive_after_bomb = is_instance_valid(u) and u.current_hp == 1 and u.current_shield == 0
+	if is_instance_valid(u):
+		u.take_damage(1)
+	await get_tree().create_timer(0.3).timeout
+	_check("escudo segura o golpe que quebra ele (e o próximo mata)", alive_after_bomb and (!is_instance_valid(u) or u.current_hp <= 0 or u.is_queued_for_deletion()), "viva depois da bomba? %s" % str(alive_after_bomb))
+	# feitiço de 3 golpes seguidos (duração 0,6 / intervalo 0,2) e a conta do resumo
+	var arrows = SpellData.new()
+	arrows.duration = 0.6
+	arrows.tick_interval = 0.2
+	_check("resumo do feitiço conta 3 pulsos em 0,6s / 0,2s", Regua.spell_pulses(arrows) == 3, str(Regua.spell_pulses(arrows)))
+
 	# --- AS NOVAS
 	# vários avanços (bandida): avança mais de uma vez no mesmo alvo
 	await _wipe()

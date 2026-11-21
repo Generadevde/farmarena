@@ -170,7 +170,8 @@ static var _spell_std: Dictionary = {}
 
 ## quantas vezes o feitiço bate (1 se for instantâneo)
 static func spell_pulses(sp: SpellData) -> int:
-	return int(maxf(1.0, sp.duration / maxf(0.05, sp.tick_interval))) if sp.duration > 0.0 else 1
+	# (+0.001: 0,6 / 0,2 dá 2,9999 na conta do computador e virava 2 pulsos em vez de 3)
+	return int(maxf(1.0, sp.duration / maxf(0.05, sp.tick_interval) + 0.001)) if sp.duration > 0.0 else 1
 
 
 ## padrão dos feitiços do jogo: dano total por custo, cura total por custo e raio (medianas)
