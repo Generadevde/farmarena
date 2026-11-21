@@ -103,6 +103,9 @@ enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO }
 @export var projectile_chain_range: float = 150.0
 ## RAIO CONTÍNUO (torre inferno): raio ligado no alvo em vez de projétil; engrossa com o dano que cresce
 @export var beam_attack: bool = false
+## cor do raio: 0 = laranja (padrão); 1.. = SpellData.TINT_COLORS
+@export var beam_tint: int = 0
+@export var beam_heats_red: bool = true
 ## HABILIDADES DE TIRO (iguais às das cartas)
 ## atira em mais de um alvo por vez
 @export var extra_targets: int = 0

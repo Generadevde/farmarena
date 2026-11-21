@@ -2763,6 +2763,17 @@ func _general_audit():
 	var projs = 0
 	for n in battle.get_children() + (u.get_parent().get_children() if is_instance_valid(u) else []):
 		projs += 1 if n is Projectile else 0
+	# cor do raio: a escolhida no Criador vale, pra carta e pra módulo
+	var beam_field_ok = CustomContent.unit_extra_fields().any(func(f): return f[0] == "beam_tint" and f[2] == "enum" and f[3].size() == SpellData.TINT_NAMES.size())
+	var bd_c = BaseData.new()
+	bd_c.beam_tint = 6
+	bd_c.beam_heats_red = false
+	var some_tower = get_tree().get_first_node_in_group("player_base")
+	var keep_bd = some_tower.base_data
+	some_tower.base_data = bd_c
+	var tower_col: Color = some_tower._beam_color(1.0)
+	some_tower.base_data = keep_bd
+	_check("cor do raio escolhida no Criador", beam_field_ok and tower_col.is_equal_approx(Color(0.3, 0.5, 1.0)), "campo=%s cor=%s" % [str(beam_field_ok), str(tower_col)])
 	_check("raio contínuo: começa em 15, chega no teto de 120 e não solta projétil", drops.size() >= 20 and drops[0] == 15 and drops[-1] == 120 and projs == 0,
 		"primeiro %d, último %d, %d golpes, projéteis %d" % [drops[0] if !drops.is_empty() else -1, drops[-1] if !drops.is_empty() else -1, drops.size(), projs])
 

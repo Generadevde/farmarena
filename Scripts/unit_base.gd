@@ -1824,7 +1824,11 @@ func _perform_attack():
 		elif stats.ramping_damage and stats.ramping_damage_max_multiplier > 1.0:
 			heat = clampf((_damage_ramp_multiplier - 1.0) / (stats.ramping_damage_max_multiplier - 1.0), 0.0, 1.0)
 		var beam_col: Color = SpriteForge.main_color(card_data.art_palette) if card_data != null else Color(1.0, 0.5, 0.2)
-		beam_col = beam_col.lerp(Color(1.0, 0.35, 0.15), heat * 0.7)   # esquentando: puxa pro vermelho
+		if stats.beam_tint > 0:
+			beam_col = SpellData.TINT_COLORS[clampi(stats.beam_tint, 1, SpellData.TINT_COLORS.size() - 1)]   # cor escolhida no Criador
+		if stats.beam_heats_red:
+			beam_col = beam_col.lerp(Color(1.0, 0.35, 0.15), heat * 0.7)   # esquentando: puxa pro vermelho
+		beam_col.a = 1.0
 		var muzzle = position + Vector2(0, -14.0 * _visual_scale)
 		Fx.beam(get_parent(), muzzle, target.position if target.get_parent() == get_parent() else get_parent().to_local(target.global_position),
 			beam_col, 2.0 + 5.0 * heat, maxf(stats.attack_speed * _attack_speed_ramp_multiplier / _rage_mult(_rage_attack_speed) * 1.25, 0.2))

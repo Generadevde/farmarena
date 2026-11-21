@@ -683,3 +683,7 @@ enum OnHitEffect {
 ## RAIO CONTÍNUO (torre inferno): quem atira solta um raio ligado no alvo em vez de projétil.
 ## O dano cai na hora e o raio engrossa junto com o "dano cresce no mesmo alvo".
 @export var beam_attack: bool = false
+## cor do raio: 0 = a cor principal da carta; 1.. = SpellData.TINT_COLORS (vermelho, laranja, amarelo...)
+@export var beam_tint: int = 0
+## o raio vai ficando vermelho conforme esquenta (desligue pra manter a cor escolhida até o fim)
+@export var beam_heats_red: bool = true

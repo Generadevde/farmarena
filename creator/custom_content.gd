@@ -102,6 +102,7 @@ const UNIT_EXTRA_LABELS = {
 	"late_boost_after": "Esquenta depois de (s em campo)", "late_boost_damage_mult": "Esquenta: dano (x)", "late_boost_speed_mult": "Esquenta: passo (x)",
 	"projectile_can_miss": "Tiro pode errar (vai reto pra onde o alvo estava)", "projectile_launch_angle": "Ângulo de saída do tiro (0 = reto, maior = arco)",
 	"beam_attack": "Raio contínuo (torre inferno): raio ligado no alvo em vez de projétil",
+	"beam_tint": "Cor do raio", "beam_heats_red": "Raio fica vermelho conforme esquenta",
 	"aura_buff": "Aura: reforça os aliados em volta", "aura_radius": "Raio da aura", "aura_damage_mult": "Aura: dano dos aliados (x)",
 	"aura_speed_mult": "Aura: passo dos aliados (x)", "aura_attack_speed_mult": "Aura: velocidade de ataque dos aliados (x)",
 	"pulses": "Pulso: onda em volta de tempos em tempos", "pulse_interval": "Tempo entre pulsos (s)", "pulse_damage": "Dano do pulso",
@@ -316,6 +317,8 @@ const BASE_FIELDS = [
 	["knockback_distance", "Distância do empurrão / puxão", "float", [0.0, 200.0, 5.0]],
 	["aura_tick_interval", "Aura: tempo entre os pulsos (s)", "float", [0.2, 10.0, 0.1]],
 	["beam_attack", "Raio contínuo (torre inferno): raio ligado no alvo em vez de projétil", "bool", []],
+	["beam_tint", "Cor do raio", "enum", ["Laranja (padrão)", "Vermelho", "Laranja", "Amarelo", "Verde", "Azul claro", "Azul", "Roxo", "Rosa", "Branco", "Preto"]],
+	["beam_heats_red", "Raio fica vermelho conforme esquenta", "bool", []],
 	["extra_targets", "Atira em mais alvos por vez (+)", "int", [0, 5, 1]],
 	["ramp_per_shot", "Dano cresce a cada tiro no mesmo alvo (0.2 = +20%, 0 = desligado)", "float", [0.0, 2.0, 0.05]],
 	["ramp_max_mult", "Teto do crescimento (x)", "float", [1.0, 10.0, 0.5]],
@@ -369,6 +372,8 @@ func unit_extra_fields() -> Array:
 					if pname.ends_with("effect"):
 						opts = Array(EFFECT_NAMES)
 					_extra_fields_cache.append([pname, label, "enum", opts])
+				elif pname == "beam_tint":
+					_extra_fields_cache.append([pname, label, "enum", ["Cor da carta", "Vermelho", "Laranja", "Amarelo", "Verde", "Azul claro", "Azul", "Roxo", "Rosa", "Branco", "Preto"]])
 				else:
 					_extra_fields_cache.append([pname, label, "int", [0, 100000, 1]])
 			TYPE_FLOAT:
