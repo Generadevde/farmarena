@@ -2053,6 +2053,47 @@ func _new_mechanics_test():
 	MatchSetup.tournament = t_keep[1]
 	if lv_test != 1 or lv_main != 1 or lv_tour != MatchSetup.TOURNAMENT_LEVEL or lv_none != 0:
 		_aud_bad.append("modo teste: niveis %s" % str([lv_test, lv_main, lv_tour, lv_none]))
+	# PLANOS DE JOGO dos bots: os 6 planos decidem diferente com o mesmo recurso na mão
+	var fam_prof: AIProfile = battle.ai_profile if battle.ai_profile != null else BotLearning.get_or_create_profile(BotSimulator.roster_names[0])
+	var thr: Array = []
+	for f in 6:
+		var pp = PushPlan.new()
+		PushPlan.forced = {E: f}
+		pp.hand = fam_prof.deck.slice(0, 4)
+		pp.decide(0.0, 10, 100, false, fam_prof, get_tree(), E, 50)   # resolve o plano
+		pp._jitter = 0.0
+		pp._chaos = 0.0
+		thr.append(pp.threshold(100, false, fam_prof))
+		if pp.fam != f:
+			_aud_bad.append("plano de jogo %d nao foi aplicado (ficou %d)" % [f, pp.fam])
+	if !(thr[PushPlan.Fam.CORRERIA] < thr[PushPlan.Fam.BLOCO] - 15 and thr[PushPlan.Fam.CONTRA] >= 96):
+		_aud_bad.append("planos de jogo: limiares %s" % str(thr))
+	# Cerco com construção na mão e nenhuma de pé: pede pra plantar antes de atacar
+	var b_card: CardData = null
+	for c in Catalogo.cards():
+		if PushPlan.is_building(c):
+			b_card = c
+			break
+	if b_card != null:
+		var pc = PushPlan.new()
+		PushPlan.forced = {E: PushPlan.Fam.CERCO}
+		pc.hand = [b_card]
+		var dc = pc.decide(0.0, 99, 100, false, fam_prof, get_tree(), E, 50)
+		if !dc.get("build", false) or pc.chip_pool([b_card, sel_card]) != [b_card]:
+			_aud_bad.append("cerco nao pediu construcao: %s" % str(dc))
+	# Combo: sem as duas cartas na mão segura (não ataca só por ter recurso); com as duas, ataca
+	var pk = PushPlan.new()
+	PushPlan.forced = {E: PushPlan.Fam.COMBO}
+	pk.hand = []
+	var d_hold = pk.decide(1.0, 90, 100, false, fam_prof, get_tree(), E, 50)
+	if pk.combo.size() == 2:
+		pk.hand = [pk.combo[0], pk.combo[1]]
+		var d_go = pk.decide(2.0, 90, 100, false, fam_prof, get_tree(), E, 50)
+		if d_hold.get("go", false) or !d_go.get("go", false) or pk.shape(null, pk.combo, d_go) != pk.combo[0]:
+			_aud_bad.append("combo: segurou=%s atacou=%s" % [str(d_hold), str(d_go)])
+	else:
+		_aud_bad.append("combo: bot sem par de cartas")
+	PushPlan.forced = {}
 	# tipos de projétil: todos desenham alguma coisa em 16x16 e são bastante
 	var proj_bad: Array = []
 	for k in SpriteForge.pieces("proj"):

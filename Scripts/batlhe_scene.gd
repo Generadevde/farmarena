@@ -2145,14 +2145,12 @@ func _on_timer_timeout():
 	var push: Dictionary = {}
 	if Regras.on("torres"):
 		_push_plan.arena = 4 if MatchSetup.tournament else ArenaManager.get_player_arena()
+		_push_plan.hand = ai_hand
 		push = _push_plan.decide(_get_match_elapsed(), GameManager.enemy_money, enemy_max_money, _entered_last_minute, ai_profile, get_tree(), GameManager.Team.ENEMY, int(GameManager.player_money) if !_is_2v2 else -1)
 		if push.get("wait", false):
 			return
 		if push.get("chip", false):
-			var cheap: Array[CardData] = []
-			for card in affordable:
-				if card.cost <= PushPlan.CHIP_MAX_COST and !card.is_spell():
-					cheap.append(card)
+			var cheap: Array[CardData] = _push_plan.chip_pool(affordable_ignoring_reserve if push.get("build", false) else affordable)
 			if cheap.is_empty():
 				return
 			affordable = cheap
@@ -2173,6 +2171,8 @@ func _on_timer_timeout():
 		var leader = PushPlan.pick_leader(affordable, ai_profile.favorite_card)
 		if leader != null:
 			chosen = leader  # o ataque começa pelo tanque
+	if pushing:
+		chosen = _push_plan.shape(chosen, affordable, push)   # o PLANO do bot (combo, correria, caos...)
 	elif !pushing:
 		chosen = _apply_combo_bias(chosen, affordable)
 		chosen = _apply_opening_signature(chosen, affordable)

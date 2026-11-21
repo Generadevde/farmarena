@@ -115,15 +115,12 @@ func _decide():
 	var push: Dictionary = {}
 	if Regras.on("torres"):
 		_push_plan.arena = 4 if MatchSetup.tournament else ArenaManager.get_player_arena()
+		_push_plan.hand = hand
 		push = _push_plan.decide(battle._get_match_elapsed(), money, max_money, battle._entered_last_minute, profile, battle.get_tree(), team, _opponent_money())
 		if push.get("wait", false):
 			return
 		if push.get("chip", false):
-			var cheap: Array[CardData] = []
-			for c in pool:
-				if c.cost <= PushPlan.CHIP_MAX_COST and !c.is_spell():
-					cheap.append(c)
-			pool = cheap
+			pool = _push_plan.chip_pool(_affordable(0) if push.get("build", false) else pool)
 		elif push.get("go", false):
 			lane_x = float(push["lane_x"])
 			pool.clear()
@@ -137,6 +134,8 @@ func _decide():
 		var leader = PushPlan.pick_leader(pool, profile.favorite_card)
 		if leader != null:
 			chosen = leader
+	if pushing:
+		chosen = _push_plan.shape(chosen, pool, push)
 	if chosen == null:
 		return
 	var pos = Vector2.INF

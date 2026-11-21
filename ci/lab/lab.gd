@@ -119,6 +119,14 @@ func _ready():
 		var legacy = OS.get_environment("LAB_AB")   # "P" ou "E": esse lado joga com a IA antiga
 		if legacy != "":
 			BattleBrain.legacy_teams = [GameManager.Team.PLAYER if legacy == "P" else GameManager.Team.ENEMY]
+		if OS.get_environment("LAB_FAM") != "":
+			var ff = OS.get_environment("LAB_FAM").split(",")
+			if ff[0] == "r":   # sorteia os dois planos pela semente
+				ff = [str(randi() % 6), str(randi() % 6)]
+			PushPlan.forced = {GameManager.Team.PLAYER: int(ff[0]), GameManager.Team.ENEMY: int(ff[1])}
+			print("LABFAM P=", int(ff[0]), " E=", int(ff[1]))
+		else:
+			print("LABFAM P=", PushPlan.family_of(pa), " E=", PushPlan.family_of(pb))
 		print("LAB justo legado=", legacy, " P=", pa.deck.map(func(x): return x.card_name), " | E=", pb.deck.map(func(x): return x.card_name))
 	elif OS.get_environment("LAB_ALLY") != "":
 		var si2 = int(OS.get_environment("LAB_SEED")) if OS.get_environment("LAB_SEED") != "" else 0
