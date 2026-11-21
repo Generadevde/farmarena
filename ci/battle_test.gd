@@ -2777,6 +2777,25 @@ func _general_audit():
 	_check("raio contínuo: começa em 15, chega no teto de 120 e não solta projétil", drops.size() >= 20 and drops[0] == 15 and drops[-1] == 120 and projs == 0,
 		"primeiro %d, último %d, %d golpes, projéteis %d" % [drops[0] if !drops.is_empty() else -1, drops[-1] if !drops.is_empty() else -1, drops.size(), projs])
 
+	# cemitério: o feitiço vai soltando tropa aos poucos, não tudo de uma vez
+	await _wipe()
+	var grave = SpellData.new()
+	grave.radius = 100.0
+	grave.duration = 3.0
+	grave.tick_interval = 1.0
+	grave.summon_interval = 0.5
+	grave.summon_count = 0
+	grave.summon_scene = _make({"hp": 50, "move_speed": 0.0}).unit_scene
+	grave.affects_enemies = false
+	battle.cast_spell(grave, mid, P)
+	await get_tree().create_timer(0.25).timeout
+	var early = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P and !x.is_queued_for_deletion()).size()
+	await get_tree().create_timer(1.3).timeout
+	var midway = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P and !x.is_queued_for_deletion()).size()
+	await get_tree().create_timer(2.2).timeout
+	var total_g = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P and !x.is_queued_for_deletion()).size()
+	_check("cemitério invoca aos poucos", early == 0 and midway >= 2 and midway < total_g and total_g >= 5 and total_g <= 6, "no começo %d, no meio %d, no fim %d" % [early, midway, total_g])
+
 	# --- AS NOVAS
 	# vários avanços (bandida): avança mais de uma vez no mesmo alvo
 	await _wipe()

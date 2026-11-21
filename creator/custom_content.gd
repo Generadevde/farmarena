@@ -277,7 +277,8 @@ const SPELL_FIELDS = [
 	["cleanses", "Purificar (tira efeitos ruins dos aliados)", "bool", []],
 	["buff_duration", "Duração da fúria/escudo (s) — 0 = automático", "float", [0.0, 30.0, 0.5]],
 	["summon_scene", "Invoca a unidade", "scene", []],
-	["summon_count", "Quantas invoca", "int", [0, 20, 1]],
+	["summon_count", "Quantas invoca de uma vez, na hora que cai (0 = nenhuma)", "int", [0, 20, 1]],
+	["summon_interval", "Invoca 1 a cada (s) enquanto o feitiço durar (0 = desligado)", "float", [0.0, 10.0, 0.1]],
 ]
 
 const BASE_FIELDS = [

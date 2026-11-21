@@ -1757,7 +1757,7 @@ const SPELL_GROUPS = [["Onde e por quanto tempo", ["radius", "duration", "tick_i
 	["Cura e escudo nos aliados", ["heal_amount", "shield_amount"]],
 	["Fúria nos aliados", ["rage_damage_mult", "rage_speed_mult", "rage_attack_speed_mult"]],
 	["Reforço nos aliados (fúria, escudo, limpar)", ["buff_duration", "cleanses"]],
-	["Invocação", ["summon_scene", "summon_count"]],
+	["Invocação", ["summon_scene", "summon_count", "summon_interval"]],
 	["Jeitos especiais", ["rolls", "roll_distance", "roll_speed", "picks_strongest", "mirror"]]]
 
 # MOLDES: um toque monta o feitiço inteiro, na força certa pro custo da carta (pela régua).
@@ -1771,6 +1771,7 @@ const SPELL_MOLDS = [
 	["Tornado", {"radius": 110.0, "d": 0.5, "duration": 3.0, "tick_interval": 0.5, "status_effect": UnitData.OnHitEffect.PULL, "knockback_distance": 40.0}],
 	["🪵 Tronco", {"radius": 55.0, "d": 0.7, "rolls": true, "status_effect": UnitData.OnHitEffect.KNOCKBACK, "knockback_distance": 45.0}],
 	["🌋 Terremoto", {"radius": 120.0, "d": 0.5, "duration": 3.0, "tick_interval": 1.0, "base_damage_multiplier": 1.0, "status_effect": UnitData.OnHitEffect.SLOW, "status_effect_strength": 0.35}],
+	["🪦 Cemitério", {"radius": 110.0, "duration": 9.0, "tick_interval": 1.0, "summon_interval": 0.5, "affects_enemies": false}],
 	["💚 Cura", {"radius": 110.0, "h": 1.0, "duration": 3.0, "tick_interval": 0.5, "affects_enemies": false, "affects_allies": true}],
 	["💢 Fúria", {"radius": 120.0, "duration": 6.0, "affects_enemies": false, "affects_allies": true, "rage_damage_mult": 1.35, "rage_speed_mult": 1.35, "rage_attack_speed_mult": 1.35}],
 	["Escudo", {"radius": 110.0, "s": 0.8, "affects_enemies": false, "affects_allies": true, "cleanses": true}],
@@ -1830,7 +1831,14 @@ func _spell_summary(sp: SpellData) -> String:
 	if sp.cleanses:
 		parts.append("tira efeitos ruins")
 	if sp.summon_scene != null and sp.summon_count > 0:
-		parts.append("invoca %d tropa(s)" % sp.summon_count)
+		parts.append("invoca %d tropa(s) na hora" % sp.summon_count)
+	if sp.summon_interval > 0.0:
+		if sp.summon_scene == null:
+			parts.append("⚠ escolha a tropa em \"Invoca a unidade\" pra ela ir aparecendo")
+		elif sp.duration <= 0.0:
+			parts.append("⚠ pra invocar aos poucos o feitiço precisa de Duração")
+		else:
+			parts.append("invoca 1 a cada %.1fs (%d no total)" % [sp.summon_interval, int(sp.duration / sp.summon_interval + 0.001)])
 	if parts.is_empty():
 		return head + ". ⚠ Ainda não faz nada: ponha dano, cura, efeito, fúria, escudo ou invocação."
 	return head + ": " + "; ".join(parts) + "."
