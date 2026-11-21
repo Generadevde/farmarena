@@ -637,3 +637,11 @@ enum OnHitEffect {
 @export var blinks: bool = false
 @export var blink_interval: float = 6.0
 @export var blink_range: float = 240.0
+## ANIMAÇÃO (aba "Animação" do Criador). 0 = automática: o jogo escolhe pelo corpo da tropa.
+## 1.. = o jeito escolhido (a lista está em unit_base.gd: GAIT_NAMES / HIT_NAMES / DEATH_NAMES).
+@export var anim_gait: int = 0
+@export var anim_hit: int = 0
+@export var anim_death: int = 0
+## velocidade e tamanho do balanço (1.0 = normal)
+@export var anim_speed: float = 1.0
+@export var anim_amount: float = 1.0

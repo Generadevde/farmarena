@@ -222,12 +222,17 @@ var _is_air_visual := false
 
 # IDENTIDADE: cada tipo de corpo anda e bate do seu jeito (antes todo mundo
 # dava o mesmo pulinho e o mesmo bote -- era isso que deixava tudo "igual")
-enum Gait { MARCHA, TROTE, GALOPE, CORRIDINHA, CISCA, PULO, RASTEJA, FLUTUA, RODA, PISADA, VOO, ZUMBE, DISCO, FORMIGA, ONDULA }
+enum Gait { MARCHA, TROTE, GALOPE, CORRIDINHA, CISCA, PULO, RASTEJA, FLUTUA, RODA, PISADA, VOO, ZUMBE, DISCO, FORMIGA, ONDULA, PATINA, QUICA, ROBO, BEBADO }
+# nomes na ordem dos enums, pra aba "Animação" do Criador (o índice 0 da lista do Criador é "Automática")
+const GAIT_NAMES = ["Marcha (gente)", "Trote (casco)", "Galope", "Corridinha", "Cisca (galinha)", "Pulo (sapo)", "Rasteja", "Flutua (assombração)",
+	"Roda (motor)", "Pisada pesada", "Voo (ave)", "Zumbe (inseto)", "Disco voador", "Formiga", "Ondula (polvo)", "Patina (desliza)", "Quica (bola)", "Robô (passo duro)", "Cambaleia"]
+const HIT_NAMES = ["Bote", "Pancada (marreta)", "Estocada", "Giro", "Cabeçada", "Bicada", "Tiro", "Mordida dupla", "Pulo em cima", "Tremor"]
+const DEATH_NAMES = ["Fumaça (padrão)", "Explosão", "Vira fantasma", "Estouro de penas", "Chuva de moedas", "Derrete", "Some num clarão"]
 # famílias de corpo (peças "quatro" do SpriteForge)
 const BODY_HOOF = ["casco", "malhado", "cavalo", "bezerro", "vaca", "bode", "jegue", "montado"]
 const BODY_PAW = ["pata", "cachorro", "capivara", "porco", "gato", "onca", "cerbero"]
 const BODY_CRAWL = ["rasteiro", "casca", "cobra", "caranguejo"]
-enum Hit { BOTE, PANCADA, ESTOCADA, GIRO, CABECADA, BICADA, TIRO }
+enum Hit { BOTE, PANCADA, ESTOCADA, GIRO, CABECADA, BICADA, TIRO, MORDIDA, PULAO, TREMOR }
 var _gait: int = Gait.MARCHA
 var _hit_style: int = Hit.BOTE
 var _step_index := 0        # conta as passadas (poeira na pisada pesada)
@@ -308,6 +313,11 @@ func _setup_visuals():
 	_idle_t = randf() * 10.0
 	_gait = _pick_gait()
 	_hit_style = _pick_hit_style()
+	# escolha da aba "Animação" do Criador por cima da automática
+	if stats.anim_gait > 0:
+		_gait = clampi(stats.anim_gait - 1, 0, Gait.size() - 1)
+	if stats.anim_hit > 0:
+		_hit_style = clampi(stats.anim_hit - 1, 0, Hit.size() - 1)
 	if Regras.on("visual") and !is_preview:
 		sprite.flip_h = team == GameManager.Team.ENEMY   # cada lado olha pro campo do outro
 	var team_look = Regras.on("visual") and !is_preview
@@ -536,6 +546,7 @@ func _walk_anim(delta: float, moving: bool) -> Array:
 	var rot = 0.0
 	var sq = Vector2.ONE
 	var speed_k = clampf(velocity.length() / 45.0, 0.6, 2.4)
+	delta *= clampf(stats.anim_speed, 0.2, 4.0)
 	_idle_t += delta
 	match _gait:
 		Gait.VOO:        # ave grande: plana subindo e descendo, bate asa devagar
@@ -612,9 +623,31 @@ func _walk_anim(delta: float, moving: bool) -> Array:
 			rot = p * 0.06
 			sq = Vector2(1.0 + 0.05 * (1.0 - absf(p)), 1.0 - 0.05 * (1.0 - absf(p)))
 			step = int(floor(_anim_t * 5.0 / PI))
+		Gait.PATINA:     # desliza: quase não sobe, inclina pro lado que vai e balança devagar
+			pos.x = sin(_anim_t * 3.0) * 2.2 * vs
+			rot = clampf(velocity.x / 50.0, -1.0, 1.0) * 0.16 + sin(_anim_t * 3.0) * 0.04
+		Gait.QUICA:      # bola: quica alto, achata no chão
+			var q = absf(sin(_anim_t * 6.0))
+			pos.y = -q * 7.0 * vs
+			sq = Vector2(1.0 + 0.16 * (1.0 - q), 1.0 - 0.16 * (1.0 - q)) if q < 0.25 else Vector2(1.0 - 0.05 * q, 1.0 + 0.07 * q)
+			step = int(floor(_anim_t * 6.0 / PI))
+		Gait.ROBO:       # robô: passo duro, em degraus, sem balanço mole
+			var rs = floor(_anim_t * 5.0)
+			pos.y = -(1.8 if int(rs) % 2 == 0 else 0.0) * vs
+			rot = (0.06 if int(rs) % 2 == 0 else -0.06)
+			step = int(rs)
+		Gait.BEBADO:     # cambaleia: vai de um lado pro outro e quase cai
+			pos.x = sin(_anim_t * 4.0) * 3.5 * vs
+			pos.y = -absf(sin(_anim_t * 8.0)) * 1.4 * vs
+			rot = sin(_anim_t * 4.0 + 0.8) * 0.24
 		_:               # gente: marcha
 			pos.y = -absf(sin(_anim_t * 9.0)) * 2.2 * vs
 			rot = sin(_anim_t * 9.0) * 0.07
+	if stats.anim_amount != 1.0:
+		var am = clampf(stats.anim_amount, 0.0, 3.0)
+		pos *= am
+		rot *= am
+		sq = Vector2.ONE + (sq - Vector2.ONE) * am
 	# poeira quando o pé (ou o corpo todo) bate no chão
 	if step != _step_index:
 		_step_index = step
@@ -654,6 +687,47 @@ func _attack_anim():
 			_dip = side * 0.5
 		Hit.ESTOCADA:    # golpe rápido: toque curto
 			_lunge = dir * 6.5 * k
+		Hit.MORDIDA:     # duas dentadas seguidas
+			_lunge = dir * 8.0 * k
+			_dip = side * 0.25
+			get_tree().create_timer(0.14, false).timeout.connect(func():
+				if is_instance_valid(self) and current_hp > 0:
+					_lunge = dir * 8.0 * k
+					_dip = side * 0.25)
+		Hit.PULAO:       # pula em cima do alvo e cai achatando
+			_lunge = dir * 12.0 * k + Vector2(0, -10.0 * k)
+			_slam = 0.8
+		Hit.TREMOR:      # não sai do lugar: treme e solta uma onda
+			_lunge = Vector2.ZERO
+			_hit_squash = 1.0
+			if is_inside_tree():
+				Fx.ring(get_parent(), position, 22.0 * k, Color(1, 0.9, 0.6, 0.9), 0.25)
+
+
+## jeito de morrer escolhido na aba "Animação" (0 = fumaça padrão)
+func _death_fx():
+	var par = get_parent()
+	var sc = clampf(_visual_scale, 0.6, 2.2)
+	match stats.anim_death:
+		1:   # explosão
+			Fx.ring(par, position, 34.0 * sc, Color(1.0, 0.6, 0.2), 0.35)
+			Fx.burst(par, position, Color(1.0, 0.75, 0.3), 14, 150.0, 4.0)
+		2:   # fantasma subindo
+			Fx.text(par, position + Vector2(0, -10), "👻", Color(0.9, 0.95, 1.0), 1.1)
+			Fx.puff(par, position, sc * 0.6)
+		3:   # penas
+			Fx.burst(par, position, Color(1, 1, 1), 16, 90.0, 3.5)
+			Fx.burst(par, position, Color(0.95, 0.85, 0.6), 8, 60.0, 2.5)
+		4:   # moedas
+			Fx.burst(par, position, Color(1.0, 0.85, 0.25), 12, 120.0, 4.0)
+			Fx.text(par, position + Vector2(0, -14), "$", Color(1.0, 0.9, 0.3))
+		5:   # derrete
+			Fx.zone(par, position, 18.0 * sc, SpriteForge.main_color(card_data.art_palette) if card_data != null else Color(0.5, 0.8, 0.4), 1.2)
+		6:   # clarão
+			Fx.ring(par, position, 46.0 * sc, Color(1, 1, 1), 0.25)
+			Fx.bolt(par, position, Color(1, 1, 0.8))
+		_:
+			Fx.puff(par, position, sc)
 
 
 func _apply_unit_scale():
@@ -2530,7 +2604,7 @@ func die():
 	died.emit(team, card_data)
 	if Regras.on("peso") and is_inside_tree():
 		_death_ghost()
-	Fx.puff(get_parent(), position, clampf(_visual_scale, 0.6, 2.2))
+	_death_fx()
 	Sfx.play("morte", 0.2)
 	if _visual_scale >= 1.0 and randf() < 0.12:
 		_say(DEATH_LINES[randi() % DEATH_LINES.size()])

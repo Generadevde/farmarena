@@ -3,12 +3,12 @@
 """
 import os, sys
 from PIL import Image
-import pecas, objetos, militar, temas, variacoes
+import pecas, objetos, militar, temas, variacoes, megapack
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 COLS = 16
 cats = {}
-for src in (pecas.PECAS, objetos.OBJETOS, militar.MILITAR, temas.NOVAS, variacoes.VARIACOES):
+for src in (pecas.PECAS, objetos.OBJETOS, militar.MILITAR, temas.NOVAS, variacoes.VARIACOES, megapack.MEGA):
     for c, d in src.items():
         cats.setdefault(c, {}).update(d)
 cells = [(c, n) for c in cats for n in cats[c]]
@@ -35,6 +35,7 @@ with open(os.path.join(ROOT, "Scripts", "pecas_index.gd"), "w") as f:
     f.write("const TEMAS = {\n")
     for t, names in temas.TEMAS.items():
         names = list(names) + [x for x in variacoes.TEMAS_EXTRA.get(t, []) if x not in names]
+        names = names + [x for x in megapack.TEMAS_MEGA.get(t, []) if x not in names]
         f.write('\t"%s": [%s],\n' % (t, ", ".join('"%s"' % x for x in names)))
     f.write("}\n")
 print("atlas", atlas.size, len(cells), "peças")

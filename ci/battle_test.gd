@@ -2274,7 +2274,7 @@ func _new_mechanics_test():
 	# atirador que só ataca construção: a tropa encostada nele NÃO come o tiro (bug do João)
 	await _wipe()
 	var snipers = await _put("galinha_atiradeira", P, mid + Vector2(0, 140))
-	var sniper = snipers[0]
+	var sniper_ranged: bool = snipers[0].stats.is_ranged
 	for sn in snipers:
 		sn.stats = sn.stats.duplicate()
 		sn.stats.target_type = UnitData.TargetType.BUILDING
@@ -2290,8 +2290,8 @@ func _new_mechanics_test():
 	var blocker = await _dummy(E, mid + Vector2(0, 110))    # colado no atirador, no caminho do tiro
 	var beside = await _dummy(E, mid + Vector2(24, 30))    # colado na construção (pegaria o dano em área)
 	await get_tree().create_timer(4.0).timeout
-	_check("quem só ataca construção acerta a construção e nenhuma tropa", sniper.stats.is_ranged and hut.current_hp <= 99999 - 1000 and blocker.current_hp > 99999 - 1000 and beside.current_hp > 99999 - 1000,
-		"atira=%s construcao=%d no_caminho=%d do_lado=%d" % [str(sniper.stats.is_ranged), hut.current_hp, blocker.current_hp, beside.current_hp])
+	_check("quem só ataca construção acerta a construção e nenhuma tropa", sniper_ranged and hut.current_hp <= 99999 - 1000 and blocker.current_hp > 99999 - 1000 and beside.current_hp > 99999 - 1000,
+		"atira=%s construcao=%d no_caminho=%d do_lado=%d" % [str(sniper_ranged), hut.current_hp, blocker.current_hp, beside.current_hp])
 	# 7) bot não joga o Espelho sem ter o que repetir
 	var mcard = CardData.new()
 	mcard.cost = 20

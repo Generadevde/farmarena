@@ -397,6 +397,11 @@ func _creator_shots():
 	cr._apply_spell_mold(5)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("criador_feitico_molde")
+	cr._work["spell"].fx_style = 5
+	cr._work["spell"].fx_tint = 5
+	cr._show_ed_tab(3)
+	await get_tree().create_timer(0.7).timeout
+	await _shot("criador_efeitos")
 	cr._show_ed_tab(3)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("criador_feitico_teste")

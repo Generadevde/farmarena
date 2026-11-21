@@ -244,7 +244,15 @@ func _cast_fx():
 		else:
 			col = Color(1, 1, 0.8)
 	col.a = 1.0
-	if spell.heal_amount > 0:
+	if spell.fx_tint > 0:
+		col = SpellData.TINT_COLORS[clampi(spell.fx_tint, 0, SpellData.TINT_COLORS.size() - 1)]
+	elif spell.fx_style > 0 and spell.fx_color.a <= 0.0:
+		col = Fx.STYLE_COLORS[clampi(spell.fx_style, 0, Fx.STYLE_COLORS.size() - 1)]   # cada estilo tem a sua cor, se você não escolher outra
+	if spell.fx_sound > 0:
+		var snd = str(SpellData.SOUND_IDS[clampi(spell.fx_sound, 0, SpellData.SOUND_IDS.size() - 1)])
+		if snd != "":
+			Sfx.play(snd)
+	elif spell.heal_amount > 0:
 		Sfx.play("cura")
 	elif spell.status_effect == UnitData.OnHitEffect.FREEZE:
 		Sfx.play("gelo")
@@ -258,7 +266,9 @@ func _cast_fx():
 		Sfx.play("explosao")
 	else:
 		Sfx.play("carta")
-	if spell.duration > 0:
+	if spell.fx_style > 0:
+		Fx.styled(parent, position, spell.radius, col, spell.fx_style, spell.duration, spell.fx_power)
+	elif spell.duration > 0:
 		Fx.zone(parent, position, spell.radius, col, spell.duration)
 	else:
 		Fx.ring(parent, position, spell.radius, col, 0.45)

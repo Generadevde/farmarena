@@ -895,7 +895,7 @@ func _confirm(text: String, on_yes: Callable):
 #    pixel por pixel (que continua existindo pra retoque).
 # Vale pra tropa, construção, feitiço e módulo, do jogo ou criados por você.
 
-const ED_TABS = {"tropa": ["Básico", "Combate", "Habilidades", "Visual", "Teste"], "feitico": ["Básico", "Efeito", "Visual", "Teste"], "modulo": ["Básico", "Função", "Visual"]}
+const ED_TABS = {"tropa": ["Básico", "Combate", "Habilidades", "Visual", "Animação", "Teste"], "feitico": ["Básico", "Efeito", "Visual", "Efeitos", "Teste"], "modulo": ["Básico", "Função", "Visual"]}
 const CORE_PROPS = ["hp", "damage", "attack_speed", "attack_range", "move_speed", "unit_count", "spawn_formation", "unit_type", "target_type",
 	"is_ranged", "projectile_speed", "detection_range", "duration", "push_weight"]
 const BASE_TYPE_NAMES = ["Canhão (atira)", "Produção (recurso mais rápido)", "Cura", "Só vida", "Espaço (guarda mais recurso)", "Aura (efeito em volta)"]
@@ -1197,6 +1197,8 @@ func _build_ed_body():
 		"Visual": _tab_visual()
 		"Teste": _tab_teste()
 		"Efeito": _tab_efeito()
+		"Animação": _tab_animacao()
+		"Efeitos": _tab_efeitos_visuais()
 		"Função": _tab_funcao()
 	var spacer = Control.new()
 	spacer.custom_minimum_size = Vector2(0, 140)  # espaço pro teclado do celular não cobrir o último campo
@@ -1319,7 +1321,7 @@ func _ability_on(st: UnitData, key: String) -> bool:
 func _tab_habilidades():
 	var st: UnitData = _work["stats"]
 	var defs = _field_defs()
-	var used := {"unit_scale": true}
+	var used := {"unit_scale": true, "anim_gait": true, "anim_hit": true, "anim_death": true, "anim_speed": true, "anim_amount": true}   # os anim_ moram na aba "Animação"
 	for p in CORE_PROPS:
 		used[p] = true
 	var on_total = 0
@@ -1604,6 +1606,85 @@ func _pick_color(key: String):
 	v.add_child(_button("Cancelar", func(): layer.queue_free()))
 
 
+# ---------------------------------------------------------------- aba Animação (tropa)
+const UNIT_SCRIPT = preload("res://Scripts/unit_base.gd")
+
+
+func _tab_animacao():
+	var st: UnitData = _work["stats"]
+	_field_box.add_child(_note("Já vem pronto: em \"Automática\" o jogo escolhe o jeito pelo corpo da tropa (galinha cisca, cavalo galopa, robô treme...). Troque só o que quiser. Pra ver em campo, use o Modo teste.", Color(0.75, 0.95, 1.0)))
+	_section("Como anda")
+	_field(st, ["anim_gait", "Jeito de andar", "enum", ["Automática (pelo corpo)"] + Array(UNIT_SCRIPT.GAIT_NAMES)])
+	_field(st, ["anim_speed", "Velocidade da animação (1 = normal)", "float", [0.3, 3.0, 0.1]])
+	_field(st, ["anim_amount", "Tamanho do balanço (1 = normal, 0 = parado)", "float", [0.0, 3.0, 0.1]])
+	_section("Como bate")
+	_field(st, ["anim_hit", "Jeito de bater", "enum", ["Automática (pela arma e pelo corpo)"] + Array(UNIT_SCRIPT.HIT_NAMES)])
+	_field_box.add_child(_note("Quem atira fica melhor em \"Tiro\". \"Giro\" dá a volta inteira; \"Pancada\" levanta e desce com peso."))
+	_section("Como morre")
+	_field(st, ["anim_death", "Jeito de morrer", "enum", Array(UNIT_SCRIPT.DEATH_NAMES)])
+	_field_box.add_child(_button("🎲 Sortear animação", func():
+		st.anim_gait = 1 + randi() % UNIT_SCRIPT.GAIT_NAMES.size()
+		st.anim_hit = 1 + randi() % UNIT_SCRIPT.HIT_NAMES.size()
+		st.anim_death = randi() % UNIT_SCRIPT.DEATH_NAMES.size()
+		_build_ed_body()))
+	_field_box.add_child(_button("↩ Voltar tudo pro automático", func():
+		st.anim_gait = 0
+		st.anim_hit = 0
+		st.anim_death = 0
+		st.anim_speed = 1.0
+		st.anim_amount = 1.0
+		_build_ed_body()))
+
+
+# ---------------------------------------------------------------- aba Efeitos (feitiço)
+var _fx_stage: Node2D = null
+
+
+func _tab_efeitos_visuais():
+	var sp: SpellData = _work["spell"]
+	_field_box.add_child(_note("O visual do feitiço na batalha. Em \"Automático\" o jogo escolhe pelo que ele faz (fogo pra dano, azul pra gelo, verde pra cura).", Color(0.75, 0.95, 1.0)))
+	# palco: toque em "Ver" pra soltar o efeito aqui mesmo
+	var frame = PanelContainer.new()
+	frame.custom_minimum_size = Vector2(0, 260)
+	frame.clip_contents = true
+	_field_box.add_child(frame)
+	var holder = Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(holder)
+	_fx_stage = Node2D.new()
+	holder.add_child(_fx_stage)
+	_field_box.add_child(_button("▶ Ver o efeito", _play_fx_preview))
+	for fxn in CustomContent.SPELL_FX_FIELDS:
+		for f in CustomContent.SPELL_FIELDS:
+			if f[0] == fxn:
+				_field(sp, f)
+	_field_box.add_child(_button("🎲 Sortear estilo e cor", func():
+		sp.fx_style = 1 + randi() % (Fx.STYLE_NAMES.size() - 1)
+		sp.fx_tint = randi() % SpellData.TINT_NAMES.size()
+		_build_ed_body()
+		_play_fx_preview.call_deferred()))
+	_play_fx_preview.call_deferred()
+
+
+func _play_fx_preview():
+	if !is_instance_valid(_fx_stage) or _work.get("spell") == null:
+		return
+	var sp: SpellData = _work["spell"]
+	var box: Control = _fx_stage.get_parent()
+	var frame_w = (box.get_parent() as Control).size.x
+	var center = Vector2(frame_w * 0.5 if frame_w > 10.0 else 340.0, 130.0)
+	var col: Color = SpellData.TINT_COLORS[clampi(sp.fx_tint, 0, SpellData.TINT_COLORS.size() - 1)] if sp.fx_tint > 0 else Fx.STYLE_COLORS[clampi(sp.fx_style, 0, Fx.STYLE_COLORS.size() - 1)]
+	col.a = 1.0
+	var r = clampf(sp.radius, 30.0, 110.0)
+	if sp.fx_style > 0:
+		Fx.styled(_fx_stage, center, r, col, sp.fx_style, minf(sp.duration, 4.0), sp.fx_power)
+	elif sp.duration > 0.0:
+		Fx.zone(_fx_stage, center, r, col, minf(sp.duration, 4.0))
+	else:
+		Fx.ring(_fx_stage, center, r, col, 0.45)
+		Fx.burst(_fx_stage, center, col, 14, r * 2.2, 4.0)
+
+
 # ---------------------------------------------------------------- aba Teste
 func _tab_teste():
 	if _ed_kind == "feitico":
@@ -1744,6 +1825,8 @@ func _tab_efeito():
 	for f in CustomContent.SPELL_FIELDS:
 		defs[f[0]] = f
 	var used := {}
+	for fxn in CustomContent.SPELL_FX_FIELDS:
+		used[fxn] = true   # esses moram na aba "Efeitos"
 	_readout = _note("", Color(0.75, 0.95, 1.0))
 	_readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_field_box.add_child(_readout)

@@ -89,6 +89,8 @@ const UNIT_FIELDS = [
 # só os nomes em português. Campo novo que você criar no UnitData aparece
 # sozinho no Criador, com o nome técnico mesmo.
 const UNIT_EXTRA_LABELS = {
+	"anim_gait": "Jeito de andar", "anim_hit": "Jeito de bater", "anim_death": "Jeito de morrer", "anim_speed": "Velocidade da animação (1 = normal)",
+	"anim_amount": "Tamanho do balanço (1 = normal, 0 = parado)",
 	"aura_buff": "Aura: reforça os aliados em volta", "aura_radius": "Raio da aura", "aura_damage_mult": "Aura: dano dos aliados (x)",
 	"aura_speed_mult": "Aura: passo dos aliados (x)", "aura_attack_speed_mult": "Aura: velocidade de ataque dos aliados (x)",
 	"pulses": "Pulso: onda em volta de tempos em tempos", "pulse_interval": "Tempo entre pulsos (s)", "pulse_damage": "Dano do pulso",
@@ -233,7 +235,12 @@ const UNIT_EXTRA_LABELS = {
 # campos que não fazem sentido no formulário (já estão acima ou são imagem)
 const UNIT_SKIP = ["role", "projectile_texture"]
 
+const SPELL_FX_FIELDS = ["fx_style", "fx_tint", "fx_power", "fx_sound"]
 const SPELL_FIELDS = [
+	["fx_style", "Estilo do efeito", "enum", Fx.STYLE_NAMES],
+	["fx_tint", "Cor", "enum", SpellData.TINT_NAMES],
+	["fx_power", "Quantidade de partícula (1 = normal)", "float", [0.3, 2.5, 0.1]],
+	["fx_sound", "Som", "enum", SpellData.SOUND_NAMES],
 	["radius", "Raio", "float", [10.0, 400.0, 5.0]],
 	["damage", "Dano", "int", [0, 5000, 5]],
 	["duration", "Duração (0 = instantâneo)", "float", [0.0, 20.0, 0.5]],

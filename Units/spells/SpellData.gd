@@ -79,3 +79,17 @@ class_name SpellData
 @export var picks_strongest: int = 0
 ## ESPELHO: repete a última carta que você jogou, no lugar onde soltar.
 @export var mirror: bool = false
+
+## EFEITOS (aba "Efeitos" do Criador). fx_style: 0 = automático; 1.. = Fx.STYLE_NAMES.
+@export var fx_style: int = 0
+## quanto de partícula (1 = normal)
+@export var fx_power: float = 1.0
+## som: 0 = automático; 1.. = SOUND_IDS
+@export var fx_sound: int = 0
+## cor: 0 = a do estilo; 1.. = TINT_COLORS
+@export var fx_tint: int = 0
+const TINT_NAMES = ["Cor do estilo", "Vermelho", "Laranja", "Amarelo", "Verde", "Azul claro", "Azul", "Roxo", "Rosa", "Branco", "Preto"]
+const TINT_COLORS = [Color(0, 0, 0, 0), Color(1.0, 0.3, 0.25), Color(1.0, 0.6, 0.2), Color(1.0, 0.9, 0.3), Color(0.45, 0.9, 0.4), Color(0.6, 0.9, 1.0),
+	Color(0.3, 0.5, 1.0), Color(0.7, 0.4, 0.95), Color(1.0, 0.55, 0.8), Color(1, 1, 1), Color(0.15, 0.12, 0.18)]
+const SOUND_NAMES = ["Automático", "Explosão", "Raio", "Gelo", "Cura", "Fúria", "Lama", "Carta", "Sem som"]
+const SOUND_IDS = ["", "explosao", "raio", "gelo", "cura", "furia", "lama", "carta", ""]
