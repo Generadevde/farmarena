@@ -227,7 +227,12 @@ func _process_cannon(delta):
 	# COM PROJÉTIL VISUAL
 	# --------------------------------------------------------
 
-	if shot_tex != null:
+	if base_data.beam_attack:
+		var heat_t = clampf((_ramp_mult - 1.0) / maxf(base_data.ramp_max_mult - 1.0, 0.01), 0.0, 1.0) if base_data.ramp_per_shot > 0.0 else 0.0
+		Fx.beam(get_parent(), position + Vector2(0, -26), target.position if target.get_parent() == get_parent() else get_parent().to_local(target.global_position),
+			Color(1.0, 0.75, 0.3).lerp(Color(1.0, 0.3, 0.15), heat_t), 2.5 + 5.5 * heat_t, maxf(Regras.tower_interval(base_data) * 1.25, 0.2))
+		_apply_cannon_damage(target, dmg)
+	elif shot_tex != null:
 		var proj = Projectile.new()
 
 		proj.target = target

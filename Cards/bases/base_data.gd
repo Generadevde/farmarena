@@ -101,6 +101,8 @@ enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO }
 @export var projectile_chains: bool = false
 @export var projectile_chain_max_targets: int = 3
 @export var projectile_chain_range: float = 150.0
+## RAIO CONTÍNUO (torre inferno): raio ligado no alvo em vez de projétil; engrossa com o dano que cresce
+@export var beam_attack: bool = false
 ## HABILIDADES DE TIRO (iguais às das cartas)
 ## atira em mais de um alvo por vez
 @export var extra_targets: int = 0

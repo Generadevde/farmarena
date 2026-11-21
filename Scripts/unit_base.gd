@@ -1816,7 +1816,25 @@ func _perform_attack():
 				target.apply_knockback(global_position, stats.charge_knockback_distance)
 		_charge_distance_accumulated = 0.0  # sempre reseta -- carregado ou não, precisa andar de novo pra carregar o próximo
 
-	if stats.is_ranged:
+	if stats.is_ranged and stats.beam_attack:
+		# RAIO CONTÍNUO: sem projétil -- o dano cai na hora e a linha fica ligada no alvo
+		var heat = 0.0
+		if stats.same_target_ramping_damage and stats.same_target_ramping_damage_max_multiplier > 1.0:
+			heat = clampf((_same_target_ramp_multiplier - 1.0) / (stats.same_target_ramping_damage_max_multiplier - 1.0), 0.0, 1.0)
+		elif stats.ramping_damage and stats.ramping_damage_max_multiplier > 1.0:
+			heat = clampf((_damage_ramp_multiplier - 1.0) / (stats.ramping_damage_max_multiplier - 1.0), 0.0, 1.0)
+		var beam_col: Color = SpriteForge.main_color(card_data.art_palette) if card_data != null else Color(1.0, 0.5, 0.2)
+		beam_col = beam_col.lerp(Color(1.0, 0.35, 0.15), heat * 0.7)   # esquentando: puxa pro vermelho
+		var muzzle = position + Vector2(0, -14.0 * _visual_scale)
+		Fx.beam(get_parent(), muzzle, target.position if target.get_parent() == get_parent() else get_parent().to_local(target.global_position),
+			beam_col, 2.0 + 5.0 * heat, maxf(stats.attack_speed * _attack_speed_ramp_multiplier / _rage_mult(_rage_attack_speed) * 1.25, 0.2))
+		if heat <= 0.02:
+			Sfx.play("tiro", 0.2, -8.0)
+		target.take_damage(dmg)
+		_report_base_damage(target, dmg)
+		if is_instance_valid(target):
+			_apply_on_hit_effect_to(target)
+	elif stats.is_ranged:
 		Sfx.play("tiro", 0.2, -4.0)
 		var proj = Projectile.new()
 		proj.target = target

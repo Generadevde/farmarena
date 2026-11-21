@@ -680,3 +680,6 @@ enum OnHitEffect {
 ## PROJÉTIL: pode errar (vai reto pra onde o alvo estava) e ângulo de saída (arco do tiro, em graus).
 @export var projectile_can_miss: bool = false
 @export var projectile_launch_angle: float = 0.0
+## RAIO CONTÍNUO (torre inferno): quem atira solta um raio ligado no alvo em vez de projétil.
+## O dano cai na hora e o raio engrossa junto com o "dano cresce no mesmo alvo".
+@export var beam_attack: bool = false

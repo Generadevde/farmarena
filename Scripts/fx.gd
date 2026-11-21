@@ -10,7 +10,7 @@ class_name Fx
 ##   Fx.bolt(pai, pos, cor)           raio caindo do céu
 ##   Fx.text(pai, pos, texto, cor)    palavra curta ("CONGELADO!", "+1 torre")
 
-enum Kind { BURST, RING, ZONE, NUMBER, PUFF, BOLT, SLASH, SWIRL, RAIN, BUBBLES }
+enum Kind { BURST, RING, ZONE, NUMBER, PUFF, BOLT, SLASH, SWIRL, RAIN, BUBBLES, BEAM }
 
 # ESTILOS DE FEITIÇO (aba "Efeitos" do Criador). 0 = automático (o jogo escolhe pelo que o feitiço faz)
 const STYLE_NAMES = ["Automático", "Fogo", "Raios", "Gelo", "Nuvem tóxica", "Redemoinho", "Estrelas", "Chuva de pedras", "Onda de choque", "Folhas", "Sombra", "Bolhas"]
@@ -70,6 +70,18 @@ static func styled(parent: Node, pos: Vector2, r: float, col: Color, style: int,
 			_spawn(parent, pos, Kind.BUBBLES, maxf(long, 1.0), r, col, n + 10)
 		_:
 			ring(parent, pos, r, col, 0.45)
+
+
+## RAIO CONTÍNUO (torre inferno): uma linha de `from` até `to`. `width` engrossa com o dano.
+## Com o ataque rápido e a vida do raio um tico maior que o intervalo, fica um raio ligado.
+static func beam(parent: Node, from: Vector2, to: Vector2, col: Color, width: float = 3.0, lifetime: float = 0.35):
+	var fx = _make(parent, from, Kind.BEAM, lifetime)
+	if fx == null:
+		return
+	fx.color = col
+	fx.radius = width
+	fx.z_index = 25
+	fx._bits.append(to - from)
 
 
 static func _spawn(parent: Node, pos: Vector2, k: int, lifetime: float, r: float, col: Color, count: int):
@@ -261,6 +273,15 @@ func _draw():
 				var ph2 = fposmod(b[1] + t * 0.9, 1.0)
 				var p1: Vector2 = b[0] + Vector2(sin((t + b[1] * 9.0) * 5.0) * 3.0, -ph2 * 34.0)
 				draw_circle(p1, b[2] * (0.6 + 0.6 * ph2), Color(color.r, color.g, color.b, 0.75 * (1.0 - ph2) * fade_b))
+		Kind.BEAM:
+			var end: Vector2 = _bits[0]
+			var fade_m = minf(1.0, (life - t) / (life * 0.4))
+			var wob = 1.0 + 0.25 * sin(t * 40.0)
+			draw_line(Vector2.ZERO, end, Color(color.r, color.g, color.b, 0.35 * fade_m), radius * 2.4 * wob)
+			draw_line(Vector2.ZERO, end, Color(color.r, color.g, color.b, 0.9 * fade_m), radius * wob)
+			draw_line(Vector2.ZERO, end, Color(1, 1, 1, 0.9 * fade_m), maxf(radius * 0.35, 1.0))
+			draw_circle(end, radius * (1.6 + 0.6 * sin(t * 30.0)), Color(1, 1, 0.9, 0.8 * fade_m))
+			draw_circle(Vector2.ZERO, radius * 1.1, Color(color.r, color.g, color.b, 0.8 * fade_m))
 		Kind.BOLT:
 			var a = 1.0 - k
 			for i in range(_bits.size() - 1):

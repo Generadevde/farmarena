@@ -2754,6 +2754,18 @@ func _general_audit():
 	arrows.tick_interval = 0.2
 	_check("resumo do feitiço conta 3 pulsos em 0,6s / 0,2s", Regua.spell_pulses(arrows) == 3, str(Regua.spell_pulses(arrows)))
 
+	# torre inferno: raio contínuo (sem projétil) com o dano crescendo no mesmo alvo até o teto
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -40))
+	u = (await _put_card(_make({"is_ranged": true, "beam_attack": true, "attack_range": 160.0, "damage": 15, "attack_speed": 0.3, "move_speed": 0.0,
+		"same_target_ramping_damage": true, "same_target_ramping_damage_per_hit": 0.3, "same_target_ramping_damage_max_multiplier": 8.0}), P, mid + Vector2(0, 80)))[0]
+	drops = await _hits_on(d, 10.5)
+	var projs = 0
+	for n in battle.get_children() + (u.get_parent().get_children() if is_instance_valid(u) else []):
+		projs += 1 if n is Projectile else 0
+	_check("raio contínuo: começa em 15, chega no teto de 120 e não solta projétil", drops.size() >= 20 and drops[0] == 15 and drops[-1] == 120 and projs == 0,
+		"primeiro %d, último %d, %d golpes, projéteis %d" % [drops[0] if !drops.is_empty() else -1, drops[-1] if !drops.is_empty() else -1, drops.size(), projs])
+
 	# --- AS NOVAS
 	# vários avanços (bandida): avança mais de uma vez no mesmo alvo
 	await _wipe()
