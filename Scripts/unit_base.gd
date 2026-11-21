@@ -1559,6 +1559,16 @@ func _process_ability_fx(delta):
 		cue = "golpe forte pronto"
 	elif charging:
 		cue = "carregando"
+	# TIRO CARREGADO: mostra a carga enchendo e avisa quando está pronta
+	var charge_k = -1.0
+	if stats.charged_shot:
+		charge_k = clampf(1.0 - attack_cooldown / maxf(stats.attack_speed, 0.1), 0.0, 1.0)
+		if charge_k >= 1.0:
+			var pulse2 = 0.5 + 0.5 * sin(GameManager.game_time * 14.0)
+			tint = Color(1.0, 0.95, 0.5).lerp(Color(1, 1, 1), pulse2 * 0.5)
+			cue = "tiro carregado pronto"
+		else:
+			cue = "carregando tiro"
 	if fast:
 		cue = "acelerando" if cue == "" or cue == "esquentou" else cue + " + acelerando"
 	if _jump_left >= 0.0:
@@ -1576,6 +1586,11 @@ func _process_ability_fx(delta):
 		# riscos de vento e poeira saindo por trás
 		Fx.burst(par, position + back * 10.0 + Vector2(0, 8.0 * _visual_scale), Color(1, 1, 1, 0.8), 2, 30.0, 2.5)
 		Fx.slash(par, position + back * 14.0, back, 12.0 * _visual_scale, 50.0, Color(1, 1, 1, 0.7))
+	if charge_k >= 0.0:
+		# anel que cresce com a carga; cheio, fica pulsando com faísca
+		Fx.ring(par, position + Vector2(0, -10.0 * _visual_scale), (5.0 + 13.0 * charge_k) * _visual_scale, Color(1.0, 0.9, 0.3, 0.35 + 0.5 * charge_k), 0.2)
+		if charge_k >= 1.0:
+			Fx.burst(par, position + Vector2(randf_range(-9, 9), randf_range(-22, -4)) * _visual_scale, Color(1.0, 1.0, 0.6), 2, 40.0, 2.5)
 	if charging and !charged:
 		Fx.burst(par, position + Vector2(randf_range(-8, 8), randf_range(-16, 0)) * _visual_scale, Color(1.0, 0.9, 0.4), 1, 20.0, 2.5)
 	if strong_next:
@@ -1639,6 +1654,9 @@ func _process_new_mechanics(delta):
 			_trail_last = global_position
 			Poca.drop(get_parent(), position, team, int(round(stats.trail_damage * _level_mult_safe())), stats.trail_radius, stats.trail_duration,
 				stats.trail_slow, Color(0.5, 0.85, 0.3) if stats.trail_slow <= 0.0 else Color(0.55, 0.4, 0.25))
+	# TIRO CARREGADO: a primeira carga começa quando entra em campo
+	if stats.charged_shot and !_charge_primed:
+		_reset_charged_shot()
 	# VÁRIOS AVANÇOS: o avanço da bandida volta a cada intervalo, se o alvo ainda está longe
 	if stats.bandit_dash and stats.dash_repeats and _has_dashed and _dash_time_remaining <= 0.0 and stats.unit_type != UnitData.UnitType.BUILDING:
 		_dash_clock += delta
@@ -2538,6 +2556,17 @@ func apply_mark(multiplier: float, duration: float):
 	_marked_until = max(_marked_until, GameManager.game_time + duration)
 
 
+## TIRO CARREGADO: zera a carga (no começo e toda vez que é atordoada/congelada/leva choque)
+func _reset_charged_shot():
+	if stats != null and stats.charged_shot:
+		attack_cooldown = stats.attack_speed * _attack_speed_ramp_multiplier / _rage_mult(_rage_attack_speed)
+		_windup_left = -1.0
+		_charge_primed = true
+
+
+var _charge_primed := false
+
+
 func apply_incapacitate(duration: float):
 	_incapacitated_until = max(_incapacitated_until, GameManager.game_time + duration)
 
@@ -2640,9 +2669,11 @@ func apply_on_hit_effect(effect, strength: float, duration: float, tick_interval
 			apply_incapacitate(duration)
 			_frozen_until = now + duration
 			_reset_aggro()
+			_reset_charged_shot()
 		UnitData.OnHitEffect.STUN:
 			apply_incapacitate(duration)
 			_reset_aggro()
+			_reset_charged_shot()
 		UnitData.OnHitEffect.ROOT:
 			apply_root(duration)
 		UnitData.OnHitEffect.POISON:
@@ -2654,6 +2685,7 @@ func apply_on_hit_effect(effect, strength: float, duration: float, tick_interval
 		UnitData.OnHitEffect.SHOCK:
 			take_damage(strength)
 			apply_incapacitate(duration)
+			_reset_charged_shot()
 			_flash_color(Color(1, 0.95, 0.3))  # sobrepõe com um flash amarelado, "choque"
 		UnitData.OnHitEffect.CONFUSE:
 			apply_confuse(duration)

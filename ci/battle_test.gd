@@ -2868,6 +2868,26 @@ func _general_audit():
 	var total_g = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P and !x.is_queued_for_deletion()).size()
 	_check("cemitério invoca aos poucos", early == 0 and midway >= 2 and midway < total_g and total_g >= 5 and total_g <= 6, "no começo %d, no meio %d, no fim %d" % [early, midway, total_g])
 
+	# SPARKY: carrega o intervalo inteiro antes do 1º tiro, acerta em área, e o atordoamento zera a carga
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -20))
+	var d_side = await _dummy(E, mid + Vector2(40, -20))
+	u = (await _put_card(_make({"is_ranged": true, "attack_range": 150.0, "damage": 900, "attack_speed": 2.0, "is_aoe": true, "aoe_radius": 70.0, "move_speed": 0.0,
+		"charged_shot": true, "detection_range": 300.0}), P, mid + Vector2(0, 100)))[0]
+	await get_tree().create_timer(1.2).timeout
+	var early_hit = d.current_hp < 99999
+	var cue_charging = "carregando tiro" in u.ability_cue
+	await get_tree().create_timer(2.2).timeout
+	var first_shot = 99999 - d.current_hp >= 900 and 99999 - d_side.current_hp >= 900
+	d.current_hp = 99999
+	await get_tree().create_timer(1.0).timeout          # metade da 2ª carga...
+	u.apply_on_hit_effect(UnitData.OnHitEffect.STUN, 0.0, 0.3, 1.0, 0.0, u.global_position)   # ...e leva um choque: zera
+	await get_tree().create_timer(1.6).timeout          # sem o choque o 2º tiro já teria saído
+	var reset_ok = d.current_hp == 99999
+	await get_tree().create_timer(1.6).timeout
+	_check("tiro carregado (Sparky): carrega antes, acerta em área e o atordoamento zera a carga", !early_hit and cue_charging and first_shot and reset_ok and d.current_hp < 99999,
+		"tiro cedo=%s, mostrou carregando=%s, 1º tiro em área=%s, zerou=%s, atirou depois=%s" % [str(early_hit), str(cue_charging), str(first_shot), str(reset_ok), str(d.current_hp < 99999)])
+
 	# --- AS NOVAS
 	# vários avanços (bandida): avança mais de uma vez no mesmo alvo
 	await _wipe()

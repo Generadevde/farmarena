@@ -101,6 +101,7 @@ const UNIT_EXTRA_LABELS = {
 	"jump_damage": "Dano da queda do salto", "jump_radius": "Raio da queda do salto", "jump_cooldown": "Tempo entre saltos (s)",
 	"late_boost_after": "Esquenta depois de (s em campo)", "late_boost_damage_mult": "Esquenta: dano (x)", "late_boost_speed_mult": "Esquenta: passo (x)",
 	"projectile_can_miss": "Tiro pode errar (vai reto pra onde o alvo estava)", "projectile_launch_angle": "Ângulo de saída do tiro (0 = reto, maior = arco)",
+	"charged_shot": "Tiro carregado (Sparky): carrega antes do 1º tiro; atordoar zera a carga",
 	"beam_attack": "Raio contínuo (torre inferno): raio ligado no alvo em vez de projétil",
 	"beam_tint": "Cor do raio", "beam_heats_red": "Raio fica vermelho conforme esquenta",
 	"aura_buff": "Aura: reforça os aliados em volta", "aura_radius": "Raio da aura", "aura_damage_mult": "Aura: dano dos aliados (x)",

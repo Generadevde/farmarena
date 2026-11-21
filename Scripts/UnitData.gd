@@ -687,3 +687,6 @@ enum OnHitEffect {
 @export var beam_tint: int = 0
 ## o raio vai ficando vermelho conforme esquenta (desligue pra manter a cor escolhida até o fim)
 @export var beam_heats_red: bool = true
+## TIRO CARREGADO (Sparky): precisa carregar o intervalo de ataque inteiro ANTES do primeiro
+## tiro, e atordoar / congelar / dar choque nela zera a carga (começa a carregar de novo).
+@export var charged_shot: bool = false

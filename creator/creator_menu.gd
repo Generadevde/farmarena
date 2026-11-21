@@ -1044,6 +1044,7 @@ const ABILITIES = [
 		["Segundo ataque (cavaleiro / atiradores nas costas)", "rider_attack", ["rider_damage", "rider_range", "rider_interval", "rider_count", "rider_effect", "rider_effect_duration", "rider_effect_strength"], {}],
 	]],
 	["🎯 Projétil (só pra quem atira)", [
+		["Tiro carregado (Sparky): carrega antes de atirar", "charged_shot", [], {}],
 		["Raio contínuo (torre inferno)", "beam_attack", ["beam_tint", "beam_heats_red"], {}],
 		["Pode errar (tiro reto, não persegue)", "projectile_can_miss", [], {}],
 		["Sai em arco (ângulo de saída)", "projectile_launch_angle", [], {"projectile_launch_angle": 45.0}],
