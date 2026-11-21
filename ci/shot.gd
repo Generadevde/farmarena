@@ -386,6 +386,7 @@ func _creator_shots():
 	# módulo
 	cr._set_tab(1)
 	await get_tree().create_timer(0.4).timeout
+	await _shot("criador_modulos_lista")
 	cr._open_base_form(CustomContent.open_base_for_edit(BotSimulator.available_bases[0]))
 	cr._show_ed_tab(1)
 	await get_tree().create_timer(0.4).timeout

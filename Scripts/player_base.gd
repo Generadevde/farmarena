@@ -110,10 +110,20 @@ func _process(delta):
 			$ProgressBar.value = hp
 			_update_label()
 
+	# congelada / atordoada: não faz nada até passar
+	if _frozen_until > 0.0:
+		if is_frozen():
+			return
+		_frozen_until = -1.0
+		_show_frozen(false)
+	if _slow_until > 0.0 and _slow_until <= GameManager.game_time:
+		_slow_until = -1.0
+		_slow_strength = 0.0
+
 	# regras novas: TODA torre atira (as "de tiro" atiram melhor); o tipo
 	# continua dando o bônus dele (cura, aura, produção, capacidade, vida)
 	if Regras.tower_shoots(base_data):
-		_process_cannon(delta)
+		_process_cannon(delta * (1.0 - _slow_strength))   # com lentidão o tempo de recarga anda mais devagar
 	# módulo que solta tropa sozinho, de tempos em tempos
 	if base_data.spawn_card_id != "":
 		_spawn_clock += delta
@@ -332,8 +342,41 @@ var _locked_target = null   # alvo travado da torre
 ## mais perto. É o jeito de "resetar o agro" da torre (igual o choque do Clash).
 func apply_on_hit_effect(effect, _strength: float, duration: float, _tick_interval: float = 1.0, _knockback_dist: float = 0.0, _from_position: Vector2 = Vector2.ZERO):
 	if effect == UnitData.OnHitEffect.STUN or effect == UnitData.OnHitEffect.FREEZE:
+		# CONGELADA / ATORDOADA: a torre PARA de verdade pelo tempo todo do efeito -- não atira,
+		# não cura, não solta aura nem tropa. (Antes ela só perdia o alvo e ficava no máximo 1s
+		# sem atirar: o feitiço de gelo parecia não funcionar em módulo nem no Celeiro.)
 		_locked_target = null
-		_shot_cooldown = maxf(_shot_cooldown, minf(duration, 1.0))
+		_frozen_until = maxf(_frozen_until, GameManager.game_time + maxf(duration, 0.1))
+		_frozen_ice = effect == UnitData.OnHitEffect.FREEZE
+		_shot_cooldown = maxf(_shot_cooldown, 0.25)   # ao descongelar leva um instante pra mirar de novo
+		_show_frozen(true)
+	elif effect == UnitData.OnHitEffect.SLOW and _strength > 0.0:
+		# LENTIDÃO: atira mais devagar enquanto durar
+		_slow_until = maxf(_slow_until, GameManager.game_time + maxf(duration, 0.1))
+		_slow_strength = clampf(maxf(_slow_strength, _strength), 0.0, 0.8)
+
+
+var _frozen_until := -1.0
+var _frozen_ice := true
+var _frozen_shown := false
+var _slow_until := -1.0
+var _slow_strength := 0.0
+
+
+func is_frozen() -> bool:
+	return _frozen_until > GameManager.game_time
+
+
+func _show_frozen(on: bool):
+	if on == _frozen_shown:
+		return
+	_frozen_shown = on
+	var sp = get_node_or_null("Sprite2D")
+	if sp != null:
+		sp.modulate = (Color(0.55, 0.8, 1.0) if _frozen_ice else Color(1.0, 0.95, 0.55)) if on else Color(1, 1, 1)
+	if on and is_inside_tree():
+		Fx.ring(get_parent(), position, 34.0, Color(0.6, 0.85, 1.0) if _frozen_ice else Color(1.0, 0.9, 0.4), 0.4)
+		Fx.text(get_parent(), position + Vector2(0, -44), "CONGELADA" if _frozen_ice else "ATORDOADA", Color(0.7, 0.9, 1.0) if _frozen_ice else Color(1.0, 0.9, 0.4), 0.9)
 
 
 ## A torre TRAVA no alvo: continua atirando no mesmo até ele morrer ou sair do

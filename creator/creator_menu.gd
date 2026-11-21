@@ -471,13 +471,65 @@ func _remove_from_player_deck(path: String):
 func _build_base_list():
 	_body.add_child(_button("+ Novo módulo", func(): _open_base_form(CustomContent.make_blank_base())))
 	_body.add_child(_label("Módulo é o que você põe em volta da Casa Grande. Toque num pra mexer na função, nos números e no desenho.", 14))
+	# POR FUNÇÃO, em grade (igual as cartas): cada tipo de módulo num bloco que abre e fecha
+	var groups := {}
 	for b in CustomContent.all_bases([]):
-		var custom = CustomContent.is_custom(b)
-		var tag = "⭐ criada por você" if custom else ("✏️ editada" if CustomContent.has_override(b) else "do jogo")
-		var tex = b.base_texture if b.base_texture != null else b.icon
-		var base_ref = b
-		_body.add_child(_list_row(tex, b.base_name, "vida %d · %s" % [b.base_hp, tag],
-			func(): _open_base_form(CustomContent.open_base_for_edit(base_ref)), Vector2(40, 72)))
+		if b == null:
+			continue
+		var k = int(b.base_type)
+		if !groups.has(k):
+			groups[k] = []
+		groups[k].append(b)
+	for k in BASE_TYPE_NAMES.size():
+		if !groups.has(k):
+			continue
+		var list: Array = groups[k]
+		list.sort_custom(func(a, b2): return a.unlock_arena < b2.unlock_arena if a.unlock_arena != b2.unlock_arena else a.base_name < b2.base_name)
+		var key = "m%d" % k
+		var closed = _closed_groups.has(key)
+		var head = Button.new()
+		head.text = "%s %s  (%d)" % ["▸" if closed else "▾", str(BASE_TYPE_NAMES[k]), list.size()]
+		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		head.custom_minimum_size = Vector2(0, 52)
+		head.add_theme_font_size_override("font_size", 19)
+		head.add_theme_color_override("font_color", Color(1.0, 0.91, 0.66))
+		head.pressed.connect(func():
+			if _closed_groups.has(key):
+				_closed_groups.erase(key)
+			else:
+				_closed_groups[key] = true
+			_show_list())
+		_body.add_child(head)
+		if closed:
+			continue
+		var grid = GridContainer.new()
+		grid.columns = 4
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 6)
+		_body.add_child(grid)
+		for b in list:
+			var base_ref = b
+			var cell = Button.new()
+			cell.custom_minimum_size = Vector2(156, 176)
+			cell.pressed.connect(func(): _open_base_form(CustomContent.open_base_for_edit(base_ref)))
+			var col = VBoxContainer.new()
+			col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT, Control.PRESET_MODE_MINSIZE, 4)
+			col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			col.alignment = BoxContainer.ALIGNMENT_CENTER
+			cell.add_child(col)
+			col.add_child(_icon_rect(b.base_texture if b.base_texture != null else b.icon, Vector2(64, 88)))
+			var nm = _label(b.base_name, 13)
+			nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			col.add_child(nm)
+			var custom = CustomContent.is_custom(b)
+			var tag = _label("%s · vida %d" % ["⭐ seu" if custom else ("✏️ editado" if CustomContent.has_override(b) else "do jogo"), b.base_hp], 11)
+			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tag.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4) if custom else Color(0.75, 0.75, 0.7))
+			col.add_child(tag)
+			grid.add_child(cell)
 
 
 func _open_base_form(pack: Dictionary):
@@ -1304,6 +1356,12 @@ func _tab_basico():
 		for f in CustomContent.BASE_FIELDS:
 			if f[0] in ["base_name", "description", "nation_data", "category", "unlock_arena", "rarity_pick"]:
 				_field(_work["base"], f)
+		if !_orig.get("is_new", false):
+			var src_base: BaseData = _orig["base"]
+			_field_box.add_child(_button("⧉ Criar uma cópia deste módulo", func():
+				_open_base_form(CustomContent.copy_base_pack(src_base))
+				_say("Cópia aberta: mude o nome e o que quiser e aperte Salvar. O original não muda.")))
+			_field_box.add_child(_note("A cópia sai do módulo como está SALVO. Se você mexeu agora, salve antes de copiar."))
 		return
 	for f in CustomContent.CARD_FIELDS:
 		if _ed_kind == "feitico" and str(f[0]).begins_with("companion_"):

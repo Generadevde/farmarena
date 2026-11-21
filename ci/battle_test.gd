@@ -541,6 +541,30 @@ func _screens_test():
 	if copied != null:
 		CustomContent.delete_custom_card(copied)
 	_check("duplicar carta: a cópia é carta nova e a original não muda", copy_ok)
+	# duplicar módulo, e a lista de módulos em grade por função
+	var src_b: BaseData = BotSimulator.available_bases[0]
+	var n_bases = CustomContent.all_bases([]).size()
+	var bp = CustomContent.copy_base_pack(src_b)
+	bp["base"].base_hp = src_b.base_hp + 77
+	var copied_b: BaseData = CustomContent.save_base(bp, true)
+	var copy_b_ok = copied_b != null and copied_b != src_b and CustomContent.is_custom(copied_b) and copied_b.base_name == src_b.base_name + " (cópia)" \
+		and copied_b.base_hp == src_b.base_hp + 77 and CustomContent.all_bases([]).size() == n_bases + 1
+	cr._tab = 1
+	cr._show_list()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var mod_grids = 0
+	var mod_cells = 0
+	for n in cr._body.get_children():
+		if n is GridContainer:
+			mod_grids += 1
+			mod_cells += n.get_child_count()
+	if copied_b != null:
+		CustomContent.delete_custom_base(copied_b)
+	cr._tab = 0
+	cr._show_list()
+	await get_tree().process_frame
+	_check("duplicar módulo e lista de módulos em grade por função", copy_b_ok and mod_grids >= 2 and mod_cells == n_bases + 1, "cópia=%s, %d grades, %d módulos (esperado %d)" % [str(copy_b_ok), mod_grids, mod_cells, n_bases + 1])
 	await get_tree().create_timer(0.4).timeout
 	var peao: CardData = Catalogo.card("peao_forcado")
 	var hp_before = DeckBuilder.get_unit_stats(peao).hp
@@ -738,6 +762,14 @@ func _modules_test():
 	_check("derrubar os 2 módulos do bot não acaba a partida", !battle.match_over)
 	_check("placar 2 x 1 pra mim", battle.time_up_loser() == GameManager.Team.ENEMY, str(battle.time_up_loser()))
 	# BASE PRINCIPAL: caiu, acabou -- mesmo com o placar a favor
+	# feitiço de gelo em cima da Casa Grande: ela congela (para de atirar) pelo tempo do efeito
+	var ice_m = SpellData.new()
+	ice_m.radius = 120.0
+	ice_m.status_effect = UnitData.OnHitEffect.FREEZE
+	ice_m.status_effect_duration = 3.0
+	battle.cast_spell(ice_m, my_main[0].global_position, GameManager.Team.ENEMY)
+	await get_tree().create_timer(0.3).timeout
+	_check("feitiço de gelo congela a Casa Grande", my_main[0].is_frozen(), str(my_main[0].is_frozen()))
 	my_main[0].take_damage(999999)
 	await get_tree().process_frame
 	_check("base principal caiu = fim da partida", battle.match_over)
@@ -2964,6 +2996,38 @@ func _general_audit():
 		await get_tree().create_timer(0.6).timeout
 		_check("módulo atira em mais de um alvo por vez", neighbour.current_hp < 99999, str(99999 - neighbour.current_hp))
 		bd.extra_targets = 0
+		# GELO na torre: para de atirar pelo tempo todo do efeito e volta depois (bug do João)
+		bd.extra_targets = 0
+		walker.current_hp = 99999
+		tower._locked_target = null
+		tower.set_process(true)
+		tower.apply_on_hit_effect(UnitData.OnHitEffect.FREEZE, 0.0, 2.0)
+		await get_tree().create_timer(1.6).timeout
+		var hp_frozen = walker.current_hp
+		var frozen_flag = tower.is_frozen()
+		await get_tree().create_timer(2.6).timeout
+		tower.set_process(false)
+		_check("gelo para a torre pelo tempo todo e ela volta a atirar depois", frozen_flag and hp_frozen == 99999 and walker.current_hp < 99999 and !tower.is_frozen(),
+			"congelada=%s, dano durante %d, dano depois %d" % [str(frozen_flag), 99999 - hp_frozen, 99999 - walker.current_hp])
+		# feitiço de gelo de verdade em cima da torre (módulo E Casa Grande levam o efeito)
+		var ice = SpellData.new()
+		ice.radius = 120.0
+		ice.status_effect = UnitData.OnHitEffect.FREEZE
+		ice.status_effect_duration = 3.0
+		var main_base = null
+		var module_t = null
+		for t in get_tree().get_nodes_in_group("player_base"):
+			if t.is_main:
+				main_base = t
+			elif module_t == null and t.base_data != null:
+				module_t = t
+		for t in [main_base, module_t]:
+			if t != null:
+				t._frozen_until = -1.0
+				battle.cast_spell(ice, t.global_position, E)
+		await get_tree().create_timer(0.3).timeout
+		_check("feitiço de gelo congela o módulo e a Casa Grande", module_t != null and module_t.is_frozen() and (main_base == null or main_base.is_frozen()),
+			"casa grande=%s módulo=%s" % [str(main_base.is_frozen()) if main_base != null else "não achei", str(module_t.is_frozen()) if module_t != null else "não achei"])
 		# defesa: redução, regeneração
 		tower.max_hp = 10000
 		tower.hp = 5000

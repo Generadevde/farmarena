@@ -839,6 +839,16 @@ func make_blank_base() -> Dictionary:
 	return {"base": b, "image": img, "is_new": true, "proj_image": default_projectile_image()}
 
 
+## CÓPIA de um módulo (seu ou do jogo): abre como módulo NOVO, igual, com " (cópia)" no nome
+func copy_base_pack(b: BaseData) -> Dictionary:
+	var src = open_base_for_edit(b)
+	var b2: BaseData = b.duplicate()
+	b2.base_name = b.base_name + " (cópia)"
+	b2.base_texture = null
+	b2.icon = null
+	return {"base": b2, "image": src["image"].duplicate(), "proj_image": src["proj_image"].duplicate(), "proj_changed": true, "is_new": true}
+
+
 func open_base_for_edit(b: BaseData) -> Dictionary:
 	var tex = b.base_texture if b.base_texture != null else b.icon
 	var proj_img = texture_to_image(b.projectile_texture, PROJ_ART_SIZE) if b.projectile_texture != null else default_projectile_image()
