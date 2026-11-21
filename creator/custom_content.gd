@@ -632,6 +632,24 @@ func open_card_for_edit(card: CardData) -> Dictionary:
 	return {"card": card, "stats": stats, "spell": card.spell_data, "image": img, "is_new": false, "proj_image": proj_img}
 
 
+## CÓPIA de uma carta (sua ou do jogo): abre como carta NOVA, com tudo igual e " (cópia)" no nome.
+## Só vira carta de verdade quando salvar; a original não muda.
+func copy_card_pack(card: CardData) -> Dictionary:
+	var src = open_card_for_edit(card)
+	var c2: CardData = card.duplicate()
+	c2.card_name = card.card_name + " (cópia)"
+	c2.unit_scene = null
+	c2.spell_data = null
+	c2.icon = null
+	if card.art_recipe != null:
+		c2.art_recipe = card.art_recipe.duplicate()
+	if card.art_palette != null:
+		c2.art_palette = card.art_palette.duplicate()
+	var st2: UnitData = src["stats"].duplicate() if src["stats"] != null else null
+	return {"card": c2, "stats": st2, "spell": src["spell"].duplicate() if src["spell"] != null else null,
+		"image": src["image"].duplicate(), "proj_image": src["proj_image"].duplicate(), "proj_changed": true, "is_new": true}
+
+
 # salva um pacote de edição. Pra carta criada: grava os arquivos. Pra carta
 # ORIGINAL do jogo: aplica na memória e guarda como override
 func save_card(pack: Dictionary, image_changed: bool) -> CardData:

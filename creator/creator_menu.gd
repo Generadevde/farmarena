@@ -225,8 +225,24 @@ func _build_card_list():
 	_body.add_child(new_row)
 	new_row.add_child(_button("+ Unidade", func(): _open_card_form(CustomContent.make_blank_card(false))))
 	new_row.add_child(_button("+ Feitiço", func(): _open_card_form(CustomContent.make_blank_card(true))))
-	_build_collection_panel()
+	var quick_test = _button("🧪 Testar", func(): MatchSetup.start_test_match(get_tree()))
+	quick_test.disabled = !CustomContent.can_battle()
+	new_row.add_child(quick_test)
+	# as opções (perfil dev, começar do zero, safra, cópia, gerador) ficam GUARDADAS num botão:
+	# abertas elas empurravam as cartas lá pra baixo da tela
+	_body.add_child(_button(("▾ " if _show_options else "▸ ") + "⚙ Opções (perfil dev, começar do zero, safra, gerador)", func():
+		_show_options = !_show_options
+		_show_list()))
+	if _show_options:
+		_build_collection_panel()
+		_build_generator_panel()
+	_build_card_filter_and_rows()
 
+
+var _show_options := false
+
+
+func _build_generator_panel():
 	# gerador
 	var gen_panel = PanelContainer.new()
 	_body.add_child(gen_panel)
@@ -252,6 +268,8 @@ func _build_card_list():
 		_say("Carta gerada! Ajusta o que quiser e aperta Salvar.")
 	))
 
+
+func _build_card_filter_and_rows():
 	var filter = _button("Mostrando: " + ("só as minhas" if _show_custom_only else "todas"), func():
 		_show_custom_only = !_show_custom_only
 		_show_list()
@@ -274,6 +292,7 @@ func _build_card_list():
 
 
 var _search := ""
+var _closed_groups := {}   # classificações fechadas na lista (toque no título abre e fecha)
 var _rows_box: VBoxContainer
 
 
@@ -293,21 +312,68 @@ func _fill_card_rows():
 		return a.card_name < b.card_name
 	)
 	var want = _search.strip_edges().to_lower()
+	# POR CLASSIFICAÇÃO, em grade (igual a tela de baralho): cada tipo tem o seu bloco, que abre e fecha
+	var groups := {}
 	for card in cards:
 		if card == null:
 			continue
-		var custom = CustomContent.is_custom(card)
-		if _show_custom_only and !custom:
+		if _show_custom_only and !CustomContent.is_custom(card):
 			continue
 		if want != "" and !card.card_name.to_lower().contains(want):
 			continue
-		var tag = "⭐ criada por você" if custom else ("✏️ editada" if CustomContent.has_override(card) else "do jogo")
-		if CustomContent.is_spawn_only(card):
-			tag = "🐣 só invocação"
-		var kind_text = str(Catalogo.KINDS.get(Catalogo.kind_of(card), {}).get("nome", "Tropa"))
-		var c = card
-		_rows_box.add_child(_list_row(card.icon, card.card_name, "%s · custo %d · %s" % [kind_text, card.cost, tag],
-			func(): _open_card_form(CustomContent.open_card_for_edit(c))))
+		var k = "invocacao" if CustomContent.is_spawn_only(card) else str(Catalogo.kind_of(card))
+		if !groups.has(k):
+			groups[k] = []
+		groups[k].append(card)
+	var order: Array = Catalogo.KINDS.keys()
+	for k in groups.keys():
+		if !order.has(k):
+			order.append(k)
+	var shown = 0
+	for k in order:
+		if !groups.has(k):
+			continue
+		var list: Array = groups[k]
+		list.sort_custom(func(a, b): return a.cost < b.cost if a.cost != b.cost else a.card_name < b.card_name)
+		shown += list.size()
+		var info: Dictionary = Catalogo.KINDS.get(k, {})
+		var title = "🐣 Só invocação" if k == "invocacao" else str(info.get("nome", "Outras"))
+		var closed = _closed_groups.has(k) and want == ""
+		var head = Button.new()
+		head.text = "%s %s  (%d)" % ["▸" if closed else "▾", title, list.size()]
+		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		head.custom_minimum_size = Vector2(0, 52)
+		head.add_theme_font_size_override("font_size", 19)
+		head.add_theme_color_override("font_color", Color(str(info.get("cor", "#ffe9a8"))))
+		var key = k
+		head.pressed.connect(func():
+			if _closed_groups.has(key):
+				_closed_groups.erase(key)
+			else:
+				_closed_groups[key] = true
+			_fill_card_rows())
+		_rows_box.add_child(head)
+		if closed:
+			continue
+		var grid = GridContainer.new()
+		grid.columns = 4
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 6)
+		_rows_box.add_child(grid)
+		for card in list:
+			var cell = VBoxContainer.new()
+			cell.add_theme_constant_override("separation", 0)
+			var cv = CardView.make(card, 150)
+			var c = card
+			cv.tapped.connect(func(_x): _open_card_form(CustomContent.open_card_for_edit(c)))
+			cell.add_child(cv)
+			var tag = _label("⭐ sua" if CustomContent.is_custom(card) else ("✏️ editada" if CustomContent.has_override(card) else "do jogo"), 12)
+			tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			tag.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4) if CustomContent.is_custom(card) else Color(0.7, 0.7, 0.65))
+			cell.add_child(tag)
+			grid.add_child(cell)
+	if shown == 0:
+		_rows_box.add_child(_note("Nenhuma carta aqui ainda." if want == "" else "Nenhuma carta com esse nome."))
 
 
 func _open_card_form(pack: Dictionary):
@@ -1243,6 +1309,13 @@ func _tab_basico():
 		if _ed_kind == "feitico" and str(f[0]).begins_with("companion_"):
 			continue   # feitiço não leva tropa junto (ele invoca: está na aba Efeito)
 		_field(_work["card"], f)
+	# DUPLICAR: abre uma carta nova igual a esta (a que está salva), pra mexer sem estragar a original
+	if !_orig.get("is_new", false):
+		var src_card: CardData = _orig["card"]
+		_field_box.add_child(_button("⧉ Criar uma cópia desta carta", func():
+			_open_card_form(CustomContent.copy_card_pack(src_card))
+			_say("Cópia aberta: mude o nome e o que quiser e aperte Salvar. A original não muda.")))
+		_field_box.add_child(_note("A cópia sai da carta como está SALVA. Se você mexeu agora, salve antes de copiar."))
 	if _ed_kind != "tropa":
 		return
 	var card: CardData = _orig["card"]

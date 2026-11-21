@@ -501,6 +501,46 @@ func _screens_test():
 	await get_tree().process_frame
 	var cr = load("res://creator/creator_menu.tscn").instantiate()
 	add_child(cr)
+	await get_tree().process_frame
+	# lista do Criador por classificação: tem bloco de mais de um tipo, com grade de cartas, e fecha/abre
+	cr._show_custom_only = false
+	cr._search = ""
+	cr._closed_groups = {}
+	cr._fill_card_rows()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var heads_n = 0
+	var grids_n = 0
+	var cards_n = 0
+	for n in cr._rows_box.get_children():
+		if n is Button:
+			heads_n += 1
+		elif n is GridContainer:
+			grids_n += 1
+			cards_n += n.get_child_count()
+	cr._closed_groups = {"bando": true, "tanque": true}
+	cr._fill_card_rows()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var grids_closed = 0
+	for n in cr._rows_box.get_children():
+		grids_closed += 1 if n is GridContainer else 0
+	cr._closed_groups = {}
+	_check("lista do Criador por classificação (grade que abre e fecha)", heads_n >= 4 and grids_n == heads_n and cards_n >= 20 and grids_closed < grids_n,
+		"%d títulos, %d grades, %d cartas, %d grades com 2 fechadas" % [heads_n, grids_n, cards_n, grids_closed])
+	# duplicar: a cópia vira carta nova, igual, e a original não muda
+	var src_c: CardData = Catalogo.card("vaca_brava")
+	var src_hp = DeckBuilder.get_unit_stats(src_c).hp
+	var n_cards = CardDatabase.all_cards.size()
+	var cp = CustomContent.copy_card_pack(src_c)
+	cp["stats"].hp = src_hp + 123
+	var copied: CardData = CustomContent.save_card(cp, true)
+	var copy_ok = copied != null and copied != src_c and copied.resource_path != src_c.resource_path and CustomContent.is_custom(copied) \
+		and copied.card_name == src_c.card_name + " (cópia)" and DeckBuilder.get_unit_stats(copied).hp == src_hp + 123 \
+		and DeckBuilder.get_unit_stats(src_c).hp == src_hp and CardDatabase.all_cards.size() == n_cards + 1 and copied.unit_scene != src_c.unit_scene
+	if copied != null:
+		CustomContent.delete_custom_card(copied)
+	_check("duplicar carta: a cópia é carta nova e a original não muda", copy_ok)
 	await get_tree().create_timer(0.4).timeout
 	var peao: CardData = Catalogo.card("peao_forcado")
 	var hp_before = DeckBuilder.get_unit_stats(peao).hp
