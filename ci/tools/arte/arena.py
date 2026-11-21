@@ -7,7 +7,7 @@ import random, math, sys
 
 PW, PH = 144, 240
 CX, CY = PW // 2, PH // 2
-RIVER_HALF = 5          # rio: linhas CY-5 .. CY+4  (mundo ±20)
+RIVER_HALF = 9          # rio: linhas CY-9 .. CY+8  (mundo ±36)
 BRIDGE_X = 37.5         # pontes em CX±37.5 (mundo ±150)
 BRIDGE_HALF = 7         # largura 14px (mundo 56)
 CENTER_BRIDGE_HALF = 4  # ponte do meio, mais estreita: 8px (mundo 32)

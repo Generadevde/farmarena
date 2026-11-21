@@ -990,6 +990,17 @@ func _show_settings():
 		p.add_child(slider)
 		value_label.text = "%d%%" % int(round(slider.value * 100)) if slider.value > 0.01 else "mudo"
 		slider.value_changed.connect(_on_volume.bind(str(spec[1]), value_label))
+	# só batalha normal: a partida comum nunca vem com modificador ("clima maluco")
+	var nb = CheckButton.new()
+	nb.text = "⚔ Só batalha normal (sem modificador nas partidas comuns)"
+	nb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	nb.custom_minimum_size = Vector2(0, 64)
+	nb.add_theme_font_size_override("font_size", 17)
+	nb.button_pressed = bool(Config.data.get("so_normal", false))
+	nb.toggled.connect(func(on):
+		Config.data["so_normal"] = on
+		Config.save())
+	v.add_child(nb)
 	v.add_child(_label(Versao.texto(), 15, ThemeBuilder.COLOR_STAT_LABEL))
 	# LABORATÓRIO: as mudanças da Batalha 2.5, pra ligar/desligar e sentir a diferença
 	var lab = _panel(v)

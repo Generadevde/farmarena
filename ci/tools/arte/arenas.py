@@ -58,7 +58,7 @@ def decorate(img, kind, seed):
     while placed < 14 and tries < 600:
         tries += 1
         x = rnd.randrange(6, W - 6)
-        y = rnd.randrange(CY + 10, H - 8)
+        y = rnd.randrange(CY + A.RIVER_HALF + 5, H - 8)
         if not free(x, y, 3):
             continue
         placed += 1
@@ -107,7 +107,7 @@ def decorate(img, kind, seed):
             mset(x, y, (200, 70, 60))
     if kind == "circulo":      # estrelinhas no chão da noite
         for _ in range(60):
-            x = rnd.randrange(3, W - 3); y = rnd.randrange(CY + 8, H - 3)
+            x = rnd.randrange(3, W - 3); y = rnd.randrange(CY + A.RIVER_HALF + 3, H - 3)
             if grass(x, y):
                 mset(x, y, (220, 225, 255))
 

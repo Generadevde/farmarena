@@ -367,6 +367,11 @@ func _creator_shots():
 	cr._show_ed_tab(1)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("criador_modulo")
+	cr._show_ed_tab(2)
+	await get_tree().create_timer(0.4).timeout
+	cr._set_proj_kind("foguetinho")
+	await get_tree().create_timer(0.2).timeout
+	await _shot("criador_modulo_visual")
 	cr._close_form()
 	# feitiço
 	cr._set_tab(0)

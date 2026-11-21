@@ -623,6 +623,53 @@ func _build_proj_block():
 		_proj_changed = true
 		_proj_rect.texture = ImageTexture.create_from_image(_work["proj_image"])
 	))
+	# TIPOS PRONTOS: mesma ideia das peças da carta -- escolhe o tipo, ele sai nas cores da carta
+	var pal: Dictionary = _palette if !_palette.is_empty() else SpriteForge.DEFAULT_PALETTE
+	var kinds: Array = SpriteForge.pieces("proj").filter(func(k): return _piece_in_theme(str(k)))
+	if kinds.is_empty():
+		kinds = SpriteForge.pieces("proj")
+	var head = HBoxContainer.new()
+	head.add_theme_constant_override("separation", 6)
+	_field_box.add_child(head)
+	var ht = _label("Tipos prontos (%d) -- toque num" % kinds.size(), 16)
+	ht.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
+	ht.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(ht)
+	head.add_child(_button("🎲 Sortear", func():
+		_set_proj_kind(str(kinds[randi() % kinds.size()]))))
+	var grid = GridContainer.new()
+	grid.columns = 10
+	grid.add_theme_constant_override("h_separation", 4)
+	grid.add_theme_constant_override("v_separation", 4)
+	_field_box.add_child(grid)
+	for k in kinds:
+		var b = Button.new()
+		b.custom_minimum_size = Vector2(56, 56)
+		b.icon = SpriteForge.projectile(str(k), pal)
+		b.expand_icon = true
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.tooltip_text = str(k).replace("_", " ").capitalize()
+		b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		b.pressed.connect(_set_proj_kind.bind(str(k)))
+		grid.add_child(b)
+	_proj_name = _note("O tema escolhido em \"Tema das peças\" filtra esta lista também. O projétil sai nas cores da carta: se trocar as cores, toque no tipo de novo.")
+	_field_box.add_child(_proj_name)
+
+
+var _proj_name: Label = null
+
+
+## troca o projétil por um tipo pronto do atlas, pintado com as cores da carta
+func _set_proj_kind(kind: String):
+	if _work.is_empty() or !SpriteForge.has_piece("proj", kind):
+		return
+	var pal: Dictionary = _palette if !_palette.is_empty() else SpriteForge.DEFAULT_PALETTE
+	_work["proj_image"] = SpriteForge.projectile(kind, pal).get_image()
+	_proj_changed = true
+	if is_instance_valid(_proj_rect):
+		_proj_rect.texture = ImageTexture.create_from_image(_work["proj_image"])
+	if is_instance_valid(_proj_name):
+		_proj_name.text = "Projétil: " + kind.replace("_", " ").capitalize()
 
 
 func _form_buttons(on_save: Callable, can_delete: bool, can_restore: bool, on_delete: Callable, on_restore: Callable):

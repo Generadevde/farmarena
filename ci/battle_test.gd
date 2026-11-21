@@ -1630,7 +1630,9 @@ func _abilities_audit():
 			good = good and st["status"]
 			why.append("efeito %s" % str(st["status"]))
 		if sp.status_effect in [UnitData.OnHitEffect.PULL, UnitData.OnHitEffect.KNOCKBACK]:
-			good = good and st["moveu"] > 8.0
+			# o puxão sozinho desloca ~6-8px nesses alvos; antes passava de 8 por causa do esbarrão
+			# da vaca aliada, que dependia do caminho dela. 5 mede o feitiço, não o esbarrão
+			good = good and st["moveu"] > 5.0
 			why.append("moveu %dpx" % int(st["moveu"]))
 		_check("feitiço " + c.card_name, good, ", ".join(why))
 
@@ -2001,6 +2003,35 @@ func _new_mechanics_test():
 	_aud_bad.clear()
 	var P = GameManager.Team.PLAYER
 	var E = GameManager.Team.ENEMY
+	# opção "só batalha normal": ligada, a partida comum NUNCA sorteia modificador;
+	# desligada, o sorteio continua existindo
+	var so_before = Config.data.get("so_normal", false)
+	Config.data["so_normal"] = true
+	var weather_on = 0
+	for k in 400:
+		weather_on += 1 if MatchSetup.roll_weather() != 0 else 0
+	Config.data["so_normal"] = false
+	var weather_off = 0
+	for k in 400:
+		weather_off += 1 if MatchSetup.roll_weather() != 0 else 0
+	Config.data["so_normal"] = so_before
+	if weather_on != 0 or weather_off == 0:
+		_aud_bad.append("so batalha normal: com a opcao %d modificadores, sem ela %d em 400" % [weather_on, weather_off])
+	# tipos de projétil: todos desenham alguma coisa em 16x16 e são bastante
+	var proj_bad: Array = []
+	for k in SpriteForge.pieces("proj"):
+		var pim: Image = SpriteForge.projectile(str(k), SpriteForge.DEFAULT_PALETTE).get_image()
+		if pim.get_size() != Vector2i(16, 16) or pim.get_used_rect().size.x < 3:
+			proj_bad.append(str(k))
+	if !proj_bad.is_empty() or SpriteForge.pieces("proj").size() < 40:
+		_aud_bad.append("tipos de projetil: %d tipos, vazios %s" % [SpriteForge.pieces("proj").size(), str(proj_bad)])
+	for cat in ["pernas", "corpo", "bracos", "costas"]:
+		for k in SpriteForge.pieces(cat):
+			if SpriteForge.make_image({cat: str(k)}, SpriteForge.DEFAULT_PALETTE).get_used_rect().size.x < 3:
+				_aud_bad.append("peca vazia: %s/%s" % [cat, str(k)])
+	# rio largo: quem luta corpo a corpo não alcança mais a outra margem
+	if ArenaBuilder.RIVER_HALF * 2.0 < 60.0:
+		_aud_bad.append("rio estreito de novo: %d" % int(ArenaBuilder.RIVER_HALF * 2.0))
 	var mid = ArenaBuilder.CENTER + Vector2(135, 150)
 	# 1) ROLA: acerta uma vez quem está no caminho, não acerta quem está fora da largura
 	await _wipe()

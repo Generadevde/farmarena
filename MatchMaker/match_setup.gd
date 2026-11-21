@@ -101,13 +101,22 @@ func start_daily_match(tree: SceneTree, deck: Array):
 	tree.change_scene_to_file(BATTLE_SCENE)
 
 
+## modificador da partida comum: 0 = batalha normal. Com a opção "só batalha
+## normal" ligada nas Configurações, é sempre 0
+func roll_weather() -> int:
+	if bool(Config.data.get("so_normal", false)):
+		return 0
+	if randf() < 0.15:
+		return 1 + randi() % (RULE_NAMES.size() - 1)
+	return 0
+
+
 func start_1v1(tree: SceneTree):
 	if !CustomContent.can_battle():
 		return   # "começar do zero" sem nenhuma carta criada: não tem com o que jogar
 	clear_special()
 	# "clima maluco": de vez em quando a partida normal vem com uma regra doida
-	if randf() < 0.15:
-		rule = 1 + randi() % (RULE_NAMES.size() - 1)
+	rule = roll_weather()
 	mode = MODE_1V1
 	next_ai_profile = choose_opponent()
 	tree.change_scene_to_file(BATTLE_SCENE)
