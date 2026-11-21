@@ -2292,6 +2292,31 @@ func _new_mechanics_test():
 	await get_tree().create_timer(4.0).timeout
 	_check("quem só ataca construção acerta a construção e nenhuma tropa", sniper_ranged and hut.current_hp <= 99999 - 1000 and blocker.current_hp > 99999 - 1000 and beside.current_hp > 99999 - 1000,
 		"atira=%s construcao=%d no_caminho=%d do_lado=%d" % [str(sniper_ranged), hut.current_hp, blocker.current_hp, beside.current_hp])
+	# animações e efeitos: todos os jeitos de andar, bater e morrer e todos os estilos de feitiço rodam sem erro
+	await _wipe()
+	var US = load("res://Scripts/unit_base.gd")
+	var actor = (await _put("vaca_brava", P, mid + Vector2(0, 150)))[0]
+	actor.stats = actor.stats.duplicate()
+	var dummy_t = await _dummy(E, mid + Vector2(0, 110))
+	for g in US.GAIT_NAMES.size():
+		actor._gait = g
+		actor._walk_anim(0.05, true)
+		actor._walk_anim(0.05, false)
+	actor.target = dummy_t
+	for h in US.HIT_NAMES.size():
+		actor._hit_style = h
+		actor._attack_anim()
+	for dth in US.DEATH_NAMES.size():
+		actor.stats.anim_death = dth
+		actor._death_fx()
+	for stl in Fx.STYLE_NAMES.size():
+		Fx.styled(actor.get_parent(), mid, 80.0, Color(1, 0.5, 0.2), stl, 0.0 if stl % 2 == 0 else 1.0)
+	await get_tree().create_timer(1.4).timeout
+	actor.stats.anim_gait = US.Gait.QUICA + 1
+	actor.stats.anim_hit = US.Hit.TREMOR + 1
+	var re = (await _put("vaca_brava", P, mid + Vector2(60, 150)))[0]
+	_check("animações e estilos de feitiço rodam, e a lista do Criador bate com o código", US.GAIT_NAMES.size() == US.Gait.size() and US.HIT_NAMES.size() == US.Hit.size() and Fx.STYLE_NAMES.size() == Fx.STYLE_COLORS.size() and is_instance_valid(re),
+		"%d/%d %d/%d %d/%d" % [US.GAIT_NAMES.size(), US.Gait.size(), US.HIT_NAMES.size(), US.Hit.size(), Fx.STYLE_NAMES.size(), Fx.STYLE_COLORS.size()])
 	# 7) bot não joga o Espelho sem ter o que repetir
 	var mcard = CardData.new()
 	mcard.cost = 20
