@@ -1571,12 +1571,46 @@ func bot_module_loadout(profile, slots: int = -1) -> Array:
 		(backs if b.base_type in eco_types else fronts).append(b)
 	var out: Array = []
 	var flip = (seed / 3) % 2 == 1
-	var front_points: Array = [2, 0, 1] if flip else [0, 2, 1]
+	var a = 2 if flip else 0     # o lado "da casa" do bot
+	var b = 0 if flip else 2
+	# ONDE cada bot arma a base (os 8 pontos do teclado numérico), pelo plano de jogo dele:
+	var front_points: Array = [a, b, 1]                      # padrão: os dois lados da frente, depois o meio
+	match PushPlan.family_of(profile):
+		PushPlan.Fam.CERCO:
+			front_points = [a, 1, b]                         # muralha na frente
+		PushPlan.Fam.CONTRA:
+			front_points = [3 if a == 0 else 5, 5 if a == 0 else 3, 1]   # fechado: colado nos lados da base
+		PushPlan.Fam.BLOCO:
+			front_points = [a, 5 if a == 0 else 3, b]        # um na frente, um de guarda do outro lado da base
+		PushPlan.Fam.CORRERIA:
+			front_points = [a, 1, b]                         # tudo pra frente, do lado em que ele ataca
+		PushPlan.Fam.CAOS:
+			front_points = [0, 1, 2, 3, 5, 6, 7, 4]
+			for i in range(front_points.size() - 1, 0, -1):  # embaralha pelo nome do bot (sempre igual pro mesmo bot)
+				var j = (seed / (i + 3)) % (i + 1)
+				var tmp = front_points[i]
+				front_points[i] = front_points[j]
+				front_points[j] = tmp
+			if fronts.size() == 1 and front_points[0] == 1:
+				front_points[0] = a
+	# um módulo só nunca vai pro meio da frente: com tudo no meio a partida vira "jogar no meio"
+	if fronts.size() == 1 and front_points[0] == 1:
+		front_points[0] = a
+	var used: Array = []
 	for i in fronts.size():
-		out.append({"base": fronts[i], "ponto": front_points[i]})
-	var back_points = [3, 5, 4]
+		var fp = int(front_points[i % front_points.size()])
+		while used.has(fp):
+			fp = (fp + 1) % Regras.MODULE_POINTS.size()
+		used.append(fp)
+		out.append({"base": fronts[i], "ponto": fp})
+	# módulo de recurso vai pro fundo: os cantos de trás primeiro, depois atrás no meio
+	var back_points = [6, 7, 4] if (seed / 7) % 2 == 0 else [7, 6, 4]
 	for i in backs.size():
-		out.append({"base": backs[i], "ponto": back_points[((seed / 7) + i) % back_points.size()]})
+		var bp = int(back_points[i % back_points.size()])
+		while used.has(bp):
+			bp = (bp + 1) % Regras.MODULE_POINTS.size()
+		used.append(bp)
+		out.append({"base": backs[i], "ponto": bp})
 	return out
 
 

@@ -19,7 +19,7 @@ class_name SpriteForge
 const ATLAS_PATH = "res://Resources/pecas/pecas.png"
 const CELL = 48
 const SOLO = ["objeto", "torre", "icone"]
-const RIDER_OFFSET = Vector2i(-7, -8)   # cavaleiro: mais pra trás e pra cima, sentado no lombo
+const RIDER_OFFSET = Vector2i(-7, -7)   # cavaleiro: mais pra trás e pra cima, sentado no lombo
 const MOUNT_DROP = 2                     # a montaria desce um tico pra caber os dois no quadro
 const DEFAULT_PALETTE = {"P": "#d8c8a8", "S": "#7a5a3a", "A": "#c8483c", "K": "#e8b088", "M": "#a0a8b4", "W": "#7a5030"}
 const SLOT_BY_BITS = {4: "P", 2: "S", 1: "A", 6: "K", 5: "M", 3: "W"}  # bits r g b

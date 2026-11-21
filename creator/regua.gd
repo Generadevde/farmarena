@@ -113,6 +113,44 @@ static func suggest(kind: String, cost: int) -> Dictionary:
 	return out
 
 
+## quanto as habilidades de dano/proteção valem a mais na "Força" (na mesma unidade do
+## _raw_power: vida x 0,3 + dano por segundo x 3). É uma ESTIMATIVA: conta o caso comum de cada
+## habilidade (ex.: pulso pegando 2 inimigos, aura reforçando 1 aliado do mesmo porte).
+static func ability_power(st: UnitData) -> float:
+	var n = maxi(st.unit_count, 1)
+	var dps = st.damage / maxf(st.attack_speed, 0.1)
+	var raw = CardGenerator._raw_power(st)
+	var extra_dps = 0.0
+	var extra = 0.0
+	if st.pulses:
+		extra_dps += float(st.pulse_damage) / maxf(st.pulse_interval, 0.5) * 2.0
+	if st.leaves_trail and st.move_speed > 0.0:
+		extra_dps += float(st.trail_damage) * 2.0 * 0.5
+	if st.jump_attack:
+		extra_dps += float(st.jump_damage) / maxf(st.jump_cooldown, 0.8) * 1.5
+	if st.rider_attack:
+		extra_dps += float(st.rider_damage) / maxf(st.rider_interval, 0.2) * maxi(st.rider_count, 1)
+	if st.grows_over_time:
+		extra_dps += dps * (st.grow_max_mult - 1.0) * 0.4
+	if st.late_boost_after > 0.0:
+		extra_dps += dps * (st.late_boost_damage_mult - 1.0) * 0.5
+	if st.bandit_dash and st.dash_damage_mult > 1.0:
+		extra_dps += dps * (st.dash_damage_mult - 1.0) * (0.3 if st.dash_repeats else 0.1)
+	if st.charge_attack:
+		extra_dps += dps * (st.charge_damage_multiplier - 1.0) * 0.15
+	if st.aura_buff:
+		extra += raw * (maxf(st.aura_damage_mult, 1.0) - 1.0 + (maxf(st.aura_attack_speed_mult, 1.0) - 1.0) + (maxf(st.aura_speed_mult, 1.0) - 1.0) * 0.3)
+	if st.ward_allies:
+		extra += raw * clampf(st.ward_reduction, 0.0, 0.9) * 0.8
+	if st.repairs_buildings:
+		extra += float(st.repair_amount) / maxf(st.repair_interval, 0.3) * 10.0 * 0.3
+	if st.is_trap:
+		extra += float(st.trap_damage) * 0.6
+	if st.blinks or st.pre_attack_speed_boost or (st.charge_attack and st.charge_speed_mult > 1.0):
+		extra += raw * 0.08   # chega antes: vale um pouco
+	return (extra_dps * 3.0) * n + extra
+
+
 ## como os números `st` (custo `cost`) ficam perto do padrão do tipo dele, em %:
 ## {"kind", "vida", "dano", "geral"}  (100 = no padrão)
 static func compare(st: UnitData, cost: int) -> Dictionary:
@@ -122,7 +160,7 @@ static func compare(st: UnitData, cost: int) -> Dictionary:
 	var c = maxf(float(cost), 1.0)
 	var vida = float(st.hp) * n / maxf(s["hp_c"] * c, 1.0) * 100.0
 	var dano = (st.damage / maxf(st.attack_speed, 0.1) * n) / maxf(s["dps_c"] * c, 0.01) * 100.0 if s["dps_c"] > 0.0 else 100.0
-	var geral = CardGenerator._raw_power(st) / maxf(CardGenerator.power_per_cost() * c, 1.0) * 100.0
+	var geral = (CardGenerator._raw_power(st) + ability_power(st)) / maxf(CardGenerator.power_per_cost() * c, 1.0) * 100.0
 	return {"kind": kind, "vida": int(round(vida)), "dano": int(round(dano)), "geral": int(round(geral))}
 
 

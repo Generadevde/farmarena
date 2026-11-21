@@ -2699,6 +2699,46 @@ func _general_audit():
 	await get_tree().create_timer(0.5).timeout
 	_check("explode ao morrer", 99999 - d.current_hp >= 200, str(99999 - d.current_hp))
 
+	# 26) efeito de maestria: só vale com a carta no nível de maestria
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0))
+	var mc = _make({"mastery_effect": UnitData.OnHitEffect.SLOW, "mastery_effect_strength": 0.4, "mastery_effect_duration": 3.0})
+	u = (await _put_card(mc, P, mid + Vector2(0, 40)))[0]
+	u.card_level = 1
+	await _hits_on(d, 2.2)
+	var slow_low = d.speed_multiplier
+	d.speed_multiplier = 1.0
+	u.card_level = PlayerProfile.MASTERY_LEVEL
+	await _hits_on(d, 2.2)
+	_check("efeito de maestria só no nível de maestria", slow_low >= 0.99 and d.speed_multiplier < 0.99, "nível 1: x%.2f, maestria: x%.2f" % [slow_low, d.speed_multiplier])
+
+	# régua do Criador: as habilidades novas aumentam a "Força" (e carta sem habilidade fica igual)
+	var plain = UnitData.new()
+	plain.hp = 600
+	plain.damage = 60
+	var fancy: UnitData = plain.duplicate()
+	fancy.pulses = true
+	fancy.jump_attack = true
+	fancy.aura_buff = true
+	_check("régua enxerga as habilidades novas", Regua.ability_power(plain) == 0.0 and Regua.compare(fancy, 30)["geral"] > Regua.compare(plain, 30)["geral"] + 20,
+		"sem %d%%, com %d%%" % [Regua.compare(plain, 30)["geral"], Regua.compare(fancy, 30)["geral"]])
+
+	# bots armam a base nos 8 pontos, sem repetir ponto, e módulo sozinho nunca fica no meio da frente
+	var seen_points := {}
+	var lay_bad: Array = []
+	for bn in BotSimulator.roster_names.slice(0, 40):
+		var bp_prof: AIProfile = BotLearning.get_or_create_profile(bn)
+		for ns in [1, 2, 3]:
+			var lo: Array = Progresso.bot_module_loadout(bp_prof, ns)
+			var pts: Array = lo.map(func(o): return int(o["ponto"]))
+			for pt in pts:
+				seen_points[pt] = true
+				if pt < 0 or pt >= Regras.MODULE_POINTS.size() or pts.count(pt) > 1:
+					lay_bad.append("%s %s" % [bn, str(pts)])
+			if ns == 1 and pts == [1]:
+				lay_bad.append("%s sozinho no meio" % bn)
+	_check("bots usam os pontos novos da base", lay_bad.is_empty() and seen_points.size() >= 6, "pontos usados %s, problemas %s" % [str(seen_points.keys()), str(lay_bad.slice(0, 3))])
+
 	# --- AS NOVAS
 	# vários avanços (bandida): avança mais de uma vez no mesmo alvo
 	await _wipe()
