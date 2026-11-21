@@ -93,3 +93,13 @@ const TINT_COLORS = [Color(0, 0, 0, 0), Color(1.0, 0.3, 0.25), Color(1.0, 0.6, 0
 	Color(0.3, 0.5, 1.0), Color(0.7, 0.4, 0.95), Color(1.0, 0.55, 0.8), Color(1, 1, 1), Color(0.15, 0.12, 0.18)]
 const SOUND_NAMES = ["Automático", "Explosão", "Raio", "Gelo", "Cura", "Fúria", "Lama", "Carta", "Sem som"]
 const SOUND_IDS = ["", "explosao", "raio", "gelo", "cura", "furia", "lama", "carta", ""]
+
+## ---- leva "mecânicas do Clash"
+## CLONE: copia as tropas aliadas dentro do raio (a cópia nasce com 1 de vida).
+@export var clones_allies: bool = false
+## VAZIO: o dano é dividido entre quem estiver na área (1 alvo leva tudo; 4 levam 1/4 cada).
+@export var splits_damage: bool = false
+## BARRIL (rolando): a invocação nasce no FIM da rolagem, não onde caiu.
+@export var summon_at_end: bool = false
+## DANO EM CONSTRUÇÃO (x): Terremoto -- multiplica o dano em construção (as torres usam o "dano nas torres").
+@export var building_damage_mult: float = 1.0

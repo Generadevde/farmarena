@@ -2427,6 +2427,9 @@ func _new_mechanics_test():
 	for dth in US.DEATH_NAMES.size():
 		actor.stats.anim_death = dth
 		actor._death_fx()
+	for en in US.ENTRY_NAMES.size():
+		actor.stats.anim_entry = en
+		actor._entry_fx(26.0)
 	for stl in Fx.STYLE_NAMES.size():
 		Fx.styled(actor.get_parent(), mid, 80.0, Color(1, 0.5, 0.2), stl, 0.0 if stl % 2 == 0 else 1.0)
 	await get_tree().create_timer(1.4).timeout
@@ -2887,6 +2890,144 @@ func _general_audit():
 	await get_tree().create_timer(1.6).timeout
 	_check("tiro carregado (Sparky): carrega antes, acerta em área e o atordoamento zera a carga", !early_hit and cue_charging and first_shot and reset_ok and d.current_hp < 99999,
 		"tiro cedo=%s, mostrou carregando=%s, 1º tiro em área=%s, zerou=%s, atirou depois=%s" % [str(early_hit), str(cue_charging), str(first_shot), str(reset_ok), str(d.current_hp < 99999)])
+
+	# ================= LEVA "MECÂNICAS DO CLASH"
+	# choque ao cair (Mago Elétrico)
+	await _wipe()
+	d = await _dummy(E, anchor + Vector2(30, -30))
+	d.stats.move_speed = 40.0
+	await _put_card(_make({"entrance_shockwave_damage": 50, "entrance_shockwave_radius": 90.0, "entrance_effect": UnitData.OnHitEffect.STUN, "entrance_effect_duration": 1.0}), P, mid)
+	await get_tree().create_timer(0.3).timeout
+	_check("choque ao cair atordoa", d._is_incapacitated() and d.current_hp < 99999, "atordoado=%s dano=%d" % [str(d._is_incapacitated()), 99999 - d.current_hp])
+
+	# efeito ao morrer (Golem de Gelo) e fúria ao morrer (Lenhador)
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(40, 40))
+	var mate = (await _put_card(_make({"hp": 5000, "move_speed": 0.0}), P, mid + Vector2(-40, 40)))[0]
+	u = (await _put_card(_make({"hp": 100, "move_speed": 0.0, "death_effect": UnitData.OnHitEffect.SLOW, "death_effect_strength": 0.5, "death_effect_duration": 3.0, "death_effect_radius": 120.0,
+		"death_rage_duration": 3.0}), P, mid + Vector2(0, 40)))[0]
+	u.take_damage(99999)
+	await get_tree().create_timer(0.3).timeout
+	_check("efeito ao morrer: inimigo lento e aliado com fúria", d.speed_multiplier < 0.99 and is_instance_valid(mate) and mate._rage_until > GameManager.game_time,
+		"lento x%.2f, fúria=%s" % [d.speed_multiplier, str(is_instance_valid(mate) and mate._rage_until > GameManager.game_time)])
+
+	# vida útil: construção que se apaga sozinha
+	await _wipe()
+	u = (await _put_card(_make({"hp": 1000, "move_speed": 0.0, "lifetime": 2.0}), P, mid + Vector2(0, 40)))[0]
+	await get_tree().create_timer(1.0).timeout
+	var half_life = u.current_hp if is_instance_valid(u) else -1
+	await get_tree().create_timer(1.5).timeout
+	_check("vida útil: a vida cai sozinha até acabar", half_life > 300 and half_life < 700 and (!is_instance_valid(u) or u.current_hp <= 0 or u.is_queued_for_deletion()), "na metade %d" % half_life)
+
+	# alcance mínimo (Morteiro): não acerta quem está colado, acerta quem está longe
+	await _wipe()
+	var close_d = await _dummy(E, mid + Vector2(0, 10))
+	var far_d = await _dummy(E, mid + Vector2(0, -150))
+	u = (await _put_card(_make({"is_ranged": true, "attack_range": 220.0, "min_attack_range": 90.0, "move_speed": 0.0, "detection_range": 300.0}), P, mid + Vector2(0, 40)))[0]
+	await get_tree().create_timer(3.0).timeout
+	_check("alcance mínimo: ignora o colado e acerta o de longe", close_d.current_hp == 99999 and far_d.current_hp < 99999, "colado %d, longe %d" % [99999 - close_d.current_hp, 99999 - far_d.current_hp])
+
+	# bumerangue (Executor): acerta na ida e na volta
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -40))
+	u = (await _put_card(_make({"is_ranged": true, "attack_range": 120.0, "projectile_returns": true, "damage": 100, "attack_speed": 9.0, "move_speed": 0.0, "detection_range": 200.0}), P, mid + Vector2(0, 60)))[0]
+	await get_tree().create_timer(2.5).timeout
+	_check("bumerangue acerta na ida e na volta", 99999 - d.current_hp == 200, "dano %d (esperado 200)" % (99999 - d.current_hp))
+
+	# dano em construção (x2) e dano de perto
+	await _wipe()
+	var hut2 = await _dummy(E, mid + Vector2(0, 0))
+	hut2.stats.unit_type = UnitData.UnitType.BUILDING
+	u = (await _put_card(_make({"damage": 50, "building_damage_mult": 2.0, "move_speed": 0.0}), P, mid + Vector2(0, 40)))[0]
+	drops = await _hits_on(hut2, 2.0)
+	_check("dano em construção x2", !drops.is_empty() and drops[0] == 100, str(drops.slice(0, 2)))
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0))
+	u = (await _put_card(_make({"is_ranged": true, "attack_range": 200.0, "damage": 100, "close_damage_bonus": 1.0, "move_speed": 0.0}), P, mid + Vector2(0, 30)))[0]
+	drops = await _hits_on(d, 2.5)
+	_check("mais dano de perto", !drops.is_empty() and drops[0] >= 160, str(drops.slice(0, 2)))
+
+	# choque de volta (Gigante Elétrico)
+	await _wipe()
+	u = (await _put_card(_make({"hp": 9000, "move_speed": 0.0, "damage": 1, "zaps_attackers": true, "zap_damage": 80, "zap_stun": 0.8}), P, mid + Vector2(0, 40)))[0]
+	foe = (await _put_card(_make({"hp": 5000, "damage": 60}), E, mid + Vector2(0, 0)))[0]
+	await get_tree().create_timer(2.5).timeout
+	_check("choque de volta: quem bate leva dano e fica atordoado", is_instance_valid(foe) and foe.current_hp <= 5000 - 80, "o agressor perdeu %d" % (5000 - foe.current_hp if is_instance_valid(foe) else -1))
+
+	# maldição (Bruxa Mãe): o inimigo que morre amaldiçoado vira tropa minha
+	await _wipe()
+	var victim3 = (await _put_card(_make({"hp": 120, "move_speed": 0.0, "damage": 1}), E, mid + Vector2(0, 0)))[0]
+	u = (await _put_card(_make({"damage": 50, "attack_speed": 0.8, "curses_on_hit": true, "curse_duration": 5.0, "move_speed": 0.0}), P, mid + Vector2(0, 40)))[0]
+	u.stats.curse_spawn_scene = _make({"hp": 77, "move_speed": 0.0}).unit_scene
+	await get_tree().create_timer(4.0).timeout
+	var mine = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P and x.stats != null and x.stats.hp == 77)
+	_check("maldição: quem morre amaldiçoado vira tropa sua", !is_instance_valid(victim3) and mine.size() == 1, "virou %d" % mine.size())
+
+	# coletor: dá recurso pro dono
+	await _wipe()
+	var money0 = GameManager.player_money
+	u = (await _put_card(_make({"hp": 5000, "move_speed": 0.0, "produces_resource": true, "resource_amount": 10, "resource_interval": 1.0}), P, mid + Vector2(0, 40)))[0]
+	await get_tree().create_timer(2.3).timeout
+	_check("coletor dá recurso pro dono", GameManager.player_money >= money0 + 20, "%d -> %d" % [money0, GameManager.player_money])
+
+	# coice (Fogueteira): pula pra trás depois do tiro
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -60))
+	u = (await _put_card(_make({"is_ranged": true, "attack_range": 200.0, "recoil_distance": 40.0, "move_speed": 0.0, "attack_speed": 1.5}), P, mid + Vector2(0, 60)))[0]
+	var start_d = u.global_position.distance_to(d.global_position)
+	await get_tree().create_timer(2.5).timeout
+	_check("coice: pula pra trás ao atirar", is_instance_valid(u) and u.global_position.distance_to(d.global_position) >= start_d + 30.0, "%d -> %d" % [int(start_d), int(u.global_position.distance_to(d.global_position)) if is_instance_valid(u) else -1])
+
+	# feitiços: clone, vazio, terremoto, barril
+	await _wipe()
+	var orig_u = (await _put_card(_make({"hp": 500, "move_speed": 0.0}), P, mid + Vector2(0, 40)))[0]
+	var clone_sp = SpellData.new()
+	clone_sp.radius = 80.0
+	clone_sp.clones_allies = true
+	clone_sp.affects_enemies = false
+	battle.cast_spell(clone_sp, mid + Vector2(0, 40), P)
+	await get_tree().create_timer(0.3).timeout
+	var clones = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P and x.get("_is_clone") and x.current_hp == 1)
+	_check("feitiço clone: cópia com 1 de vida", clones.size() == 1, str(clones.size()))
+	await _wipe()
+	var solo = await _dummy(E, mid + Vector2(0, -200))
+	var crowd: Array = []
+	for k in 4:
+		crowd.append(await _dummy(E, mid + Vector2(-30 + k * 20, 100)))
+	var void_sp = SpellData.new()
+	void_sp.radius = 60.0
+	void_sp.damage = 400
+	void_sp.splits_damage = true
+	battle.cast_spell(void_sp, solo.global_position, P)
+	battle.cast_spell(void_sp, mid + Vector2(0, 100), P)
+	await get_tree().create_timer(0.3).timeout
+	_check("feitiço vazio: 1 alvo leva tudo, 4 dividem", 99999 - solo.current_hp == 400 and 99999 - crowd[0].current_hp == 100, "sozinho %d, no grupo %d" % [99999 - solo.current_hp, 99999 - crowd[0].current_hp])
+	await _wipe()
+	var hut3 = await _dummy(E, mid)
+	hut3.stats.unit_type = UnitData.UnitType.BUILDING
+	var quake = SpellData.new()
+	quake.radius = 60.0
+	quake.damage = 100
+	quake.building_damage_mult = 3.0
+	battle.cast_spell(quake, mid, P)
+	await get_tree().create_timer(0.3).timeout
+	_check("feitiço terremoto: dano x3 em construção", 99999 - hut3.current_hp == 300, str(99999 - hut3.current_hp))
+	await _wipe()
+	var barrel = SpellData.new()
+	barrel.radius = 40.0
+	barrel.rolls = true
+	barrel.roll_distance = 150.0
+	barrel.roll_speed = 300.0
+	barrel.summon_at_end = true
+	barrel.summon_count = 1
+	barrel.summon_scene = _make({"hp": 66, "move_speed": 0.0}).unit_scene
+	battle.cast_spell(barrel, mid + Vector2(0, 150), P)
+	await get_tree().create_timer(0.15).timeout
+	var too_soon = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.stats != null and x.stats.hp == 66).size()
+	await get_tree().create_timer(0.9).timeout
+	var barb = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.stats != null and x.stats.hp == 66)
+	_check("feitiço barril: a tropa sai no fim da rolagem", too_soon == 0 and barb.size() == 1 and barb[0].global_position.distance_to(mid + Vector2(0, 150)) >= 120.0,
+		"cedo %d, no fim %d" % [too_soon, barb.size()])
 
 	# --- AS NOVAS
 	# vários avanços (bandida): avança mais de uma vez no mesmo alvo

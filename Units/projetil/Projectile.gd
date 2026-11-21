@@ -31,6 +31,12 @@ var chain_range: float = 150.0
 
 ## PODE ERRAR: o tiro vai reto pra onde o alvo ESTAVA quando saiu. Se o alvo andou, erra.
 var can_miss: bool = false
+## BUMERANGUE: vai reto até return_reach da dona atravessando, depois volta pra ela acertando de novo
+var returns_to: Node2D = null
+var return_reach := 200.0
+var _boomerang_back := false
+var _boomerang_dir := Vector2.ZERO
+var _boomerang_start := Vector2.ZERO
 ## ÂNGULO DE SAÍDA (graus): 0 = tiro reto; quanto maior, mais alto o arco (tiro de morteiro).
 var launch_angle: float = 0.0
 var _aim_point := Vector2.INF
@@ -61,6 +67,9 @@ func _physics_process(delta):
 		_origin_set = true
 		origin = global_position  # o atirador coloca o projétil em cima dele antes do 1º quadro
 	var dir = _locked_direction
+	if returns_to != null:
+		_boomerang(delta)
+		return
 	if _aim_point == Vector2.INF and is_instance_valid(target):
 		_aim_point = target.global_position          # onde o alvo estava na hora do disparo
 		_aim_total = maxf(global_position.distance_to(_aim_point), 1.0)
@@ -141,6 +150,34 @@ func _allowed(body) -> bool:
 	if !buildings_only:
 		return true
 	return !("stats" in body) or body.stats == null or body.stats.unit_type == UnitData.UnitType.BUILDING
+
+
+func _boomerang(delta):
+	if _boomerang_dir == Vector2.ZERO:
+		_boomerang_start = global_position
+		_boomerang_dir = (target.global_position - global_position).normalized() if is_instance_valid(target) else Vector2.UP
+	var step = speed * delta
+	rotation += 18.0 * delta   # gira no ar
+	if !_boomerang_back:
+		global_position += _boomerang_dir * step
+		if global_position.distance_to(_boomerang_start) >= return_reach:
+			_boomerang_back = true
+			_hit_targets.clear()      # na volta acerta todo mundo de novo
+	else:
+		if !is_instance_valid(returns_to):
+			queue_free()
+			return
+		var to_home = returns_to.global_position - global_position
+		if to_home.length() <= step + 8.0:
+			queue_free()
+			return
+		global_position += to_home.normalized() * step
+	for body in get_tree().get_nodes_in_group("damageable"):
+		if body in _hit_targets or !("team" in body) or body.team == attacker_team or !_allowed(body):
+			continue
+		if global_position.distance_to(body.global_position) <= HIT_DISTANCE + 10.0:
+			_hit_targets.append(body)
+			_apply_hit(body)
 
 
 func _check_hits():

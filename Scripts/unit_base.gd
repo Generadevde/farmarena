@@ -175,6 +175,13 @@ func _ready():
 
 	if stats.entrance_shockwave_damage > 0:
 		_deal_area_damage(global_position, stats.entrance_shockwave_radius, stats.entrance_shockwave_damage)
+	# CHOQUE AO ENTRAR: a onda (ou o dano de chegada) também atordoa / congela / deixa lento
+	if stats.entrance_effect != UnitData.OnHitEffect.NONE:
+		var er = maxf(stats.entrance_shockwave_radius if stats.entrance_shockwave_damage > 0 else stats.arrival_damage_radius, 60.0)
+		_area_effect(global_position, er, stats.entrance_effect, stats.entrance_effect_duration, 0.4)
+		if Regras.on("visual"):
+			Fx.bolt(get_parent(), position, Color(0.6, 0.85, 1.0))
+			Fx.ring(get_parent(), position, er, Color(0.6, 0.85, 1.0), 0.35)
 
 	_configure_physics_layers()
 
@@ -222,17 +229,22 @@ var _is_air_visual := false
 
 # IDENTIDADE: cada tipo de corpo anda e bate do seu jeito (antes todo mundo
 # dava o mesmo pulinho e o mesmo bote -- era isso que deixava tudo "igual")
-enum Gait { MARCHA, TROTE, GALOPE, CORRIDINHA, CISCA, PULO, RASTEJA, FLUTUA, RODA, PISADA, VOO, ZUMBE, DISCO, FORMIGA, ONDULA, PATINA, QUICA, ROBO, BEBADO }
+enum Gait { MARCHA, TROTE, GALOPE, CORRIDINHA, CISCA, PULO, RASTEJA, FLUTUA, RODA, PISADA, VOO, ZUMBE, DISCO, FORMIGA, ONDULA, PATINA, QUICA, ROBO, BEBADO,
+	SERPENTE, SALTITA, NINJA, DANCA }
 # nomes na ordem dos enums, pra aba "Animação" do Criador (o índice 0 da lista do Criador é "Automática")
 const GAIT_NAMES = ["Marcha (gente)", "Trote (casco)", "Galope", "Corridinha", "Cisca (galinha)", "Pulo (sapo)", "Rasteja", "Flutua (assombração)",
-	"Roda (motor)", "Pisada pesada", "Voo (ave)", "Zumbe (inseto)", "Disco voador", "Formiga", "Ondula (polvo)", "Patina (desliza)", "Quica (bola)", "Robô (passo duro)", "Cambaleia"]
-const HIT_NAMES = ["Bote", "Pancada (marreta)", "Estocada", "Giro", "Cabeçada", "Bicada", "Tiro", "Mordida dupla", "Pulo em cima", "Tremor"]
-const DEATH_NAMES = ["Fumaça (padrão)", "Explosão", "Vira fantasma", "Estouro de penas", "Chuva de moedas", "Derrete", "Some num clarão"]
+	"Roda (motor)", "Pisada pesada", "Voo (ave)", "Zumbe (inseto)", "Disco voador", "Formiga", "Ondula (polvo)", "Patina (desliza)", "Quica (bola)", "Robô (passo duro)", "Cambaleia",
+	"Serpente (zigue-zague)", "Saltita (pulinhos)", "Ninja (abaixado e rápido)", "Dança"]
+const HIT_NAMES = ["Bote", "Pancada (marreta)", "Estocada", "Giro", "Cabeçada", "Bicada", "Tiro", "Mordida dupla", "Pulo em cima", "Tremor",
+	"Arremesso (joga de cima)", "Rajada (três golpes rápidos)", "Chicote"]
+const DEATH_NAMES = ["Fumaça (padrão)", "Explosão", "Vira fantasma", "Estouro de penas", "Chuva de moedas", "Derrete", "Some num clarão",
+	"Vira pedra", "Afunda no chão", "Confete", "Choque elétrico"]
+const ENTRY_NAMES = ["Automática (cai de pertinho)", "Cai do céu", "Sai do chão", "Aparece na fumaça", "Teleporte (clarão)", "Chega rodando", "Raio do céu"]
 # famílias de corpo (peças "quatro" do SpriteForge)
 const BODY_HOOF = ["casco", "malhado", "cavalo", "bezerro", "vaca", "bode", "jegue", "montado"]
 const BODY_PAW = ["pata", "cachorro", "capivara", "porco", "gato", "onca", "cerbero"]
 const BODY_CRAWL = ["rasteiro", "casca", "cobra", "caranguejo"]
-enum Hit { BOTE, PANCADA, ESTOCADA, GIRO, CABECADA, BICADA, TIRO, MORDIDA, PULAO, TREMOR }
+enum Hit { BOTE, PANCADA, ESTOCADA, GIRO, CABECADA, BICADA, TIRO, MORDIDA, PULAO, TREMOR, ARREMESSO, RAJADA, CHICOTE }
 var _gait: int = Gait.MARCHA
 var _hit_style: int = Hit.BOTE
 var _step_index := 0        # conta as passadas (poeira na pisada pesada)
@@ -430,6 +442,7 @@ func _begin_deploy(seconds: float):
 	_deploy_until = GameManager.game_time + seconds
 	var drop = 26.0 * minf(_visual_scale, 1.8)
 	_lunge = Vector2(0, -drop)  # a própria "volta do bote" faz a queda
+	_entry_fx(drop)
 	if !is_inside_tree() or !deploy_clock:
 		return
 	var clock = DeployClock.new()
@@ -452,6 +465,40 @@ const DEATH_LINES = ["Uai...", "Avisa a mãe.", "Fui!", "Ai.", "Nem doeu.", "Vol
 func _say(text: String):
 	if is_inside_tree():
 		Fx.text(get_parent(), position + Vector2(0, -30.0 * _visual_scale), text, Color(1, 1, 0.92), 1.1)
+
+
+## JEITO DE ENTRAR (aba Animação). Só visual: o tempo de entrada é o mesmo.
+func _entry_fx(drop: float):
+	if stats == null or stats.anim_entry <= 0 or !is_inside_tree():
+		return
+	var par = get_parent()
+	var sc = clampf(_visual_scale, 0.6, 2.2)
+	match stats.anim_entry:
+		1:   # cai do céu: começa bem alto e bate no chão
+			_lunge = Vector2(0, -drop * 6.0)
+			get_tree().create_timer(0.22, false).timeout.connect(func():
+				if is_instance_valid(self) and is_inside_tree():
+					_hit_squash = 1.0
+					Fx.burst(get_parent(), position + Vector2(0, 8.0 * sc), Color(0.78, 0.68, 0.5, 0.9), 10, 110.0, 3.5))
+		2:   # sai do chão: começa afundado e sobe, com terra
+			_lunge = Vector2(0, drop * 1.2)
+			Fx.burst(par, position + Vector2(0, 6.0 * sc), Color(0.55, 0.42, 0.28), 12, 70.0, 3.5)
+			Fx.zone(par, position + Vector2(0, 6.0 * sc), 18.0 * sc, Color(0.35, 0.25, 0.15), 0.8)
+		3:   # aparece na fumaça
+			_lunge = Vector2.ZERO
+			Fx.puff(par, position, sc * 1.3)
+			Fx.puff(par, position + Vector2(10, -4), sc)
+		4:   # teleporte
+			_lunge = Vector2.ZERO
+			Fx.ring(par, position, 30.0 * sc, Color(0.8, 0.6, 1.0), 0.3)
+			Fx.burst(par, position, Color(0.85, 0.7, 1.0), 12, 90.0, 3.0)
+		5:   # chega rodando
+			_lunge = Vector2(-drop * 2.0, -drop * 0.6)
+			_dip = 1.0
+		6:   # raio do céu
+			_lunge = Vector2.ZERO
+			Fx.bolt(par, position, Color(1, 1, 0.7))
+			Fx.ring(par, position, 26.0 * sc, Color(1, 1, 0.7), 0.3)
 
 
 func _spawn_fx():
@@ -641,6 +688,21 @@ func _walk_anim(delta: float, moving: bool) -> Array:
 			pos.x = sin(_anim_t * 4.0) * 3.5 * vs
 			pos.y = -absf(sin(_anim_t * 8.0)) * 1.4 * vs
 			rot = sin(_anim_t * 4.0 + 0.8) * 0.24
+		Gait.SERPENTE:   # zigue-zague baixo, o corpo acompanha a curva
+			pos.x = sin(_anim_t * 6.0) * 4.0 * vs
+			rot = cos(_anim_t * 6.0) * 0.18
+			sq = Vector2(1.0 + 0.05 * absf(sin(_anim_t * 6.0)), 1.0 - 0.04 * absf(sin(_anim_t * 6.0)))
+		Gait.SALTITA:    # pulinhos curtos e rápidos, sem amassar
+			pos.y = -absf(sin(_anim_t * 14.0)) * 3.0 * vs
+			step = int(floor(_anim_t * 14.0 / PI))
+		Gait.NINJA:      # abaixado, inclinado pra frente, passo miúdo
+			pos.y = 1.5 * vs - absf(sin(_anim_t * 16.0)) * 0.8 * vs
+			rot = clampf(velocity.x / 60.0, -1.0, 1.0) * 0.22
+			sq = Vector2(1.06, 0.92)
+		Gait.DANCA:      # gira o corpo e balança no ritmo
+			pos.y = -absf(sin(_anim_t * 7.0)) * 2.4 * vs
+			rot = sin(_anim_t * 3.5) * 0.3
+			sq = Vector2(1.0 + 0.06 * sin(_anim_t * 7.0), 1.0 - 0.06 * sin(_anim_t * 7.0))
 		_:               # gente: marcha
 			pos.y = -absf(sin(_anim_t * 9.0)) * 2.2 * vs
 			rot = sin(_anim_t * 9.0) * 0.07
@@ -703,6 +765,24 @@ func _attack_anim():
 			_hit_squash = 1.0
 			if is_inside_tree():
 				Fx.ring(get_parent(), position, 22.0 * k, Color(1, 0.9, 0.6, 0.9), 0.25)
+		Hit.ARREMESSO:   # joga pra trás e solta de cima
+			_lunge = -dir * 5.0 * k + Vector2(0, -6.0 * k)
+			_dip = -side * 0.35
+			get_tree().create_timer(0.1, false).timeout.connect(func():
+				if is_instance_valid(self) and current_hp > 0:
+					_lunge = dir * 7.0 * k
+					_dip = side * 0.3)
+		Hit.RAJADA:      # três golpes curtinhos
+			for i in 3:
+				get_tree().create_timer(0.07 * i, false).timeout.connect(func():
+					if is_instance_valid(self) and current_hp > 0:
+						_lunge = dir * 5.0 * k
+						_hit_squash = 0.5)
+		Hit.CHICOTE:     # gira um pouco e estala
+			_dip = side * 0.6
+			_lunge = dir * 4.0 * k
+			if is_inside_tree():
+				Fx.slash(get_parent(), position + dir * 12.0 * k, dir, 16.0 * k, 90.0, Color(1, 1, 1, 0.8))
 
 
 ## jeito de morrer escolhido na aba "Animação" (0 = fumaça padrão)
@@ -727,6 +807,19 @@ func _death_fx():
 		6:   # clarão
 			Fx.ring(par, position, 46.0 * sc, Color(1, 1, 1), 0.25)
 			Fx.bolt(par, position, Color(1, 1, 0.8))
+		7:   # vira pedra
+			Fx.burst(par, position, Color(0.55, 0.55, 0.58), 14, 80.0, 4.5)
+			Fx.burst(par, position, Color(0.4, 0.4, 0.44), 6, 50.0, 6.0)
+		8:   # afunda no chão
+			Fx.zone(par, position + Vector2(0, 8.0 * sc), 16.0 * sc, Color(0.35, 0.25, 0.15), 1.0)
+			Fx.burst(par, position + Vector2(0, 6.0 * sc), Color(0.55, 0.42, 0.28), 8, 40.0, 3.0)
+		9:   # confete
+			for cc in [Color(1, 0.35, 0.4), Color(0.4, 0.8, 1), Color(1, 0.9, 0.3), Color(0.5, 1, 0.5)]:
+				Fx.burst(par, position, cc, 5, 140.0, 3.0)
+		10:  # choque elétrico
+			Fx.bolt(par, position, Color(0.6, 0.85, 1.0))
+			Fx.bolt(par, position + Vector2(8, 0), Color(1, 1, 0.6))
+			Fx.ring(par, position, 26.0 * sc, Color(0.6, 0.85, 1.0), 0.3)
 		_:
 			Fx.puff(par, position, sc)
 
@@ -1396,6 +1489,8 @@ const MELEE_MIN_REACH = 8.0
 func _in_attack_range(body) -> bool:
 	if body == null or !is_instance_valid(body):
 		return false
+	if stats.min_attack_range > 0.0 and _edge_distance(body) < stats.min_attack_range:
+		return false   # perto demais: o morteiro não consegue mirar
 	if stats.is_ranged:
 		return _edge_distance(body) <= stats.attack_range
 	return _gap_to(body) <= max(stats.attack_range, MELEE_MIN_REACH)
@@ -1460,6 +1555,16 @@ func _get_effective_damage() -> int:
 	if stats.same_target_ramping_damage:
 		dmg *= _same_target_ramp_multiplier
 
+	# DANO EM CONSTRUÇÃO: multiplica o dano em construção e torre
+	if stats.building_damage_mult != 1.0 and target != null and is_instance_valid(target):
+		var is_bld = target.is_in_group("player_base") or target.is_in_group("enemy_base") or ("stats" in target and target.stats != null and target.stats.unit_type == UnitData.UnitType.BUILDING)
+		if is_bld:
+			dmg *= maxf(stats.building_damage_mult, 0.0)
+	# DANO DE PERTO (caçador): quanto mais perto, mais forte
+	if stats.close_damage_bonus > 0.0 and target != null and is_instance_valid(target):
+		var gap_c = _edge_distance(target)
+		dmg *= 1.0 + stats.close_damage_bonus * clampf(1.0 - gap_c / maxf(stats.attack_range, 1.0), 0.0, 1.0)
+
 	# franco-atirador: dano a mais quanto mais longe o alvo estiver
 	if stats.distance_damage_bonus_per_100px > 0 and target != null and is_instance_valid(target):
 		var dist = global_position.distance_to(target.global_position)
@@ -1512,6 +1617,9 @@ var _trap_sprung := false
 var _trap_shown := false
 var _blink_clock := 0.0
 var _pre_attack_done := false
+var _decay_acc := 0.0
+var _collect_clock := 0.0
+var _zap_ready := {}   # quem já levou choque de volta há pouco (instance_id -> hora)
 var _sprinting := false
 var _afx_clock := 0.0
 var _afx_tint := Color(1, 1, 1)
@@ -1654,6 +1762,25 @@ func _process_new_mechanics(delta):
 			_trail_last = global_position
 			Poca.drop(get_parent(), position, team, int(round(stats.trail_damage * _level_mult_safe())), stats.trail_radius, stats.trail_duration,
 				stats.trail_slow, Color(0.5, 0.85, 0.3) if stats.trail_slow <= 0.0 else Color(0.55, 0.4, 0.25))
+	# VIDA ÚTIL: a vida cai sozinha até acabar no tempo marcado
+	if stats.lifetime > 0.0 and current_hp > 0:
+		_decay_acc += float(stats.hp) / stats.lifetime * delta
+		if _decay_acc >= 1.0:
+			var lose = int(_decay_acc)
+			_decay_acc -= lose
+			current_hp = maxi(current_hp - lose, 0)
+			_refresh_bar()
+			if current_hp <= 0:
+				die()
+				return
+	# COLETOR: dá recurso pro dono de tempos em tempos
+	if stats.produces_resource:
+		_collect_clock += delta
+		if _collect_clock >= maxf(stats.resource_interval, 1.0):
+			_collect_clock = 0.0
+			_grant_gold(stats.resource_amount)
+			if Regras.on("visual"):
+				Fx.text(get_parent(), position + Vector2(0, -28.0 * _visual_scale), "+%d" % stats.resource_amount, Color(0.95, 0.5, 1.0))
 	# TIRO CARREGADO: a primeira carga começa quando entra em campo
 	if stats.charged_shot and !_charge_primed:
 		_reset_charged_shot()
@@ -1852,10 +1979,11 @@ func _perform_attack():
 			beam_col, 2.0 + 5.0 * heat, maxf(stats.attack_speed * _attack_speed_ramp_multiplier / _rage_mult(_rage_attack_speed) * 1.25, 0.2))
 		if heat <= 0.02:
 			Sfx.play("tiro", 0.2, -8.0)
-		target.take_damage(dmg)
-		_report_base_damage(target, dmg)
-		if is_instance_valid(target):
-			_apply_on_hit_effect_to(target)
+		var beam_body = target
+		beam_body.take_damage(dmg)
+		if is_instance_valid(beam_body):
+			_report_base_damage(beam_body, dmg)
+			_apply_on_hit_effect_to(beam_body)
 	elif stats.is_ranged:
 		Sfx.play("tiro", 0.2, -4.0)
 		var proj = Projectile.new()
@@ -1874,6 +2002,9 @@ func _perform_attack():
 		proj.knockback_distance = stats.knockback_distance
 		proj.can_miss = stats.projectile_can_miss
 		proj.launch_angle = stats.projectile_launch_angle
+		if stats.projectile_returns:
+			proj.returns_to = self
+			proj.return_reach = stats.attack_range + 40.0
 		proj.pierces = stats.projectile_pierces
 		proj.max_targets = stats.projectile_max_targets
 		proj.splits = stats.projectile_splits
@@ -1887,6 +2018,9 @@ func _perform_attack():
 			proj.scale = Vector2.ONE * clampf(_visual_scale * 0.95, 1.25, 2.2)  # projétil acompanha o tamanho da tropa
 		get_parent().add_child(proj)
 		proj.global_position = global_position
+		# COICE: depois do tiro dá um pulinho pra trás (usa o mesmo empurrão dos efeitos)
+		if stats.recoil_distance > 0.0 and is_instance_valid(target):
+			_recoil_push(target.global_position)
 	elif stats.spin_attack:
 		_perform_spin_attack(dmg)
 	elif stats.frontal_cone_attack:
@@ -1897,12 +2031,19 @@ func _perform_attack():
 		_deal_area_damage(target.global_position, stats.aoe_radius, dmg)
 		_apply_on_hit_to_area(target.global_position, stats.aoe_radius)
 	else:
-		var was_alive_before = "current_hp" in target and target.current_hp > 0
-		target.take_damage(dmg)
-		_report_base_damage(target, dmg)
-		_apply_on_hit_effect_to(target)
-		if was_alive_before and "current_hp" in target and target.current_hp <= 0:
+		# guarda o alvo: o golpe pode mudar o "target" no meio (o choque de volta atordoa quem
+		# bateu e zera o alvo dele) -- antes isso quebrava o resto do ataque
+		var hit_body = target
+		var was_alive_before = "current_hp" in hit_body and hit_body.current_hp > 0
+		hit_body.take_damage(dmg)
+		if !is_instance_valid(hit_body):
+			return
+		_report_base_damage(hit_body, dmg)
+		_apply_on_hit_effect_to(hit_body)
+		if was_alive_before and "current_hp" in hit_body and hit_body.current_hp <= 0:
 			target_killed = true
+		if target == null or !is_instance_valid(target):
+			return
 
 		if _is_base(target) and stats.steals_resource_on_base_hit:
 			_steal_resource_from(target)
@@ -2067,6 +2208,10 @@ func _perform_attack_with_one_extra(dmg):
 func _apply_on_hit_effect_to(body):
 	if _is_silenced():
 		return  # silenciada não aplica efeito nenhum de ataque enquanto durar
+	if stats.curses_on_hit and stats.curse_spawn_scene != null and is_instance_valid(body) and "stats" in body and body.stats != null:
+		body.set_meta("curse", {"until": GameManager.game_time + stats.curse_duration, "team": team, "scene": stats.curse_spawn_scene, "level": card_level})
+		if Regras.on("visual") and "position" in body:
+			Fx.ring(get_parent(), body.position, 14.0, Color(0.7, 0.4, 0.95, 0.8), 0.3)
 	if !body.has_method("apply_on_hit_effect"):
 		return
 
@@ -2103,6 +2248,22 @@ func _apply_on_hit_to_area(center: Vector2, radius: float):
 			_apply_on_hit_effect_to(body)
 
 
+## aplica um efeito (atordoar, congelar, lentidão...) em todo inimigo dentro do raio
+func _recoil_push(from: Vector2):
+	var keep = stats.immune_to_knockback
+	stats.immune_to_knockback = false
+	apply_knockback(from, stats.recoil_distance)
+	stats.immune_to_knockback = keep
+
+
+func _area_effect(center: Vector2, radius: float, effect, duration: float, strength: float):
+	for body in get_tree().get_nodes_in_group("damageable"):
+		if body == self or !is_instance_valid(body) or !("team" in body) or body.team == team:
+			continue
+		if body.global_position.distance_to(center) <= radius and body.has_method("apply_on_hit_effect"):
+			body.apply_on_hit_effect(effect, strength, duration, 1.0, 40.0, center)
+
+
 func _deal_area_damage(center: Vector2, radius: float, damage: int):
 	if get_parent() != null:
 		Fx.ring(get_parent(), get_parent().to_local(center) if get_parent() is Node2D else center, radius, Color(1.0, 0.72, 0.3))
@@ -2136,6 +2297,8 @@ func find_target():
 	for body in bodies:
 		if !_is_valid_enemy(body):
 			continue
+		if stats.min_attack_range > 0.0 and stats.move_speed <= 0.0 and _edge_distance(body) < stats.min_attack_range:
+			continue   # morteiro parado: quem está colado nele nem vira alvo
 
 		var dist = global_position.distance_to(body.global_position)
 
@@ -2370,6 +2533,22 @@ func take_damage(amount, _is_shared_damage: bool = false):
 		_reflecting = true
 		target.take_damage(amount * stats.reflect_damage_percent)
 		_reflecting = false
+
+	# CHOQUE DE VOLTA: quem está batendo nela (de perto) leva choque -- no máximo 1 a cada 0,6s por atacante
+	if stats.zaps_attackers and amount > 0 and is_inside_tree():
+		for body in get_tree().get_nodes_in_group("units"):
+			if !is_instance_valid(body) or !("team" in body) or body.team == team or body.get("target") != self:
+				continue
+			if global_position.distance_to(body.global_position) > stats.zap_radius:
+				continue
+			var iid = body.get_instance_id()
+			if float(_zap_ready.get(iid, -99.0)) > GameManager.game_time:
+				continue
+			_zap_ready[iid] = GameManager.game_time + 0.6
+			Fx.bolt(get_parent(), body.position, Color(0.6, 0.85, 1.0))
+			body.take_damage(stats.zap_damage)
+			if is_instance_valid(body):
+				body.apply_on_hit_effect(UnitData.OnHitEffect.STUN, 0.0, stats.zap_stun, 1.0, 0.0, global_position)
 
 	if stats.counter_attack_chance > 0 and randf() < stats.counter_attack_chance:
 		if target != null and is_instance_valid(target):
@@ -2869,6 +3048,28 @@ func die():
 
 	if stats.explodes_on_death:
 		_deal_area_damage(global_position, stats.death_explosion_radius, stats.death_explosion_damage)
+	# EFEITO AO MORRER: congela / deixa lento os inimigos em volta
+	if stats.death_effect != UnitData.OnHitEffect.NONE:
+		_area_effect(global_position, stats.death_effect_radius, stats.death_effect, stats.death_effect_duration, stats.death_effect_strength)
+		Fx.ring(get_parent(), position, stats.death_effect_radius, Color(0.6, 0.85, 1.0), 0.5)
+	# FÚRIA AO MORRER: os aliados em volta ficam com fúria
+	if stats.death_rage_duration > 0.0:
+		for body in get_tree().get_nodes_in_group("units"):
+			if is_instance_valid(body) and body != self and "team" in body and body.team == team and body.has_method("apply_rage") \
+					and global_position.distance_to(body.global_position) <= stats.death_effect_radius:
+				body.apply_rage(1.35, 1.35, 1.35, stats.death_rage_duration)
+		Fx.zone(get_parent(), position, stats.death_effect_radius, Color(0.75, 0.35, 0.9), stats.death_rage_duration)
+	# MALDIÇÃO: morreu amaldiçoado = nasce uma tropa pro time de quem amaldiçoou
+	if has_meta("curse"):
+		var cz: Dictionary = get_meta("curse")
+		if float(cz.get("until", 0.0)) >= GameManager.game_time and cz.get("scene") != null and get_parent() != null:
+			var turned = (cz["scene"] as PackedScene).instantiate()
+			turned.team = cz["team"]
+			if "card_level" in turned:
+				turned.card_level = int(cz.get("level", 1))
+			get_parent().add_child(turned)
+			turned.global_position = global_position
+			Fx.ring(get_parent(), position, 26.0, Color(0.7, 0.4, 0.95), 0.4)
 
 	if stats.can_clone:
 		_spawn_clone()

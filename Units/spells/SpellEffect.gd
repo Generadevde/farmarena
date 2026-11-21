@@ -25,7 +25,10 @@ func _ready():
 		Sfx.play("torre_dano", 0.1, -2.0, 0.7)
 		return
 	_cast_fx()
-	_summon_units()
+	if !(spell.rolls and spell.summon_at_end):
+		_summon_units()
+	if spell.clones_allies:
+		_clone_allies()
 	_apply_tick()  # aplica imediatamente ao ser lançado
 
 	if spell.duration <= 0:
@@ -55,6 +58,8 @@ func _roll(delta):
 			_apply_effect(body)
 	queue_redraw()
 	if _rolled >= spell.roll_distance:
+		if spell.summon_at_end:
+			_summon_units()   # BARRIL: abre no fim da rolagem
 		queue_free()
 
 
@@ -114,6 +119,13 @@ func _apply_tick():
 			Fx.ring(get_parent(), body.position, 22.0, Color(1, 1, 0.6, 0.9), 0.3)
 			_apply_effect(body)
 		return
+	if spell.splits_damage:
+		# VAZIO: conta quantos inimigos tem na área antes de bater
+		_split_count = 0
+		for b2 in get_tree().get_nodes_in_group("damageable"):
+			if "team" in b2 and b2.team != caster_team and b2.global_position.distance_to(global_position) <= spell.radius:
+				_split_count += 1
+		_split_count = maxi(_split_count, 1)
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if !("team" in body):
 			continue
@@ -127,6 +139,35 @@ func _apply_tick():
 
 		if body.global_position.distance_to(global_position) <= spell.radius:
 			_apply_effect(body)
+
+
+var _split_count := 1
+
+
+## CLONE: copia cada tropa aliada no raio, com 1 de vida, do ladinho dela
+func _clone_allies():
+	var battle = get_tree().get_first_node_in_group("battle_scene")
+	for body in get_tree().get_nodes_in_group("units"):
+		if !is_instance_valid(body) or !("team" in body) or body.team != caster_team or body.stats == null:
+			continue
+		if body.stats.unit_type == UnitData.UnitType.BUILDING or body.get("_is_clone") or body.global_position.distance_to(global_position) > spell.radius:
+			continue
+		var cd: CardData = body.card_data
+		var sc: PackedScene = cd.unit_scene if cd != null and cd.unit_scene != null else (load(body.scene_file_path) if body.scene_file_path != "" else null)
+		if sc == null:
+			continue
+		var c = sc.instantiate()
+		c._is_clone = true
+		c.card_data = cd
+		c.team = caster_team
+		c.card_level = body.card_level
+		(battle if battle != null else get_parent()).add_child(c)
+		c.global_position = body.global_position + Vector2(randf_range(-14, 14), randf_range(-14, 14))
+		c.current_hp = 1
+		c.modulate = Color(0.6, 0.85, 1.0, 0.85)   # cópia: azulada
+		if c.has_node("ProgressBar"):
+			c.get_node("ProgressBar").value = 1
+		Fx.ring(c.get_parent(), c.position, 16.0, Color(0.6, 0.85, 1.0), 0.3)
 
 
 func _has_ally_buff() -> bool:
@@ -148,6 +189,10 @@ func _apply_effect(body):
 		if body.is_in_group("player_base") or body.is_in_group("enemy_base"):
 			dmg *= spell.base_damage_multiplier
 			_report_base_damage(body, dmg)
+		elif spell.building_damage_mult != 1.0 and "stats" in body and body.stats != null and body.stats.unit_type == UnitData.UnitType.BUILDING:
+			dmg *= maxf(spell.building_damage_mult, 0.0)
+		if spell.splits_damage and _split_count > 1:
+			dmg /= float(_split_count)
 
 		body.take_damage(dmg)
 

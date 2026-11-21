@@ -1045,6 +1045,9 @@ const ABILITIES = [
 	]],
 	["🎯 Projétil (só pra quem atira)", [
 		["Tiro carregado (Sparky): carrega antes de atirar", "charged_shot", [], {}],
+		["Bumerangue (Executor): vai e volta", "projectile_returns", [], {}],
+		["Coice (Fogueteira): pula pra trás ao atirar", "recoil_distance", [], {"recoil_distance": 40.0}],
+		["Alcance mínimo (Morteiro)", "min_attack_range", [], {"min_attack_range": 90.0}],
 		["Raio contínuo (torre inferno)", "beam_attack", ["beam_tint", "beam_heats_red"], {}],
 		["Pode errar (tiro reto, não persegue)", "projectile_can_miss", [], {}],
 		["Sai em arco (ângulo de saída)", "projectile_launch_angle", [], {"projectile_launch_angle": 45.0}],
@@ -1072,6 +1075,15 @@ const ABILITIES = [
 		["Construção que se esconde", "hides_underground", [], {}],
 	]],
 	["✨ Novas (campo e construção)", [
+		["Choque ao cair (Mago Elétrico)", "entrance_effect", ["entrance_effect_duration", "entrance_shockwave_radius"], {"entrance_effect": UnitData.OnHitEffect.STUN, "entrance_effect_duration": 0.5}],
+		["Efeito ao morrer (Golem de Gelo)", "death_effect", ["death_effect_duration", "death_effect_strength", "death_effect_radius"], {"death_effect": UnitData.OnHitEffect.SLOW}],
+		["Fúria ao morrer (Lenhador)", "death_rage_duration", ["death_effect_radius"], {"death_rage_duration": 4.0}],
+		["Choque de volta (Gigante Elétrico)", "zaps_attackers", ["zap_damage", "zap_radius", "zap_stun"], {}],
+		["Maldição (Bruxa Mãe): quem morre amaldiçoado vira tropa sua", "curses_on_hit", ["curse_duration", "curse_spawn_scene"], {}],
+		["Mais dano em construção (Corredor) / menos (Mineiro)", "building_damage_mult", [], {"building_damage_mult": 2.0}],
+		["Mais dano de perto (Caçador)", "close_damage_bonus", [], {"close_damage_bonus": 0.6}],
+		["Vida útil: a vida cai sozinha (construções do Clash)", "lifetime", [], {"lifetime": 30.0}],
+		["Coletor: dá recurso pro dono", "produces_resource", ["resource_amount", "resource_interval"], {}],
 		["Aura: reforça os aliados em volta", "aura_buff", ["aura_radius", "aura_damage_mult", "aura_speed_mult", "aura_attack_speed_mult"], {}],
 		["Pulso: onda em volta de tempos em tempos", "pulses", ["pulse_interval", "pulse_damage", "pulse_radius", "pulse_effect", "pulse_effect_duration", "pulse_effect_strength"], {}],
 		["Rastro: deixa poças que machucam", "leaves_trail", ["trail_damage", "trail_duration", "trail_radius", "trail_slow"], {}],
@@ -1455,8 +1467,14 @@ func _update_readout():
 
 
 # ---------------------------------------------------------------- aba Habilidades
+# habilidades cujo "desligado" é 1 (multiplicador neutro), não 0
+const NEUTRAL_ONE = ["building_damage_mult"]
+
+
 func _ability_on(st: UnitData, key: String) -> bool:
 	var v = st.get(key)
+	if key in NEUTRAL_ONE:
+		return v != 1.0
 	if v is bool:
 		return v
 	if v is int or v is float:
@@ -1467,7 +1485,7 @@ func _ability_on(st: UnitData, key: String) -> bool:
 func _tab_habilidades():
 	var st: UnitData = _work["stats"]
 	var defs = _field_defs()
-	var used := {"unit_scale": true, "pre_attack_boost_duration": true, "anim_gait": true, "anim_hit": true, "anim_death": true, "anim_speed": true, "anim_amount": true}   # os anim_ moram na aba "Animação"
+	var used := {"unit_scale": true, "pre_attack_boost_duration": true, "anim_entry": true, "anim_gait": true, "anim_hit": true, "anim_death": true, "anim_speed": true, "anim_amount": true}   # os anim_ moram na aba "Animação"
 	for p in CORE_PROPS:
 		used[p] = true
 	var on_total = 0
@@ -1550,12 +1568,12 @@ func _toggle_ability(ab: Array, on: bool):
 	if cur is bool:
 		st.set(ab[1], on)
 	elif !on:
-		CustomContent.set_prop(st, ab[1], 0)
+		CustomContent.set_prop(st, ab[1], 1.0 if ab[1] in NEUTRAL_ONE else 0)
 	if on:
 		var start: Dictionary = ab[3]
 		for prop in start:
 			var val = st.get(prop)
-			if (val is bool and !val) or ((val is int or val is float) and val == 0):
+			if (val is bool and !val) or ((val is int or val is float) and (val == 0 or (prop in NEUTRAL_ONE and val == 1.0))):
 				CustomContent.set_prop(st, prop, start[prop])
 		if !(cur is bool) and !_ability_on(st, ab[1]):
 			CustomContent.set_prop(st, ab[1], 1)
@@ -1768,17 +1786,21 @@ func _tab_animacao():
 	_section("Como bate")
 	_field(st, ["anim_hit", "Jeito de bater", "enum", ["Automática (pela arma e pelo corpo)"] + Array(UNIT_SCRIPT.HIT_NAMES)])
 	_field_box.add_child(_note("Quem atira fica melhor em \"Tiro\". \"Giro\" dá a volta inteira; \"Pancada\" levanta e desce com peso."))
+	_section("Como entra em campo")
+	_field(st, ["anim_entry", "Jeito de entrar", "enum", Array(UNIT_SCRIPT.ENTRY_NAMES)])
 	_section("Como morre")
 	_field(st, ["anim_death", "Jeito de morrer", "enum", Array(UNIT_SCRIPT.DEATH_NAMES)])
 	_field_box.add_child(_button("🎲 Sortear animação", func():
 		st.anim_gait = 1 + randi() % UNIT_SCRIPT.GAIT_NAMES.size()
 		st.anim_hit = 1 + randi() % UNIT_SCRIPT.HIT_NAMES.size()
 		st.anim_death = randi() % UNIT_SCRIPT.DEATH_NAMES.size()
+		st.anim_entry = randi() % UNIT_SCRIPT.ENTRY_NAMES.size()
 		_build_ed_body()))
 	_field_box.add_child(_button("↩ Voltar tudo pro automático", func():
 		st.anim_gait = 0
 		st.anim_hit = 0
 		st.anim_death = 0
+		st.anim_entry = 0
 		st.anim_speed = 1.0
 		st.anim_amount = 1.0
 		_build_ed_body()))
@@ -1889,7 +1911,8 @@ const SPELL_GROUPS = [["Onde e por quanto tempo", ["radius", "duration", "tick_i
 	["Cura e escudo nos aliados", ["heal_amount", "shield_amount"]],
 	["Fúria nos aliados", ["rage_damage_mult", "rage_speed_mult", "rage_attack_speed_mult"]],
 	["Reforço nos aliados (fúria, escudo, limpar)", ["buff_duration", "cleanses"]],
-	["Invocação", ["summon_scene", "summon_count", "summon_interval"]],
+	["Invocação", ["summon_scene", "summon_count", "summon_interval", "summon_at_end"]],
+	["Jeitos do Clash", ["clones_allies", "splits_damage", "building_damage_mult"]],
 	["Jeitos especiais", ["rolls", "roll_distance", "roll_speed", "picks_strongest", "mirror"]]]
 
 # MOLDES: um toque monta o feitiço inteiro, na força certa pro custo da carta (pela régua).

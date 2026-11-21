@@ -690,3 +690,41 @@ enum OnHitEffect {
 ## TIRO CARREGADO (Sparky): precisa carregar o intervalo de ataque inteiro ANTES do primeiro
 ## tiro, e atordoar / congelar / dar choque nela zera a carga (começa a carregar de novo).
 @export var charged_shot: bool = false
+## ---- leva "mecânicas do Clash"
+## CHOQUE AO ENTRAR (Mago Elétrico): a onda/dano de quando cai também aplica um efeito (atordoar...).
+@export var entrance_effect: OnHitEffect = OnHitEffect.NONE
+@export var entrance_effect_duration: float = 0.5
+## EFEITO AO MORRER (Golem de Gelo, Lenhador): na morte aplica um efeito nos inimigos em volta
+## e/ou deixa fúria nos aliados em volta.
+@export var death_effect: OnHitEffect = OnHitEffect.NONE
+@export var death_effect_duration: float = 2.0
+@export var death_effect_strength: float = 0.35
+@export var death_effect_radius: float = 90.0
+@export var death_rage_duration: float = 0.0
+## VIDA ÚTIL (construções do Clash): a vida vai caindo sozinha até acabar nesse tempo (0 = não cai).
+@export var lifetime: float = 0.0
+## ALCANCE MÍNIMO (Morteiro): não consegue acertar quem está mais perto que isso.
+@export var min_attack_range: float = 0.0
+## BUMERANGUE (Executor): o projétil vai até o fim do alcance atravessando e volta acertando de novo.
+@export var projectile_returns: bool = false
+## DANO EM CONSTRUÇÃO (x): multiplica o dano em construção e torre (2 = dobro, 0.5 = metade).
+@export var building_damage_mult: float = 1.0
+## CHOQUE DE VOLTA (Gigante Elétrico): quem bate nela de perto leva choque (dano + atordoa).
+@export var zaps_attackers: bool = false
+@export var zap_damage: int = 40
+@export var zap_radius: float = 110.0
+@export var zap_stun: float = 0.5
+## MALDIÇÃO (Bruxa Mãe): quem ela acerta fica amaldiçoado; se morrer amaldiçoado, vira tropa sua.
+@export var curses_on_hit: bool = false
+@export var curse_duration: float = 4.0
+@export var curse_spawn_scene: PackedScene
+## COLETOR (coletor de elixir): construção que dá recurso pro dono de tempos em tempos.
+@export var produces_resource: bool = false
+@export var resource_amount: int = 10
+@export var resource_interval: float = 8.0
+## COICE (Fogueteira): depois de cada tiro é empurrada pra trás.
+@export var recoil_distance: float = 0.0
+## DANO DE PERTO (Caçador): mais dano quanto mais perto o alvo (0.5 = +50% encostado).
+@export var close_damage_bonus: float = 0.0
+## jeito de ENTRAR em campo (aba Animação): 0 = automático (cai de pertinho); 1.. = ENTRY_NAMES
+@export var anim_entry: int = 0
