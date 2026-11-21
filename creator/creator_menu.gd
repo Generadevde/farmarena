@@ -1277,6 +1277,9 @@ func _tab_combate():
 
 
 func _update_readout():
+	if is_instance_valid(_readout) and _ed_kind == "feitico" and _work.get("spell") != null:
+		_readout.text = "📜 " + _spell_summary(_work["spell"])
+		return
 	if is_instance_valid(_readout) and _ed_kind == "modulo" and _work.get("base") != null:
 		# os números do módulo passam pela regra das torres antes de ir pro campo
 		var b: BaseData = _work["base"]
@@ -1648,7 +1651,84 @@ const SPELL_GROUPS = [["Onde e por quanto tempo", ["radius", "duration", "tick_i
 	["Efeito em quem é atingido", ["status_effect", "status_effect_strength", "status_effect_duration"]],
 	["Cura e escudo nos aliados", ["heal_amount", "shield_amount"]],
 	["Fúria nos aliados", ["rage_damage_mult", "rage_speed_mult", "rage_attack_speed_mult"]],
+	["Reforço nos aliados (fúria, escudo, limpar)", ["buff_duration", "cleanses"]],
+	["Invocação", ["summon_scene", "summon_count"]],
 	["Jeitos especiais", ["rolls", "roll_distance", "roll_speed", "picks_strongest", "mirror"]]]
+
+# MOLDES: um toque monta o feitiço inteiro, na força certa pro custo da carta (pela régua).
+# "d" e "h" são frações do dano/cura padrão do custo; o resto são os campos do feitiço
+const SPELL_MOLDS = [
+	["🔥 Bola de fogo", {"radius": 90.0, "d": 1.0, "knockback_distance": 0.0}],
+	["⚡ Raio", {"radius": 60.0, "d": 0.65, "status_effect": UnitData.OnHitEffect.STUN, "status_effect_duration": 0.6}],
+	["🎯 Tiro certeiro", {"radius": 110.0, "d": 1.5, "picks_strongest": 1}],
+	["Veneno", {"radius": 110.0, "d": 1.3, "duration": 8.0, "tick_interval": 1.0, "status_effect": UnitData.OnHitEffect.SLOW, "status_effect_strength": 0.15}],
+	["❄ Gelo", {"radius": 100.0, "d": 0.25, "status_effect": UnitData.OnHitEffect.FREEZE, "status_effect_duration": 3.0}],
+	["Tornado", {"radius": 110.0, "d": 0.5, "duration": 3.0, "tick_interval": 0.5, "status_effect": UnitData.OnHitEffect.PULL, "knockback_distance": 40.0}],
+	["🪵 Tronco", {"radius": 55.0, "d": 0.7, "rolls": true, "status_effect": UnitData.OnHitEffect.KNOCKBACK, "knockback_distance": 45.0}],
+	["🌋 Terremoto", {"radius": 120.0, "d": 0.5, "duration": 3.0, "tick_interval": 1.0, "base_damage_multiplier": 1.0, "status_effect": UnitData.OnHitEffect.SLOW, "status_effect_strength": 0.35}],
+	["💚 Cura", {"radius": 110.0, "h": 1.0, "duration": 3.0, "tick_interval": 0.5, "affects_enemies": false, "affects_allies": true}],
+	["💢 Fúria", {"radius": 120.0, "duration": 6.0, "affects_enemies": false, "affects_allies": true, "rage_damage_mult": 1.35, "rage_speed_mult": 1.35, "rage_attack_speed_mult": 1.35}],
+	["Escudo", {"radius": 110.0, "s": 0.8, "affects_enemies": false, "affects_allies": true, "cleanses": true}],
+]
+
+
+func _apply_spell_mold(i: int):
+	var sp: SpellData = _work["spell"]
+	var mold: Dictionary = SPELL_MOLDS[i][1]
+	var blank = SpellData.new()
+	for f in CustomContent.SPELL_FIELDS:        # zera tudo pro padrão antes: molde não mistura com o que tinha
+		if str(f[2]) != "scene" and blank.get(f[0]) != null:
+			sp.set(f[0], blank.get(f[0]))
+	sp.summon_count = 0
+	for k in mold:
+		if !(k in ["d", "h", "s"]):
+			sp.set(k, mold[k])
+	var std = Regua.spell_standard()
+	var cost = maxf(float(_work["card"].cost), 1.0)
+	var pulses = maxi(Regua.spell_pulses(sp), 1)
+	sp.damage = int(round(float(std["dmg_c"]) * cost * float(mold.get("d", 0.0)) / pulses / 5.0)) * 5
+	sp.heal_amount = int(round(float(std["cura_c"]) * cost * float(mold.get("h", 0.0)) / pulses / 5.0)) * 5
+	sp.shield_amount = int(round(float(std["dmg_c"]) * cost * float(mold.get("s", 0.0)) / 10.0)) * 10
+	_build_ed_body()
+	_refresh_head()
+
+
+## o feitiço contado em português, pra conferir de bate-pronto o que ele faz
+func _spell_summary(sp: SpellData) -> String:
+	if sp.mirror:
+		return "Espelho: repete a última carta que você jogou."
+	var parts: Array = []
+	var n = maxi(Regua.spell_pulses(sp), 1)
+	var who: Array = []
+	if sp.affects_enemies:
+		who.append("inimigos")
+	if sp.affects_allies:
+		who.append("aliados")
+	var head = "Num raio de %d" % int(sp.radius)
+	if sp.rolls:
+		head = "Rola %d pra frente (largura %d)" % [int(sp.roll_distance), int(sp.radius * 2)]
+	head += ", " + ("na hora" if sp.duration <= 0.0 else "por %.1fs (%d pulsos)" % [sp.duration, n])
+	head += ", pega " + (" e ".join(who) if !who.is_empty() else "NINGUÉM (ligue inimigos ou aliados)")
+	if sp.picks_strongest > 0:
+		head += " — só os %d de mais vida" % sp.picks_strongest
+	if sp.damage > 0:
+		parts.append("dano %d" % (sp.damage * n) + ((" (%d x %d)" % [sp.damage, n]) if n > 1 else "") + ", nas torres %d" % int(round(sp.damage * n * sp.base_damage_multiplier)))
+	if int(sp.status_effect) > 0:
+		var e = str(CustomContent.EFFECT_NAMES[clampi(int(sp.status_effect), 0, CustomContent.EFFECT_NAMES.size() - 1)]).to_lower()
+		parts.append(e + ((" por %.1fs" % sp.status_effect_duration) if sp.status_effect_duration > 0.0 else ""))
+	if sp.heal_amount > 0:
+		parts.append("cura %d" % (sp.heal_amount * n))
+	if sp.shield_amount > 0:
+		parts.append("escudo de %d" % sp.shield_amount)
+	if sp.rage_damage_mult > 1.0 or sp.rage_speed_mult > 1.0 or sp.rage_attack_speed_mult > 1.0:
+		parts.append("fúria (dano x%.2f, passo x%.2f, ataque x%.2f)" % [sp.rage_damage_mult, sp.rage_speed_mult, sp.rage_attack_speed_mult])
+	if sp.cleanses:
+		parts.append("tira efeitos ruins")
+	if sp.summon_scene != null and sp.summon_count > 0:
+		parts.append("invoca %d tropa(s)" % sp.summon_count)
+	if parts.is_empty():
+		return head + ". ⚠ Ainda não faz nada: ponha dano, cura, efeito, fúria, escudo ou invocação."
+	return head + ": " + "; ".join(parts) + "."
 
 
 func _tab_efeito():
@@ -1656,6 +1736,18 @@ func _tab_efeito():
 	for f in CustomContent.SPELL_FIELDS:
 		defs[f[0]] = f
 	var used := {}
+	_readout = _note("", Color(0.75, 0.95, 1.0))
+	_readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_field_box.add_child(_readout)
+	_update_readout()
+	_section("Moldes prontos (na força do custo %d)" % int(_work["card"].cost))
+	var flow = HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 6)
+	flow.add_theme_constant_override("v_separation", 6)
+	_field_box.add_child(flow)
+	for i in SPELL_MOLDS.size():
+		flow.add_child(_button(str(SPELL_MOLDS[i][0]), _apply_spell_mold.bind(i)))
+	_field_box.add_child(_note("Um toque monta o feitiço inteiro e apaga o que tinha nesta aba. Depois é só ajustar os números embaixo."))
 	for g in SPELL_GROUPS:
 		_section(str(g[0]))
 		for prop in g[1]:

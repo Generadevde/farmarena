@@ -87,12 +87,14 @@ func _refresh_level_label():
 func _process(delta):
 	if card == null:
 		return
-	disabled = GameManager.player_money < card.cost
+	# sem recurso a carta fica escura, mas DÁ pra selecionar (igual no Clash): você já deixa
+	# ela na mão e solta assim que o recurso chegar
+	var poor = GameManager.player_money < card.cost
 	var battle = get_tree().get_first_node_in_group("battle_scene")
-	var is_selected = battle and battle.selected_card == card
+	var is_selected = battle and battle.selected_card == card and (battle.selected_hand_index < 0 or battle.selected_hand_index == hand_index)
 	if _view != null:
 		# sem recurso = carta escura; selecionada = sobe e brilha
-		_view.modulate = Color(0.45, 0.45, 0.5) if disabled else Color(1, 1, 1)
+		_view.modulate = (Color(0.7, 0.7, 0.75) if is_selected else Color(0.45, 0.45, 0.5)) if poor else Color(1, 1, 1)
 		_view.position.y = lerpf(_view.position.y, -18.0 if is_selected else 0.0, minf(1.0, delta * 14.0))
 		if _view.selected != is_selected:
 			_view.set_selected(is_selected)
@@ -116,8 +118,6 @@ func _gui_input(event):
 				# tava arrastando -- solta o dedo e já tenta confirmar o
 				# posicionamento ali mesmo, sem precisar de um segundo toque
 				_is_dragging = false
-				if disabled:
-					return
 				var battle = get_tree().get_first_node_in_group("battle_scene")
 				if battle:
 					battle.try_confirm_placement_at(battle.get_global_mouse_position())
@@ -125,11 +125,14 @@ func _gui_input(event):
 			else:
 				# toque rápido, sem arrastar -- comportamento clássico:
 				# seleciona e espera um toque separado no campo pra confirmar
-				if disabled:
-					return
+				# tocar na carta que já está selecionada SOLTA ela; tocar em outra troca a
+				# seleção. Nunca usa a carta: carta só sai com toque (ou arrasto) no campo
 				var battle = get_tree().get_first_node_in_group("battle_scene")
 				if battle:
-					battle.select_card(card, hand_index)
+					if battle.selected_card == card and battle.selected_hand_index == hand_index:
+						battle.clear_selection()
+					else:
+						battle.select_card(card, hand_index)
 					get_viewport().set_input_as_handled()
 
 	elif event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
@@ -138,10 +141,9 @@ func _gui_input(event):
 			# partir de agora, cancela a chance de virar popup de segurar
 			_is_dragging = true
 			_cancel_hold_timer()
-			if !disabled:
-				var battle = get_tree().get_first_node_in_group("battle_scene")
-				if battle:
-					battle.select_card(card, hand_index)
+			var battle = get_tree().get_first_node_in_group("battle_scene")
+			if battle:
+				battle.select_card(card, hand_index)
 
 
 func _start_hold_timer():

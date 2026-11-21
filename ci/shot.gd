@@ -379,6 +379,12 @@ func _creator_shots():
 	cr._show_ed_tab(1)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("criador_feitico")
+	for mi in cr.SPELL_MOLDS.size():
+		cr._apply_spell_mold(mi)
+		print("MOLDE ", cr.SPELL_MOLDS[mi][0], " -> ", cr._spell_summary(cr._work["spell"]))
+	cr._apply_spell_mold(5)
+	await get_tree().create_timer(0.4).timeout
+	await _shot("criador_feitico_molde")
 	cr._show_ed_tab(3)
 	await get_tree().create_timer(0.4).timeout
 	await _shot("criador_feitico_teste")

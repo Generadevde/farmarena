@@ -2507,6 +2507,12 @@ func try_confirm_placement_at(click_pos: Vector2) -> bool:
 
 	if selected_hand_index >= 0:
 		DeckManager.play_card(selected_hand_index)
+	clear_selection()
+	return true
+
+
+## solta a carta selecionada sem usar (tocar nela de novo, ou depois de jogar)
+func clear_selection():
 	selected_card = null
 	selected_hand_index = -1
 	for p in preview_units:
@@ -2519,8 +2525,6 @@ func try_confirm_placement_at(click_pos: Vector2) -> bool:
 	if spell_preview != null:
 		spell_preview.queue_free()
 		spell_preview = null
-
-	return true
 
 
 func _on_production_timer_timeout():

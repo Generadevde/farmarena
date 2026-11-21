@@ -2017,6 +2017,18 @@ func _new_mechanics_test():
 	Config.data["so_normal"] = so_before
 	if weather_on != 0 or weather_off == 0:
 		_aud_bad.append("so batalha normal: com a opcao %d modificadores, sem ela %d em 400" % [weather_on, weather_off])
+	# selecionar SEM recurso: a carta fica selecionada, o toque no campo não gasta nem solta
+	# a seleção, e clear_selection solta
+	var sel_card: CardData = Catalogo.card("vaca_brava")
+	var money_keep = GameManager.player_money
+	GameManager.player_money = 0
+	battle.select_card(sel_card, -1)
+	var placed = battle.try_confirm_placement_at(ArenaBuilder.CENTER + Vector2(0, 200))
+	var kept = battle.selected_card == sel_card
+	battle.clear_selection()
+	if placed or !kept or battle.selected_card != null or GameManager.player_money != 0:
+		_aud_bad.append("selecionar sem recurso: jogou=%s manteve=%s limpou=%s" % [str(placed), str(kept), str(battle.selected_card == null)])
+	GameManager.player_money = money_keep
 	# tipos de projétil: todos desenham alguma coisa em 16x16 e são bastante
 	var proj_bad: Array = []
 	for k in SpriteForge.pieces("proj"):
