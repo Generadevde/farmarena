@@ -55,7 +55,7 @@ func _ready():
 	# os testes de mecânica (empurrão, congelar, efeitos...) foram montados no
 	# campo de 2 torres e medem a tropa, não o campo: o portão no meio só
 	# atrapalharia a medida. Torres, simulação e partidas usam o campo de verdade
-	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo", "torres", "novas"]:
+	if mode in ["empurrao", "congelar", "regras", "tornado", "antigas", "habilidades", "efeitos", "corpo", "torres", "novas", "geral"]:
 		Regras.forced["portao"] = false
 		Regras.forced["modulos"] = false   # mecânica de tropa é medida no campo antigo de 2 torres
 	if mode == "torres":
@@ -75,6 +75,10 @@ func _ready():
 		return
 	if mode == "torres":
 		await _towers_test()
+		get_tree().quit()
+		return
+	if mode == "geral":
+		await _general_audit()
 		get_tree().quit()
 		return
 	if mode == "novas":
@@ -2411,3 +2415,313 @@ func _new_mechanics_test():
 	_check("chave da assembleia desliga os ajustes", hp_adj > hp_raw and hp_off == hp_raw and DeckBuilder.get_unit_stats(vaca).hp == hp_raw, "%d %d %d" % [hp_raw, hp_adj, hp_off])
 	_check("começar do zero esconde as cartas do jogo e desligar devolve", zero_n == zero_want and zero_n < all_n and zd.size() == (8 if zero_want > 0 else 0) and CardDatabase.all_cards.size() == all_n, "%d -> %d -> %d" % [all_n, zero_n, CardDatabase.all_cards.size()])
 	print("RESULTADO novas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
+
+
+# ---------------------------------------------------------------- GERAL DAS HABILIDADES
+## As habilidades do Criador que não tinham teste, mais as novas (salto, vários avanços,
+## investida, esquenta, acelera perto do alvo). Cada uma numa cena pequena e medida.
+func _hits_on(victim, seconds: float) -> Array:
+	var drops: Array = []
+	var last = victim.current_hp
+	var t = 0.0
+	while t < seconds:
+		await get_tree().create_timer(0.05).timeout
+		t += 0.05
+		if !is_instance_valid(victim):
+			break
+		if victim.current_hp < last:
+			drops.append(int(last - victim.current_hp))
+		last = victim.current_hp
+	return drops
+
+
+func _top_speed(u, seconds: float) -> float:
+	var top = 0.0
+	var t = 0.0
+	while t < seconds:
+		await get_tree().create_timer(0.05).timeout
+		t += 0.05
+		if is_instance_valid(u):
+			top = maxf(top, u.velocity.length())
+	return top
+
+
+func _general_audit():
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().physics_frame
+	battle.get_node("Timer").stop()
+	battle.set_process(false)
+	battle.get_node("ProductionTimer").stop()
+	_aud_bad.clear()
+	_aud_ok.clear()
+	var P = GameManager.Team.PLAYER
+	var E = GameManager.Team.ENEMY
+	for b in get_tree().get_nodes_in_group("enemy_base") + get_tree().get_nodes_in_group("player_base"):
+		b.max_hp = 9999999
+		b.hp = 9999999
+		b.set_process(false)          # torre nenhuma atira: só a habilidade em teste mexe na vida
+		b.set_physics_process(false)
+	var mid = ArenaBuilder.CENTER + Vector2(135, 150)
+	var anchor: Vector2 = get_tree().get_first_node_in_group("player_base").global_position
+	var u
+	var d
+	var drops: Array
+
+	# 1) investida do príncipe: corre mais enquanto carrega e o golpe sai em dobro
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -90))
+	u = (await _put_card(_make({"charge_attack": true, "charge_distance_needed": 50.0, "charge_damage_multiplier": 2.0, "charge_speed_mult": 2.0}), P, mid + Vector2(0, 150)))[0]
+	var cues := {}
+	var sp_charge = 0.0
+	drops = []
+	var last_hp = d.current_hp
+	for k in 90:
+		await get_tree().create_timer(0.05).timeout
+		if is_instance_valid(u):
+			sp_charge = maxf(sp_charge, u.velocity.length())
+			if u.ability_cue != "":
+				cues[u.ability_cue] = true
+		if d.current_hp < last_hp:
+			drops.append(int(last_hp - d.current_hp))
+		last_hp = d.current_hp
+	_check("investida: corre mais e bate em dobro", sp_charge >= 95.0 and !drops.is_empty() and drops[0] >= 110, "velocidade %d (normal 55), golpes %s" % [int(sp_charge), str(drops.slice(0, 3))])
+	_check("animação: mostra que está acelerando e que o golpe forte está pronto", cues.keys().any(func(c): return "acelerando" in c) and cues.keys().any(func(c): return "golpe forte" in c or "carregando" in c), str(cues.keys()))
+
+	# 2) primeiro ataque mais forte
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0))
+	u = (await _put_card(_make({"first_attack_bonus": true, "first_attack_multiplier": 3.0}), P, mid + Vector2(0, 40)))[0]
+	drops = await _hits_on(d, 3.5)
+	_check("1º ataque mais forte", drops.size() >= 2 and drops[0] >= 170 and drops[1] <= 70, str(drops.slice(0, 3)))
+
+	# 3) ataca cada vez mais rápido
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0))
+	u = (await _put_card(_make({"ramping_attack_speed": true, "attack_speed_ramp_per_hit": 0.25, "attack_speed_ramp_min_multiplier": 0.3}), P, mid + Vector2(0, 40)))[0]
+	drops = await _hits_on(d, 6.0)
+	_check("ataca cada vez mais rápido", drops.size() >= 8, "%d golpes em 6s (sem a habilidade: ~6)" % drops.size())
+
+	# 4) acelera quando chega perto do alvo (a que parecia não funcionar)
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -90))
+	u = (await _put_card(_make({"pre_attack_speed_boost": true, "pre_attack_boost_multiplier": 2.5, "pre_attack_boost_range": 170.0}), P, mid + Vector2(0, 170)))[0]
+	var sp_far = await _top_speed(u, 0.6)
+	var sp_near = await _top_speed(u, 2.5)
+	drops = await _hits_on(d, 2.5)
+	var sp_after = u.velocity.length() if is_instance_valid(u) else -1.0
+	_check("acelera quando chega perto do alvo", sp_far <= 75.0 and sp_near >= 110.0 and !drops.is_empty(), "longe %d, perto %d, depois do golpe %d" % [int(sp_far), int(sp_near), int(sp_after)])
+
+	# 5) executa alvo fraco
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0), 1000)
+	d.current_hp = 300
+	u = (await _put_card(_make({"execute_threshold": 0.5, "execute_damage_mult": 3.0}), P, mid + Vector2(0, 40)))[0]
+	drops = await _hits_on(d, 2.5)
+	_check("executa alvo fraco", !drops.is_empty() and drops[0] >= 170, str(drops.slice(0, 2)))
+
+	# 6) projétil que atravessa: acerta o alvo e quem está atrás na linha
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -20))
+	var behind = await _dummy(E, mid + Vector2(0, -75))
+	u = (await _put_card(_make({"is_ranged": true, "attack_range": 150.0, "projectile_pierces": true, "projectile_max_targets": 3, "move_speed": 0.0}), P, mid + Vector2(0, 110)))[0]
+	await get_tree().create_timer(3.0).timeout
+	_check("projétil atravessa", d.current_hp < 99999 and behind.current_hp < 99999, "%d %d" % [d.current_hp, behind.current_hp])
+
+	# 7) projétil que se divide
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -20))
+	var side_a = await _dummy(E, mid + Vector2(60, -20))
+	u = (await _put_card(_make({"is_ranged": true, "attack_range": 150.0, "projectile_splits": true, "projectile_split_count": 2, "projectile_split_range": 120.0, "move_speed": 0.0}), P, mid + Vector2(0, 110)))[0]
+	u.target = d
+	await get_tree().create_timer(3.0).timeout
+	_check("projétil se divide", d.current_hp < 99999 and side_a.current_hp < 99999, "%d %d" % [d.current_hp, side_a.current_hp])
+
+	# 8) redução de dano
+	await _wipe()
+	u = (await _put_card(_make({"damage_reduction_percent": 0.5, "hp": 2000}), P, mid + Vector2(0, 40)))[0]
+	var hp0 = u.current_hp
+	u.take_damage(200)
+	_check("redução de dano", hp0 - u.current_hp == 100, str(hp0 - u.current_hp))
+
+	# 9) regenera vida
+	await _wipe()
+	u = (await _put_card(_make({"passive_regen": true, "regen_amount": 50, "regen_interval": 0.5, "hp": 2000}), P, mid + Vector2(0, 40)))[0]
+	u.take_damage(1000)
+	hp0 = u.current_hp
+	await get_tree().create_timer(1.6).timeout
+	_check("regenera vida", is_instance_valid(u) and u.current_hp >= hp0 + 100, "%d -> %d" % [hp0, u.current_hp if is_instance_valid(u) else -1])
+
+	# 10) cura ao matar
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0), 30)
+	u = (await _put_card(_make({"heals_on_kill": true, "heal_on_kill_amount": 300, "hp": 2000}), P, mid + Vector2(0, 40)))[0]
+	u.take_damage(1000)
+	hp0 = u.current_hp
+	await get_tree().create_timer(2.5).timeout
+	_check("cura ao matar", is_instance_valid(u) and u.current_hp >= hp0 + 250, "%d -> %d" % [hp0, u.current_hp if is_instance_valid(u) else -1])
+
+	# 11) ressuscita 1x
+	await _wipe()
+	u = (await _put_card(_make({"can_resurrect": true, "resurrect_hp_percent": 0.5, "hp": 1000}), P, mid + Vector2(0, 40)))[0]
+	u.take_damage(99999)
+	await get_tree().create_timer(0.3).timeout
+	var alive1 = is_instance_valid(u) and u.current_hp > 0
+	if alive1:
+		u.take_damage(99999)
+	await get_tree().create_timer(0.3).timeout
+	_check("ressuscita 1x (e só 1x)", alive1 and (!is_instance_valid(u) or u.current_hp <= 0 or u.is_queued_for_deletion()), "voltou=%s" % str(alive1))
+
+	# 12) reflete dano
+	await _wipe()
+	u = (await _put_card(_make({"reflects_damage": true, "reflect_damage_percent": 0.5, "hp": 9000, "damage": 5}), P, mid + Vector2(0, 40)))[0]
+	var foe = (await _put_card(_make({"hp": 5000, "damage": 100}), E, mid + Vector2(0, 0)))[0]
+	await get_tree().create_timer(3.5).timeout
+	_check("reflete dano", is_instance_valid(foe) and (5000 - foe.current_hp) >= 100, "o agressor perdeu %d" % (5000 - foe.current_hp if is_instance_valid(foe) else -1))
+
+	# 13) e 14) imune a empurrão e a puxão
+	await _wipe()
+	u = (await _put_card(_make({"immune_to_knockback": true, "immune_to_pull": true, "move_speed": 0.0}), P, mid + Vector2(0, 40)))[0]
+	var free_u = (await _put_card(_make({"move_speed": 0.0}), P, mid + Vector2(120, 40)))[0]
+	await get_tree().create_timer(0.2).timeout
+	var p_u = u.global_position
+	var p_f = free_u.global_position
+	u.apply_knockback(u.global_position + Vector2(0, -30), 70.0)
+	free_u.apply_knockback(free_u.global_position + Vector2(0, -30), 70.0)
+	await get_tree().create_timer(0.8).timeout
+	var kb_ok = u.global_position.distance_to(p_u) < 6.0 and free_u.global_position.distance_to(p_f) > 20.0
+	p_u = u.global_position
+	u.apply_pull(u.global_position + Vector2(0, -120), 70.0)
+	await get_tree().create_timer(0.8).timeout
+	_check("imune a empurrão e a puxão", kb_ok and u.global_position.distance_to(p_u) < 6.0, "empurrão ok=%s, puxão moveu %d" % [str(kb_ok), int(u.global_position.distance_to(p_u))])
+
+	# 15) imune enquanto anda
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -160))
+	u = (await _put_card(_make({"immune_while_moving": true, "hp": 2000, "detection_range": 400.0}), P, mid + Vector2(0, 170)))[0]
+	var moved_at = -1.0
+	var t_m = 0.0
+	while t_m < 3.0 and moved_at < 0.0:      # espera ela sair do lugar (tem o tempinho de entrada em campo)
+		await get_tree().create_timer(0.05).timeout
+		t_m += 0.05
+		if u.velocity.length() > 20.0 and u._really_moving:
+			moved_at = t_m
+	hp0 = u.current_hp
+	u.take_damage(300)
+	_check("imune enquanto anda", moved_at >= 0.0 and u.current_hp == hp0, "começou a andar em %.1fs, perdeu %d andando" % [moved_at, hp0 - u.current_hp])
+
+	# 16) fúria com vida baixa
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0))
+	u = (await _put_card(_make({"low_hp_rage_threshold": 0.5, "low_hp_rage_damage_mult": 3.0, "hp": 1000}), P, mid + Vector2(0, 40)))[0]
+	u.current_hp = 200
+	drops = await _hits_on(d, 2.5)
+	_check("fúria com vida baixa", !drops.is_empty() and drops[0] >= 170, str(drops.slice(0, 2)))
+
+	# 17) fúria ao entrar
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0))
+	u = (await _put_card(_make({"entrance_rage_duration": 5.0, "entrance_rage_damage_mult": 3.0, "entrance_rage_speed_mult": 1.0}), P, mid + Vector2(0, 40)))[0]
+	drops = await _hits_on(d, 2.5)
+	_check("fúria ao entrar", !drops.is_empty() and drops[0] >= 170, str(drops.slice(0, 2)))
+
+	# 18) onda de choque ao entrar e 19) dano ao chegar (acontecem onde a tropa nasce)
+	await _wipe()
+	d = await _dummy(E, anchor + Vector2(35, -35))
+	await _put_card(_make({"entrance_shockwave_damage": 120, "entrance_shockwave_radius": 90.0}), P, mid)
+	await get_tree().create_timer(0.4).timeout
+	var shock = 99999 - d.current_hp
+	d.current_hp = 99999
+	await _put_card(_make({"deals_arrival_damage": true, "arrival_damage": 130, "arrival_damage_radius": 90.0}), P, mid)
+	await get_tree().create_timer(1.6).timeout
+	_check("onda de choque ao entrar e dano ao chegar", shock >= 120 and 99999 - d.current_hp >= 130, "onda %d, chegada %d" % [shock, 99999 - d.current_hp])
+
+	# 20) fica invisível: de longe não é alvo, de perto é
+	await _wipe()
+	u = (await _put_card(_make({"can_stealth": true, "stealth_reveal_range": 60.0, "move_speed": 0.0}), P, mid + Vector2(0, 40)))[0]
+	var watcher_far = await _dummy(E, mid + Vector2(0, -200))
+	var watcher_near = await _dummy(E, mid + Vector2(30, 40))
+	await get_tree().create_timer(0.2).timeout
+	_check("invisível de longe, visível de perto", !watcher_far._is_valid_enemy(u) and watcher_near._is_valid_enemy(u))
+
+	# 21) nasce em qualquer lugar e 22) reforço aéreo (pousa: fica um instante sem agir)
+	var any_card = _make({"can_spawn_anywhere": true})
+	_check("nasce em qualquer lugar", battle._card_allows_spawn_anywhere(any_card) and !battle._card_allows_spawn_anywhere(_make({})))
+	await _wipe()
+	var lc = _make({"landing_duration": 1.5})
+	battle.spawn_unit(lc.unit_scene, P, mid, lc)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var lander = null
+	for x in get_tree().get_nodes_in_group("units"):
+		if x.team == P:
+			lander = x
+	_check("reforço aéreo pousa antes de agir", lander != null and lander._is_incapacitated(), str(lander != null))
+
+	# 23) invoca ao morrer
+	await _wipe()
+	var sc = _make({"spawns_on_death": true, "death_spawn_count": 2, "hp": 100})
+	u = (await _put_card(sc, P, mid + Vector2(0, 40)))[0]
+	u.stats.death_spawn_scene = sc.unit_scene
+	u.stats.spawns_on_death = true
+	var n_before = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion()).size()
+	u.take_damage(99999)
+	await get_tree().create_timer(0.6).timeout
+	var n_after = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and !x.is_queued_for_deletion() and x.current_hp > 0).size()
+	_check("invoca ao morrer", n_after >= 2, "antes %d, depois %d" % [n_before, n_after])
+
+	# 24) provoca: o inimigo larga o alvo mais perto e vem nela
+	await _wipe()
+	var bait = (await _put_card(_make({"hp": 9000, "move_speed": 0.0}), P, mid + Vector2(20, 20)))[0]
+	var taunter = (await _put_card(_make({"forces_aggro": true, "taunt_radius": 200.0, "hp": 9000, "move_speed": 0.0}), P, mid + Vector2(-60, 60)))[0]
+	foe = (await _put_card(_make({"hp": 5000, "detection_range": 300.0}), E, mid + Vector2(20, -10)))[0]
+	foe._reset_aggro()
+	await get_tree().create_timer(2.5).timeout
+	_check("provoca", is_instance_valid(foe) and foe.target == taunter, "alvo: %s" % ("a provocadora" if (is_instance_valid(foe) and foe.target == taunter) else ("a isca" if (is_instance_valid(foe) and foe.target == bait) else "outro/nenhum")))
+
+	# 25) explode ao morrer
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(30, 40))
+	u = (await _put_card(_make({"explodes_on_death": true, "death_explosion_damage": 200, "death_explosion_radius": 90.0, "hp": 100}), P, mid + Vector2(0, 40)))[0]
+	u.take_damage(99999)
+	await get_tree().create_timer(0.5).timeout
+	_check("explode ao morrer", 99999 - d.current_hp >= 200, str(99999 - d.current_hp))
+
+	# --- AS NOVAS
+	# vários avanços (bandida): avança mais de uma vez no mesmo alvo
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -180))
+	u = (await _put_card(_make({"bandit_dash": true, "dash_speed_multiplier": 3.0, "dash_duration": 0.25, "dash_repeats": true, "dash_cooldown": 0.6, "dash_min_range": 30.0, "dash_damage_mult": 2.0, "move_speed": 30.0, "detection_range": 500.0}), P, mid + Vector2(0, 200)))[0]
+	u._reset_aggro()
+	var bursts = 0
+	var was_fast = false
+	var t_d = 0.0
+	while t_d < 6.0:
+		await get_tree().create_timer(0.05).timeout
+		t_d += 0.05
+		var fast = is_instance_valid(u) and u.velocity.length() >= 70.0
+		if fast and !was_fast:
+			bursts += 1
+		was_fast = fast
+	_check("vários avanços", bursts >= 2, "%d avanços em 6s" % bursts)
+
+	# salto (mega cavaleiro): sai do chão, cai no alvo e dá dano em área
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -80))
+	var jump_side = await _dummy(E, mid + Vector2(40, -80))
+	u = (await _put_card(_make({"jump_attack": true, "jump_min_range": 60.0, "jump_max_range": 260.0, "jump_damage": 200, "jump_radius": 90.0, "jump_cooldown": 0.5, "move_speed": 20.0, "damage": 1, "detection_range": 400.0}), P, mid + Vector2(0, 90)))[0]
+	u._reset_aggro()
+	var start_gap = u.global_position.distance_to(d.global_position)
+	await get_tree().create_timer(3.5).timeout
+	_check("salto cai no alvo com dano em área", is_instance_valid(u) and u.global_position.distance_to(d.global_position) < start_gap * 0.6 and 99999 - d.current_hp >= 200 and 99999 - jump_side.current_hp >= 200,
+		"distância %d -> %d, dano %d e %d" % [int(start_gap), int(u.global_position.distance_to(d.global_position)) if is_instance_valid(u) else -1, 99999 - d.current_hp, 99999 - jump_side.current_hp])
+
+	# esquenta: depois de um tempo em campo bate mais forte
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, 0))
+	u = (await _put_card(_make({"late_boost_after": 2.5, "late_boost_damage_mult": 3.0}), P, mid + Vector2(0, 40)))[0]
+	drops = await _hits_on(d, 5.5)
+	_check("esquenta depois de um tempo em campo (e mostra)", drops.size() >= 4 and drops[0] <= 70 and drops[-1] >= 170 and is_instance_valid(u) and "esquentou" in u.ability_cue, "%s, mostrando '%s'" % [str(drops), u.ability_cue if is_instance_valid(u) else "?"])
+
+	print("GERAL ok (", _aud_ok.size(), "): ", _aud_ok)
+	print("RESULTADO geral COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

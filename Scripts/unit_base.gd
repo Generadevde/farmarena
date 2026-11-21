@@ -493,6 +493,7 @@ func _process(delta):
 		squash = walk[2]
 	if moving and absf(velocity.x) > 6.0:
 		sprite.flip_h = velocity.x < 0
+	pos.y -= _jump_height   # SALTO: o desenho sobe no arco do pulo
 	if _lunge.length_squared() > 0.05:
 		pos += _lunge
 		_lunge = _lunge.lerp(Vector2.ZERO, minf(1.0, delta * 11.0))
@@ -763,6 +764,7 @@ func _physics_process(delta):
 
 	_process_extras(delta)
 	_process_new_mechanics(delta)
+	_process_ability_fx(delta)
 	_process_poison(delta)
 	_update_status_modulate()
 
@@ -815,8 +817,7 @@ func _physics_process(delta):
 		target = null
 		_windup_left = -1.0
 		find_target()
-		if target != null and stats.pre_attack_speed_boost:
-			apply_speed_multiplier(stats.pre_attack_boost_multiplier, stats.pre_attack_boost_duration)
+		_pre_attack_done = false   # alvo novo: pode acelerar de novo ao chegar perto dele
 
 	if target == null:
 		_move_towards_base()
@@ -1207,9 +1208,25 @@ func _process_combat(delta):
 
 func _get_move_speed() -> float:
 	var speed = stats.move_speed * speed_multiplier * module_speed_bonus * _rage_mult(_rage_speed)
+	var sprint = false
 	if _dash_time_remaining > 0:
 		speed *= stats.dash_speed_multiplier
-	if _formation_speed_cap >= 0.0:
+		sprint = true
+	# ACELERA PERTO DO ALVO: do momento em que chega perto até dar o primeiro golpe nele.
+	# (Antes acelerava por um tempinho assim que ACHAVA o alvo -- quase sempre a torre, lá do
+	# outro lado -- e o efeito acabava muito antes de chegar: parecia que não funcionava.)
+	if stats.pre_attack_speed_boost and !_pre_attack_done and target != null and is_instance_valid(target) and _gap_to(target) <= stats.pre_attack_boost_range:
+		speed *= stats.pre_attack_boost_multiplier
+		sprint = true
+	# INVESTIDA: já andou metade do caminho do golpe carregado = está correndo
+	if stats.charge_attack and stats.charge_speed_mult != 1.0 and _charge_distance_accumulated >= stats.charge_distance_needed * 0.5:
+		speed *= stats.charge_speed_mult
+		sprint = true
+	if _late_on:
+		speed *= stats.late_boost_speed_mult
+	_sprinting = sprint
+	# quem está correndo de propósito não espera a formação
+	if _formation_speed_cap >= 0.0 and !sprint:
 		speed = min(speed, _formation_speed_cap)
 	return speed
 
@@ -1469,6 +1486,12 @@ func _get_effective_damage() -> int:
 
 	if stats.grows_over_time:
 		dmg *= _grow_mult
+	if _late_on:
+		dmg *= stats.late_boost_damage_mult
+	if _dash_bonus_pending:
+		dmg *= stats.dash_damage_mult   # o golpe que vem logo depois de um avanço
+		_dash_bonus_pending = false
+	_pre_attack_done = true            # deu o golpe: a aceleração de chegada acabou
 	return round(dmg)
 
 
@@ -1488,9 +1511,85 @@ var _trail_last := Vector2.INF
 var _trap_sprung := false
 var _trap_shown := false
 var _blink_clock := 0.0
+var _pre_attack_done := false
+var _sprinting := false
+var _afx_clock := 0.0
+var _afx_tint := Color(1, 1, 1)
+var ability_cue := ""   # o que a tropa está mostrando agora (os testes leem isto)
+var _dash_clock := 0.0
+var _dash_bonus_pending := false
+var _jump_clock := 0.0
+var _jump_left := -1.0
+var _jump_from := Vector2.ZERO
+var _jump_to := Vector2.ZERO
+var _jump_height := 0.0
+var _late_on := false
+var _alive_t := 0.0
+const JUMP_TIME = 0.45
 var _repair_clock := 0.0
 var _ward_listed := false
 var _ward_fx := 0.0
+
+
+## ANIMAÇÃO DAS HABILIDADES: a tropa MOSTRA o que está fazendo -- risco de vento quando
+## acelera, brilho dourado quando o golpe forte está pronto, faísca enquanto carrega,
+## vermelho na fúria, laranja quando esquentou, verde regenerando.
+func _process_ability_fx(delta):
+	if is_preview or stats == null or current_hp <= 0 or !Regras.on("visual"):
+		return
+	var par = get_parent()
+	var sp: Sprite2D = get_node_or_null("Sprite2D")
+	var tint = Color(1, 1, 1)
+	var cue = ""
+	var moving = _really_moving and velocity.length() > 8.0
+	var charging = stats.charge_attack and moving and _charge_distance_accumulated >= stats.charge_distance_needed * 0.5
+	var charged = stats.charge_attack and _charge_distance_accumulated >= stats.charge_distance_needed
+	var strong_next = _dash_bonus_pending or (stats.first_attack_bonus and !_has_attacked_before and target != null and is_instance_valid(target)) or charged
+	var raging = (stats.low_hp_rage_threshold > 0.0 and float(current_hp) / maxf(float(stats.hp), 1.0) <= stats.low_hp_rage_threshold) or _rage_until > GameManager.game_time
+	var fast = moving and (_sprinting or _dash_time_remaining > 0.0)
+	if _late_on:
+		tint = Color(1.0, 0.8, 0.6)
+		cue = "esquentou"
+	if raging:
+		tint = Color(1.0, 0.72, 0.72)
+		cue = "furia"
+	if strong_next:
+		var pulse = 0.5 + 0.5 * sin(GameManager.game_time * 12.0)
+		tint = Color(1.0, 0.95, 0.55).lerp(Color(1, 1, 1), pulse * 0.5)
+		cue = "golpe forte pronto"
+	elif charging:
+		cue = "carregando"
+	if fast:
+		cue = "acelerando" if cue == "" or cue == "esquentou" else cue + " + acelerando"
+	if _jump_left >= 0.0:
+		cue = "saltando"
+	ability_cue = cue
+	if sp != null:
+		_afx_tint = _afx_tint.lerp(tint, minf(1.0, delta * 10.0))
+		sp.self_modulate = Color(_afx_tint.r, _afx_tint.g, _afx_tint.b, sp.self_modulate.a)
+	_afx_clock -= delta
+	if _afx_clock > 0.0:
+		return
+	_afx_clock = 0.14
+	var back = -velocity.normalized() if velocity.length() > 1.0 else Vector2.ZERO
+	if fast:
+		# riscos de vento e poeira saindo por trás
+		Fx.burst(par, position + back * 10.0 + Vector2(0, 8.0 * _visual_scale), Color(1, 1, 1, 0.8), 2, 30.0, 2.5)
+		Fx.slash(par, position + back * 14.0, back, 12.0 * _visual_scale, 50.0, Color(1, 1, 1, 0.7))
+	if charging and !charged:
+		Fx.burst(par, position + Vector2(randf_range(-8, 8), randf_range(-16, 0)) * _visual_scale, Color(1.0, 0.9, 0.4), 1, 20.0, 2.5)
+	if strong_next:
+		Fx.ring(par, position, 14.0 * _visual_scale, Color(1.0, 0.9, 0.35, 0.8), 0.25)
+	if raging and randf() < 0.5:
+		Fx.burst(par, position + Vector2(0, -20.0 * _visual_scale), Color(1.0, 0.35, 0.25), 1, 30.0, 3.0)
+	if _late_on and randf() < 0.4:
+		Fx.burst(par, position + Vector2(randf_range(-6, 6), -14.0 * _visual_scale), Color(1.0, 0.6, 0.2), 1, 26.0, 3.0)
+	if stats.passive_regen and current_hp < stats.hp and randf() < 0.3:
+		Fx.text(par, position + Vector2(randf_range(-8, 8), -22.0 * _visual_scale), "+", Color(0.45, 1.0, 0.5), 0.5)
+	if stats.ramping_damage and _damage_ramp_multiplier > 1.05 and randf() < 0.25:
+		Fx.burst(par, position + Vector2(0, -24.0 * _visual_scale), Color(1.0, 0.5, 0.2), 1, 18.0, 2.0 + 2.0 * (_damage_ramp_multiplier - 1.0))
+	if stats.damage_reduction_percent > 0.0 and randf() < 0.06:
+		Fx.ring(par, position, 16.0 * _visual_scale, Color(0.7, 0.8, 0.95, 0.5), 0.35)
 
 
 func _enemies_within(r: float, ground_only: bool = false) -> Array:
@@ -1540,6 +1639,46 @@ func _process_new_mechanics(delta):
 			_trail_last = global_position
 			Poca.drop(get_parent(), position, team, int(round(stats.trail_damage * _level_mult_safe())), stats.trail_radius, stats.trail_duration,
 				stats.trail_slow, Color(0.5, 0.85, 0.3) if stats.trail_slow <= 0.0 else Color(0.55, 0.4, 0.25))
+	# VÁRIOS AVANÇOS: o avanço da bandida volta a cada intervalo, se o alvo ainda está longe
+	if stats.bandit_dash and stats.dash_repeats and _has_dashed and _dash_time_remaining <= 0.0 and stats.unit_type != UnitData.UnitType.BUILDING:
+		_dash_clock += delta
+		if _dash_clock >= maxf(stats.dash_cooldown, 0.5) and target != null and is_instance_valid(target) and !_is_incapacitated() and _gap_to(target) >= stats.dash_min_range:
+			_start_bandit_dash()
+			if Regras.on("visual"):
+				Fx.puff(get_parent(), position, 0.7)
+	# ESQUENTA: depois de um tempo em campo ganha dano e/ou passo
+	if stats.late_boost_after > 0.0 and !_late_on:
+		_alive_t += delta
+		if _alive_t >= stats.late_boost_after:
+			_late_on = true
+			Fx.ring(get_parent(), position, 30.0, Color(1.0, 0.5, 0.2), 0.4)
+			Fx.text(get_parent(), position + Vector2(0, -30), "ESQUENTOU!", Color(1.0, 0.6, 0.25))
+	# SALTO: pula em cima do alvo a meia distância e cai dando dano em área
+	if stats.jump_attack and stats.unit_type != UnitData.UnitType.BUILDING:
+		if _jump_left >= 0.0:
+			_jump_left -= delta
+			var k = clampf(1.0 - _jump_left / JUMP_TIME, 0.0, 1.0)
+			global_position = _jump_from.lerp(_jump_to, k)
+			_jump_height = sin(k * PI) * 46.0
+			if _jump_left <= 0.0:
+				_jump_left = -1.0
+				_jump_height = 0.0
+				_slam = 1.0
+				_deal_area_damage(global_position, stats.jump_radius, int(round(stats.jump_damage * _level_mult_safe())))
+				Fx.burst(get_parent(), position, Color(0.78, 0.68, 0.5, 0.9), 12, 130.0, 3.5)
+		else:
+			_jump_clock += delta
+			if _jump_clock >= maxf(stats.jump_cooldown, 0.8) and target != null and is_instance_valid(target) and !_is_incapacitated():
+				var gap = _gap_to(target)
+				if gap >= stats.jump_min_range and gap <= stats.jump_max_range:
+					_jump_clock = 0.0
+					_hit_squash = 1.0   # agacha pra pegar impulso
+					Fx.ring(get_parent(), position, 18.0 * _visual_scale, Color(1, 1, 1, 0.7), 0.2)
+					_jump_left = JUMP_TIME
+					_jump_from = global_position
+					var to_t = target.global_position - global_position
+					_jump_to = global_position + to_t.normalized() * maxf(gap - 6.0, 0.0)
+					_spawn_invulnerable_until = maxf(_spawn_invulnerable_until, GameManager.game_time + JUMP_TIME)   # no ar ninguém acerta
 	# CONSERTA: devolve vida pras construções aliadas em volta (e torres, se ligado)
 	if stats.repairs_buildings:
 		_repair_clock += delta
@@ -1996,6 +2135,8 @@ func find_target():
 # usado pra invulnerabilidade de nascimento) e mais rápido por um tempo curto
 func _start_bandit_dash():
 	_has_dashed = true
+	_dash_clock = 0.0
+	_dash_bonus_pending = stats.dash_damage_mult != 1.0
 	_dash_time_remaining = stats.dash_duration
 	_spawn_invulnerable_until = GameManager.game_time + stats.dash_duration
 
@@ -2046,6 +2187,17 @@ func _check_for_closer_target():
 	if target == null or !is_instance_valid(target):
 		find_target()
 		return
+
+	# PROVOCA: quem provoca puxa até quem já está batendo em outro (antes só puxava quem ainda
+	# estava escolhendo alvo; a tropa que já tinha começado a bater ignorava a provocação)
+	if !("stats" in target) or target.stats == null or !target.stats.forces_aggro:
+		for body in $Area2D.get_overlapping_bodies():
+			if body != target and _is_valid_enemy(body) and "stats" in body and body.stats != null and body.stats.forces_aggro \
+					and global_position.distance_to(body.global_position) <= body.stats.taunt_radius:
+				_is_actively_attacking = false
+				_windup_left = -1.0
+				target = body
+				return
 
 	# já está atacando de verdade (dentro do alcance) -- não troca de foco só
 	# porque outra coisa ficou mais perto nesse meio tempo. Só troca se o

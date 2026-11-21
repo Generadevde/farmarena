@@ -910,13 +910,15 @@ const ABILITIES = [
 		["Ataque em cone", "frontal_cone_attack", ["cone_angle_degrees", "aoe_radius"], {"aoe_radius": 45.0}],
 		["Acerta +1 alvo", "aoe_hits_extra_one", [], {}],
 		["Ataque contínuo", "continuous_attack", ["continuous_damage_per_second"], {"continuous_damage_per_second": 60.0}],
-		["Golpe carregado", "charge_attack", ["charge_distance_needed", "charge_damage_multiplier", "charge_knockback_distance"], {}],
-		["Avanço instantâneo", "bandit_dash", ["dash_speed_multiplier", "dash_duration"], {}],
+		["Golpe carregado / investida (príncipe)", "charge_attack", ["charge_distance_needed", "charge_damage_multiplier", "charge_knockback_distance", "charge_speed_mult"], {"charge_speed_mult": 1.8}],
+		["Avanço instantâneo (bandida)", "bandit_dash", ["dash_speed_multiplier", "dash_duration", "dash_repeats", "dash_cooldown", "dash_min_range", "dash_damage_mult"], {}],
+		["Salto (mega cavaleiro): pula no alvo e cai em área", "jump_attack", ["jump_min_range", "jump_max_range", "jump_damage", "jump_radius", "jump_cooldown"], {}],
+		["Esquenta: depois de um tempo em campo fica mais forte", "late_boost_after", ["late_boost_damage_mult", "late_boost_speed_mult"], {"late_boost_after": 8.0}],
 		["1º ataque mais forte", "first_attack_bonus", ["first_attack_multiplier"], {}],
 		["Dano cresce a cada golpe", "ramping_damage", ["ramping_damage_per_hit", "ramping_damage_max_multiplier"], {}],
 		["Dano cresce no mesmo alvo", "same_target_ramping_damage", ["same_target_ramping_damage_per_hit", "same_target_ramping_damage_max_multiplier"], {}],
 		["Ataca cada vez mais rápido", "ramping_attack_speed", ["attack_speed_ramp_per_hit", "attack_speed_ramp_min_multiplier"], {}],
-		["Acelera ao achar alvo", "pre_attack_speed_boost", ["pre_attack_boost_multiplier", "pre_attack_boost_duration"], {}],
+		["Acelera quando chega perto do alvo", "pre_attack_speed_boost", ["pre_attack_boost_multiplier", "pre_attack_boost_range"], {}],
 		["Dano extra de longe", "distance_damage_bonus_per_100px", [], {"distance_damage_bonus_per_100px": 0.1}],
 		["Executa alvo fraco", "execute_threshold", ["execute_damage_mult"], {"execute_threshold": 0.2, "execute_damage_mult": 2.0}],
 		["Dano extra contra uma categoria", "extra_damage_vs_role_mult", ["extra_damage_vs_role"], {"extra_damage_vs_role_mult": 0.5}],
@@ -1330,7 +1332,7 @@ func _ability_on(st: UnitData, key: String) -> bool:
 func _tab_habilidades():
 	var st: UnitData = _work["stats"]
 	var defs = _field_defs()
-	var used := {"unit_scale": true, "anim_gait": true, "anim_hit": true, "anim_death": true, "anim_speed": true, "anim_amount": true}   # os anim_ moram na aba "Animação"
+	var used := {"unit_scale": true, "pre_attack_boost_duration": true, "anim_gait": true, "anim_hit": true, "anim_death": true, "anim_speed": true, "anim_amount": true}   # os anim_ moram na aba "Animação"
 	for p in CORE_PROPS:
 		used[p] = true
 	var on_total = 0

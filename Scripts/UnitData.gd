@@ -657,3 +657,23 @@ enum OnHitEffect {
 @export var ward_allies: bool = false
 @export var ward_radius: float = 110.0
 @export var ward_reduction: float = 0.3
+## ACELERA PERTO DO ALVO: distância (até a borda do alvo) em que o passo acelera, até dar o 1º golpe.
+@export var pre_attack_boost_range: float = 170.0
+## INVESTIDA (príncipe): enquanto carrega o golpe carregado, corre mais (1.0 = não acelera).
+@export var charge_speed_mult: float = 1.0
+## VÁRIOS AVANÇOS (bandida): o avanço instantâneo se repete a cada tantos segundos.
+@export var dash_repeats: bool = false
+@export var dash_cooldown: float = 3.0
+@export var dash_min_range: float = 70.0
+@export var dash_damage_mult: float = 1.0
+## SALTO (mega cavaleiro): pula em cima do alvo que está a meia distância e cai dando dano em área.
+@export var jump_attack: bool = false
+@export var jump_min_range: float = 80.0
+@export var jump_max_range: float = 190.0
+@export var jump_damage: int = 150
+@export var jump_radius: float = 70.0
+@export var jump_cooldown: float = 4.0
+## ESQUENTA: depois de tantos segundos em campo, ganha dano e/ou passo (0 = desligado).
+@export var late_boost_after: float = 0.0
+@export var late_boost_damage_mult: float = 1.5
+@export var late_boost_speed_mult: float = 1.0
