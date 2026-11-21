@@ -100,6 +100,15 @@ func scale_hp(mult: float):
 func _process(delta):
 	if base_data == null:
 		return
+	# regenera sozinha (habilidade de módulo)
+	if base_data.regen_per_second > 0 and hp > 0 and hp < max_hp:
+		_regen_acc += delta * base_data.regen_per_second
+		if _regen_acc >= 1.0:
+			var gain = int(_regen_acc)
+			_regen_acc -= gain
+			hp = mini(hp + gain, max_hp)
+			$ProgressBar.value = hp
+			_update_label()
 
 	# regras novas: TODA torre atira (as "de tiro" atiram melhor); o tipo
 	# continua dando o bônus dele (cura, aura, produção, capacidade, vida)
@@ -191,8 +200,28 @@ func _process_cannon(delta):
 
 	var is_cannon = base_data.base_type == BaseData.BaseType.CANNON
 	var dmg = int(round(Regras.tower_damage(base_data) * _level_multiplier * (Regras.gate_damage_share() if is_gate else 1.0)))
+	# dano que cresce no MESMO alvo (torre "inferno")
+	if base_data.ramp_per_shot > 0.0:
+		if target == _ramp_target:
+			_ramp_mult = minf(_ramp_mult + base_data.ramp_per_shot, maxf(base_data.ramp_max_mult, 1.0))
+		else:
+			_ramp_target = target
+			_ramp_mult = 1.0
+		dmg = int(round(dmg * _ramp_mult))
 	var shot_tex = _shot_texture()
 	_recoil()
+	# VÁRIOS ALVOS: os outros alvos da rajada levam o tiro direto (sem projétil)
+	if base_data.extra_targets > 0:
+		_skip_targets = [target]
+		for i in base_data.extra_targets:
+			var other = _find_closest_enemy()
+			if other == null:
+				break
+			_skip_targets.append(other)
+			Fx.ring(get_parent(), other.position, 12.0, Color(1.0, 0.9, 0.5), 0.2)
+			_apply_cannon_damage(other, _shot_damage_on(other, dmg))
+		_skip_targets = []
+	dmg = _shot_damage_on(target, dmg)
 
 	# --------------------------------------------------------
 	# COM PROJÉTIL VISUAL
@@ -211,6 +240,16 @@ func _process_cannon(delta):
 		proj.aoe_radius = base_data.aoe_radius
 
 		proj.attacker_team = team
+		proj.can_miss = base_data.projectile_can_miss
+		proj.launch_angle = base_data.projectile_launch_angle
+		proj.pierces = base_data.projectile_pierces
+		proj.max_targets = base_data.projectile_max_targets
+		proj.splits = base_data.projectile_splits
+		proj.split_count = base_data.projectile_split_count
+		proj.split_range = base_data.projectile_split_range
+		proj.chains = base_data.projectile_chains
+		proj.chain_max_targets = base_data.projectile_chain_max_targets
+		proj.chain_range = base_data.projectile_chain_range
 
 		# Efeitos: o tiro básico das outras torres é só dano (o efeito delas é a aura)
 		if is_cannon:
@@ -324,6 +363,15 @@ func _find_closest_enemy():
 
 		if !is_instance_valid(body):
 			continue
+		if body in _skip_targets:
+			continue   # já escolhido nesta rajada (torre de vários alvos)
+		if body.has_method("is_hidden") and body.is_hidden():
+			continue   # armadilha armada / construção escondida: a torre não vê
+		# QUEM este módulo acerta: chão, ar ou os dois
+		if base_data != null and base_data.targets != 0 and "stats" in body and body.stats != null:
+			var flying = body.stats.unit_type == UnitData.UnitType.AIR
+			if (base_data.targets == 1 and flying) or (base_data.targets == 2 and !flying):
+				continue
 
 		var dist = global_position.distance_to(body.global_position)
 
@@ -426,7 +474,34 @@ func _apply_base_effect_to(body):
 # DANO DA BASE
 # ============================================================
 
+var _skip_targets: Array = []
+var _ramp_target = null
+var _ramp_mult := 1.0
+var _regen_acc := 0.0
+
+
+## executa alvo fraco: o tiro sai multiplicado em quem está com pouca vida
+func _shot_damage_on(victim, dmg: int) -> int:
+	if base_data == null or base_data.execute_threshold <= 0.0 or victim == null or !is_instance_valid(victim):
+		return dmg
+	var frac = 1.0
+	if "current_hp" in victim and "stats" in victim and victim.stats != null:
+		frac = float(victim.current_hp) / maxf(float(victim.stats.hp), 1.0)
+	return int(round(dmg * base_data.execute_damage_mult)) if frac <= base_data.execute_threshold else dmg
+
+
 func take_damage(amount):
+	if base_data != null and amount > 0:
+		if base_data.damage_reduction_percent > 0.0:
+			amount = amount * (1.0 - clampf(base_data.damage_reduction_percent, 0.0, 0.9))
+		# devolve parte do dano pra quem está batendo de perto
+		if base_data.reflect_percent > 0.0 and !_reflecting:
+			_reflecting = true
+			for body in get_tree().get_nodes_in_group("units"):
+				if is_instance_valid(body) and "team" in body and body.team != team and body.get("target") == self \
+						and body.stats != null and !body.stats.is_ranged and global_position.distance_to(body.global_position) <= 110.0:
+					body.take_damage(int(round(amount * base_data.reflect_percent)))
+			_reflecting = false
 	hp = clamp(hp - amount, 0, max_hp)
 	if asleep and amount > 0:
 		wake()
@@ -502,7 +577,15 @@ func _spawn_guard():
 	Fx.text(get_parent(), position + Vector2(0, -40), "+ " + card.card_name, Color(0.7, 1.0, 0.7), 1.2)
 
 
+var _reflecting := false
+
+
 func die():
+	if base_data != null and base_data.death_explosion_damage > 0:
+		Fx.ring(get_parent(), position, base_data.death_explosion_radius, Color(1.0, 0.5, 0.2), 0.6)
+		for body in get_tree().get_nodes_in_group("units"):
+			if is_instance_valid(body) and "team" in body and body.team != team and global_position.distance_to(body.global_position) <= base_data.death_explosion_radius:
+				body.take_damage(int(round(base_data.death_explosion_damage * _level_multiplier)))
 	var bs0 = get_tree().get_first_node_in_group("battle_scene")
 	if bs0 != null and bs0.has_method("on_tower_lost"):
 		bs0.on_tower_lost(self)   # tira da partida o que este módulo dava (recurso, capacidade...)

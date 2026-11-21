@@ -677,3 +677,6 @@ enum OnHitEffect {
 @export var late_boost_after: float = 0.0
 @export var late_boost_damage_mult: float = 1.5
 @export var late_boost_speed_mult: float = 1.0
+## PROJÉTIL: pode errar (vai reto pra onde o alvo estava) e ângulo de saída (arco do tiro, em graus).
+@export var projectile_can_miss: bool = false
+@export var projectile_launch_angle: float = 0.0

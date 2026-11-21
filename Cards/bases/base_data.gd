@@ -88,6 +88,36 @@ enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO }
 ## Se marcado, o disparo do canhão causa dano em área ao redor do alvo
 ## atingido, em vez de só nele -- mesmo mecanismo de dano em área que
 ## unidade à distância com Is Aoe ligado já usa
+## QUEM a torre consegue acertar: 0 = chão e ar, 1 = só chão, 2 = só ar
+@export var targets: int = 0
+## PROJÉTIL do módulo: as mesmas habilidades de tiro das cartas
+@export var projectile_can_miss: bool = false
+@export var projectile_launch_angle: float = 0.0
+@export var projectile_pierces: bool = false
+@export var projectile_max_targets: int = 3
+@export var projectile_splits: bool = false
+@export var projectile_split_count: int = 3
+@export var projectile_split_range: float = 150.0
+@export var projectile_chains: bool = false
+@export var projectile_chain_max_targets: int = 3
+@export var projectile_chain_range: float = 150.0
+## HABILIDADES DE TIRO (iguais às das cartas)
+## atira em mais de um alvo por vez
+@export var extra_targets: int = 0
+## dano cresce a cada tiro no MESMO alvo (0 = desligado), até o teto
+@export var ramp_per_shot: float = 0.0
+@export var ramp_max_mult: float = 3.0
+## executa alvo fraco: abaixo dessa fração de vida o tiro sai multiplicado (0 = desligado)
+@export var execute_threshold: float = 0.0
+@export var execute_damage_mult: float = 2.0
+## HABILIDADES DE DEFESA
+@export var damage_reduction_percent: float = 0.0
+@export var regen_per_second: int = 0
+## devolve parte do dano pra quem bate de PERTO
+@export var reflect_percent: float = 0.0
+## explode quando cai
+@export var death_explosion_damage: int = 0
+@export var death_explosion_radius: float = 90.0
 @export var is_aoe: bool = false
 @export var aoe_radius: float = 60.0
 

@@ -29,6 +29,14 @@ var chains: bool = false
 var chain_max_targets: int = 3
 var chain_range: float = 150.0
 
+## PODE ERRAR: o tiro vai reto pra onde o alvo ESTAVA quando saiu. Se o alvo andou, erra.
+var can_miss: bool = false
+## ÂNGULO DE SAÍDA (graus): 0 = tiro reto; quanto maior, mais alto o arco (tiro de morteiro).
+var launch_angle: float = 0.0
+var _aim_point := Vector2.INF
+var _aim_total := 0.0
+var _sprite: Sprite2D = null
+
 var _hit_targets: Array = []
 var _locked_direction: Vector2 = Vector2.ZERO
 var _travel_distance: float = 0.0
@@ -39,9 +47,9 @@ const MAX_TRAVEL_DISTANCE = 700.0  # segurança pra não voar pra sempre se perd
 
 func _ready():
 	if texture != null:
-		var sprite = Sprite2D.new()
-		sprite.texture = texture
-		add_child(sprite)
+		_sprite = Sprite2D.new()
+		_sprite.texture = texture
+		add_child(_sprite)
 
 
 var origin := Vector2.ZERO
@@ -53,6 +61,52 @@ func _physics_process(delta):
 		_origin_set = true
 		origin = global_position  # o atirador coloca o projétil em cima dele antes do 1º quadro
 	var dir = _locked_direction
+	if _aim_point == Vector2.INF and is_instance_valid(target):
+		_aim_point = target.global_position          # onde o alvo estava na hora do disparo
+		_aim_total = maxf(global_position.distance_to(_aim_point), 1.0)
+	# arco: o desenho sobe e desce no caminho (o tiro em si continua na linha do chão)
+	if launch_angle > 0.5 and _sprite != null and _aim_total > 0.0:
+		var prog = clampf(_travel_distance / _aim_total, 0.0, 1.0)
+		var top = minf(_aim_total * tan(deg_to_rad(clampf(launch_angle, 0.0, 80.0))) * 0.25, 120.0)
+		_sprite.position = Vector2(0, -sin(prog * PI) * top).rotated(-rotation)
+	if can_miss and _hit_targets.is_empty() and _aim_point != Vector2.INF:
+		# vai reto pro ponto; chegando lá acerta quem estiver em cima, ou erra
+		var to_aim = _aim_point - global_position
+		var step = speed * delta
+		if to_aim.length() <= step + 1.0:
+			global_position = _aim_point
+			_travel_distance = _aim_total
+			var best = null
+			var best_d = HIT_DISTANCE + 10.0
+			for body in get_tree().get_nodes_in_group("damageable"):
+				if !("team" in body) or body.team == attacker_team or !_allowed(body):
+					continue
+				var dd = global_position.distance_to(body.global_position)
+				if dd <= best_d:
+					best_d = dd
+					best = body
+			if best == null:
+				Fx.puff(get_parent(), position, 0.5)       # errou: poeirinha no chão
+				queue_free()
+				return
+			_hit_targets.append(best)
+			_apply_hit(best)
+			if chains and _hit_targets.size() < chain_max_targets:
+				_retarget_to_nearest()
+			elif splits:
+				_spawn_splits()
+				queue_free()
+			elif !pierces:
+				queue_free()
+			return
+		dir = to_aim.normalized()
+		_locked_direction = dir
+		global_position += dir * step
+		rotation = dir.angle()
+		_travel_distance += step
+		if pierces:
+			_check_hits()
+		return
 
 	if is_instance_valid(target) and (_hit_targets.is_empty() or chains):
 		dir = (target.global_position - global_position).normalized()
@@ -224,6 +278,7 @@ func _spawn_splits():
 		new_proj.texture = texture
 		new_proj.attacker_team = attacker_team
 		new_proj.buildings_only = buildings_only
+		new_proj.launch_angle = launch_angle
 		new_proj.source_card_path = source_card_path
 		new_proj.on_hit_effect = on_hit_effect
 		new_proj.on_hit_effect_duration = on_hit_effect_duration

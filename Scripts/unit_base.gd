@@ -1832,6 +1832,8 @@ func _perform_attack():
 		proj.on_hit_effect_strength = stats.on_hit_effect_strength
 		proj.on_hit_effect_tick_interval = stats.on_hit_effect_tick_interval
 		proj.knockback_distance = stats.knockback_distance
+		proj.can_miss = stats.projectile_can_miss
+		proj.launch_angle = stats.projectile_launch_angle
 		proj.pierces = stats.projectile_pierces
 		proj.max_targets = stats.projectile_max_targets
 		proj.splits = stats.projectile_splits

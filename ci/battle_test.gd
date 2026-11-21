@@ -2506,11 +2506,23 @@ func _general_audit():
 	await _wipe()
 	d = await _dummy(E, mid + Vector2(0, -90))
 	u = (await _put_card(_make({"pre_attack_speed_boost": true, "pre_attack_boost_multiplier": 2.5, "pre_attack_boost_range": 170.0}), P, mid + Vector2(0, 170)))[0]
-	var sp_far = await _top_speed(u, 0.6)
-	var sp_near = await _top_speed(u, 2.5)
-	drops = await _hits_on(d, 2.5)
-	var sp_after = u.velocity.length() if is_instance_valid(u) else -1.0
-	_check("acelera quando chega perto do alvo", sp_far <= 75.0 and sp_near >= 110.0 and !drops.is_empty(), "longe %d, perto %d, depois do golpe %d" % [int(sp_far), int(sp_near), int(sp_after)])
+	# anda até dar o primeiro golpe: a velocidade longe do alvo é a normal, e perto dele passa do dobro
+	var sp_far = 0.0
+	var sp_near = 0.0
+	var hit_at = -1.0
+	var t_p = 0.0
+	while t_p < 9.0 and hit_at < 0.0:
+		await get_tree().create_timer(0.05).timeout
+		t_p += 0.05
+		if !is_instance_valid(u):
+			break
+		if u.global_position.distance_to(d.global_position) > 215.0:
+			sp_far = maxf(sp_far, u.velocity.length())
+		else:
+			sp_near = maxf(sp_near, u.velocity.length())
+		if d.current_hp < 99999:
+			hit_at = t_p
+	_check("acelera quando chega perto do alvo", sp_far <= 75.0 and sp_near >= 110.0 and hit_at >= 0.0, "longe %d, perto %d, 1º golpe em %.1fs" % [int(sp_far), int(sp_near), hit_at])
 
 	# 5) executa alvo fraco
 	await _wipe()
@@ -2722,6 +2734,112 @@ func _general_audit():
 	u = (await _put_card(_make({"late_boost_after": 2.5, "late_boost_damage_mult": 3.0}), P, mid + Vector2(0, 40)))[0]
 	drops = await _hits_on(d, 5.5)
 	_check("esquenta depois de um tempo em campo (e mostra)", drops.size() >= 4 and drops[0] <= 70 and drops[-1] >= 170 and is_instance_valid(u) and "esquentou" in u.ability_cue, "%s, mostrando '%s'" % [str(drops), u.ability_cue if is_instance_valid(u) else "?"])
+
+	# --- PROJÉTIL: pode errar e sai em arco
+	await _wipe()
+	d = await _dummy(E, mid + Vector2(0, -60))
+	var runner = await _dummy(E, mid + Vector2(120, -60))
+	for miss in [false, true]:
+		var pr = Projectile.new()
+		pr.target = runner
+		pr.damage = 100
+		pr.speed = 300.0
+		pr.attacker_team = P
+		pr.can_miss = miss
+		pr.launch_angle = 45.0
+		pr.texture = SpriteForge.projectile("bola_canhao", SpriteForge.DEFAULT_PALETTE)
+		battle.add_child(pr)
+		pr.global_position = mid + Vector2(120, 140)
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		runner.global_position += Vector2(90, 0)          # o alvo sai do lugar depois do disparo
+		await get_tree().create_timer(1.6).timeout
+		if !miss:
+			_check("tiro teleguiado acerta mesmo o alvo que andou", 99999 - runner.current_hp == 100, str(99999 - runner.current_hp))
+			runner.current_hp = 99999
+		else:
+			_check("tiro que pode errar erra o alvo que andou", runner.current_hp == 99999 and d.current_hp == 99999, "%d %d" % [99999 - runner.current_hp, 99999 - d.current_hp])
+
+	# --- MÓDULOS: quem acerta, habilidades de tiro e de defesa
+	await _wipe()
+	var tower = null
+	for t in get_tree().get_nodes_in_group("player_base"):
+		if t.base_data != null and !(("asleep" in t) and t.asleep) and Regras.tower_shoots(t.base_data):
+			tower = t
+			break
+	if tower == null:
+		_check("módulos: achou uma torre pra testar", false, "nenhuma torre que atira")
+	else:
+		var bd: BaseData = tower.base_data.duplicate()
+		tower.base_data = bd
+		var walker = await _dummy(E, tower.global_position + Vector2(0, -70))
+		var flyer = await _dummy(E, tower.global_position + Vector2(40, -60))
+		flyer.stats.unit_type = UnitData.UnitType.AIR
+		bd.targets = 1
+		var only_ground = tower._find_closest_enemy()
+		walker.global_position += Vector2(0, -900)
+		var ground_none = tower._find_closest_enemy()
+		walker.global_position += Vector2(0, 900)
+		bd.targets = 2
+		var only_air = tower._find_closest_enemy()
+		bd.targets = 0
+		_check("módulo acerta só chão / só ar / os dois", only_ground == walker and ground_none == null and only_air == flyer and tower._find_closest_enemy() != null,
+			"%s" % str([only_ground == walker, ground_none == null, only_air == flyer]))
+		# armadilha armada: a torre não enxerga
+		flyer.global_position += Vector2(0, -900)
+		walker.stats.is_trap = true
+		await get_tree().create_timer(0.2).timeout
+		var sees_trap = tower._find_closest_enemy() == walker
+		walker.stats.is_trap = false
+		walker._trap_sprung = true
+		_check("torre não atira em armadilha escondida", !sees_trap)
+		# executa alvo fraco
+		bd.execute_threshold = 0.5
+		bd.execute_damage_mult = 3.0
+		walker.current_hp = int(walker.stats.hp * 0.3)
+		var ex_low = tower._shot_damage_on(walker, 100)
+		walker.current_hp = walker.stats.hp
+		_check("módulo executa alvo fraco", ex_low == 300 and tower._shot_damage_on(walker, 100) == 100, "%d / %d" % [ex_low, tower._shot_damage_on(walker, 100)])
+		# tiro de verdade: corrente pula pro vizinho, dano cresce no mesmo alvo, vários alvos
+		var neighbour = await _dummy(E, walker.global_position + Vector2(50, 0))
+		bd.execute_threshold = 0.0
+		bd.projectile_chains = true
+		bd.projectile_chain_max_targets = 2
+		bd.projectile_chain_range = 120.0
+		bd.ramp_per_shot = 1.0
+		bd.ramp_max_mult = 4.0
+		tower._locked_target = walker
+		var shot_drops: Array = []
+		for k in 3:
+			tower._shot_cooldown = 0.0
+			var before_hp = walker.current_hp
+			tower._process_cannon(0.0)
+			await get_tree().create_timer(0.9).timeout
+			shot_drops.append(before_hp - walker.current_hp)
+		_check("módulo: tiro em corrente e dano que cresce no mesmo alvo", neighbour.current_hp < 99999 and shot_drops.size() == 3 and shot_drops[0] > 0 and shot_drops[2] >= shot_drops[0] * 2,
+			"vizinho perdeu %d, tiros %s" % [99999 - neighbour.current_hp, str(shot_drops)])
+		bd.projectile_chains = false
+		bd.ramp_per_shot = 0.0
+		bd.extra_targets = 1
+		neighbour.current_hp = 99999
+		tower._shot_cooldown = 0.0
+		tower._process_cannon(0.0)
+		await get_tree().create_timer(0.6).timeout
+		_check("módulo atira em mais de um alvo por vez", neighbour.current_hp < 99999, str(99999 - neighbour.current_hp))
+		bd.extra_targets = 0
+		# defesa: redução, regeneração
+		tower.max_hp = 10000
+		tower.hp = 5000
+		bd.damage_reduction_percent = 0.5
+		tower.take_damage(200)
+		var red_ok = tower.hp == 4900
+		bd.damage_reduction_percent = 0.0
+		bd.regen_per_second = 400
+		tower.set_process(true)
+		await get_tree().create_timer(1.0).timeout
+		tower.set_process(false)
+		_check("módulo: redução de dano e regeneração", red_ok and tower.hp >= 5150, "depois do golpe %s, depois de 1s %d" % [str(red_ok), tower.hp])
+		bd.regen_per_second = 0
 
 	print("GERAL ok (", _aud_ok.size(), "): ", _aud_ok)
 	print("RESULTADO geral COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

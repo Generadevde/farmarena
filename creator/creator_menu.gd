@@ -926,6 +926,8 @@ const ABILITIES = [
 		["Segundo ataque (cavaleiro / atiradores nas costas)", "rider_attack", ["rider_damage", "rider_range", "rider_interval", "rider_count", "rider_effect", "rider_effect_duration", "rider_effect_strength"], {}],
 	]],
 	["🎯 Projétil (só pra quem atira)", [
+		["Pode errar (tiro reto, não persegue)", "projectile_can_miss", [], {}],
+		["Sai em arco (ângulo de saída)", "projectile_launch_angle", [], {"projectile_launch_angle": 45.0}],
 		["Atravessa", "projectile_pierces", ["projectile_max_targets"], {"projectile_max_targets": 3}],
 		["Se divide", "projectile_splits", ["projectile_split_count", "projectile_split_range"], {}],
 		["Pula em cadeia", "projectile_chains", ["projectile_chain_max_targets", "projectile_chain_range"], {}],
@@ -1893,6 +1895,23 @@ func _tab_funcao():
 	for prop in ["spawn_card_id", "spawn_on_hit", "spawn_cooldown", "ally_speed_bonus", "ally_speed_max_cost"]:
 		if defs.has(prop):
 			_field(b, defs[prop])
+	# o resto das informações e habilidades do módulo, por assunto
+	for group in MODULE_GROUPS:
+		_section(str(group[0]))
+		for prop in group[1]:
+			if defs.has(prop) and !(prop in BASE_TYPE_FIELDS[kind]):
+				_field(b, defs[prop])
+
+
+const MODULE_GROUPS = [
+	["🎯 Tiro (toda torre atira)", ["targets", "projectile_speed", "projectile_can_miss", "projectile_launch_angle"]],
+	["🏹 Projétil", ["projectile_pierces", "projectile_max_targets", "projectile_splits", "projectile_split_count", "projectile_split_range",
+		"projectile_chains", "projectile_chain_max_targets", "projectile_chain_range"]],
+	["⚔ Habilidades de tiro", ["extra_targets", "ramp_per_shot", "ramp_max_mult", "execute_threshold", "execute_damage_mult",
+		"effect_duration", "effect_tick_interval", "knockback_distance", "aura_tick_interval"]],
+	["🛡 Habilidades de defesa", ["damage_reduction_percent", "regen_per_second", "reflect_percent", "death_explosion_damage", "death_explosion_radius"]],
+	["🚀 Começo da partida", ["gives_initial_boost", "initial_money_boost", "initial_production_speed_mult", "initial_boost_duration"]],
+]
 
 
 ## a tropa desenhada no tamanho de campo, entre um Peão e a Casa Grande

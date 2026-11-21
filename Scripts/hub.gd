@@ -1424,6 +1424,39 @@ func _base_summary(b: BaseData) -> String:
 	if Regras.tower_shoots(b):
 		txt += "  ·  ⚔ %d a cada %.1fs  ·  alcance %s%s" % [int(round(Regras.tower_damage(b) * tmult)), Regras.tower_interval(b),
 			("%.1f quadrados" % (Regras.tower_range(b) / TILE_PX)).replace(".", ","), "  ·  em área" if (b.is_aoe and b.base_type == BaseData.BaseType.CANNON) else ""]
+	if Regras.tower_shoots(b):
+		# o que faltava: quem acerta, velocidade do tiro e as habilidades de tiro/defesa do módulo
+		txt += "  ·  acerta %s  ·  tiro a %d" % [["chão e ar", "só chão", "só ar"][clampi(b.targets, 0, 2)], int(maxf(b.projectile_speed, 380.0) if Regras.on("torres") else b.projectile_speed)]
+		var extras: Array = []
+		if b.projectile_can_miss:
+			extras.append("pode errar")
+		if b.projectile_launch_angle > 0.5:
+			extras.append("tiro em arco")
+		if b.projectile_pierces:
+			extras.append("atravessa %d" % b.projectile_max_targets)
+		if b.projectile_splits:
+			extras.append("divide em %d" % b.projectile_split_count)
+		if b.projectile_chains:
+			extras.append("corrente de %d" % b.projectile_chain_max_targets)
+		if b.extra_targets > 0:
+			extras.append("%d alvos por vez" % (b.extra_targets + 1))
+		if b.ramp_per_shot > 0.0:
+			extras.append("dano cresce no mesmo alvo (até x%.1f)" % b.ramp_max_mult)
+		if b.execute_threshold > 0.0:
+			extras.append("executa quem tem menos de %d%% de vida" % int(b.execute_threshold * 100))
+		if !extras.is_empty():
+			txt += "  ·  " + ", ".join(extras)
+	var guard: Array = []
+	if b.damage_reduction_percent > 0.0:
+		guard.append("leva %d%% menos dano" % int(b.damage_reduction_percent * 100))
+	if b.regen_per_second > 0:
+		guard.append("regenera %d por segundo" % b.regen_per_second)
+	if b.reflect_percent > 0.0:
+		guard.append("devolve %d%% do dano de perto" % int(b.reflect_percent * 100))
+	if b.death_explosion_damage > 0:
+		guard.append("explode ao cair (%d)" % b.death_explosion_damage)
+	if !guard.is_empty():
+		txt += "  ·  🛡 " + ", ".join(guard)
 	match b.base_type:
 		BaseData.BaseType.CANNON:
 			pass
