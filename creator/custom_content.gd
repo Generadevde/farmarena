@@ -305,7 +305,7 @@ const BASE_FIELDS = [
 	["description", "Descrição", "multiline", []],
 	["base_hp", "Vida", "int", [100, 20000, 50]],
 	["base_type", "Função", "enum", ["Canhão", "Produção", "Cura", "Vida extra", "Espaço", "Aura"]],
-	["category", "Categoria", "enum", ["Ofensivo", "Defensivo", "Econômico"]],
+	["category", "Função pros bots (onde eles põem)", "enum", ["Ofensivo (frente, perto da ponte)", "Defensivo (no caminho da base)", "Econômico (no fundo)", "Suporte (onde as tropas passam / perto da base)"]],
 	["nation_data", "Nação", "nation", []],
 	["attack_damage", "Dano do canhão", "int", [0, 2000, 5]],
 	["attack_range", "Alcance do canhão", "float", [20.0, 600.0, 10.0]],

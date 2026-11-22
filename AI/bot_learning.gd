@@ -1045,6 +1045,52 @@ func _find_counter_card(threat_role: int, known_cards: Array[CardData], current_
 const NEMESIS_LOSS_THRESHOLD = 2  # quantas derrotas SEGUIDAS contra o jogador até o bot "guardar rancor"
 
 
+## MEMÓRIA DA BASE: o que o bot já testou de módulo (por função e por ponto) e quantas
+## partidas já jogou armando a base. É com isso que ele vai ficando esperto / inovando.
+func module_memory(bot_name: String) -> Dictionary:
+	var data = _load_raw(bot_name)
+	return data.get("mod_memo", {}) if !data.is_empty() else {}
+
+
+## guarda o resultado da arrumação usada (keys = Progresso.setup_keys)
+func record_module_result(bot_name: String, keys: Array, bot_won: bool):
+	var data = _load_raw(bot_name)
+	if data.is_empty() or keys.is_empty():
+		return
+	var mem: Dictionary = data.get("mod_memo", {})
+	mem["round"] = int(mem.get("round", 0)) + 1
+	var roles: Dictionary = mem.get("roles", {})
+	var pts: Dictionary = mem.get("points", {})
+	var seen_roles := {}
+	for k in keys:
+		var cat = str(k).split("@")[0]
+		var pm: Array = pts.get(k, [0, 0])
+		pts[k] = [int(pm[0]) + 1, int(pm[1]) + (1 if bot_won else 0)]
+		if !seen_roles.has(cat):
+			seen_roles[cat] = true
+			var rm: Array = roles.get(cat, [0, 0])
+			roles[cat] = [int(rm[0]) + 1, int(rm[1]) + (1 if bot_won else 0)]
+	mem["roles"] = roles
+	mem["points"] = pts
+	data["mod_memo"] = mem
+	_save_raw(bot_name, data)
+
+
+## chance de testar uma base diferente: cai com a experiência, mas cada jeito tem o seu piso
+static func module_explore_chance(profile, rounds: int) -> float:
+	var base = 0.25
+	var floor_v = 0.04
+	if profile != null:
+		match profile.archetype:
+			AIProfile.Archetype.CURIOSO, AIProfile.Archetype.CAOTICO, AIProfile.Archetype.APOSTADOR:
+				base = 0.5
+				floor_v = 0.25          # esses nunca param de inventar
+			AIProfile.Archetype.ANALITICO, AIProfile.Archetype.PERFECCIONISTA, AIProfile.Archetype.METAGAMER:
+				base = 0.15
+				floor_v = 0.02          # esses repetem o que ganhou
+	return maxf(floor_v, base / (1.0 + float(rounds) / 12.0))
+
+
 func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[CardData], is_vs_player: bool = false):
 	var data = _load_raw(bot_name)
 	if data.is_empty():

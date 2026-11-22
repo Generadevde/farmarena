@@ -2812,8 +2812,6 @@ func _general_audit():
 				seen_points[pt] = true
 				if pt < 0 or pt >= Regras.MODULE_POINTS.size() or pts.count(pt) > 1:
 					lay_bad.append("%s %s" % [bn, str(pts)])
-			if ns == 1 and pts == [1]:
-				lay_bad.append("%s sozinho no meio" % bn)
 	_check("bots usam os pontos novos da base", lay_bad.is_empty() and seen_points.size() >= 6, "pontos usados %s, problemas %s" % [str(seen_points.keys()), str(lay_bad.slice(0, 3))])
 
 	# escudo segura inteiro o golpe que quebra ele: 1 de vida + 1 de escudo sobrevive à bomba
@@ -3204,6 +3202,85 @@ func _general_audit():
 		tower.set_process(false)
 		_check("módulo: redução de dano e regeneração", red_ok and tower.hp >= 5150, "depois do golpe %s, depois de 1s %d" % [str(red_ok), tower.hp])
 		bd.regen_per_second = 0
+
+	# --- BOTS ARMAM A BASE PELO JEITO DELES (e aprendem)
+	var bases_all: Array = BotSimulator.available_bases.filter(func(b): return b != null)
+	var def_b: BaseData = null
+	var of_b: BaseData = null
+	var eco_b: BaseData = null
+	for b in bases_all:
+		if b.category == BaseData.BaseCategory.DEFENSIVO and def_b == null:
+			def_b = b
+		elif b.category == BaseData.BaseCategory.OFENSIVO and of_b == null:
+			of_b = b
+		elif b.category == BaseData.BaseCategory.ECONOMICO and eco_b == null:
+			eco_b = b
+	var pts_ok = Progresso.role_points(BaseData.BaseCategory.DEFENSIVO, 0, true)[0] == 1 \
+		and Progresso.role_points(BaseData.BaseCategory.OFENSIVO, 1, true)[0] == 0 \
+		and Progresso.role_points(BaseData.BaseCategory.OFENSIVO, 0, true)[0] == 3 \
+		and Progresso.role_points(BaseData.BaseCategory.ECONOMICO, 0, true)[0] == 6 \
+		and Progresso.role_points(BaseData.BaseCategory.SUPORTE, 0, false)[0] == 4
+	_check("cada função tem o seu lugar (parede no caminho, tiro na frente ou perto da base, recurso no fundo)", pts_ok)
+	# bots de verdade: defensivo escolhe mais parede, ofensivo mais tiro; e cada módulo vai pro lugar da função
+	var cnt := {0: {}, 1: {}}
+	var wrong_place: Array = []
+	# todos os módulos liberados (no teste o jogador está na arena 0, onde só tem módulo de parede)
+	var keep_bases = BotSimulator.available_bases.duplicate()
+	var open_bases: Array[BaseData] = []
+	for b in keep_bases:
+		if b != null:
+			var b2: BaseData = b.duplicate()
+			b2.unlock_arena = 0
+			open_bases.append(b2)
+	BotSimulator.available_bases = open_bases
+	Regras.set_tune("inova", 0.0)
+	for bn in BotSimulator.roster_names:
+		var bpf: AIProfile = BotLearning.get_or_create_profile(str(bn))
+		var stn = Progresso.bot_stance(bpf)
+		if stn == 2:
+			continue
+		var lo2: Array = Progresso.bot_module_loadout(bpf, 2)
+		for o2 in lo2:
+			var cat2 = int(o2["base"].category)
+			cnt[stn][cat2] = int(cnt[stn].get(cat2, 0)) + 1
+			var allowed: Array = Progresso.role_points(cat2, stn, true) + Progresso.role_points(cat2, stn, false)
+			if !allowed.has(int(o2["ponto"])):
+				wrong_place.append("%s %s@%d" % [bn, o2["base"].base_name, int(o2["ponto"])])
+	BotSimulator.available_bases = keep_bases
+	Regras.set_tune("inova", 0.0, false)
+	var def_share = float(cnt[0].get(BaseData.BaseCategory.DEFENSIVO, 0)) / maxf(1.0, float(cnt[0].values().reduce(func(a, b): return a + b, 0)))
+	var of_share = float(cnt[1].get(BaseData.BaseCategory.OFENSIVO, 0)) / maxf(1.0, float(cnt[1].values().reduce(func(a, b): return a + b, 0)))
+	var off_wall = float(cnt[1].get(BaseData.BaseCategory.DEFENSIVO, 0)) / maxf(1.0, float(cnt[1].values().reduce(func(a, b): return a + b, 0)))
+	var def_gun = float(cnt[0].get(BaseData.BaseCategory.OFENSIVO, 0)) / maxf(1.0, float(cnt[0].values().reduce(func(a, b): return a + b, 0)))
+	_check("bot defensivo prefere parede e ofensivo prefere tiro; cada módulo no lugar da função", def_share > off_wall + 0.15 and of_share > def_gun + 0.15 and wrong_place.is_empty(),
+		"parede: defensivo %d%% x ofensivo %d%% | tiro: ofensivo %d%% x defensivo %d%% | fora do lugar %s" % [int(def_share * 100), int(off_wall * 100), int(of_share * 100), int(def_gun * 100), str(wrong_place.slice(0, 3))])
+	# memória: o ponto que ganha sobe; a vontade de inovar cai com a experiência (menos nos curiosos)
+	var learner = str(BotSimulator.roster_names[3])
+	var lp: AIProfile = BotLearning.get_or_create_profile(learner)
+	var raw_l = BotLearning._load_raw(learner)
+	var keep_mem = raw_l.get("mod_memo", null)
+	var lstn = Progresso.bot_stance(lp)
+	var cat_l = BaseData.BaseCategory.DEFENSIVO
+	var home_l = (abs(hash(learner)) / 3) % 2 == 0
+	var third = Progresso.role_points(cat_l, 0 if lstn == 2 else lstn, home_l)[2]
+	for k in 8:
+		BotLearning.record_module_result(learner, ["%d@%d" % [cat_l, third]], true)
+	var mem_l = BotLearning.module_memory(learner)
+	var learned = int(mem_l.get("round", 0)) >= 8 and int(mem_l["points"]["%d@%d" % [cat_l, third]][1]) >= 8
+	var e_new = BotLearning.module_explore_chance(lp, 0)
+	var e_old = BotLearning.module_explore_chance(lp, 60)
+	var cur = AIProfile.new()
+	cur.archetype = AIProfile.Archetype.CURIOSO
+	var ana = AIProfile.new()
+	ana.archetype = AIProfile.Archetype.ANALITICO
+	raw_l = BotLearning._load_raw(learner)
+	if keep_mem == null:
+		raw_l.erase("mod_memo")
+	else:
+		raw_l["mod_memo"] = keep_mem
+	BotLearning._save_raw(learner, raw_l)
+	_check("bot aprende: guarda o que ganhou, fica mais certeiro com o tempo e o curioso continua inovando", learned and e_old < e_new and BotLearning.module_explore_chance(cur, 200) >= 0.2 and BotLearning.module_explore_chance(ana, 200) < 0.05,
+		"aprendeu=%s inovar %.2f -> %.2f, curioso %.2f, analítico %.2f" % [str(learned), e_new, e_old, BotLearning.module_explore_chance(cur, 200), BotLearning.module_explore_chance(ana, 200)])
 
 	print("GERAL ok (", _aud_ok.size(), "): ", _aud_ok)
 	print("RESULTADO geral COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

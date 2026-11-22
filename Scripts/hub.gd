@@ -3874,6 +3874,9 @@ func _show_bot(who: String):
 	v.add_child(_label("Estilo: %s  ·  nesta temporada: %dV %dD" % [prof.get_archetype_name(), int(rec.get("wins", 0)), int(rec.get("losses", 0))], 16, ThemeBuilder.COLOR_STAT_LABEL))
 	var fam = PushPlan.family_of(prof)
 	v.add_child(_wrap("🧠 Plano de jogo: %s. %s" % [PushPlan.FAM_NAMES[fam], PushPlan.FAM_TEXT[fam]], 15, Color(0.7, 0.9, 1.0)))
+	var stn = Progresso.bot_stance(prof)
+	var mm: Dictionary = BotLearning.module_memory(prof.profile_name)
+	v.add_child(_wrap("🧱 Base %s%s" % [Progresso.STANCE_NAMES[stn], ("  ·  já testou %d arrumações" % int(mm.get("round", 0))) if int(mm.get("round", 0)) > 0 else ""], 15, Color(0.7, 0.9, 1.0)))
 	if fam == PushPlan.Fam.COMBO:
 		var cb = PushPlan.pick_combo(prof)
 		if cb.size() == 2:

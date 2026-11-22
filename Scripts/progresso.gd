@@ -1538,80 +1538,155 @@ func set_module_loadout(list: Array):
 ## ele deixaria uma rota só pra atacar e a partida virava "tudo no meio"), dois
 ## guardam as rotas dos lados, três fecham a frente toda. Módulo de recurso vai
 ## pros pontos de trás.
+## POSTURA do bot na hora de armar a base: 0 defensiva, 1 ofensiva, 2 imprevisível
+const STANCE_NAMES = ["defensiva", "ofensiva", "imprevisível"]
+
+
+static func bot_stance(profile) -> int:
+	match PushPlan.family_of(profile):
+		PushPlan.Fam.CONTRA, PushPlan.Fam.BLOCO, PushPlan.Fam.CERCO:
+			return 0
+		PushPlan.Fam.CORRERIA, PushPlan.Fam.COMBO:
+			return 1
+	return 2
+
+
+## os pontos (em ordem de gosto) pra um módulo dessa FUNÇÃO, pelo jeito do bot.
+## a / b = canto da frente do lado da casa / do outro lado; sa / so = lado da base (casa / outro);
+## ba / bb = cantos de trás. 1 = frente do meio (no caminho da ponte até a base), 4 = atrás no meio.
+static func role_points(cat: int, stance: int, home_left: bool) -> Array:
+	var a = 0 if home_left else 2
+	var b = 2 if home_left else 0
+	var sa = 3 if home_left else 5
+	var so = 5 if home_left else 3
+	var ba = 6 if home_left else 7
+	var bb = 7 if home_left else 6
+	match cat:
+		BaseData.BaseCategory.DEFENSIVO:      # parede: no caminho da ponte até a base
+			return [1, sa, a, so] if stance == 0 else [1, a, sa, b]
+		BaseData.BaseCategory.OFENSIVO:       # tiro longe: ofensivo na frente (pega quem sai da ponte); defensivo perto da base
+			return [a, b, 1, sa] if stance == 1 else [sa, so, 1, a]
+		BaseData.BaseCategory.SUPORTE:        # ofensivo: onde as tropas passam; defensivo: colado na base
+			return [a, 1, sa, b] if stance == 1 else [4, sa, so, 1]
+	return [ba, bb, 4, sa]                     # econômico: no fundo
+
+
+## peso de cada função pra escolher o módulo, pelo jeito do bot
+static func _role_weight(cat: int, stance: int, preferred: int) -> float:
+	var w = 1.0
+	if stance == 0:
+		w = {BaseData.BaseCategory.DEFENSIVO: 3.0, BaseData.BaseCategory.SUPORTE: 1.6, BaseData.BaseCategory.ECONOMICO: 1.0, BaseData.BaseCategory.OFENSIVO: 1.0}.get(cat, 1.0)
+	elif stance == 1:
+		w = {BaseData.BaseCategory.OFENSIVO: 3.0, BaseData.BaseCategory.SUPORTE: 1.6, BaseData.BaseCategory.ECONOMICO: 0.7, BaseData.BaseCategory.DEFENSIVO: 0.8}.get(cat, 1.0)
+	if cat == preferred:
+		w += 1.5
+	return w
+
+
+## Monta a base do bot: QUAIS módulos (pelo jeito dele e pelo que já deu certo) e ONDE (pela
+## função de cada módulo). Igual pra mesma partida; muda de uma partida pra outra conforme ele
+## aprende (BotLearning.module_memory): quem é curioso testa coisa nova, quem é analítico repete
+## o que ganhou, e todo mundo fica mais certeiro com a experiência.
 func bot_module_loadout(profile, slots: int = -1) -> Array:
 	var n = slots if slots > 0 else module_slots()
-	var first: BaseData = profile.equipped_base if profile != null and profile.equipped_base != null else null
-	var top = maxi(ArenaManager.get_player_arena(), first.unlock_arena if first != null else 0)
+	var name_s = str(profile.profile_name) if profile != null else "bot"
+	var top = ArenaManager.get_player_arena()
+	if profile != null and profile.equipped_base != null:
+		top = maxi(top, profile.equipped_base.unlock_arena)
 	var pool: Array = BotSimulator.available_bases.filter(func(b): return b != null and b.unlock_arena <= top)
 	if pool.is_empty():
 		return []
-	var seed = abs(hash(str(profile.profile_name) if profile != null else "bot"))
-	if first == null or !pool.has(first):
-		first = pool[seed % pool.size()]   # (o módulo antigo dele pode não existir mais: módulos "do zero")
-	var eco_types = [BaseData.BaseType.PRODUCTION, BaseData.BaseType.CAPACITY]
-	# 1 em cada 5 bots aposta tudo num módulo só e leva DOIS iguais (nunca dois de recurso).
-	# "botduplo" é só pro laboratório forçar sim (1) ou não (0).
+	var mem: Dictionary = BotLearning.module_memory(name_s) if profile != null else {}
+	var rounds = int(mem.get("round", 0))
+	var rng = RandomNumberGenerator.new()
+	rng.seed = abs(hash(name_s)) + rounds * 7919          # igual dentro da partida, outro na próxima
+	var stance = bot_stance(profile)
+	var preferred = int(profile.preferred_base_category) if profile != null else -1
+	var home_left = (abs(hash(name_s)) / 3) % 2 == 0
+	# INOVA: chance de testar algo diferente. Cai com a experiência (fica mais esperto), mas quem é
+	# curioso/caótico/apostador nunca para de inventar, e o analítico quase não arrisca.
+	var explore = BotLearning.module_explore_chance(profile, rounds)
+	if Regras._t("inova", -1.0) >= 0.0:
+		explore = Regras._t("inova", -1.0)     # laboratório / testes forçam (0 = nunca inova)
+	var innovating = rng.randf() < explore
+	var roles_mem: Dictionary = mem.get("roles", {})
+	var pts_mem: Dictionary = mem.get("points", {})
+	# 1) QUAIS módulos
+	var picks: Array = []
+	var first: BaseData = profile.equipped_base if profile != null and profile.equipped_base != null and pool.has(profile.equipped_base) else null
 	var dbl = Regras._t("botduplo", -1.0)
-	var doubles = !(first.base_type in eco_types) and ((seed / 11) % 5 == 0 if dbl < 0.0 else dbl > 0.5)
-	var picks: Array = [first]
+	var doubles = (abs(hash(name_s)) / 11) % 5 == 0 if dbl < 0.0 else dbl > 0.5
 	while picks.size() < n:
-		if doubles and picks.size() == 1:
+		if doubles and picks.size() == 1 and picks[0].category != BaseData.BaseCategory.ECONOMICO:
+			picks.append(picks[0])
+			continue
+		if picks.is_empty() and first != null and !innovating:
 			picks.append(first)
 			continue
-		var has_eco = picks.any(func(b): return b.base_type in eco_types)
-		var rest = pool.filter(func(b): return !picks.has(b) and (!has_eco or !(b.base_type in eco_types)))
-		if rest.is_empty():
-			rest = pool.filter(func(b): return !picks.has(b))
-		if rest.is_empty():
-			rest = pool
-		picks.append(rest[(seed / (1 if picks.size() == 1 else 13)) % rest.size()])
-	var fronts: Array = []
-	var backs: Array = []
-	for b in picks:
-		(backs if b.base_type in eco_types else fronts).append(b)
+		var has_eco = picks.any(func(b): return b.category == BaseData.BaseCategory.ECONOMICO)
+		var cand = pool.filter(func(b): return !picks.has(b) and !(has_eco and b.category == BaseData.BaseCategory.ECONOMICO))
+		if cand.is_empty():
+			cand = pool.duplicate()
+		var total = 0.0
+		var ws: Array = []
+		for b in cand:
+			var w = 1.0 if innovating else _role_weight(int(b.category), stance, preferred)
+			var rm: Array = roles_mem.get(str(int(b.category)), [0, 0])
+			if !innovating and int(rm[0]) >= 2:
+				w *= 0.4 + 1.2 * (float(rm[1]) + 1.0) / (float(rm[0]) + 2.0)   # função que vem ganhando pesa mais
+			ws.append(w)
+			total += w
+		var roll = rng.randf() * total
+		var chosen: BaseData = cand[-1]
+		for k in cand.size():
+			roll -= ws[k]
+			if roll <= 0.0:
+				chosen = cand[k]
+				break
+		picks.append(chosen)
+	# 2) ONDE: cada módulo no ponto da função dele (o que mais ganhou primeiro, se ele já sabe)
+	# (os de parede e recurso escolhem antes: eles têm lugar mais certo)
+	var order = picks.duplicate()
+	order.sort_custom(func(x, y): return int(x.category == BaseData.BaseCategory.DEFENSIVO) > int(y.category == BaseData.BaseCategory.DEFENSIVO))
 	var out: Array = []
-	var flip = (seed / 3) % 2 == 1
-	var a = 2 if flip else 0     # o lado "da casa" do bot
-	var b = 0 if flip else 2
-	# ONDE cada bot arma a base (os 8 pontos do teclado numérico), pelo plano de jogo dele:
-	var front_points: Array = [a, b, 1]                      # padrão: os dois lados da frente, depois o meio
-	match PushPlan.family_of(profile):
-		PushPlan.Fam.CERCO:
-			front_points = [a, 1, b]                         # muralha na frente
-		PushPlan.Fam.CONTRA:
-			front_points = [3 if a == 0 else 5, 5 if a == 0 else 3, 1]   # fechado: colado nos lados da base
-		PushPlan.Fam.BLOCO:
-			front_points = [a, 5 if a == 0 else 3, b]        # um na frente, um de guarda do outro lado da base
-		PushPlan.Fam.CORRERIA:
-			front_points = [a, 1, b]                         # tudo pra frente, do lado em que ele ataca
-		PushPlan.Fam.CAOS:
-			front_points = [0, 1, 2, 3, 5, 6, 7, 4]
-			for i in range(front_points.size() - 1, 0, -1):  # embaralha pelo nome do bot (sempre igual pro mesmo bot)
-				var j = (seed / (i + 3)) % (i + 1)
-				var tmp = front_points[i]
-				front_points[i] = front_points[j]
-				front_points[j] = tmp
-			if fronts.size() == 1 and front_points[0] == 1:
-				front_points[0] = a
-	# um módulo só nunca vai pro meio da frente: com tudo no meio a partida vira "jogar no meio"
-	if fronts.size() == 1 and front_points[0] == 1:
-		front_points[0] = a
 	var used: Array = []
-	for i in fronts.size():
-		var fp = int(front_points[i % front_points.size()])
-		while used.has(fp):
-			fp = (fp + 1) % Regras.MODULE_POINTS.size()
-		used.append(fp)
-		out.append({"base": fronts[i], "ponto": fp})
-	# módulo de recurso vai pro fundo: os cantos de trás primeiro, depois atrás no meio
-	var back_points = [6, 7, 4] if (seed / 7) % 2 == 0 else [7, 6, 4]
-	for i in backs.size():
-		var bp = int(back_points[i % back_points.size()])
-		while used.has(bp):
-			bp = (bp + 1) % Regras.MODULE_POINTS.size()
-		used.append(bp)
-		out.append({"base": backs[i], "ponto": bp})
+	for b in order:
+		var cat = int(b.category)
+		var pts: Array = role_points(cat, stance, home_left)
+		if stance == 2 or innovating:
+			pts = [0, 1, 2, 3, 4, 5, 6, 7]
+			for i in range(pts.size() - 1, 0, -1):
+				var j2 = rng.randi_range(0, i)
+				var tmp = pts[i]
+				pts[i] = pts[j2]
+				pts[j2] = tmp
+		elif !pts_mem.is_empty():
+			# o ponto que mais ganhou com essa função sobe na fila (só com 2+ partidas nele)
+			var scored: Array = []
+			for idx in pts.size():
+				var pm: Array = pts_mem.get("%d@%d" % [cat, int(pts[idx])], [0, 0])
+				var rate = (float(pm[1]) + 1.0) / (float(pm[0]) + 2.0) if int(pm[0]) >= 2 else 0.5
+				scored.append([rate - idx * 0.04, pts[idx]])
+			scored.sort_custom(func(x, y): return x[0] > y[0])
+			pts = scored.map(func(x): return x[1])
+		var p = -1
+		for cand_p in pts:
+			if !used.has(int(cand_p)):
+				p = int(cand_p)
+				break
+		if p < 0:
+			for k in Regras.MODULE_POINTS.size():
+				if !used.has(k):
+					p = k
+					break
+		used.append(p)
+		out.append({"base": b, "ponto": p})
 	return out
+
+
+## chave da arrumação (pra memória do bot): "função@ponto" de cada módulo
+static func setup_keys(loadout: Array) -> Array:
+	return loadout.map(func(o): return "%d@%d" % [int(o["base"].category), int(o["ponto"])])
 
 
 # ================================================================ nível das TORRES

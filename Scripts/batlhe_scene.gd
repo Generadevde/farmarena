@@ -540,10 +540,15 @@ func _apply_player_base():
 		_apply_initial_boost($ProductionTimer, base_data, true)
 
 
+var _bot_setup_keys: Array = []   # a arrumação de módulos que o bot usou nesta partida (memória dele)
+
+
 func _apply_ai_base():
 	if Regras.modules():
 		# o bot entra com a mesma QUANTIDADE de módulos do jogador (o nível dele só muda a força de cada um)
-		_install_side_modules("enemy_base", GameManager.Team.ENEMY, Progresso.bot_module_loadout(ai_profile, Progresso.module_slots()),
+		var bot_lo = Progresso.bot_module_loadout(ai_profile, Progresso.module_slots())
+		_bot_setup_keys = Progresso.setup_keys(bot_lo)
+		_install_side_modules("enemy_base", GameManager.Team.ENEMY, bot_lo,
 			MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.bot_tower_level(ai_profile))
 		return
 	if ai_profile == null or ai_profile.equipped_base == null:
@@ -982,6 +987,8 @@ func _end_match(team):
 	# nem no aprendizado dos bots (seria injusto com eles -- era 2 contra 2)
 	if ai_profile != null and !_is_2v2 and !MatchSetup.tournament and !MatchSetup.friendly:
 		BotLearning.record_result(ai_profile.profile_name, !player_won, player_cards_played_this_match, true)
+		if !_bot_setup_keys.is_empty():
+			BotLearning.record_module_result(ai_profile.profile_name, _bot_setup_keys, !player_won)
 
 		if player_won:
 			# bot perdeu -- descobre qual carta do jogador mais machucou a

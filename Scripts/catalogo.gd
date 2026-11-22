@@ -503,7 +503,7 @@ const TORRES = [
 		"pros": ["Recurso 12% mais rápido"], "cons": ["Não ataca", "Menos vida"],
 		"receita": {"torre": "moinho"}, "paleta": {"K": "#e8d8b0", "A": "#b8402c", "S": "#58a0d8", "W": "#6a4428"},
 		"b": {"base_hp": 1150, "production_speed_boost": 0.12}},
-	{"id": "caixa_dagua", "nome": "Caixa d'Água", "turma": "Brejo", "arena": 3, "tipo": "HEAL", "categoria": "DEFENSIVO",
+	{"id": "caixa_dagua", "nome": "Caixa d'Água", "turma": "Brejo", "arena": 3, "tipo": "HEAL", "categoria": "SUPORTE",
 		"desc": "Água fresca: cura as tropas que ficarem por perto.",
 		"pros": ["Cura aliados próximos"], "cons": ["Não ataca"],
 		"receita": {"torre": "caixa_dagua"}, "paleta": {"S": "#3c88c8", "A": "#b8402c", "W": "#6a4428"},

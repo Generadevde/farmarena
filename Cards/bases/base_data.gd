@@ -70,7 +70,10 @@ enum BaseType { CANNON, PRODUCTION, HEAL, HP, CAPACITY, AURA }
 ## pensada como ofensiva ou defensiva, dependendo do efeito configurado).
 ## É essa categoria que os bots usam pra escolher base de acordo com a
 ## personalidade deles, não o tipo funcional.
-enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO }
+enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO, SUPORTE }
+## OFENSIVO: atira longe / solta tropa / ajuda o ataque. DEFENSIVO: parede, vida, segura quem chega.
+## ECONOMICO: recurso. SUPORTE: aura, cura, reforço pros aliados. Os bots usam isso pra ESCOLHER o
+## módulo pelo jeito deles e pra pôr cada um no lugar certo da base.
 @export var category: BaseCategory = BaseCategory.DEFENSIVO
 
 # --- Base Canhão: ataca sozinha ---
