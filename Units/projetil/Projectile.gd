@@ -95,6 +95,11 @@ func _physics_process(delta):
 					best_d = dd
 					best = body
 			if best == null:
+				if is_aoe:
+					# errou o alvo, mas é DANO EM ÁREA: explode onde caiu e pega quem estiver na área
+					_area_hit(global_position)
+					_finish()
+					return
 				Fx.puff(get_parent(), position, 0.5)       # errou: poeirinha no chão
 				queue_free()
 				return
@@ -236,17 +241,23 @@ func _retarget_to_nearest():
 
 func _apply_hit(body):
 	if is_aoe:
-		for other in get_tree().get_nodes_in_group("damageable"):
-			if !("team" in other) or other.team == attacker_team or !_allowed(other):
-				continue
-			if other.global_position.distance_to(body.global_position) <= aoe_radius:
-				other.take_damage(damage)
-				_apply_effect(other)
-				_report_base_damage(other)
+		_area_hit(body.global_position)
 	elif body.has_method("take_damage"):
 		body.take_damage(damage)
 		_apply_effect(body)
 		_report_base_damage(body)
+
+
+## dano em área em volta de um ponto (acertou alguém OU caiu no chão)
+func _area_hit(center: Vector2):
+	for other in get_tree().get_nodes_in_group("damageable"):
+		if !is_instance_valid(other) or !("team" in other) or other.team == attacker_team or !_allowed(other):
+			continue
+		if other.global_position.distance_to(center) <= aoe_radius:
+			other.take_damage(damage)
+			if is_instance_valid(other):
+				_apply_effect(other)
+				_report_base_damage(other)
 
 
 # mesma ideia de unit.gd -- se o alvo for base, avisa a cena de batalha pra

@@ -2151,6 +2151,27 @@ func _legacy_audit():
 		var lost = 99999 - tgt.current_hp if is_instance_valid(tgt) else 0
 		_check("vários projéteis por ataque (%s)" % ("rajada" if mode_burst > 0 else "leque"), lost >= 25 and lost <= 35, "dano %d em 1 ataque (1 tiro = 10)" % lost)
 
+	# TIRO QUE PODE ERRAR + DANO EM ÁREA: errou o alvo, mas explode onde caiu
+	await _wipe()
+	var runner = await _dummy(E, mid + Vector2(0, -150))
+	var bystander = await _dummy(E, mid + Vector2(45, -150))
+	var pj = Projectile.new()
+	pj.target = runner
+	pj.damage = 100
+	pj.speed = 300.0
+	pj.can_miss = true
+	pj.is_aoe = true
+	pj.aoe_radius = 70.0
+	pj.attacker_team = P
+	battle.add_child(pj)
+	pj.global_position = mid
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	runner.global_position = mid + Vector2(-200, -150)   # o alvo saiu do lugar: o tiro erra
+	await get_tree().create_timer(1.5).timeout
+	_check("tiro que erra ainda dá o dano em área onde cai", is_instance_valid(bystander) and bystander.current_hp < 99999 and is_instance_valid(runner) and runner.current_hp >= 99999,
+		"quem estava do lado: %s | quem fugiu: %s" % [str(bystander.current_hp) if is_instance_valid(bystander) else "-", str(runner.current_hp) if is_instance_valid(runner) else "-"])
+
 	# ESQUIVA: golpe de tropa às vezes passa batido; feitiço sempre pega
 	await _wipe()
 	var dg = (await _put_card(_make({"dodge_chance": 0.5, "hp": 99999}), P, mid))[0]
