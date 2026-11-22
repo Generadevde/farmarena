@@ -434,6 +434,8 @@ func _build_replay_deck_row(deck_paths: Array, is_top: bool):
 # ---------------------------------------------------------------- MÓDULOS
 var _main_down: Dictionary = {}      # time -> a base principal caiu
 const MODULE_SPEED_CAP = 0.6   # o máximo que módulos de velocidade somados dão
+var _preview_is_building := false   # a carta do preview é construção (não pode em cima de outra)
+var pockets: Dictionary = {}        # time -> [Rect2] bolsões que ele ganhou no campo do outro
 var _module_bonus: Dictionary = {}   # torre -> o que ela está dando pro dono (some quando ela cai)
 
 
@@ -487,6 +489,7 @@ func on_tower_lost(tower):
 	if tower.is_main:
 		_main_down[tower.team] = true
 	else:
+		_open_pocket(tower)
 		# perdeu um módulo: a Casa Grande desse lado acorda
 		for t in get_tree().get_nodes_in_group("player_base" if tower.team == GameManager.Team.PLAYER else "enemy_base"):
 			if is_instance_valid(t) and t.is_main and t != tower:
@@ -1344,6 +1347,8 @@ func _process(delta):
 
 	var mouse_pos = get_global_mouse_position()
 	var valid = can_spawn(mouse_pos)
+	if valid and _preview_is_building and !building_spot_free(mouse_pos):
+		valid = false
 	var color = Color(0.5, 1, 0.5, 0.5) if valid else Color(1, 0.3, 0.3, 0.5)
 	var count = preview_units.size()
 
@@ -1851,7 +1856,101 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 func can_spawn(pos, area = spawn_player_area):
 	var shape = area.shape
 	var local_pos = area.to_local(pos)
-	return shape.get_rect().has_point(local_pos)
+	if shape.get_rect().has_point(local_pos):
+		return true
+	var team = GameManager.Team.PLAYER if area == spawn_player_area else GameManager.Team.ENEMY
+	return in_pocket(pos, team)
+
+
+func in_pocket(pos: Vector2, team) -> bool:
+	for r in pockets.get(team, []):
+		if r.has_point(pos):
+			return true
+	return false
+
+
+## módulo da FRENTE caiu: o adversário ganha um bolsão pequeno ali
+func _open_pocket(tower):
+	if !Regras.modules() or tower.module_point < 0 or !Regras.point_opens_pocket(tower.module_point):
+		return
+	var winner = GameManager.Team.ENEMY if tower.team == GameManager.Team.PLAYER else GameManager.Team.PLAYER
+	var r: Rect2 = ArenaBuilder.pocket_rect(tower.team, tower.module_point)
+	if !pockets.has(winner):
+		pockets[winner] = []
+	pockets[winner].append(r)
+	# só o bolsão do jogador aparece (o do bot, ele mesmo usa)
+	var mark = ColorRect.new()
+	mark.name = "Bolsao"
+	mark.color = Color(0.45, 1.0, 0.45, 0.13) if winner == GameManager.Team.PLAYER else Color(1.0, 0.4, 0.35, 0.10)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mark.position = to_local(r.position)
+	mark.size = r.size
+	mark.z_index = -50
+	add_child(mark)
+	if winner == GameManager.Team.PLAYER:
+		Fx.text(self, to_local(r.get_center()), "ÁREA LIBERADA!", Color(0.6, 1.0, 0.5), 1.8)
+
+
+## CONSTRUÇÃO não pode nascer em cima de outra construção nem de módulo/base
+const BUILDING_GAP = 62.0
+
+func building_spot_free(pos: Vector2) -> bool:
+	for g in ["player_base", "enemy_base"]:
+		for t in get_tree().get_nodes_in_group(g):
+			if is_instance_valid(t) and !t.is_queued_for_deletion() and t.global_position.distance_to(pos) < BUILDING_GAP + 18.0:
+				return false
+	for u in get_tree().get_nodes_in_group("units"):
+		if is_instance_valid(u) and !u.is_queued_for_deletion() and u.get("stats") != null and u.stats.unit_type == UnitData.UnitType.BUILDING \
+				and u.global_position.distance_to(pos) < BUILDING_GAP:
+			return false
+	return true
+
+
+## robô: acha o lugar livre mais perto (espiral) dentro da área dele; INF se não tiver
+func free_building_spot(pos: Vector2, area) -> Vector2:
+	if building_spot_free(pos):
+		return pos
+	for ring in range(1, 7):
+		for k in 12:
+			var p = _clamp_to_area(pos + Vector2.from_angle(TAU * k / 12.0 + ring * 0.4) * ring * 34.0, area)
+			if building_spot_free(p):
+				return p
+	return Vector2.INF
+
+
+## robô no ataque: com bolsão aberto, tropa (não tanque, não construção) pode ir direto por lá.
+## Mais chance se a rota dele já é a do bolsão.
+func bot_pocket_pos(card: CardData, st: UnitData, team, lane_x: float, pos: Vector2) -> Vector2:
+	if st == null or st.unit_type == UnitData.UnitType.BUILDING or card.role == CardData.CardRole.TANQUE:
+		return pos
+	if pockets.get(team, []).is_empty():
+		return pos
+	var pp = pocket_point(team, lane_x)
+	if pp == Vector2.INF:
+		return pos
+	var near_lane = absf(pp.x - lane_x) < 120.0
+	if randf() < (0.7 if near_lane else 0.4):
+		return pp
+	return pos
+
+
+## x do bolsão mais perto (pro robô mudar a rota pra lá); NAN se não tem
+func pocket_lane(team) -> float:
+	var rs: Array = pockets.get(team, [])
+	if rs.is_empty():
+		return NAN
+	return rs[randi() % rs.size()].get_center().x
+
+
+## um ponto aleatório no bolsão mais perto de x (pro robô atacar por ali)
+func pocket_point(team, near_x: float) -> Vector2:
+	var best = null
+	for r in pockets.get(team, []):
+		if best == null or absf(r.get_center().x - near_x) < absf(best.get_center().x - near_x):
+			best = r
+	if best == null:
+		return Vector2.INF
+	return Vector2(randf_range(best.position.x + 14, best.end.x - 14), randf_range(best.position.y + 14, best.end.y - 14))
 
 
 # instancia a unidade só pra espiar o stats dela (sem entrar na árvore de
@@ -2211,9 +2310,16 @@ func _on_timer_timeout():
 		if _card_allows_spawn_anywhere(chosen) and randf() < 0.6:
 			target_pos = _choose_offensive_anywhere_position()
 		elif _is_building_card(chosen):
-			target_pos = _get_building_placement(spawn_enemy_area, ai_profile.archetype)
+			target_pos = free_building_spot(_get_building_placement(spawn_enemy_area, ai_profile.archetype), spawn_enemy_area)
+			if target_pos == Vector2.INF:
+				return
 		else:
+			# abriu bolsão no campo do jogador: de vez em quando o ataque muda de rota pra lá
+			var pl = pocket_lane(GameManager.Team.ENEMY)
+			if !is_nan(pl) and !pushing and randf() < 0.5:
+				_ai_lane_x = pl
 			target_pos = BattleBrain.offensive_position(chosen, stats, GameManager.Team.ENEMY, get_tree(), spawn_enemy_area, self, _ai_lane_x)
+			target_pos = bot_pocket_pos(chosen, stats, GameManager.Team.ENEMY, _ai_lane_x, target_pos)
 			if pushing:
 				if !push.get("first", false):
 					# apoio entra logo atrás do tanque, não na frente dele
@@ -2358,6 +2464,10 @@ func _ai_play_card(chosen: CardData, target_pos: Vector2):
 		print("IA tenta: ", chosen.card_name if chosen else "null", " pos=", target_pos, " $", GameManager.enemy_money)
 	if chosen == null or target_pos == Vector2.INF or GameManager.enemy_money < chosen.cost:
 		return
+	if !chosen.is_spell() and _is_building_card(chosen):
+		target_pos = free_building_spot(target_pos, spawn_enemy_area)   # nunca em cima de outra construção/módulo
+		if target_pos == Vector2.INF:
+			return
 	GameManager.enemy_money -= chosen.cost
 	SeasonStats.record_play(chosen)
 
@@ -2504,6 +2614,9 @@ func try_confirm_placement_at(click_pos: Vector2) -> bool:
 
 		if !spawn_allowed and !allows_anywhere:
 			return false
+		if _is_building_card(selected_card) and !building_spot_free(click_pos):
+			Fx.text(self, to_local(click_pos) + Vector2(0, -30), "Já tem construção aí", Color(1, 0.6, 0.5), 1.0)
+			return false
 
 		GameManager.player_money -= selected_card.cost
 		spawn_unit(
@@ -2575,6 +2688,7 @@ func select_card(card_data: CardData, hand_index: int = -1):
 		return
 
 	var first = card_data.unit_scene.instantiate()
+	_preview_is_building = first.stats != null and first.stats.unit_type == UnitData.UnitType.BUILDING
 	# círculo de alcance: até onde a defesa/atirador acerta (ou até onde cura)
 	if first.stats != null:
 		var reach = 0.0

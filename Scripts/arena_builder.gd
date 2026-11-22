@@ -55,6 +55,16 @@ static func spawn_rect(team) -> Rect2:
 	return Rect2(CENTER.x - w / 2.0, CENTER.y - HALF.y + MARGIN, w, h)
 
 
+## BOLSÃO: área no campo do DONO do módulo que caiu, onde o ADVERSÁRIO passa a poder soltar tropa.
+## Pequeno: 160 de largura, da beira do rio até a linha do módulo.
+static func pocket_rect(owner_team, point: int) -> Rect2:
+	var p = module_position(owner_team, point)
+	var x0 = clampf(p.x - Regras.POCKET_HALF_W, CENTER.x - HALF.x + MARGIN, CENTER.x + HALF.x - MARGIN - Regras.POCKET_HALF_W * 2.0)
+	var river_edge = CENTER.y + (RIVER_HALF + 6.0) * (1.0 if owner_team == GameManager.Team.PLAYER else -1.0)
+	var y0 = minf(river_edge, p.y)
+	return Rect2(x0, y0, Regras.POCKET_HALF_W * 2.0, absf(p.y - river_edge))
+
+
 static func build(battle: Node):
 	_clear_old(battle)
 	_background(battle)

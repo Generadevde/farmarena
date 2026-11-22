@@ -123,6 +123,11 @@ func _decide():
 			pool = _push_plan.chip_pool(_affordable(0) if push.get("build", false) else pool)
 		elif push.get("go", false):
 			lane_x = float(push["lane_x"])
+	# abriu bolsão: de vez em quando a rota muda pra lá
+	if battle.has_method("pocket_lane") and !(push.get("go", false)) and randf() < 0.5:
+		var pl = battle.pocket_lane(team)
+		if !is_nan(pl):
+			lane_x = pl
 			pool.clear()
 			for c in _affordable(_push_plan.reserve()):
 				pool.append(c)
@@ -148,6 +153,9 @@ func _decide():
 		pos = BattleBrain.offensive_position(chosen, st, team, battle.get_tree(), spawn_area, battle, lane_x)
 		if pushing and !push.get("first", false) and st != null and st.unit_type != UnitData.UnitType.BUILDING:
 			pos = PushPlan.support_position(battle.get_tree(), team, lane_x, spawn_area, battle, pos)
+		# bolsão aberto (derrubou um módulo da frente): tropa que não é tanque pode ir direto por lá
+		if battle.has_method("bot_pocket_pos"):
+			pos = battle.bot_pocket_pos(chosen, st, team, lane_x, pos)
 	_play(chosen, pos)
 	if pushing:
 		_push_plan.played += 1
@@ -173,6 +181,10 @@ func _opponent_money() -> int:
 func _play(card: CardData, pos: Vector2):
 	if card == null or pos == Vector2.INF or money < card.cost:
 		return
+	if !card.is_spell() and battle.has_method("free_building_spot") and battle._is_building_card(card):
+		pos = battle.free_building_spot(pos, spawn_area)   # nunca em cima de outra construção/módulo
+		if pos == Vector2.INF:
+			return
 	money -= card.cost
 	var i = hand.find(card)
 	if i != -1:

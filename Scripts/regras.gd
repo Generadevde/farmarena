@@ -77,6 +77,27 @@ const DEFAULT_POINTS = [0, 2, 1]             # onde os módulos nascem, antes de
 # único módulo na frente do meio, tudo que o adversário tem pra bater fica na rota do meio e a
 # partida vira "jogar carta no meio" (medido: 98% das jogadas dos bots no meio)
 const FILL_POINTS = [0, 2, 1, 3, 5, 4, 6, 7]
+# RISCO x BÔNUS da posição: o módulo da FRENTE leva 10% menos dano e o do LADO 5% (atrás, nada).
+# Em troca, quando um da FRENTE cai, o adversário ganha um BOLSÃO pequeno pra soltar tropa ali
+# (igual à torre do Clash). Lado e trás não abrem bolsão.
+const FRONT_POINTS = [0, 1, 2]
+const SIDE_POINTS = [3, 5]
+const POINT_ARMOR_FRONT = 0.10
+const POINT_ARMOR_SIDE = 0.05
+const POCKET_HALF_W = 80.0       # bolsão: 160 de largura, do rio até a linha do módulo que caiu
+
+
+## quanto menos dano o módulo leva só por estar nesse ponto
+static func point_armor(point: int) -> float:
+	if point in FRONT_POINTS:
+		return POINT_ARMOR_FRONT
+	if point in SIDE_POINTS:
+		return POINT_ARMOR_SIDE
+	return 0.0
+
+
+static func point_opens_pocket(point: int) -> bool:
+	return point in FRONT_POINTS
 
 
 static func module_slots(level: int) -> int:

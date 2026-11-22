@@ -550,8 +550,11 @@ func _shot_damage_on(victim, dmg: int) -> int:
 
 func take_damage(amount):
 	if base_data != null and amount > 0:
-		if base_data.damage_reduction_percent > 0.0:
-			amount = amount * (1.0 - clampf(base_data.damage_reduction_percent, 0.0, 0.9))
+		var armor = base_data.damage_reduction_percent
+		if !is_main and module_point >= 0 and Regras.modules():
+			armor += Regras.point_armor(module_point)   # frente 10%, lado 5%
+		if armor > 0.0:
+			amount = amount * (1.0 - clampf(armor, 0.0, 0.9))
 		# devolve parte do dano pra quem está batendo de perto
 		if base_data.reflect_percent > 0.0 and !_reflecting:
 			_reflecting = true

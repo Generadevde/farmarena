@@ -755,9 +755,49 @@ func _modules_test():
 	_check("perdeu um módulo: a Casa Grande acorda", !my_main[0].asleep)
 	_check("perder módulo não acaba a partida", !battle.match_over)
 	_check("no fim do tempo, quem perdeu módulo perde", battle.time_up_loser() == GameManager.Team.PLAYER, str(battle.time_up_loser()))
-	bot_mods[0].take_damage(999999)
+	# POSIÇÃO: frente leva 10% menos dano, trás nada; cair na FRENTE abre bolsão, atrás não
+	bot_mods[0].module_point = 1
+	bot_mods[1].module_point = 4
+	var arm_ok = true
+	var arm_txt = ""
+	for bm in [bot_mods[0], bot_mods[1]]:
+		var dr0 = bm.base_data.damage_reduction_percent
+		var hp0 = bm.hp
+		bm.take_damage(1000)
+		var lost = hp0 - bm.hp
+		var want = 1000.0 * (1.0 - clampf(dr0 + Regras.point_armor(bm.module_point), 0.0, 0.9))
+		arm_txt += "ponto %d perdeu %d (esperado %d) " % [bm.module_point, lost, want]
+		if absf(lost - want) > 2.0:
+			arm_ok = false
+	_check("frente leva 10% menos dano, trás normal", arm_ok and Regras.point_armor(1) == 0.10 and Regras.point_armor(3) == 0.05 and Regras.point_armor(6) == 0.0, arm_txt)
+	var mid_enemy = ArenaBuilder.module_position(GameManager.Team.ENEMY, 1)
+	var probe = Vector2(mid_enemy.x, mid_enemy.y + 60.0)   # entre o módulo da frente do bot e o rio
+	var probe_area = battle.spawn_player_area
+	var before_pocket = battle.can_spawn(probe, probe_area)
 	bot_mods[1].take_damage(999999)
 	await get_tree().process_frame
+	var after_back = battle.can_spawn(probe, probe_area)
+	bot_mods[0].take_damage(999999)
+	await get_tree().process_frame
+	var after_front = battle.can_spawn(probe, probe_area)
+	var far_probe = Vector2(mid_enemy.x + 200.0, mid_enemy.y + 60.0)
+	_check("módulo da frente caiu: abre bolsão pequeno pro adversário (o de trás não)", !before_pocket and !after_back and after_front \
+		and !battle.can_spawn(far_probe, probe_area) and !battle.can_spawn(mid_enemy + Vector2(0, -80), probe_area),
+		"antes %s, trás caiu %s, frente caiu %s" % [before_pocket, after_back, after_front])
+	# bot usa o bolsão: com bolsão do JOGADOR aberto no campo do bot, o robô do jogador (time PLAYER) solta lá
+	var fast: CardData = Catalogo.card("caramelo")
+	var in_pk = 0
+	for k in 40:
+		var bp = battle.bot_pocket_pos(fast, DeckBuilder.get_unit_stats(fast), GameManager.Team.PLAYER, mid_enemy.x, Vector2(mid_enemy.x, 0))
+		if battle.in_pocket(bp, GameManager.Team.PLAYER):
+			in_pk += 1
+	_check("robô solta tropa no bolsão (às vezes)", in_pk >= 10 and in_pk < 40, "%d de 40" % in_pk)
+	# construção: nunca em cima de módulo/base nem de outra construção
+	var my_main_pos = my_main[0].global_position
+	var free_far = battle.building_spot_free(ArenaBuilder.CENTER + Vector2(-120, 120))
+	var spot = battle.free_building_spot(my_main_pos, battle.spawn_player_area)
+	_check("construção não nasce em cima de módulo/base (robô acha outro lugar)", !battle.building_spot_free(my_main_pos) and free_far \
+		and spot != Vector2.INF and battle.building_spot_free(spot), "livre longe %s, achou %s" % [free_far, spot])
 	_check("derrubar os 2 módulos do bot não acaba a partida", !battle.match_over)
 	_check("placar 2 x 1 pra mim", battle.time_up_loser() == GameManager.Team.ENEMY, str(battle.time_up_loser()))
 	# BASE PRINCIPAL: caiu, acabou -- mesmo com o placar a favor
