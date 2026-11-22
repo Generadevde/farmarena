@@ -1988,42 +1988,22 @@ func _perform_attack():
 			_apply_on_hit_effect_to(beam_body)
 	elif stats.is_ranged:
 		Sfx.play("tiro", 0.2, -4.0)
-		var proj = Projectile.new()
-		proj.target = target
-		proj.buildings_only = stats.target_type == UnitData.TargetType.BUILDING
-		proj.impact_fx = stats.impact_fx
-		proj.impact_tint = stats.impact_tint
-		proj.impact_size = stats.impact_size
-		proj.hits = 1 if stats.target_type == UnitData.TargetType.GROUND else (2 if stats.target_type == UnitData.TargetType.AIR else 0)
-		proj.damage = dmg
-		proj.speed = stats.projectile_speed
-		proj.texture = stats.projectile_texture
-		proj.is_aoe = stats.is_aoe
-		proj.aoe_radius = stats.aoe_radius
-		proj.attacker_team = team
-		proj.on_hit_effect = stats.on_hit_effect
-		proj.on_hit_effect_duration = stats.on_hit_effect_duration
-		proj.on_hit_effect_strength = stats.on_hit_effect_strength
-		proj.on_hit_effect_tick_interval = stats.on_hit_effect_tick_interval
-		proj.knockback_distance = stats.knockback_distance
-		proj.can_miss = stats.projectile_can_miss
-		proj.launch_angle = stats.projectile_launch_angle
-		if stats.projectile_returns:
-			proj.returns_to = self
-			proj.return_reach = stats.attack_range + 40.0
-		proj.pierces = stats.projectile_pierces
-		proj.max_targets = stats.projectile_max_targets
-		proj.splits = stats.projectile_splits
-		proj.split_count = stats.projectile_split_count
-		proj.split_range = stats.projectile_split_range
-		proj.chains = stats.projectile_chains
-		proj.chain_max_targets = stats.projectile_chain_max_targets
-		proj.chain_range = stats.projectile_chain_range
-		proj.source_card_path = card_data.resource_path if card_data != null else ""
-		if Regras.on("visual"):
-			proj.scale = Vector2.ONE * clampf(_visual_scale * 0.95, 1.25, 2.2)  # projétil acompanha o tamanho da tropa
-		get_parent().add_child(proj)
-		proj.global_position = global_position
+		# QUANTOS PROJÉTEIS POR ATAQUE: todos juntos em leque, ou em rajada (um atrás do outro)
+		var n_shots = maxi(1, stats.projectiles_per_attack)
+		if n_shots == 1:
+			_fire_shot(dmg, Vector2.ZERO)
+		elif stats.projectile_burst_delay > 0.0:
+			_fire_shot(dmg, Vector2.ZERO)
+			for k in range(1, n_shots):
+				get_tree().create_timer(stats.projectile_burst_delay * k, false).timeout.connect(func():
+					if is_instance_valid(self) and current_hp > 0 and target != null and is_instance_valid(target):
+						_fire_shot(dmg, Vector2.ZERO))
+		else:
+			var aim = (target.global_position - global_position).normalized() if is_instance_valid(target) else Vector2.UP
+			var perp = aim.orthogonal()
+			var gap = maxf(stats.projectile_spread, 2.0)
+			for k in n_shots:
+				_fire_shot(dmg, perp * (float(k) - float(n_shots - 1) * 0.5) * gap)
 		# COICE: depois do tiro dá um pulinho pra trás (usa o mesmo empurrão dos efeitos)
 		if stats.recoil_distance > 0.0 and is_instance_valid(target):
 			_recoil_push(target.global_position)
@@ -2985,6 +2965,48 @@ var _dodged := 0              # quantos golpes já esquivou (teste)
 
 
 ## TRANSFORMAÇÃO na metade da vida: some esta, nasce a outra no mesmo lugar (mesmo nível)
+## um tiro (a tropa pode soltar vários por ataque); `side` = deslocado de lado (leque)
+func _fire_shot(dmg, side: Vector2):
+	if target == null or !is_instance_valid(target):
+		return
+	var proj = Projectile.new()
+	proj.target = target
+	proj.buildings_only = stats.target_type == UnitData.TargetType.BUILDING
+	proj.impact_fx = stats.impact_fx
+	proj.impact_tint = stats.impact_tint
+	proj.impact_size = stats.impact_size
+	proj.hits = 1 if stats.target_type == UnitData.TargetType.GROUND else (2 if stats.target_type == UnitData.TargetType.AIR else 0)
+	proj.damage = dmg
+	proj.speed = stats.projectile_speed
+	proj.texture = stats.projectile_texture
+	proj.is_aoe = stats.is_aoe
+	proj.aoe_radius = stats.aoe_radius
+	proj.attacker_team = team
+	proj.on_hit_effect = stats.on_hit_effect
+	proj.on_hit_effect_duration = stats.on_hit_effect_duration
+	proj.on_hit_effect_strength = stats.on_hit_effect_strength
+	proj.on_hit_effect_tick_interval = stats.on_hit_effect_tick_interval
+	proj.knockback_distance = stats.knockback_distance
+	proj.can_miss = stats.projectile_can_miss
+	proj.launch_angle = stats.projectile_launch_angle
+	if stats.projectile_returns:
+		proj.returns_to = self
+		proj.return_reach = stats.attack_range + 40.0
+	proj.pierces = stats.projectile_pierces
+	proj.max_targets = stats.projectile_max_targets
+	proj.splits = stats.projectile_splits
+	proj.split_count = stats.projectile_split_count
+	proj.split_range = stats.projectile_split_range
+	proj.chains = stats.projectile_chains
+	proj.chain_max_targets = stats.projectile_chain_max_targets
+	proj.chain_range = stats.projectile_chain_range
+	proj.source_card_path = card_data.resource_path if card_data != null else ""
+	if Regras.on("visual"):
+		proj.scale = Vector2.ONE * clampf(_visual_scale * 0.95, 1.25, 2.2)  # projétil acompanha o tamanho da tropa
+	get_parent().add_child(proj)
+	proj.global_position = global_position + side
+
+
 func _transform_half():
 	if !is_instance_valid(self) or is_queued_for_deletion():
 		return

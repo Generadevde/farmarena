@@ -243,50 +243,62 @@ func _process_cannon(delta):
 			_beam_color(heat_t), 2.5 + 5.5 * heat_t, maxf(Regras.tower_interval(base_data) * 1.25, 0.2))
 		_apply_cannon_damage(target, dmg)
 	elif shot_tex != null:
-		var proj = Projectile.new()
+		# QUANTOS PROJÉTEIS POR TIRO: leque (lado a lado) ou rajada (um atrás do outro)
+		var n_shots = maxi(1, base_data.projectiles_per_shot)
+		_shot_cooldown = Regras.tower_interval(base_data)   # já conta: a rajada não deixa a torre atirar de novo no meio
+		var aim_dir = (target.global_position - global_position).normalized()
+		for k in n_shots:
+			if k > 0 and base_data.projectile_burst_delay > 0.0:
+				await get_tree().create_timer(base_data.projectile_burst_delay, false).timeout
+				if !is_instance_valid(self) or target == null or !is_instance_valid(target):
+					break
+			var side = Vector2.ZERO
+			if n_shots > 1 and base_data.projectile_burst_delay <= 0.0:
+				side = aim_dir.orthogonal() * (float(k) - float(n_shots - 1) * 0.5) * maxf(base_data.projectile_spread, 2.0)
+			var proj = Projectile.new()
 
-		proj.target = target
-		proj.damage = dmg
-		proj.speed = maxf(base_data.projectile_speed, 380.0) if Regras.on("torres") else base_data.projectile_speed
-		proj.texture = shot_tex
+			proj.target = target
+			proj.damage = dmg
+			proj.speed = maxf(base_data.projectile_speed, 380.0) if Regras.on("torres") else base_data.projectile_speed
+			proj.texture = shot_tex
 
-		# Ataque em área (só torre "de tiro")
-		proj.is_aoe = base_data.is_aoe and is_cannon
-		proj.aoe_radius = base_data.aoe_radius
-		proj.impact_fx = base_data.impact_fx
-		proj.impact_tint = base_data.impact_tint
-		proj.impact_size = base_data.impact_size
-		proj.hits = base_data.targets   # 0 chão+ar, 1 só chão, 2 só ar (a área também respeita)
+			# Ataque em área (só torre "de tiro")
+			proj.is_aoe = base_data.is_aoe and is_cannon
+			proj.aoe_radius = base_data.aoe_radius
+			proj.impact_fx = base_data.impact_fx
+			proj.impact_tint = base_data.impact_tint
+			proj.impact_size = base_data.impact_size
+			proj.hits = base_data.targets   # 0 chão+ar, 1 só chão, 2 só ar (a área também respeita)
 
-		proj.attacker_team = team
-		proj.can_miss = base_data.projectile_can_miss
-		proj.launch_angle = base_data.projectile_launch_angle
-		proj.pierces = base_data.projectile_pierces
-		proj.max_targets = base_data.projectile_max_targets
-		proj.splits = base_data.projectile_splits
-		proj.split_count = base_data.projectile_split_count
-		proj.split_range = base_data.projectile_split_range
-		proj.chains = base_data.projectile_chains
-		proj.chain_max_targets = base_data.projectile_chain_max_targets
-		proj.chain_range = base_data.projectile_chain_range
+			proj.attacker_team = team
+			proj.can_miss = base_data.projectile_can_miss
+			proj.launch_angle = base_data.projectile_launch_angle
+			proj.pierces = base_data.projectile_pierces
+			proj.max_targets = base_data.projectile_max_targets
+			proj.splits = base_data.projectile_splits
+			proj.split_count = base_data.projectile_split_count
+			proj.split_range = base_data.projectile_split_range
+			proj.chains = base_data.projectile_chains
+			proj.chain_max_targets = base_data.projectile_chain_max_targets
+			proj.chain_range = base_data.projectile_chain_range
 
-		# Efeitos: o tiro básico das outras torres é só dano (o efeito delas é a aura)
-		if is_cannon:
-			proj.on_hit_effect = base_data.effect
-			proj.on_hit_effect_duration = base_data.effect_duration
-			proj.on_hit_effect_strength = base_data.effect_strength
-			proj.on_hit_effect_tick_interval = base_data.effect_tick_interval
-			proj.knockback_distance = base_data.knockback_distance
+			# Efeitos: o tiro básico das outras torres é só dano (o efeito delas é a aura)
+			if is_cannon:
+				proj.on_hit_effect = base_data.effect
+				proj.on_hit_effect_duration = base_data.effect_duration
+				proj.on_hit_effect_strength = base_data.effect_strength
+				proj.on_hit_effect_tick_interval = base_data.effect_tick_interval
+				proj.knockback_distance = base_data.knockback_distance
 
-		if Regras.on("visual"):
-			proj.scale = Vector2(1.9, 1.9)  # tiro da torre bem visível
-		get_parent().add_child(proj)
-		proj.global_position = global_position
-		if Regras.on("torres"):
-			# sai do alto da torre, com um estalinho: dá pra ver e ouvir a torre defendendo
-			proj.global_position = global_position + Vector2(0, -26)
-			Fx.burst(get_parent(), position + Vector2(0, -30), Color(1.0, 0.9, 0.5), 3, 60.0, 2.5)
-			Sfx.play("tiro", 0.12, -7.0)
+			if Regras.on("visual"):
+				proj.scale = Vector2(1.9, 1.9)  # tiro da torre bem visível
+			get_parent().add_child(proj)
+			proj.global_position = global_position + side
+			if Regras.on("torres"):
+				# sai do alto da torre, com um estalinho: dá pra ver e ouvir a torre defendendo
+				proj.global_position = global_position + Vector2(0, -26) + side
+				Fx.burst(get_parent(), position + Vector2(0, -30), Color(1.0, 0.9, 0.5), 3, 60.0, 2.5)
+				Sfx.play("tiro", 0.12, -7.0)
 
 	# --------------------------------------------------------
 	# SEM PROJÉTIL VISUAL

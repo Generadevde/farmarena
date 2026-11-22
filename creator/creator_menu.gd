@@ -1075,6 +1075,7 @@ const ABILITIES = [
 		["Raio contínuo (torre inferno)", "beam_attack", ["beam_tint", "beam_heats_red"], {}],
 		["Pode errar (tiro reto, não persegue)", "projectile_can_miss", [], {}],
 		["Sai em arco (ângulo de saída)", "projectile_launch_angle", [], {"projectile_launch_angle": 45.0}],
+		["Vários projéteis por ataque (leque ou rajada)", "projectiles_per_attack", ["projectile_spread", "projectile_burst_delay"], {"projectiles_per_attack": 3}],
 		["Atravessa", "projectile_pierces", ["projectile_max_targets"], {"projectile_max_targets": 3}],
 		["Se divide", "projectile_splits", ["projectile_split_count", "projectile_split_range"], {}],
 		["Pula em cadeia", "projectile_chains", ["projectile_chain_max_targets", "projectile_chain_range"], {}],
@@ -2097,7 +2098,7 @@ func _tab_funcao():
 
 
 const MODULE_GROUPS = [
-	["🎯 Tiro (toda torre atira)", ["targets", "projectile_speed", "projectile_can_miss", "projectile_launch_angle"]],
+	["🎯 Tiro (toda torre atira)", ["targets", "projectile_speed", "projectile_can_miss", "projectile_launch_angle", "projectiles_per_shot", "projectile_spread", "projectile_burst_delay"]],
 	["🏹 Projétil", ["projectile_pierces", "projectile_max_targets", "projectile_splits", "projectile_split_count", "projectile_split_range",
 		"projectile_chains", "projectile_chain_max_targets", "projectile_chain_range"]],
 	["⚔ Habilidades de tiro", ["beam_attack", "beam_tint", "beam_heats_red", "extra_targets", "ramp_per_shot", "ramp_max_mult", "execute_threshold", "execute_damage_mult",

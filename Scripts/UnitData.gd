@@ -454,6 +454,11 @@ enum OnHitEffect {
 @export var counter_attack_chance: float = 0.0
 ## EFEITO DE ACERTO (o que aparece quando o tiro/golpe pega): ver Fx.IMPACT_NAMES
 @export var impact_fx: int = 0
+## QUANTOS PROJÉTEIS por ataque (cada um com o dano todo). Saem juntos em leque
+## (projectile_spread = distância entre eles) ou em rajada (projectile_burst_delay > 0 = um atrás do outro)
+@export var projectiles_per_attack: int = 1
+@export var projectile_spread: float = 10.0
+@export var projectile_burst_delay: float = 0.0
 @export var impact_tint: int = 0       # 0 = cor do efeito; 1.. = SpellData.TINT_NAMES
 @export var impact_size: float = 1.0
 ## ESQUIVA: chance (0-1) de não levar o golpe de tropa ou torre (feitiço sempre pega)

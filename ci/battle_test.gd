@@ -2140,6 +2140,17 @@ func _legacy_audit():
 	_check("tiro em área só de chão não acerta voador", is_instance_valid(air) and air.current_hp >= 99999 and is_instance_valid(gd) and gd.current_hp < 99999,
 		"voador %s, chão %s" % [str(air.current_hp) if is_instance_valid(air) else "morreu", str(gd.current_hp) if is_instance_valid(gd) else "morreu"])
 
+	# VÁRIOS PROJÉTEIS POR ATAQUE: leque (3 juntos) e rajada (3 em sequência)
+	for mode_burst in [0.0, 0.15]:
+		await _wipe()
+		var tgt = await _dummy(E, mid + Vector2(0, -120))
+		# 1 ataque só (intervalo enorme): tem que chegar 3 x 10 de dano
+		var sh = (await _put_card(_make({"is_ranged": true, "attack_range": 160.0, "move_speed": 0.0, "damage": 10, "attack_speed": 60.0, "hp": 99999,
+			"projectiles_per_attack": 3, "projectile_burst_delay": mode_burst}), P, mid))[0]
+		await get_tree().create_timer(3.5).timeout
+		var lost = 99999 - tgt.current_hp if is_instance_valid(tgt) else 0
+		_check("vários projéteis por ataque (%s)" % ("rajada" if mode_burst > 0 else "leque"), lost >= 25 and lost <= 35, "dano %d em 1 ataque (1 tiro = 10)" % lost)
+
 	# ESQUIVA: golpe de tropa às vezes passa batido; feitiço sempre pega
 	await _wipe()
 	var dg = (await _put_card(_make({"dodge_chance": 0.5, "hp": 99999}), P, mid))[0]

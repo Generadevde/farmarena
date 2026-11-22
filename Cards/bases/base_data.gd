@@ -98,6 +98,10 @@ enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO, SUPORTE }
 @export var projectile_launch_angle: float = 0.0
 ## EFEITO DE ACERTO do tiro da torre (Fx.IMPACT_NAMES), cor e tamanho
 @export var impact_fx: int = 0
+## QUANTOS PROJÉTEIS por tiro (cada um com o dano todo): leque (spread) ou rajada (burst_delay > 0)
+@export var projectiles_per_shot: int = 1
+@export var projectile_spread: float = 10.0
+@export var projectile_burst_delay: float = 0.0
 @export var impact_tint: int = 0
 @export var impact_size: float = 1.0
 @export var projectile_pierces: bool = false
