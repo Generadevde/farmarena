@@ -152,7 +152,9 @@ func _ready():
 	$ProgressBar.theme = ThemeBuilder.game_theme
 	$ProgressBar.custom_minimum_size = Vector2(40, 8)  # garante formato de barra alongada, não um quadrado pequeno
 	$LevelLabel.text = "Nv%d" % card_level
-	$LevelLabel.visible = card_level > 1 and !MatchSetup.tournament  # nível 1 (e torneio, tudo igual) não polui a tela
+	# nível SEMPRE à mostra (antes o Nv1 sumia e parecia que a carta do bot "não tinha nível");
+	# só some quando todo mundo joga no mesmo nível (torneio, modo teste)
+	$LevelLabel.visible = card_level >= 1 and MatchSetup.fixed_level() <= 0
 	$LevelLabel.add_theme_font_size_override("font_size", 11)
 	_setup_bar()
 	add_to_group("damageable")
