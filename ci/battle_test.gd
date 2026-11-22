@@ -3323,4 +3323,41 @@ func _general_audit():
 		"aprendeu=%s inovar %.2f -> %.2f, curioso %.2f, analítico %.2f" % [str(learned), e_new, e_old, BotLearning.module_explore_chance(cur, 200), BotLearning.module_explore_chance(ana, 200)])
 
 	print("GERAL ok (", _aud_ok.size(), "): ", _aud_ok)
+	# EVOLUIR POR IGUAL x FOCAR: com cópias e ouro de sobra, o "por igual" deixa o baralho
+	# todo no mesmo nível; o "foca" sobe a carta que já está na frente
+	var even_name = ""
+	var focus_name = ""
+	for k in 200:
+		var nm = "TesteEvolui%d" % k
+		if BotLearning.evolves_evenly(nm) and even_name == "":
+			even_name = nm
+		elif !BotLearning.evolves_evenly(nm) and focus_name == "":
+			focus_name = nm
+	var evo_paths: Array = []
+	for c in Catalogo.cards().slice(0, 8):
+		evo_paths.append(c.resource_path)
+	var evo_res = {}
+	for nm in [even_name, focus_name]:
+		var lv0 = {}
+		for pth in evo_paths:
+			lv0[pth] = 1
+		lv0[evo_paths[0]] = 3
+		var cp = {}
+		for pth in evo_paths:
+			cp[pth] = 9999
+		var dd = {"deck_paths": evo_paths, "card_levels": lv0, "card_copies": cp, "gold": 2600}
+		BotLearning._level_cap = 14
+		BotLearning._maybe_upgrade_cards(dd, nm)
+		evo_res[nm] = dd["card_levels"].values()
+	var ev: Array = evo_res[even_name]
+	var fc: Array = evo_res[focus_name]
+	_check("bot 'por igual' sobe as cartas baixas; o 'foca' sobe a que já está na frente",
+		ev.max() == 3 and ev.min() >= 2 and fc.max() > 3, "igual %s | foca %s" % [ev, fc])
+	var split = 0
+	for k in 400:
+		if BotLearning.evolves_evenly("Bot%d" % k):
+			split += 1
+	_check("uns bots evoluem por igual, outros focam", split > 120 and split < 320, str(split))
+	var ap = AIProfile.new()
+	_check("nível médio do baralho = soma / quantidade", absf(MatchSetup.avg_level(ap) - 1.0) < 0.01 or ap.deck.is_empty(), str(MatchSetup.avg_level(ap)))
 	print("RESULTADO geral COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

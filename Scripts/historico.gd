@@ -21,7 +21,7 @@ static func _deck_entry(cards: Array, level_of: Callable) -> Array:
 
 
 ## result: 1 vitória, 0 derrota, -1 empate
-static func record(result: int, trophies_delta: int, score_mine: int, score_bot: int, seconds: float, bot: AIProfile, my_deck: Array):
+static func record(result: int, trophies_delta: int, score_mine: int, score_bot: int, seconds: float, bot: AIProfile, my_deck: Array, bot_snapshot: Array = []):
 	var mode = "Normal"
 	if MatchSetup.mode == MatchSetup.MODE_2V2:
 		mode = "2 contra 2"
@@ -35,12 +35,14 @@ static func record(result: int, trophies_delta: int, score_mine: int, score_bot:
 		"tr_meu": int(ArenaManager.get_trophies(PlayerProfile.player_name)),
 		"placar": [score_mine, score_bot], "dur": int(seconds), "modo": mode,
 		"regra": str(MatchSetup.RULE_NAMES[MatchSetup.rule]) if MatchSetup.rule > 0 else "",
-		"meu": _deck_entry(my_deck, func(c): return PlayerProfile.get_card_level(c)),
+		"meu": _deck_entry(my_deck, func(c): return MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else PlayerProfile.get_card_level(c)),
 		"bot": "", "tr_bot": 0, "dele": []}
 	if bot != null:
 		e["bot"] = bot.profile_name
 		e["tr_bot"] = int(ArenaManager.get_trophies(bot.profile_name))
-		e["dele"] = _deck_entry(bot.deck, func(c): return bot.get_card_level(c))
+		# o baralho que ele USOU (foto do começo da partida): depois de perder o bot pode trocar carta,
+		# e antes aparecia o baralho novo aqui
+		e["dele"] = bot_snapshot if !bot_snapshot.is_empty() else _deck_entry(bot.deck, func(c): return bot.get_card_level(c))
 	var l = list()
 	l.push_front(e)
 	while l.size() > MAX:

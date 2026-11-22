@@ -3866,7 +3866,7 @@ func _show_history():
 		_history_deck(p, e.get("meu", []), "")
 		var bot = str(e.get("bot", ""))
 		if bot != "":
-			var bl = _button("%s  🏆 %d  ▸" % [bot, int(e.get("tr_bot", 0))], _show_bot.bind(bot), 15)
+			var bl = _button("%s  🏆 %d  ▸" % [bot, int(e.get("tr_bot", 0))], _show_bot.bind(bot, e.get("dele", [])), 15)
 			bl.alignment = HORIZONTAL_ALIGNMENT_LEFT
 			p.add_child(bl)
 			_history_deck(p, e.get("dele", []), bot)
@@ -3889,7 +3889,7 @@ func _history_deck(parent: Control, deck: Array, who: String):
 		g.add_child(cv)
 
 
-func _show_bot(who: String):
+func _show_bot(who: String, match_deck: Array = []):
 	if who == PlayerProfile.player_name:
 		return
 	var prof: AIProfile = BotLearning.get_or_create_profile(who)
@@ -3910,6 +3910,15 @@ func _show_bot(who: String):
 			v.add_child(_label("🔗 Combo dele: %s + %s" % [cb[0].card_name, cb[1].card_name], 15, Color(0.7, 0.9, 1.0)))
 	if prof.favorite_card != null:
 		v.add_child(_label("⭐ Carta favorita: %s (joga 1 nível acima e puxa os ataques dele)" % prof.favorite_card.card_name, 15, Color(1.0, 0.9, 0.55)))
+	# veio do histórico e ele já trocou de baralho: mostra os dois, cada um com o nome certo
+	var now_paths = prof.deck.filter(func(c): return c != null).map(func(c): return c.resource_path)
+	var same = match_deck.is_empty() or match_deck.map(func(it): return str(it[0])) == now_paths
+	if !same:
+		v.add_child(_label("🃏 Baralho que ele usou contra você:", 16, ThemeBuilder.COLOR_GOLD))
+		_history_deck(v, match_deck, who)
+		v.add_child(_label("🃏 Baralho de HOJE (ele troca carta com o tempo):", 16, ThemeBuilder.COLOR_GOLD))
+	else:
+		v.add_child(_label("🃏 Baralho de hoje  ·  nível médio %.1f" % MatchSetup.avg_level(prof), 16, ThemeBuilder.COLOR_GOLD))
 	var g = _grid(v, 4)
 	for c in prof.deck:
 		if c == null:

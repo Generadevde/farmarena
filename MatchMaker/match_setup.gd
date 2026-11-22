@@ -23,6 +23,33 @@ const OPPONENT_TROPHY_RANGE = 150
 
 
 ## bot perto do seu troféu (sem repetir os 2 últimos)
+const LEVEL_GAP_MAX = 2.0
+
+
+## nível médio de um baralho de bot (soma dos níveis / quantidade de cartas)
+static func avg_level(prof: AIProfile) -> float:
+	if prof == null:
+		return 1.0
+	var n = 0
+	var total = 0
+	for c in prof.deck:
+		if c != null:
+			total += prof.get_card_level(c)
+			n += 1
+	return float(total) / maxf(1.0, float(n))
+
+
+static func player_avg_level() -> float:
+	var cards: Array = Progresso.deck_cards(Progresso.active_deck())
+	var n = 0
+	var total = 0
+	for c in cards:
+		if c != null:
+			total += PlayerProfile.get_card_level(c)
+			n += 1
+	return float(total) / maxf(1.0, float(n))
+
+
 func choose_opponent() -> AIProfile:
 	BotSimulator.ensure_rivals()  # nunca falta adversário na sua faixa
 	if BotSimulator.roster_names.is_empty():
@@ -31,9 +58,18 @@ func choose_opponent() -> AIProfile:
 	var near: Array = []
 	var closest: Array = []
 	var closest_diff = INF
+	# NÍVEL MÉDIO: soma os níveis das 8 cartas e divide por 8; o adversário tem que ficar
+	# no máximo 2 acima ou 2 abaixo (ex.: tudo nível 4 = média 4 -> enfrenta média 2 a 6)
+	var my_avg = player_avg_level()
+	var level_ok: Array = []
+	for bot_name in BotSimulator.roster_names:
+		if absf(avg_level(BotLearning.get_or_create_profile(bot_name)) - my_avg) <= LEVEL_GAP_MAX:
+			level_ok.append(bot_name)
 	for bot_name in BotSimulator.roster_names:
 		if bot_name in PlayerProfile.recent_opponents:
 			continue
+		if level_ok.size() >= 3 and !(bot_name in level_ok):
+			continue   # (se quase ninguém cabe na faixa, não trava a fila: vale o mais perto em troféu)
 		var diff = abs(ArenaManager.get_trophies(bot_name) - mine)
 		if diff <= OPPONENT_TROPHY_RANGE:
 			near.append(bot_name)

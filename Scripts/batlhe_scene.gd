@@ -294,6 +294,7 @@ func _ready():
 			ai_profile.min_money_reserve = 0
 			_is_nemesis_match = true
 		_start_ai_hand()
+		_bot_deck_snapshot = Historico._deck_entry(ai_profile.deck, func(c): return MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else ai_profile.get_card_level(c))
 		_pick_ai_lane()
 		_show_opening_greeting()
 
@@ -434,6 +435,7 @@ func _build_replay_deck_row(deck_paths: Array, is_top: bool):
 # ---------------------------------------------------------------- MÓDULOS
 var _main_down: Dictionary = {}      # time -> a base principal caiu
 const MODULE_SPEED_CAP = 0.6   # o máximo que módulos de velocidade somados dão
+var _bot_deck_snapshot: Array = []   # baralho e níveis do bot NO COMEÇO da partida (pro histórico)
 var _preview_is_building := false   # a carta do preview é construção (não pode em cima de outra)
 var pockets: Dictionary = {}        # time -> [Rect2] bolsões que ele ganhou no campo do outro
 var _module_bonus: Dictionary = {}   # torre -> o que ela está dando pro dono (some quando ela cai)
@@ -1039,7 +1041,7 @@ func _show_result_screen(player_won: bool, coins_gained: int, xp_gained: int, tr
 	# histórico de partidas (igual o do Clash): resultado, placar, troféus e os dois baralhos
 	Historico.record(-1 if is_draw else (1 if player_won else 0), trophies_gained,
 		int(towers_destroyed[GameManager.Team.ENEMY]), int(towers_destroyed[GameManager.Team.PLAYER]),
-		_get_match_elapsed(), ai_profile, DeckManager.full_deck)
+		_get_match_elapsed(), ai_profile, DeckManager.full_deck, _bot_deck_snapshot)
 	var overlay = CanvasLayer.new()
 	overlay.layer = 100
 	overlay.process_mode = Node.PROCESS_MODE_ALWAYS

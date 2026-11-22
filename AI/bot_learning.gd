@@ -215,7 +215,7 @@ func get_or_create_profile(bot_name: String) -> AIProfile:
 		profile.card_stars = data.get("card_stars", {})
 		known_changed = true
 	if int(data.get("copies_v", 0)) < 1 and !is_new:
-		_catch_up_copies(data, bot_arena_now)
+		_catch_up_copies(data, bot_arena_now, bot_name)
 		profile.card_levels = data.get("card_levels", {})
 		profile.base_level = data.get("base_level", 1)
 		known_changed = true
@@ -963,7 +963,7 @@ func seed_history(bot_name: String, trophies: int):
 	data["total_wins"] = wins
 	data["base_matches_played"] = wins * 2
 	data["copies_v"] = 0
-	_catch_up_copies(data, ArenaManager.get_participant_arena(bot_name))
+	_catch_up_copies(data, ArenaManager.get_participant_arena(bot_name), bot_name)
 	_save_raw(bot_name, data)
 
 
@@ -1104,14 +1104,14 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 		data["total_wins"] = data.get("total_wins", 0) + 1  # só informativo (vitalício)
 		data["gold"] = data.get("gold", 0) + reward["gold"]
 		data["current_loss_streak"] = 0  # quebrou a má fase, começa a contar de novo
-		_catch_up_copies(data, bot_arena)
+		_catch_up_copies(data, bot_arena, bot_name)
 		_bot_open_chest(data, bot_arena)
 		_bot_crystals(data)
 	else:
 		data["total_losses"] = data.get("total_losses", 0) + 1
 		data["gold"] = data.get("gold", 0) + reward["gold"]
 		data["current_loss_streak"] = data.get("current_loss_streak", 0) + 1
-		_catch_up_copies(data, bot_arena)
+		_catch_up_copies(data, bot_arena, bot_name)
 		if randf() < BOT_LOSS_CHEST_CHANCE:
 			_bot_open_chest(data, bot_arena, 0)
 		_maybe_switch_archetype(data)
@@ -1163,7 +1163,7 @@ func record_result(bot_name: String, bot_won: bool, player_cards_played: Array[C
 	# evolução MANUAL, carta por carta: gasta ouro + uso de verdade de uma
 	# carta específica pra upar ela, exatamente como o jogador faz -- nunca
 	# mais um cálculo automático que upava o deck inteiro de uma vez só
-	_maybe_upgrade_cards(data)
+	_maybe_upgrade_cards(data, bot_name)
 
 	# quais cartas o jogador usou nessa partida, pra ir aprendendo seu estilo
 	var player_usage: Dictionary = data.get("player_card_usage", {})
@@ -1302,7 +1302,7 @@ func _apply_level_cap(data: Dictionary, bot_name: String) -> bool:
 ## bot antigo, cheio de vitórias, estava sem cópia nenhuma e empacou com carta
 ## nível 2 e torre nível 3. Aqui ele recebe as cópias que TERIA ganho nos baús
 ## das vitórias que já tem, e evolui o que der com o ouro guardado.
-func _catch_up_copies(data: Dictionary, bot_arena: int):
+func _catch_up_copies(data: Dictionary, bot_arena: int, bot_name: String = ""):
 	if int(data.get("copies_v", 0)) >= 1:
 		return
 	data["copies_v"] = 1
@@ -1341,7 +1341,7 @@ func _catch_up_copies(data: Dictionary, bot_arena: int):
 	# ouro dos baús que ele teria aberto
 	data["gold"] = int(data.get("gold", 0)) + mini(wins, 60) * 30
 	for i in 8:
-		_maybe_upgrade_cards(data)
+		_maybe_upgrade_cards(data, bot_name)
 		_maybe_upgrade_base(data)
 
 
@@ -1398,19 +1398,38 @@ func _bot_crystals(data: Dictionary):
 	data["card_stars"] = stars_by_card
 
 
+## ~55% dos bots evoluem o baralho por igual; o resto foca numa carta (fixo pelo nome)
+static func evolves_evenly(bot_name: String) -> bool:
+	return absi(hash(bot_name + "#evolui")) % 100 < 55
+
+
 ## MESMA regra do jogador: pra subir uma carta o bot precisa das CÓPIAS dela
 ## (que vêm dos baús das vitórias) e do ouro, com o mesmo preço por raridade.
 ## Antes bastava ouro + ter usado a carta, e eles subiam rápido demais.
-func _maybe_upgrade_cards(data: Dictionary):
+func _maybe_upgrade_cards(data: Dictionary, bot_name: String = ""):
 	var deck_paths: Array = data.get("deck_paths", [])
 	var card_levels: Dictionary = data.get("card_levels", {})
 	var copies: Dictionary = data.get("card_copies", {})
 	var gold: int = data.get("gold", 0)
 
-	for path in deck_paths:
+	# JEITO DE EVOLUIR (fixo por bot): uns sobem o baralho por igual (sempre a carta mais baixa
+	# primeiro, sem passar das outras), outros focam numa carta só até o máximo
+	var even = evolves_evenly(bot_name)
+	var order: Array = deck_paths.duplicate()
+	if even:
+		order.sort_custom(func(a, b): return int(card_levels.get(a, 1)) < int(card_levels.get(b, 1)))
+	else:
+		order.sort_custom(func(a, b): return int(card_levels.get(a, 1)) > int(card_levels.get(b, 1)))
+	for path in order:
 		var level = int(card_levels.get(path, 1))
 		if level >= mini(PlayerProfile.MAX_CARD_LEVEL, _level_cap):
 			continue  # nível máximo, ou já no teto pros troféus que ele tem
+		if even:
+			var low = 99
+			for p2 in deck_paths:
+				low = mini(low, int(card_levels.get(p2, 1)))
+			if level > low:
+				break   # por igual: só sobe quem está no nível mais baixo do baralho
 		var card = Catalogo.find_card(str(path))
 		if card == null:
 			continue
