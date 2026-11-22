@@ -101,5 +101,8 @@ const SOUND_IDS = ["", "explosao", "raio", "gelo", "cura", "furia", "lama", "car
 @export var splits_damage: bool = false
 ## BARRIL (rolando): a invocação nasce no FIM da rolagem, não onde caiu.
 @export var summon_at_end: bool = false
+## MURALHA: as invocações nascem LADO A LADO numa fila (de um lado ao outro do círculo),
+## em vez de em roda -- bom pra erguer uma cerca que segura quem vem
+@export var summon_in_line: bool = false
 ## DANO EM CONSTRUÇÃO (x): Terremoto -- multiplica o dano em construção (as torres usam o "dano nas torres").
 @export var building_damage_mult: float = 1.0

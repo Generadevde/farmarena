@@ -452,6 +452,15 @@ enum OnHitEffect {
 @export var lifesteal_percent: float = 0.0
 ## Chance (0.0 a 1.0) de contra-atacar automaticamente sempre que leva dano.
 @export var counter_attack_chance: float = 0.0
+## ESQUIVA: chance (0-1) de não levar o golpe de tropa ou torre (feitiço sempre pega)
+@export var dodge_chance: float = 0.0
+## ROUBO DE VELOCIDADE: cada golpe deixa o alvo mais lento e esta unidade mais rápida
+@export var steals_speed: bool = false
+@export var speed_steal_amount: float = 0.25    # quanto rouba (0.25 = alvo anda 25% mais devagar, ela 25% mais rápido)
+@export var speed_steal_duration: float = 2.0
+## TRANSFORMAÇÃO: quando a vida cai pra metade, vira outra unidade (uma vez só)
+@export var transforms_at_half_hp: bool = false
+@export var half_hp_scene: PackedScene
 ## Se marcado, reflete uma fração do dano recebido de volta pra quem atacou.
 @export var reflects_damage: bool = false
 ## Fração do dano refletida de volta (só usado se Reflects Damage estiver ligado).

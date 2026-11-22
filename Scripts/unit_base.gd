@@ -2071,6 +2071,14 @@ func _perform_attack():
 	if stats.lifesteal_percent > 0:
 		heal(round(dmg * stats.lifesteal_percent))
 
+	# ROUBO DE VELOCIDADE: o alvo fica lento e eu fico mais rápida
+	if stats.steals_speed and target != null and is_instance_valid(target) and target.has_method("apply_on_hit_effect") and !_is_base(target) and !_is_silenced():
+		var amt = clampf(stats.speed_steal_amount, 0.05, 0.8)
+		target.apply_on_hit_effect(UnitData.OnHitEffect.SLOW, 1.0 - amt, stats.speed_steal_duration, 1.0, 0.0, global_position)
+		apply_speed_multiplier(maxf(speed_multiplier, 1.0 + amt), stats.speed_steal_duration)
+		if Regras.on("visual"):
+			Fx.ring(get_parent(), position, 16.0, Color(0.5, 0.9, 1.0, 0.8), 0.3)
+
 	_has_attacked_before = true
 
 	if stats.ramping_damage:
@@ -2469,6 +2477,12 @@ func take_damage(amount, _is_shared_damage: bool = false):
 	# invulnerável logo ao nascer -- nem dano de área/feitiço passa nessa janela
 	if _spawn_invulnerable_until > GameManager.game_time:
 		return
+	# ESQUIVA: golpe de tropa/torre pode passar batido (feitiço sempre pega)
+	if amount > 0 and stats.dodge_chance > 0.0 and !has_meta("spell_hit") and randf() < clampf(stats.dodge_chance, 0.0, 0.9):
+		if Regras.on("visual"):
+			Fx.text(get_parent(), position + Vector2(0, -22), "esquivou!", Color(0.8, 0.95, 1.0), 0.6)
+		_dodged += 1
+		return
 
 	# imune enquanto se movendo -- só fica vulnerável de verdade parada
 	if stats.immune_while_moving and _really_moving:
@@ -2555,6 +2569,11 @@ func take_damage(amount, _is_shared_damage: bool = false):
 	if stats.counter_attack_chance > 0 and randf() < stats.counter_attack_chance:
 		if target != null and is_instance_valid(target):
 			target.take_damage(stats.damage)
+
+	if stats.transforms_at_half_hp and stats.half_hp_scene != null and !_half_transformed and current_hp > 0 and current_hp <= stats.hp * 0.5:
+		_half_transformed = true
+		call_deferred("_transform_half")
+		return
 
 	if current_hp <= 0:
 		if stats.can_resurrect and !_has_resurrected:
@@ -2935,6 +2954,24 @@ func _process_shield_recharge():
 	var time_since_damage = (GameManager.game_time) - _last_damage_time
 	if time_since_damage >= stats.shield_recharge_time:
 		current_shield = stats.shield_amount
+
+
+var _half_transformed := false
+var _dodged := 0              # quantos golpes já esquivou (teste)
+
+
+## TRANSFORMAÇÃO na metade da vida: some esta, nasce a outra no mesmo lugar (mesmo nível)
+func _transform_half():
+	if !is_instance_valid(self) or is_queued_for_deletion():
+		return
+	var parent = get_parent()
+	Fx.puff(parent, position, 2.0)
+	Fx.ring(parent, position, 40.0, Color(1.0, 0.9, 0.5), 0.4)
+	Fx.text(parent, position + Vector2(0, -26), "TRANSFORMOU!", Color(1.0, 0.9, 0.5), 1.0)
+	var child = _spawn_child(stats.half_hp_scene, global_position)
+	if child != null and "target" in child:
+		child.target = target
+	queue_free()
 
 
 func _do_transform():

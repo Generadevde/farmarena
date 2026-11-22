@@ -194,7 +194,10 @@ func _apply_effect(body):
 		if spell.splits_damage and _split_count > 1:
 			dmg /= float(_split_count)
 
+		body.set_meta("spell_hit", true)    # feitiço não dá pra esquivar
 		body.take_damage(dmg)
+		if is_instance_valid(body):
+			body.remove_meta("spell_hit")
 
 	if spell.heal_amount > 0 and (on_ally or spell.affects_enemies) and body.has_method("heal"):
 		body.heal(spell.heal_amount * power)
@@ -243,6 +246,12 @@ func _apply_effect(body):
 # INVOCAÇÃO: nasce(m) unidade(s) no lugar do feitiço, pro time de quem lançou
 func _summon_units():
 	if spell.summon_scene == null or spell.summon_count <= 0:
+		return
+	if spell.summon_in_line and spell.summon_count > 1:
+		# muralha: fila de um lado a outro do círculo
+		var span = maxf(spell.radius, 30.0)
+		for i in spell.summon_count:
+			_spawn_one(Vector2(lerpf(-span, span, float(i) / float(spell.summon_count - 1)), 0.0))
 		return
 	for i in spell.summon_count:
 		_spawn_one(Vector2.ZERO if spell.summon_count == 1 else Vector2.RIGHT.rotated(TAU * i / spell.summon_count) * min(spell.radius * 0.5, 28.0))

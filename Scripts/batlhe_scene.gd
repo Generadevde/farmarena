@@ -1960,9 +1960,12 @@ func pocket_point(team, near_x: float) -> Vector2:
 func _card_allows_spawn_anywhere(card_data: CardData) -> bool:
 	if card_data.unit_scene == null:
 		return false
+	if _anywhere_cache.has(card_data):
+		return _anywhere_cache[card_data]
 	var temp = card_data.unit_scene.instantiate()
 	var allows = temp.stats != null and temp.stats.can_spawn_anywhere
-	temp.queue_free()
+	temp.free()
+	_anywhere_cache[card_data] = allows
 	return allows
 
 
@@ -1979,12 +1982,18 @@ func _random_point_in_area(area: CollisionShape2D) -> Vector2:
 	return area.to_global(local_point)
 
 
+var _anywhere_cache: Dictionary = {}
+var _building_cache: Dictionary = {}   # carta -> é construção? (montar a unidade só pra ver isso pesava)
+
 func _is_building_card(card: CardData) -> bool:
 	if card.unit_scene == null:
 		return false
+	if _building_cache.has(card):
+		return _building_cache[card]
 	var temp = card.unit_scene.instantiate()
 	var is_building = temp.stats != null and temp.stats.unit_type == UnitData.UnitType.BUILDING
-	temp.queue_free()
+	temp.free()
+	_building_cache[card] = is_building
 	return is_building
 
 

@@ -1065,6 +1065,8 @@ const ABILITIES = [
 		["Ressuscita 1x", "can_resurrect", ["resurrect_hp_percent"], {"resurrect_hp_percent": 0.5}],
 		["Reflete dano", "reflects_damage", ["reflect_damage_percent"], {"reflect_damage_percent": 0.2}],
 		["Contra-ataque", "counter_attack_chance", [], {"counter_attack_chance": 0.25}],
+		["Esquiva (chance de não levar o golpe)", "dodge_chance", [], {"dodge_chance": 0.25}],
+		["Rouba velocidade (alvo lento, ela rápida)", "steals_speed", ["speed_steal_amount", "speed_steal_duration"], {}],
 		["Vida compartilhada", "is_linked", ["link_share_percent"], {}],
 		["Imune a um efeito", "immune_to_effect", [], {"immune_to_effect": 1}],
 		["Imune a empurrão", "immune_to_knockback", [], {}],
@@ -1110,6 +1112,7 @@ const ABILITIES = [
 		["Invoca ao atacar", "summons_on_attack", ["attack_summon_scene", "attack_summon_chance"], {"attack_summon_chance": 0.25}],
 		["Se clona", "can_clone", ["clone_hp_percent", "clone_count"], {}],
 		["Vira construção", "transforms_into_building", ["transform_after_seconds", "transformed_scene"], {}],
+		["Transforma na metade da vida", "transforms_at_half_hp", ["half_hp_scene"], {}],
 		["Converte inimigo", "can_convert_enemy", ["convert_max_targets"], {}],
 	]],
 	["💚 Apoio e recurso", [
@@ -1911,7 +1914,7 @@ const SPELL_GROUPS = [["Onde e por quanto tempo", ["radius", "duration", "tick_i
 	["Cura e escudo nos aliados", ["heal_amount", "shield_amount"]],
 	["Fúria nos aliados", ["rage_damage_mult", "rage_speed_mult", "rage_attack_speed_mult"]],
 	["Reforço nos aliados (fúria, escudo, limpar)", ["buff_duration", "cleanses"]],
-	["Invocação", ["summon_scene", "summon_count", "summon_interval", "summon_at_end"]],
+	["Invocação", ["summon_scene", "summon_count", "summon_interval", "summon_at_end", "summon_in_line"]],
 	["Jeitos do Clash", ["clones_allies", "splits_damage", "building_damage_mult"]],
 	["Jeitos especiais", ["rolls", "roll_distance", "roll_speed", "picks_strongest", "mirror"]]]
 
@@ -1926,6 +1929,8 @@ const SPELL_MOLDS = [
 	["Tornado", {"radius": 110.0, "d": 0.5, "duration": 3.0, "tick_interval": 0.5, "status_effect": UnitData.OnHitEffect.PULL, "knockback_distance": 40.0}],
 	["🪵 Tronco", {"radius": 55.0, "d": 0.7, "rolls": true, "status_effect": UnitData.OnHitEffect.KNOCKBACK, "knockback_distance": 45.0}],
 	["🌋 Terremoto", {"radius": 120.0, "d": 0.5, "duration": 3.0, "tick_interval": 1.0, "base_damage_multiplier": 1.0, "status_effect": UnitData.OnHitEffect.SLOW, "status_effect_strength": 0.35}],
+	["🕸 Teia", {"radius": 90.0, "d": 0.1, "duration": 4.0, "tick_interval": 0.5, "status_effect": UnitData.OnHitEffect.ROOT}],
+	["🧱 Muralha", {"radius": 70.0, "summon_count": 4, "summon_in_line": true, "affects_enemies": false, "damage": 0}],
 	["🪦 Cemitério", {"radius": 110.0, "duration": 9.0, "tick_interval": 1.0, "summon_interval": 0.5, "affects_enemies": false}],
 	["💚 Cura", {"radius": 110.0, "h": 1.0, "duration": 3.0, "tick_interval": 0.5, "affects_enemies": false, "affects_allies": true}],
 	["💢 Fúria", {"radius": 120.0, "duration": 6.0, "affects_enemies": false, "affects_allies": true, "rage_damage_mult": 1.35, "rage_speed_mult": 1.35, "rage_attack_speed_mult": 1.35}],

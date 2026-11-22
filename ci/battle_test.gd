@@ -2112,6 +2112,61 @@ func _legacy_audit():
 	CardGenerator.fixed_power = 0.0
 	print("RESULTADO gerador em campo: ", fought, " cartas lutaram | sem causar dano em 3s: ", no_damage)
 	print("RESULTADO antigas OK (", _aud_ok.size(), "): ", _aud_ok)
+	# ESQUIVA: golpe de tropa às vezes passa batido; feitiço sempre pega
+	await _wipe()
+	var dg = (await _put_card(_make({"dodge_chance": 0.5, "hp": 99999}), P, mid))[0]
+	dg.stats.attack_speed = 99.0
+	var hp_a = dg.current_hp
+	for k in 200:
+		dg.take_damage(10)
+	var hits = int(round((hp_a - dg.current_hp) / 10.0))
+	dg.set_meta("spell_hit", true)
+	var hp_b = dg.current_hp
+	for k in 50:
+		dg.take_damage(10)
+	dg.remove_meta("spell_hit")
+	_check("esquiva (metade dos golpes passa batido; feitiço sempre pega)", hits > 60 and hits < 140 and int(hp_b - dg.current_hp) == 500,
+		"pegou %d de 200, feitiço %d de 500" % [hits, int(hp_b - dg.current_hp)])
+	# ROUBO DE VELOCIDADE: alvo fica lento, ela fica rápida
+	await _wipe()
+	var thief = (await _put_card(_make({"steals_speed": true, "speed_steal_amount": 0.3, "speed_steal_duration": 3.0, "hp": 5000}), P, mid))[0]
+	var slowfoe = (await _put("vaca_brava", E, mid + Vector2(0, -34)))[0]
+	slowfoe.stats = slowfoe.stats.duplicate()
+	slowfoe.stats.hp = 50000
+	slowfoe.current_hp = 50000
+	await get_tree().create_timer(2.5).timeout
+	_check("rouba velocidade", is_instance_valid(slowfoe) and slowfoe.speed_multiplier < 0.9 and thief.speed_multiplier > 1.1,
+		"alvo x%.2f, ladra x%.2f" % [slowfoe.speed_multiplier if is_instance_valid(slowfoe) else -1.0, thief.speed_multiplier])
+	# TRANSFORMA na metade da vida
+	await _wipe()
+	var tf = (await _put_card(_make({"hp": 1000}), P, mid))[0]
+	tf.stats.transforms_at_half_hp = true
+	tf.stats.half_hp_scene = Catalogo.card("vaca_brava").unit_scene
+	var n_before = get_tree().get_nodes_in_group("units").size()
+	tf.take_damage(300)
+	await get_tree().process_frame
+	var still = is_instance_valid(tf) and !tf.is_queued_for_deletion()
+	tf.take_damage(300)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var cows = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P and x.stats != null and x.stats.resource_path == Catalogo.card("vaca_brava").unit_scene.instantiate().stats.resource_path)
+	_check("transforma na metade da vida", still and !is_instance_valid(tf) and cows.size() >= 1, "ficou com 70%%: %s | virou vaca: %d" % [still, cows.size()])
+	# MURALHA: invocações do feitiço nascem em FILA (mesma altura, espalhadas de lado)
+	await _wipe()
+	var wall_sp = SpellData.new()
+	wall_sp.radius = 70.0
+	wall_sp.summon_count = 4
+	wall_sp.summon_in_line = true
+	wall_sp.affects_enemies = false
+	wall_sp.summon_scene = Catalogo.card("peao_forcado").unit_scene
+	var before_w = get_tree().get_nodes_in_group("units").size()
+	battle.cast_spell(wall_sp, mid, P)
+	await get_tree().create_timer(0.3).timeout
+	var ws = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P)
+	var xs = ws.map(func(x): return x.global_position.x)
+	var ys = ws.map(func(x): return x.global_position.y)
+	_check("muralha: invocação nasce em fila", ws.size() == 4 and xs.max() - xs.min() > 100.0 and ys.max() - ys.min() < 20.0,
+		"%d peças, largura %.0f, altura %.0f" % [ws.size(), (xs.max() - xs.min()) if ws.size() > 0 else 0.0, (ys.max() - ys.min()) if ws.size() > 0 else 0.0])
 	print("RESULTADO antigas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
 
 

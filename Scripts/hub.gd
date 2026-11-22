@@ -1928,17 +1928,16 @@ func _popup(min_width: float = 600.0, tall: bool = false) -> VBoxContainer:
 	var max_h = minf(1150.0, get_viewport_rect().size.y - 300.0)
 	sc.custom_minimum_size = Vector2(min_width - 20, max_h if tall else 120.0)
 	if !tall:
-		# a altura acompanha o conteúdo (até o teto); conferida a cada quadro enquanto a janela existe
-		var fitter = Timer.new()
-		fitter.wait_time = 0.05
-		fitter.autostart = true
-		overlay.add_child(fitter)
-		fitter.timeout.connect(func():
+		# a altura acompanha o conteúdo (até o teto). Só recalcula quando o conteúdo muda
+		# (antes conferia 20x por segundo e pesava com janela grande, tipo o histórico)
+		var fit = func():
 			if !is_instance_valid(sc) or !is_instance_valid(v):
 				return
 			var want = minf(v.get_combined_minimum_size().y, max_h)
 			if absf(sc.custom_minimum_size.y - want) > 1.0:
-				sc.custom_minimum_size.y = want)
+				sc.custom_minimum_size.y = want
+		v.minimum_size_changed.connect(func(): fit.call_deferred())
+		fit.call_deferred()
 	v.set_meta("overlay", overlay)
 	return v
 
