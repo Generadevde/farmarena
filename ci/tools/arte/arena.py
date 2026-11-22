@@ -10,6 +10,7 @@ CX, CY = PW // 2, PH // 2
 RIVER_HALF = 9          # rio: linhas CY-9 .. CY+8  (mundo ±36)
 BRIDGE_X = 37.5         # pontes em CX±37.5 (mundo ±150)
 BRIDGE_HALF = 7         # largura 14px (mundo 56)
+MOD_X = 56.25           # colunas dos módulos dos lados (mundo ±225)
 CENTER_BRIDGE_HALF = 4  # ponte do meio, mais estreita: 8px (mundo 32)
 TOWER_DX = 33.75        # torres em CX±33.75 (mundo ±135)
 TOWER_DY = 95           # torres em CY±95 (mundo ±380)
@@ -46,8 +47,9 @@ def build(seed=7):
             px[x, my] = c
 
     # ---- LAYOUT "TECLADO NUMÉRICO": a base é o 5 e os módulos ficam nos outros 8 números.
-    # 3 colunas (as mesmas das 3 pontes) x 3 fileiras, tudo simétrico.
-    COLS = (CX - BRIDGE_X, CX, CX + BRIDGE_X)
+    # 3 colunas x 3 fileiras, tudo simétrico. As colunas dos lados vão quase até a cerca
+    # (mundo ±225); as pontes continuam em ±150 e o caminho desce reto delas até o pátio.
+    COLS = (CX - MOD_X, CX, CX + MOD_X)
     ROWS = (CY + 57.5, CY + 82.5, CY + 107.5)          # mundo: 230, 330, 430 a partir do rio
 
     def dirt(x, y, edge=False):
@@ -56,8 +58,8 @@ def build(seed=7):
             c = DIRT[2]
         mirror_set(x, y, c)
 
-    # dois caminhos RETOS: cada ponte desce direto pra sua coluna do pátio
-    for col_x, half in ((COLS[0], 5), (COLS[2], 5)):
+    # dois caminhos RETOS: cada ponte desce direto até o pátio
+    for col_x, half in ((CX - BRIDGE_X, 5), (CX + BRIDGE_X, 5)):
         for y in range(CY + RIVER_HALF, int(ROWS[0])):
             for x in range(int(col_x - half - 1), int(col_x + half + 1)):
                 d = abs(x + 0.5 - col_x)
@@ -67,7 +69,7 @@ def build(seed=7):
                     mirror_set(x, y, G3)
 
     # o pátio: um quadrado de terra batida em volta da base, com borda
-    yx0, yx1 = int(COLS[0] - 14), int(COLS[2] + 14)
+    yx0, yx1 = max(int(COLS[0] - 11), 4), min(int(COLS[2] + 11), PW - 5)
     yy0, yy1 = int(ROWS[0] - 11), min(int(ROWS[2] + 11), PH - 2)
     for y in range(yy0 - 1, yy1 + 2):
         for x in range(yx0 - 1, yx1 + 2):
@@ -75,16 +77,7 @@ def build(seed=7):
                 mirror_set(x, y, G3)
             else:
                 dirt(x, y, x - yx0 < 2 or yx1 - x < 2 or y - yy0 < 2 or yy1 - y < 2)
-    # os 9 lugares: o do meio (a base) maior, os 8 em volta marcados no chão
-    for ri, ry in enumerate(ROWS):
-        for ci, cx_ in enumerate(COLS):
-            main = ri == 1 and ci == 1
-            r = 12.5 if main else 9.0
-            for y in range(int(ry - r - 1), int(ry + r + 2)):
-                for x in range(int(cx_ - r - 1), int(cx_ + r + 2)):
-                    d = math.hypot(x + 0.5 - cx_, y + 0.5 - ry)
-                    if r - 1.2 <= d <= r and y <= PH - 2:
-                        mirror_set(x, y, DIRT[2])
+    # (sem marcação redonda dos lugares: o pátio é liso)
 
     # rio no meio (com espuma nas margens e brilho)
     for y in range(CY - RIVER_HALF - 1, CY + RIVER_HALF + 1):
