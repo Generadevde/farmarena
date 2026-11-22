@@ -23,6 +23,96 @@ WATER = [(92, 170, 220), (70, 148, 204), (52, 120, 182)]
 FOAM = (196, 232, 246)
 WOOD = [(176, 122, 72), (142, 94, 52), (104, 66, 36)]
 OUT = (42, 26, 34)
+# PÁTIO: estilo do chão + 4 cores (claro, meio, escuro, detalhe) + meio-fio (claro, escuro)
+YARD = "terra"
+YP = [(206, 166, 112), (190, 150, 98), (146, 108, 68), (118, 160, 70)]
+CURB = [(214, 200, 176), (108, 92, 76)]
+
+
+def _noise(x, y, seed=0):
+    h = (x * 374761393 + y * 668265263 + seed * 982451653) & 0xFFFFFFFF
+    h = (h ^ (h >> 13)) * 1274126177 & 0xFFFFFFFF
+    return ((h ^ (h >> 16)) & 0xFFFF) / 65535.0
+
+
+def _mix(a, b, t):
+    return tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))
+
+
+def _yard_px(style, P, lx, ly, rnd):
+    L, M, D, A = P
+    if style == "tijolo":            # tijolinho deitado, fiada desencontrada
+        row = ly // 3
+        off = 3 if row % 2 else 0
+        if ly % 3 == 2 or (lx + off) % 7 == 6:
+            return D
+        bid = ((lx + off) // 7) * 31 + row * 17
+        c = L if _noise(bid, row, 3) > 0.55 else M
+        if ly % 3 == 0:
+            c = _mix(c, (255, 255, 255), 0.12)
+        return c
+    if style == "laje":              # lajotas grandes com rejunte e uma trincazinha
+        row = ly // 8
+        off = 4 if row % 2 else 0
+        tx, ty = (lx + off) % 8, ly % 8
+        if tx == 7 or ty == 7:
+            return D if _noise(lx, ly, 9) > 0.04 else A
+        tid = ((lx + off) // 8) * 13 + row * 7
+        c = _mix(L, M, _noise(tid, 1, 5) * 0.8)
+        if tx == 0 or ty == 0:
+            c = _mix(c, (255, 255, 255), 0.1)
+        if _noise(tid, 2, 6) > 0.86 and tx == ty and 2 <= tx <= 4:
+            c = _mix(c, D, 0.7)   # trincazinha curta, só em poucas lajotas
+        return c
+    if style == "pedra":             # pedra de rio (paralelepípedo torto), rejunte com musgo
+        best, second, bid = 99.0, 99.0, 0
+        for gx in range(lx // 5 - 1, lx // 5 + 2):
+            for gy in range(ly // 4 - 1, ly // 4 + 2):
+                cx = gx * 5 + 1 + _noise(gx, gy, 21) * 3
+                cy = gy * 4 + 1 + _noise(gx, gy, 22) * 2
+                d = ((lx - cx) ** 2 + (ly - cy) ** 2) ** 0.5
+                if d < best:
+                    second, best, bid = best, d, gx * 97 + gy
+                elif d < second:
+                    second = d
+        if second - best < 0.9:
+            return A if _noise(lx, ly, 23) > 0.9 else D
+        c = _mix(L, M, _noise(bid, 0, 24))
+        return c
+    if style == "tabua":             # deque de tábua (passarela), emendas e pregos
+        row = ly // 3
+        seg = 10 + int(_noise(row, 0, 31) * 8)
+        off = int(_noise(row, 1, 32) * seg)
+        if ly % 3 == 2:
+            return D
+        if (lx + off) % seg == 0:
+            return D
+        if (lx + off) % seg == 1 and ly % 3 == 0:
+            return A
+        c = L if row % 2 else M
+        if _noise(lx // 4, row, 33) > 0.8:
+            c = _mix(c, D, 0.25)
+        return c
+    if style == "areia":             # areia com marquinha de vento
+        w = math.sin(lx * 0.55 + ly * 1.1 + _noise(lx // 6, ly // 6, 41) * 2.0)
+        c = L if w < 0.55 else M
+        n = _noise(lx, ly, 42)
+        if n > 0.97:
+            c = A
+        elif n < 0.03:
+            c = D
+        return c
+    # terra batida: manchas suaves, pedrinha com brilho, um tufinho do tema
+    n = _noise(lx // 3, ly // 3, 51)
+    c = L if n > 0.6 else M
+    k = _noise(lx, ly, 52)
+    if k > 0.965:
+        c = D
+    elif k > 0.955:
+        c = _mix(L, (255, 255, 255), 0.3)
+    elif k < 0.012:
+        c = A
+    return c
 
 
 def build(seed=7):
@@ -30,14 +120,23 @@ def build(seed=7):
     img = Image.new("RGB", (PW, PH), G1)
     px = img.load()
 
-    # grama em faixas largas alternadas (cara de campo aparado)
+    # grama: faixas de corte bem suaves (verticais) + manchas + tufinhos -- nada de xadrez
     for y in range(PH):
         for x in range(PW):
-            band = ((x // 12) + (y // 12)) % 2
-            c = G1 if band == 0 else G2
-            if rnd.random() < 0.06:
-                c = tuple(max(0, v - 10) for v in c)
+            stripe = (x // 8) % 2
+            n = _noise(x // 3, y // 3, 11)
+            c = G1 if stripe == 0 else G2
+            if n > 0.78:
+                c = _mix(c, G3, 0.35)
+            elif n < 0.12:
+                c = _mix(c, (255, 255, 230), 0.08)
             px[x, y] = c
+    for _ in range(260):
+        x = rnd.randrange(3, PW - 3)
+        y = rnd.randrange(3, PH - 3)
+        px[x, y] = _mix(px[x, y], G3, 0.6)
+        if y > 0:
+            px[x, y - 1] = _mix(px[x, y - 1], (255, 255, 220), 0.18)
 
     def mirror_set(x, y, c):
         if 0 <= x < PW and 0 <= y < PH:
@@ -52,31 +151,59 @@ def build(seed=7):
     COLS = (CX - MOD_X, CX, CX + MOD_X)
     ROWS = (CY + 47.5, CY + 80, CY + 112.5)            # mundo: 190, 320, 450 a partir do rio
 
-    def dirt(x, y, edge=False):
-        c = DIRT[1] if edge else DIRT[0]
-        if rnd.random() < 0.07:
-            c = DIRT[2]
-        mirror_set(x, y, c)
+    # ---- O PÁTIO: um terreno só, bem acabado, no material do tema (terra, tijolo, pedra,
+    # laje, tábua, areia), com meio-fio, cantos arredondados e sombrinha na grama.
+    yx0, yx1 = int(COLS[0] - 10), int(COLS[2] + 10)
+    yy0, yy1 = int(ROWS[0] - 11), PH - 4
+    R = 4   # raio dos cantos
 
-    # dois caminhos RETOS: cada ponte desce direto até o pátio
-    for col_x, half in ((CX - BRIDGE_X, 5), (CX + BRIDGE_X, 5)):
-        for y in range(CY + RIVER_HALF, int(ROWS[0])):
-            for x in range(int(col_x - half - 1), int(col_x + half + 1)):
-                d = abs(x + 0.5 - col_x)
-                if d <= half:
-                    dirt(x, y, d >= half - 2)
-                elif d <= half + 1:
-                    mirror_set(x, y, G3)
+    def inside(x, y, x0, y0, x1, y1, r):
+        if x < x0 or x > x1 or y < y0 or y > y1:
+            return False
+        cx = min(max(x, x0 + r), x1 - r)
+        cy = min(max(y, y0 + r), y1 - r)
+        return (x - cx) ** 2 + (y - cy) ** 2 <= r * r + 0.5
 
-    # o pátio: um quadrado de terra batida em volta da base, com borda
-    yx0, yx1 = max(int(COLS[0] - 11), 4), min(int(COLS[2] + 11), PW - 5)
-    yy0, yy1 = int(ROWS[0] - 11), min(int(ROWS[2] + 11), PH - 2)
-    for y in range(yy0 - 1, yy1 + 2):
-        for x in range(yx0 - 1, yx1 + 2):
-            if x < yx0 or x > yx1 or y < yy0 or y > yy1:
-                mirror_set(x, y, G3)
+    # caminhos das pontes até o pátio, no mesmo material
+    paths = []
+    for col_x in (CX - BRIDGE_X, CX + BRIDGE_X):
+        paths.append((int(col_x - 5), CY + RIVER_HALF, int(col_x + 4), yy0 + 2))
+
+    def floor_at(x, y):
+        if inside(x, y, yx0, yy0, yx1, yy1, R):
+            return True
+        for (a, b, c2, d) in paths:
+            if a <= x <= c2 and b <= y <= d:
+                return True
+        return False
+
+    def edge_dist(x, y):
+        # 0 = borda; 1 = um pixel pra dentro; 9 = longe
+        for dd in range(0, 3):
+            for dx, dy in ((dd + 1, 0), (-dd - 1, 0), (0, dd + 1), (0, -dd - 1)):
+                if not floor_at(x + dx, y + dy) and y + dy > CY + RIVER_HALF:
+                    return dd
+        return 9
+
+    for y in range(CY + RIVER_HALF, PH - 2):
+        for x in range(2, PW - 2):
+            if not floor_at(x, y):
+                # sombrinha do meio-fio na grama em volta
+                near = any(floor_at(x + dx, y + dy) for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+                if near:
+                    mirror_set(x, y, _mix(px[x, y], (0, 0, 0), 0.28))
+                continue
+            e = edge_dist(x, y)
+            if e == 0:
+                c = CURB[1]
+            elif e == 1:
+                c = CURB[0]
             else:
-                dirt(x, y, x - yx0 < 2 or yx1 - x < 2 or y - yy0 < 2 or yy1 - y < 2)
+                c = _yard_px(YARD, YP, x - yx0, y - yy0, rnd)
+                # meio do pátio um tiquinho mais claro (cara de chão gasto onde se pisa)
+                cxn = abs(x - CX) / (PW / 2.0)
+                c = _mix(c, (255, 255, 240), max(0.0, 0.07 - cxn * 0.07))
+            mirror_set(x, y, c)
     # (sem marcação redonda dos lugares: o pátio é liso)
 
     # rio no meio (com espuma nas margens e brilho)
@@ -141,8 +268,6 @@ def build(seed=7):
                     mirror_set(x, y - 1, (170, 220, 120))
                 mirror_set(x, y + 1, DIRT[2])
 
-    crop(6, PH - 30, "milho")
-    crop(PW - 22, PH - 30, "repolho")
     crop(6, CY + 22, "repolho")
     crop(PW - 22, CY + 22, "milho")
 

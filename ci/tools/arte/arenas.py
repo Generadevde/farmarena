@@ -7,7 +7,7 @@ from PIL import Image
 import arena as A
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-DEF = dict(G1=A.G1, G2=A.G2, G3=A.G3, DIRT=A.DIRT, WATER=A.WATER, FOAM=A.FOAM, WOOD=A.WOOD)
+DEF = dict(G1=A.G1, G2=A.G2, G3=A.G3, DIRT=A.DIRT, WATER=A.WATER, FOAM=A.FOAM, WOOD=A.WOOD, YARD=A.YARD, YP=A.YP, CURB=A.CURB)
 THEMES = {
     1: dict(nome="Pasto Verde"),
     2: dict(nome="Curral Velho", G1=(198, 172, 112), G2=(184, 158, 100), G3=(150, 124, 76),
@@ -37,6 +37,24 @@ THEMES = {
     12: dict(nome="Arena do Rodeio", G1=(216, 172, 98), G2=(206, 160, 88), G3=(170, 126, 66),
              DIRT=[(242, 212, 152), (228, 194, 132), (202, 168, 110)], WOOD=[(200, 70, 60), (236, 228, 214), (120, 40, 36)], decor="estrela"),
 }
+
+# o PÁTIO de cada arena: material do chão + cores (claro, meio, escuro, detalhe) + meio-fio
+YARDS = {
+    1: dict(YARD="terra", YP=[(206, 166, 112), (190, 150, 98), (146, 108, 68), (118, 160, 70)], CURB=[(226, 214, 188), (112, 94, 74)]),
+    2: dict(YARD="tabua", YP=[(170, 120, 76), (152, 104, 64), (92, 60, 36), (70, 60, 54)], CURB=[(196, 150, 100), (84, 56, 34)]),
+    3: dict(YARD="laje", YP=[(230, 214, 182), (214, 196, 162), (150, 128, 98), (196, 120, 80)], CURB=[(244, 236, 218), (130, 110, 84)]),
+    4: dict(YARD="terra", YP=[(214, 176, 118), (196, 158, 102), (150, 114, 70), (236, 200, 80)], CURB=[(232, 214, 150), (120, 96, 58)]),
+    5: dict(YARD="tabua", YP=[(132, 112, 84), (116, 98, 72), (66, 56, 42), (56, 52, 46)], CURB=[(156, 136, 104), (54, 46, 36)]),
+    6: dict(YARD="tijolo", YP=[(204, 112, 78), (184, 96, 66), (226, 214, 196), (0, 0, 0)], CURB=[(232, 222, 204), (110, 70, 56)]),
+    7: dict(YARD="areia", YP=[(250, 236, 198), (236, 216, 170), (196, 170, 120), (250, 180, 170)], CURB=[(255, 250, 236), (190, 160, 110)]),
+    8: dict(YARD="pedra", YP=[(150, 150, 132), (124, 126, 110), (70, 76, 62), (70, 140, 70)], CURB=[(176, 176, 156), (56, 64, 48)]),
+    9: dict(YARD="laje", YP=[(112, 102, 150), (96, 88, 132), (52, 46, 80), (124, 240, 180)], CURB=[(148, 140, 190), (40, 36, 64)]),
+    10: dict(YARD="pedra", YP=[(120, 100, 104), (100, 82, 88), (52, 40, 48), (232, 170, 70)], CURB=[(150, 128, 128), (42, 32, 38)]),
+    11: dict(YARD="laje", YP=[(248, 246, 240), (232, 230, 224), (180, 176, 170), (216, 184, 90)], CURB=[(255, 255, 255), (160, 154, 146)]),
+    12: dict(YARD="areia", YP=[(242, 210, 150), (226, 190, 128), (186, 146, 90), (200, 70, 60)], CURB=[(240, 234, 222), (150, 40, 36)]),
+}
+for _n, _y in YARDS.items():
+    THEMES[_n].update(_y)
 
 
 def decorate(img, kind, seed):

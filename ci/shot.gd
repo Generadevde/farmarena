@@ -304,7 +304,7 @@ func _ready():
 	MatchSetup.mode = MatchSetup.MODE_1V1
 	MatchSetup.tournament = true
 	MatchSetup.rule = 3
-	MatchSetup.arena_override = 6
+	MatchSetup.arena_override = int(OS.get_environment("SHOT_ARENA")) if OS.get_environment("SHOT_ARENA") != "" else 6
 	MatchSetup.next_ai_profile = BotLearning.get_or_create_profile(BotSimulator.roster_names[0])
 	var battle = load("res://Scenes/batlhe_scene.tscn").instantiate()
 	get_tree().root.add_child(battle)
