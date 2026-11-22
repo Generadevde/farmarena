@@ -201,12 +201,35 @@ func _notification(what):
 var _tick_running: bool = false
 
 
+var _pending_tick := false
+
+
+## durante a PARTIDA não simula: cada rodada lê e grava dezenas de arquivos e dava
+## "travadinhas" de tempos em tempos na batalha. Fica guardada e roda quando a partida acaba.
+func _in_battle() -> bool:
+	var b = get_tree().get_first_node_in_group("battle_scene")
+	return b != null and !bool(b.get("match_over"))
+
+
 func _run_simulation_tick():
 	if !_profile_ready or _tick_running:
+		return
+	if _in_battle():
+		if !_pending_tick:
+			_pending_tick = true
+			_wait_battle_end()
 		return
 	_tick_running = true
 	await _run_simulation_tick_inner()
 	_tick_running = false
+
+
+func _wait_battle_end():
+	while _in_battle():
+		await get_tree().create_timer(2.0, true).timeout
+	await get_tree().create_timer(3.0, true).timeout   # deixa a tela de resultado abrir lisa
+	_pending_tick = false
+	_run_simulation_tick()
 
 
 func _run_simulation_tick_inner():
