@@ -772,6 +772,30 @@ func _build_proj_block():
 		grid.add_child(b)
 	_proj_name = _note("O tema escolhido em \"Tema das peças\" filtra esta lista também. O projétil sai nas cores da carta: se trocar as cores, toque no tipo de novo.")
 	_field_box.add_child(_proj_name)
+	# EFEITO DE ACERTO: o que aparece quando o tiro pega (também no golpe de perto da tropa)
+	var obj: Object = _work["base"] if _ed_kind == "modulo" else _work["stats"]
+	_field(obj, ["impact_fx", "💥 Efeito quando acerta", "enum", Fx.IMPACT_NAMES])
+	_field(obj, ["impact_tint", "Cor do efeito", "enum", SpellData.TINT_NAMES])
+	_field(obj, ["impact_size", "Tamanho do efeito", "float", [0.4, 2.5, 0.1]])
+	var prev_row = HBoxContainer.new()
+	prev_row.add_theme_constant_override("separation", 8)
+	_field_box.add_child(prev_row)
+	var stage = Control.new()
+	stage.custom_minimum_size = Vector2(160, 110)
+	stage.clip_contents = true
+	var bg = ColorRect.new()
+	bg.color = Color(0.36, 0.55, 0.3)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stage.add_child(bg)
+	prev_row.add_child(stage)
+	var play = func():
+		if is_instance_valid(stage):
+			Fx.impact(stage, stage.size * 0.5, int(obj.get("impact_fx")), int(obj.get("impact_tint")), float(obj.get("impact_size")))
+	prev_row.add_child(_button("▶ Ver o acerto", play))
+	prev_row.add_child(_button("🎲", func():
+		obj.set("impact_fx", 1 + randi() % (Fx.IMPACT_NAMES.size() - 2))
+		_build_ed_body()))
 
 
 var _proj_name: Label = null
@@ -1488,7 +1512,7 @@ func _ability_on(st: UnitData, key: String) -> bool:
 func _tab_habilidades():
 	var st: UnitData = _work["stats"]
 	var defs = _field_defs()
-	var used := {"unit_scale": true, "pre_attack_boost_duration": true, "anim_entry": true, "anim_gait": true, "anim_hit": true, "anim_death": true, "anim_speed": true, "anim_amount": true}   # os anim_ moram na aba "Animação"
+	var used := {"unit_scale": true, "pre_attack_boost_duration": true, "impact_fx": true, "impact_tint": true, "impact_size": true, "anim_entry": true, "anim_gait": true, "anim_hit": true, "anim_death": true, "anim_speed": true, "anim_amount": true}   # os anim_ moram na aba "Animação"
 	for p in CORE_PROPS:
 		used[p] = true
 	var on_total = 0

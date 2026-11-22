@@ -96,6 +96,10 @@ enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO, SUPORTE }
 ## PROJÉTIL do módulo: as mesmas habilidades de tiro das cartas
 @export var projectile_can_miss: bool = false
 @export var projectile_launch_angle: float = 0.0
+## EFEITO DE ACERTO do tiro da torre (Fx.IMPACT_NAMES), cor e tamanho
+@export var impact_fx: int = 0
+@export var impact_tint: int = 0
+@export var impact_size: float = 1.0
 @export var projectile_pierces: bool = false
 @export var projectile_max_targets: int = 3
 @export var projectile_splits: bool = false

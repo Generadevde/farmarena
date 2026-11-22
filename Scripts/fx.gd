@@ -18,6 +18,74 @@ const STYLE_COLORS = [Color(1, 1, 0.8), Color(1.0, 0.55, 0.2), Color(1.0, 0.95, 
 	Color(1.0, 0.85, 0.3), Color(0.7, 0.55, 0.4), Color(1.0, 0.9, 0.7), Color(0.45, 0.8, 0.35), Color(0.5, 0.3, 0.7), Color(0.5, 0.8, 1.0)]
 
 
+# EFEITO DE ACERTO (projétil, raio e golpe de perto). 0 = automático (a faisquinha de sempre)
+const IMPACT_NAMES = ["Automático", "Faísca", "Explosão", "Estilhaços", "Respingo d'água", "Fumaça", "Labareda", "Cristais de gelo",
+	"Choque", "Gosma tóxica", "Estrelinhas", "Folhas", "Penas", "Moedas", "Tinta", "Poeira", "Pétalas", "Fagulhas", "Nada"]
+const IMPACT_COLORS = [Color(1, 0.95, 0.8), Color(1, 0.95, 0.7), Color(1.0, 0.6, 0.2), Color(0.75, 0.72, 0.7), Color(0.5, 0.8, 1.0), Color(0.85, 0.85, 0.85),
+	Color(1.0, 0.45, 0.15), Color(0.7, 0.92, 1.0), Color(1.0, 0.95, 0.4), Color(0.5, 0.9, 0.3), Color(1.0, 0.9, 0.35), Color(0.45, 0.8, 0.3),
+	Color(0.98, 0.98, 0.95), Color(1.0, 0.82, 0.2), Color(0.6, 0.35, 0.85), Color(0.78, 0.66, 0.5), Color(1.0, 0.6, 0.75), Color(1.0, 0.75, 0.3), Color(0, 0, 0, 0)]
+
+
+## efeito de ACERTO num estilo. `tint` 0 = cor do estilo (ou SpellData.TINT_COLORS), `size` 0.5..2
+static func impact(parent: Node, pos: Vector2, style: int, tint: int = 0, size: float = 1.0):
+	style = clampi(style, 0, IMPACT_NAMES.size() - 1)
+	if style == IMPACT_NAMES.size() - 1:
+		return   # "Nada"
+	var col: Color = IMPACT_COLORS[style]
+	if tint > 0 and tint < SpellData.TINT_COLORS.size():
+		col = SpellData.TINT_COLORS[tint]
+	var k = clampf(size, 0.4, 2.5)
+	match style:
+		0, 1:
+			burst(parent, pos, col, int(4 * k) + 1, 60.0 * k, 2.5 * k)
+		2:   # explosão: clarão, anel e fumaça
+			ring(parent, pos, 26.0 * k, col, 0.3)
+			burst(parent, pos, col, int(10 * k), 130.0 * k, 4.0 * k)
+			burst(parent, pos, Color(1.0, 0.92, 0.5), int(5 * k), 70.0 * k, 3.0 * k)
+			puff(parent, pos, 0.7 * k)
+		3:   # estilhaços: muitos pedacinhos rápidos
+			burst(parent, pos, col, int(12 * k), 170.0 * k, 2.0 * k)
+			burst(parent, pos, col.darkened(0.35), int(6 * k), 110.0 * k, 2.5 * k)
+		4:   # respingo
+			ring(parent, pos, 16.0 * k, col, 0.25)
+			burst(parent, pos + Vector2(0, -4), col, int(9 * k), 95.0 * k, 3.0 * k)
+			burst(parent, pos, Color(0.9, 0.97, 1.0), int(4 * k), 60.0 * k, 2.0 * k)
+		5:   # fumaça
+			puff(parent, pos, 0.8 * k)
+		6:   # labareda
+			burst(parent, pos, col, int(10 * k), 90.0 * k, 4.0 * k)
+			burst(parent, pos, Color(1.0, 0.9, 0.35), int(6 * k), 55.0 * k, 3.0 * k)
+			ring(parent, pos, 14.0 * k, Color(1.0, 0.5, 0.2, 0.7), 0.25)
+		7:   # cristais de gelo
+			ring(parent, pos, 18.0 * k, col, 0.35)
+			burst(parent, pos, col, int(8 * k), 80.0 * k, 3.5 * k)
+			burst(parent, pos, Color(1, 1, 1), int(4 * k), 40.0 * k, 2.0 * k)
+		8:   # choque
+			ring(parent, pos, 20.0 * k, col, 0.2)
+			burst(parent, pos, col, int(8 * k), 150.0 * k, 1.8 * k)
+			burst(parent, pos, Color(1, 1, 1), int(3 * k), 90.0 * k, 1.5 * k)
+		9:   # gosma tóxica
+			zone(parent, pos, 14.0 * k, Color(col.r, col.g, col.b, 0.35), 0.6)
+			burst(parent, pos, col, int(7 * k), 45.0 * k, 3.5 * k)
+		10:  # estrelinhas
+			burst(parent, pos, col, int(7 * k), 85.0 * k, 3.0 * k)
+			burst(parent, pos, Color(1, 1, 1), int(3 * k), 50.0 * k, 2.0 * k)
+		11, 12, 16:   # folhas, penas, pétalas: caem devagar
+			burst(parent, pos, col, int(7 * k), 40.0 * k, 3.5 * k)
+			burst(parent, pos, col.darkened(0.2), int(4 * k), 30.0 * k, 3.0 * k)
+		13:  # moedas
+			burst(parent, pos, col, int(6 * k), 75.0 * k, 3.5 * k)
+			burst(parent, pos, Color(1.0, 0.95, 0.6), int(3 * k), 50.0 * k, 2.0 * k)
+		14:  # tinta
+			zone(parent, pos, 12.0 * k, Color(col.r, col.g, col.b, 0.45), 0.5)
+			burst(parent, pos, col, int(8 * k), 70.0 * k, 3.5 * k)
+		15:  # poeira
+			burst(parent, pos, col, int(8 * k), 50.0 * k, 4.0 * k)
+			puff(parent, pos, 0.5 * k)
+		17:  # fagulhas
+			burst(parent, pos, col, int(14 * k), 120.0 * k, 1.5 * k)
+
+
 ## efeito completo de um feitiço num estilo. `duration` 0 = na hora. `power` (0.5..2) = quanto de partícula
 static func styled(parent: Node, pos: Vector2, r: float, col: Color, style: int, duration: float, power: float = 1.0):
 	var n = int(round(14.0 * clampf(power, 0.3, 2.5)))

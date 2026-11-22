@@ -144,12 +144,22 @@ func _physics_process(delta):
 
 ## quem atira só em construção não acerta tropa (nem a que está no caminho, nem na corrente)
 var buildings_only := false
+## quem o tiro pode acertar (dano em área também respeita): 0 chão+ar, 1 só chão, 2 só ar
+var hits := 0
+var impact_fx := 0        # Fx.IMPACT_NAMES (0 = faisquinha de sempre)
+var impact_tint := 0
+var impact_size := 1.0
 
 
 func _allowed(body) -> bool:
-	if !buildings_only:
-		return true
-	return !("stats" in body) or body.stats == null or body.stats.unit_type == UnitData.UnitType.BUILDING
+	var st = body.get("stats") if "stats" in body else null
+	if buildings_only:
+		return st == null or st.unit_type == UnitData.UnitType.BUILDING
+	if hits != 0 and st != null:
+		var flying = st.unit_type == UnitData.UnitType.AIR
+		if (hits == 1 and flying) or (hits == 2 and !flying):
+			return false
+	return true
 
 
 func _boomerang(delta):
@@ -266,7 +276,7 @@ func _apply_effect(body):
 
 
 func _finish():
-	Fx.burst(get_parent(), position, Color(1, 0.95, 0.8), 4, 60.0, 2.5)
+	Fx.impact(get_parent(), position, impact_fx, impact_tint, impact_size)
 	if is_aoe:
 		Fx.ring(get_parent(), position, aoe_radius, Color(1.0, 0.72, 0.3))
 	if splits:

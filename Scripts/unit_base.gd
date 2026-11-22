@@ -169,7 +169,7 @@ func _ready():
 			_begin_deploy(deploy)
 
 	if stats.deals_arrival_damage:
-		_deal_area_damage(global_position, stats.arrival_damage_radius, stats.arrival_damage)
+		_deal_area_damage(global_position, stats.arrival_damage_radius, stats.arrival_damage, true)
 
 	if stats.entrance_rage_duration > 0:
 		apply_speed_multiplier(stats.entrance_rage_speed_mult, stats.entrance_rage_duration)
@@ -1811,7 +1811,7 @@ func _process_new_mechanics(delta):
 				_jump_left = -1.0
 				_jump_height = 0.0
 				_slam = 1.0
-				_deal_area_damage(global_position, stats.jump_radius, int(round(stats.jump_damage * _level_mult_safe())))
+				_deal_area_damage(global_position, stats.jump_radius, int(round(stats.jump_damage * _level_mult_safe())), true)
 				Fx.burst(get_parent(), position, Color(0.78, 0.68, 0.5, 0.9), 12, 130.0, 3.5)
 		else:
 			_jump_clock += delta
@@ -1991,6 +1991,10 @@ func _perform_attack():
 		var proj = Projectile.new()
 		proj.target = target
 		proj.buildings_only = stats.target_type == UnitData.TargetType.BUILDING
+		proj.impact_fx = stats.impact_fx
+		proj.impact_tint = stats.impact_tint
+		proj.impact_size = stats.impact_size
+		proj.hits = 1 if stats.target_type == UnitData.TargetType.GROUND else (2 if stats.target_type == UnitData.TargetType.AIR else 0)
 		proj.damage = dmg
 		proj.speed = stats.projectile_speed
 		proj.texture = stats.projectile_texture
@@ -2030,13 +2034,15 @@ func _perform_attack():
 	elif stats.aoe_hits_extra_one:
 		_perform_attack_with_one_extra(dmg)
 	elif stats.is_aoe:
-		_deal_area_damage(target.global_position, stats.aoe_radius, dmg)
+		_deal_area_damage(target.global_position, stats.aoe_radius, dmg, true)
 		_apply_on_hit_to_area(target.global_position, stats.aoe_radius)
 	else:
 		# guarda o alvo: o golpe pode mudar o "target" no meio (o choque de volta atordoa quem
 		# bateu e zera o alvo dele) -- antes isso quebrava o resto do ataque
 		var hit_body = target
 		var was_alive_before = "current_hp" in hit_body and hit_body.current_hp > 0
+		if stats.impact_fx > 0 and !stats.is_ranged and get_parent() is Node2D:
+			Fx.impact(get_parent(), get_parent().to_local(hit_body.global_position), stats.impact_fx, stats.impact_tint, stats.impact_size)
 		hit_body.take_damage(dmg)
 		if !is_instance_valid(hit_body):
 			return
@@ -2252,7 +2258,7 @@ func _apply_on_hit_to_area(center: Vector2, radius: float):
 	if stats.on_hit_effect == UnitData.OnHitEffect.NONE:
 		return
 	for body in get_tree().get_nodes_in_group("damageable"):
-		if body == self or !("team" in body) or body.team == team:
+		if body == self or !("team" in body) or body.team == team or !can_hit_kind(body):
 			continue
 		if body.global_position.distance_to(center) <= radius:
 			_apply_on_hit_effect_to(body)
@@ -2274,12 +2280,30 @@ func _area_effect(center: Vector2, radius: float, effect, duration: float, stren
 			body.apply_on_hit_effect(effect, strength, duration, 1.0, 40.0, center)
 
 
-func _deal_area_damage(center: Vector2, radius: float, damage: int):
+## o dano em área respeita quem a carta mira: só chão não pega voador (e vice-versa)
+func can_hit_kind(body) -> bool:
+	var st = body.get("stats") if "stats" in body else null
+	if st == null:
+		return stats.target_type != UnitData.TargetType.AIR   # torre/base é chão
+	var flying = st.unit_type == UnitData.UnitType.AIR
+	match stats.target_type:
+		UnitData.TargetType.GROUND:
+			return !flying
+		UnitData.TargetType.AIR:
+			return flying
+		UnitData.TargetType.BUILDING:
+			return st.unit_type == UnitData.UnitType.BUILDING
+	return true
+
+
+func _deal_area_damage(center: Vector2, radius: float, damage: int, by_kind: bool = false):
 	if get_parent() != null:
 		Fx.ring(get_parent(), get_parent().to_local(center) if get_parent() is Node2D else center, radius, Color(1.0, 0.72, 0.3))
 		Sfx.play("explosao", 0.15, -2.0)
 	for body in get_tree().get_nodes_in_group("damageable"):
 		if body == self or !("team" in body) or body.team == team:
+			continue
+		if by_kind and !can_hit_kind(body):
 			continue
 		# com os corpos maiores (visual 2.5) a área conta até a BORDA do alvo:
 		# senão a abóbora-bomba encostava no alvo e a explosão não chegava no centro dele

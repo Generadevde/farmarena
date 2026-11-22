@@ -2112,6 +2112,34 @@ func _legacy_audit():
 	CardGenerator.fixed_power = 0.0
 	print("RESULTADO gerador em campo: ", fought, " cartas lutaram | sem causar dano em 3s: ", no_damage)
 	print("RESULTADO antigas OK (", _aud_ok.size(), "): ", _aud_ok)
+	# ÁREA SÓ DE CHÃO não pega voador (bug: carta de dano em área terrestre acertava voador perto)
+	await _wipe()
+	var gd = await _dummy(E, mid + Vector2(0, -40))
+	var air = (await _put("corujao", E, mid + Vector2(12, -40)))[0]
+	air.stats = air.stats.duplicate()
+	air.stats.hp = 99999
+	air.current_hp = 99999
+	air.stats.move_speed = 0.0
+	air.stats.damage = 0
+	var splasher = (await _put_card(_make({"is_aoe": true, "aoe_radius": 90.0, "damage": 200, "hp": 99999, "target_type": UnitData.TargetType.GROUND}), P, mid))[0]
+	await get_tree().create_timer(4.0).timeout
+	_check("área só de chão não acerta voador", is_instance_valid(air) and air.current_hp >= 99999 and is_instance_valid(gd) and gd.current_hp < 99999,
+		"voador %s, chão %s" % [str(air.current_hp) if is_instance_valid(air) else "morreu", str(gd.current_hp) if is_instance_valid(gd) else "morreu"])
+
+	await _wipe()
+	gd = await _dummy(E, mid + Vector2(0, -120))
+	air = (await _put("corujao", E, mid + Vector2(12, -120)))[0]
+	air.stats = air.stats.duplicate()
+	air.stats.hp = 99999
+	air.current_hp = 99999
+	air.stats.move_speed = 0.0
+	air.stats.damage = 0
+	await _put_card(_make({"is_ranged": true, "attack_range": 160.0, "move_speed": 0.0, "is_aoe": true, "aoe_radius": 90.0, "damage": 200, "hp": 99999,
+		"target_type": UnitData.TargetType.GROUND}), P, mid)
+	await get_tree().create_timer(4.0).timeout
+	_check("tiro em área só de chão não acerta voador", is_instance_valid(air) and air.current_hp >= 99999 and is_instance_valid(gd) and gd.current_hp < 99999,
+		"voador %s, chão %s" % [str(air.current_hp) if is_instance_valid(air) else "morreu", str(gd.current_hp) if is_instance_valid(gd) else "morreu"])
+
 	# ESQUIVA: golpe de tropa às vezes passa batido; feitiço sempre pega
 	await _wipe()
 	var dg = (await _put_card(_make({"dodge_chance": 0.5, "hp": 99999}), P, mid))[0]

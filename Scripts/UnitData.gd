@@ -452,6 +452,10 @@ enum OnHitEffect {
 @export var lifesteal_percent: float = 0.0
 ## Chance (0.0 a 1.0) de contra-atacar automaticamente sempre que leva dano.
 @export var counter_attack_chance: float = 0.0
+## EFEITO DE ACERTO (o que aparece quando o tiro/golpe pega): ver Fx.IMPACT_NAMES
+@export var impact_fx: int = 0
+@export var impact_tint: int = 0       # 0 = cor do efeito; 1.. = SpellData.TINT_NAMES
+@export var impact_size: float = 1.0
 ## ESQUIVA: chance (0-1) de não levar o golpe de tropa ou torre (feitiço sempre pega)
 @export var dodge_chance: float = 0.0
 ## ROUBO DE VELOCIDADE: cada golpe deixa o alvo mais lento e esta unidade mais rápida

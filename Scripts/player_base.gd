@@ -253,6 +253,10 @@ func _process_cannon(delta):
 		# Ataque em área (só torre "de tiro")
 		proj.is_aoe = base_data.is_aoe and is_cannon
 		proj.aoe_radius = base_data.aoe_radius
+		proj.impact_fx = base_data.impact_fx
+		proj.impact_tint = base_data.impact_tint
+		proj.impact_size = base_data.impact_size
+		proj.hits = base_data.targets   # 0 chão+ar, 1 só chão, 2 só ar (a área também respeita)
 
 		proj.attacker_team = team
 		proj.can_miss = base_data.projectile_can_miss
@@ -321,6 +325,10 @@ func _apply_cannon_damage(target, dmg):
 			if !is_instance_valid(other):
 				continue
 
+			if base_data.targets != 0 and "stats" in other and other.stats != null:
+				var fl = other.stats.unit_type == UnitData.UnitType.AIR
+				if (base_data.targets == 1 and fl) or (base_data.targets == 2 and !fl):
+					continue   # torre só de chão não respinga em voador (e vice-versa)
 			if target.global_position.distance_to(other.global_position) <= base_data.aoe_radius:
 				if other.has_method("take_damage"):
 					other.take_damage(dmg)
