@@ -64,13 +64,13 @@ static func three_towers() -> bool:
 ## Na partida os DOIS lados entram com a mesma quantidade: a do jogador.
 const MODULE_SLOTS_MAX = 2
 const MODULE_SLOT_LEVELS = [1, 8]   # nível em que abre o 1º e o 2º espaço (1 do nível 1 ao 7; 2 do 8 em diante)
-const MAIN_BASE_POS = Vector2(0, 330)   # a partir do meio do rio, pro lado de quem é o dono
+const MAIN_BASE_POS = Vector2(0, 320)   # a partir do meio do rio, pro lado de quem é o dono
 # TECLADO NUMÉRICO: a base é o 5 e os 8 pontos são os outros números -- 3 na frente, 1 de cada
 # lado da base e 3 atrás. Três colunas (-225, 0, 225; as pontes ficam em ±150) e três fileiras
-# (230, 330, 430 a partir do rio), tudo simétrico. Os índices 0 a 5 são os de sempre (os
+# (190, 320, 450 a partir do rio; 130 entre fileiras, a base bem no meio), tudo simétrico. Os índices 0 a 5 são os de sempre (os
 # baralhos de módulo salvos continuam valendo); 6 e 7 são os cantos de trás, novos.
-const MODULE_POINTS = [Vector2(-225, 230), Vector2(0, 230), Vector2(225, 230), Vector2(-225, 330), Vector2(0, 430), Vector2(225, 330),
-	Vector2(-225, 430), Vector2(225, 430)]   # colunas dos lados quase na cerca (as pontes continuam em ±150)
+const MODULE_POINTS = [Vector2(-225, 190), Vector2(0, 190), Vector2(225, 190), Vector2(-225, 320), Vector2(0, 450), Vector2(225, 320),
+	Vector2(-225, 450), Vector2(225, 450)]   # colunas dos lados quase na cerca (as pontes continuam em ±150)
 const MODULE_POINT_NAMES = ["Frente esquerda", "Frente meio", "Frente direita", "Lado esquerdo", "Atrás, no meio", "Lado direito", "Atrás esquerda", "Atrás direita"]
 const DEFAULT_POINTS = [0, 2, 1]             # onde os módulos nascem, antes de a batalha pôr cada um no ponto escolhido
 # ordem dos pontos pra completar espaço vazio. O primeiro é um LADO da frente, não o meio: com o

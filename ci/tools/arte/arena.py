@@ -50,7 +50,7 @@ def build(seed=7):
     # 3 colunas x 3 fileiras, tudo simétrico. As colunas dos lados vão quase até a cerca
     # (mundo ±225); as pontes continuam em ±150 e o caminho desce reto delas até o pátio.
     COLS = (CX - MOD_X, CX, CX + MOD_X)
-    ROWS = (CY + 57.5, CY + 82.5, CY + 107.5)          # mundo: 230, 330, 430 a partir do rio
+    ROWS = (CY + 47.5, CY + 80, CY + 112.5)            # mundo: 190, 320, 450 a partir do rio
 
     def dirt(x, y, edge=False):
         c = DIRT[1] if edge else DIRT[0]

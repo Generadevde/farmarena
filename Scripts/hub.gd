@@ -7,7 +7,10 @@ const JOURNAL_SCENE = "res://ranking/journal_menu.tscn"
 const CREATOR_SCENE = "res://creator/creator_menu.tscn"
 const PROFILE_SCENE = "res://Scenes/profile_setup.tscn"
 
-const TABS = [["🛒", "Feira"], ["🃏", "Cartas"], ["⚔", "Batalha"], ["🏆", "Troféus"], ["🛡", "Clã"], ["🏡", "Sítio"]]
+const TABS = [["🛒", "Loja"], ["🃏", "Cartas"], ["⚔", "Batalha"], ["🏆", "Troféus"], ["🛡", "Clã"], ["🏡", "Sítio"]]
+## na barra de baixo só ficam Loja, Cartas, Batalha (+ Criador). Troféus, Clã e Sítio abrem
+## pelos botões pequenos da Batalha e têm "← Voltar" no topo.
+const BAR_TABS = 3
 const CREATOR_TAB = ["🛠", "Criador"]   # botão próprio na barra de baixo: abre a tela do Criador
 const TOP_H = 92.0
 const BAR_H = 104.0
@@ -151,11 +154,12 @@ func _build_shell():
 		var b = Button.new()
 		b.text = "%s\n%s" % [TABS[i][0], TABS[i][1]]
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.size_flags_stretch_ratio = 1.35 if i == 2 else 1.0
+		b.size_flags_stretch_ratio = 1.2 if i == 2 else 1.0
 		b.custom_minimum_size.y = BAR_H - 16
 		b.add_theme_font_size_override("font_size", 17)
 		b.pressed.connect(_go_tab.bind(i))
-		tabs.add_child(b)
+		if i < BAR_TABS:
+			tabs.add_child(b)
 		_tab_buttons.append(b)
 		var dot = ColorRect.new()
 		dot.color = Color("#f04038")
@@ -170,7 +174,7 @@ func _build_shell():
 	cb.text = "%s\n%s" % [CREATOR_TAB[0], CREATOR_TAB[1]]
 	cb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cb.custom_minimum_size.y = BAR_H - 16
-	cb.add_theme_font_size_override("font_size", 16)
+	cb.add_theme_font_size_override("font_size", 17)
 	cb.modulate = Color(0.85, 0.95, 1.0)
 	cb.pressed.connect(_goto.bind(CREATOR_SCENE))
 	tabs.add_child(cb)
@@ -208,9 +212,10 @@ func _go_tab(i: int):
 
 
 func _style_tabs():
+	var lit = _tab if _tab < BAR_TABS else 2   # Troféus/Clã/Sítio moram dentro da Batalha
 	for i in _tab_buttons.size():
-		_tab_buttons[i].modulate = Color(1, 1, 1) if i == _tab else Color(0.72, 0.68, 0.62)
-		_tab_buttons[i].add_theme_font_size_override("font_size", 20 if i == _tab else 16)
+		_tab_buttons[i].modulate = Color(1, 1, 1) if i == lit else Color(0.72, 0.68, 0.62)
+		_tab_buttons[i].add_theme_font_size_override("font_size", 20 if i == lit else 16)
 
 
 # arrastar pro lado troca de aba
@@ -231,7 +236,10 @@ func _input(event):
 			_swiping = false
 			var delta: Vector2 = event.position - _swipe_start
 			if absf(delta.x) > 110.0 and absf(delta.x) > absf(delta.y) * 1.8:
-				_go_tab(_tab + (-1 if delta.x > 0 else 1))
+				if _tab >= BAR_TABS:
+					_go_tab(2)     # numa sub-aba (Troféus, Clã, Sítio): arrastar volta pra Batalha
+				else:
+					_go_tab(clampi(_tab + (-1 if delta.x > 0 else 1), 0, BAR_TABS - 1))
 
 
 func _process(delta):
@@ -309,6 +317,11 @@ func _build_page(i: int):
 	var keep_scroll = scroll.scroll_vertical if scroll is ScrollContainer else 0
 	var box = _clear(_pages[i])
 	_live_labels = _live_labels.filter(func(pair): return is_instance_valid(pair[0]) and pair[0].is_inside_tree())
+	if i >= BAR_TABS:
+		var back = _button("←  Voltar para Batalha", _go_tab.bind(2), 19)
+		back.custom_minimum_size.y = 56
+		back.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		box.add_child(back)
 	match i:
 		0:
 			_build_feira(box)
@@ -378,6 +391,7 @@ func _refresh_dots():
 				clan_alert = true
 	_dots[4].visible = clan_alert
 	_dots[5].visible = Safra.mission_ready() or Gazeta.unread() > 0
+	_dots[2].visible = _dots[2].visible or _dots[3].visible or _dots[4].visible or _dots[5].visible
 
 
 # ================================================================ ajudantes de interface
@@ -627,41 +641,29 @@ func _build_batalha(box: Node):
 	if Progresso.pass_ready():
 		pass_b.modulate = Color(1.0, 0.95, 0.55)
 	mrow.add_child(pass_b)
-	var rb = _button("🏆\nRanking", _show_ranking, 16)
-	rb.custom_minimum_size = Vector2(120, 78)
-	mrow.add_child(rb)
 
-	# ---------------- seu baralho
-	var deck_panel = _panel(box)
-	var head = HBoxContainer.new()
-	head.add_theme_constant_override("separation", 6)
-	deck_panel.add_child(head)
-	var dl = _label("🃏 Seu baralho  ·  custo médio %.0f" % Progresso.deck_average_cost(Progresso.active_deck()), 17, ThemeBuilder.COLOR_GOLD)
-	dl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	dl.clip_text = true
-	head.add_child(dl)
-	for i in Progresso.DECK_SLOTS:
-		var b = _button(str(i + 1), _pick_active_deck.bind(i), 17)
-		b.custom_minimum_size = Vector2(50, 40)
-		b.modulate = Color(1, 1, 1) if i == Progresso.active_deck() else Color(0.65, 0.62, 0.58)
-		head.add_child(b)
-	var deck_now = Progresso.deck_cards(Progresso.active_deck())
-	var drow: HBoxContainer = null
-	for i in deck_now.size():
-		if i % 4 == 0:
-			drow = HBoxContainer.new()
-			drow.alignment = BoxContainer.ALIGNMENT_CENTER
-			drow.add_theme_constant_override("separation", 8)
-			deck_panel.add_child(drow)
-		var v = CardView.make(deck_now[i], 136)
-		if Progresso.can_upgrade(deck_now[i]):
-			v.badge = "SUBIR"
-			v.badge_color = Color(0.5, 1, 0.6)
-		v.tapped.connect(_show_card_popup)
-		drow.add_child(v)
-	var eb = _button("✏ Editar baralho", _go_tab.bind(1), 20)
-	eb.custom_minimum_size.y = 58
-	deck_panel.add_child(eb)
+	# ---------------- atalhos pequenos: Troféus, Clã, Sítio, Ranking (saíram da barra de baixo)
+	var srow = HBoxContainer.new()
+	srow.add_theme_constant_override("separation", 6)
+	box.add_child(srow)
+	var clan_alert = false
+	if Cla.mine() != "":
+		for tier in 3:
+			if Cla.harvest_claimable(tier):
+				clan_alert = true
+	for sc_item in [["🏆", "Troféus", _go_tab.bind(3), Progresso.road_claimable() > 0], ["🛡", "Clã", _go_tab.bind(4), clan_alert],
+			["🏡", "Sítio", _go_tab.bind(5), Safra.mission_ready() or Gazeta.unread() > 0], ["📊", "Ranking", _show_ranking, false]]:
+		var sb = _button("%s %s%s" % [sc_item[0], sc_item[1], " •" if sc_item[3] else ""], sc_item[2], 16)
+		sb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sb.custom_minimum_size.y = 54
+		if sc_item[3]:
+			sb.modulate = Color(1.0, 0.9, 0.55)
+		srow.add_child(sb)
+
+	# (o baralho fica na aba Cartas; aqui só o atalho de qual está em uso)
+	var dk = _button("🃏 Baralho %d  ·  custo médio %.0f   ✏" % [Progresso.active_deck() + 1, Progresso.deck_average_cost(Progresso.active_deck())], _go_tab.bind(1), 17)
+	dk.custom_minimum_size.y = 52
+	box.add_child(dk)
 
 	# ---------------- baús
 	var chest_panel = _panel(box)
@@ -674,12 +676,14 @@ func _build_batalha(box: Node):
 
 	_build_powers(box)
 
-	# missões do dia (direto na tela)
+	# missões do dia: um botão só (a lista abre numa janela)
 	PlayerProfile._check_and_reset_daily_missions()
-	var mission_panel = _panel(box)
-	mission_panel.add_child(_label("📋 Missões do dia" + ("  --  %d pronta(s)!" % pending if pending > 0 else ""), 17, ThemeBuilder.COLOR_STAT_LABEL))
-	for m in PlayerProfile.daily_missions:
-		_mission_row(mission_panel, m, null)
+	var done_n = PlayerProfile.daily_missions.filter(func(m): return m["claimed"]).size()
+	var msb = _button("📋 Missões do dia  ·  %d de %d%s" % [done_n, PlayerProfile.daily_missions.size(), ("  ·  %d PRONTA(S)!" % pending) if pending > 0 else ""], _show_missions, 17)
+	msb.custom_minimum_size.y = 56
+	if pending > 0:
+		msb.modulate = Color(1.0, 0.95, 0.55)
+	box.add_child(msb)
 
 	# carta do dia
 	var cod = Catalogo.find_card(Progresso.card_of_the_day_path())
@@ -1900,18 +1904,41 @@ func _popup(min_width: float = 600.0, tall: bool = false) -> VBoxContainer:
 	var panel = PanelContainer.new()
 	panel.custom_minimum_size.x = min_width
 	center.add_child(panel)
+	var shell = VBoxContainer.new()
+	shell.add_theme_constant_override("separation", 4)
+	panel.add_child(shell)
 	var v = VBoxContainer.new()
 	v.add_theme_constant_override("separation", 10)
-	if tall:
-		var sc = ScrollContainer.new()
-		sc.add_child(ScrollGlide.new())
-		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		sc.custom_minimum_size = Vector2(min_width - 20, minf(1150.0, get_viewport_rect().size.y - 260.0))
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		sc.add_child(v)
-		panel.add_child(sc)
-	else:
-		panel.add_child(v)
+	# ✕ SEMPRE no topo: antes, janela comprida (histórico com muitas partidas) deixava o
+	# "Fechar" lá embaixo, fora da tela
+	var xrow = HBoxContainer.new()
+	xrow.alignment = BoxContainer.ALIGNMENT_END
+	shell.add_child(xrow)
+	var xb = _button("✕", func(): _close(v), 24)
+	xb.add_theme_font_override("font", ThemeDB.fallback_font)
+	xb.custom_minimum_size = Vector2(64, 52)
+	xrow.add_child(xb)
+	# o conteúdo rola quando não cabe (a janela nunca passa da tela)
+	var sc = ScrollContainer.new()
+	sc.add_child(ScrollGlide.new())
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(v)
+	shell.add_child(sc)
+	var max_h = minf(1150.0, get_viewport_rect().size.y - 300.0)
+	sc.custom_minimum_size = Vector2(min_width - 20, max_h if tall else 120.0)
+	if !tall:
+		# a altura acompanha o conteúdo (até o teto); conferida a cada quadro enquanto a janela existe
+		var fitter = Timer.new()
+		fitter.wait_time = 0.05
+		fitter.autostart = true
+		overlay.add_child(fitter)
+		fitter.timeout.connect(func():
+			if !is_instance_valid(sc) or !is_instance_valid(v):
+				return
+			var want = minf(v.get_combined_minimum_size().y, max_h)
+			if absf(sc.custom_minimum_size.y - want) > 1.0:
+				sc.custom_minimum_size.y = want)
 	v.set_meta("overlay", overlay)
 	return v
 
