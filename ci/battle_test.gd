@@ -789,6 +789,13 @@ func _modules_test():
 	_check("módulo da frente caiu: abre bolsão pequeno pro adversário (o de trás não)", !before_pocket and !after_back and after_front \
 		and !battle.can_spawn(far_probe, probe_area) and !battle.can_spawn(mid_enemy + Vector2(0, -80), probe_area),
 		"antes %s, trás caiu %s, frente caiu %s" % [before_pocket, after_back, after_front])
+	# soltar tropa no bolsão: ela NASCE lá (antes voltava pro seu lado)
+	var pk_card: CardData = Catalogo.card("caramelo")
+	battle.spawn_unit(pk_card.unit_scene, GameManager.Team.PLAYER, probe, pk_card)
+	await get_tree().process_frame
+	var in_pk_units = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == GameManager.Team.PLAYER \
+		and battle.in_pocket(x.global_position, GameManager.Team.PLAYER))
+	_check("tropa solta no bolsão nasce lá", in_pk_units.size() >= 1, "%d no bolsão" % in_pk_units.size())
 	# bot usa o bolsão: com bolsão do JOGADOR aberto no campo do bot, o robô do jogador (time PLAYER) solta lá
 	var fast: CardData = Catalogo.card("caramelo")
 	var in_pk = 0
@@ -2283,6 +2290,20 @@ func _legacy_audit():
 	var ys = ws.map(func(x): return x.global_position.y)
 	_check("muralha: invocação nasce em fila", ws.size() == 4 and xs.max() - xs.min() > 100.0 and ys.max() - ys.min() < 20.0,
 		"%d peças, largura %.0f, altura %.0f" % [ws.size(), (xs.max() - xs.min()) if ws.size() > 0 else 0.0, (ys.max() - ys.min()) if ws.size() > 0 else 0.0])
+	# PRORROGAÇÃO: tempo acabou empatado em torres -> +1 minuto x2,5; a 1ª torre que cair decide
+	await _wipe()
+	battle.towers_destroyed[GameManager.Team.PLAYER] = 0
+	battle.towers_destroyed[GameManager.Team.ENEMY] = 0
+	var wt0 = battle.get_node("ProductionTimer").wait_time
+	battle._battle_time_remaining = 0.05
+	battle._update_battle_timer(0.1)   # o relógio fica parado nos testes: anda ele na mão
+	var ot_ok = battle._overtime and !battle.match_over and battle._battle_time_remaining > 50.0
+	var wt1 = battle.get_node("ProductionTimer").wait_time
+	battle.towers_destroyed[GameManager.Team.ENEMY] = 1
+	battle._update_battle_timer(0.1)
+	await get_tree().create_timer(0.3).timeout
+	_check("prorrogação: +1 minuto, recurso mais rápido, 1ª torre decide", ot_ok and wt1 < wt0 and battle.match_over,
+		"prorrogou %s, intervalo %.2f -> %.2f, acabou %s" % [ot_ok, wt0, wt1, battle.match_over])
 	print("RESULTADO antigas COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)
 
 

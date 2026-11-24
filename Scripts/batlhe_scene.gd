@@ -237,6 +237,11 @@ const PRODUCTION_AMOUNT_PER_TICK = 1
 var BATTLE_DURATION: float = Regras.battle_duration()
 var LAST_MINUTE_THRESHOLD: float = Regras.double_time()
 const LAST_MINUTE_PRODUCTION_MULT = 2.0
+## PRORROGAÇÃO: acabou o tempo empatado em torres derrubadas -> +1 minuto com recurso x2,5;
+## a primeira torre/módulo que cair decide (morte súbita)
+const OVERTIME_SECONDS = 60.0
+const OVERTIME_PRODUCTION_MULT = 2.5
+var _overtime := false
 
 var _battle_time_remaining: float = Regras.battle_duration()
 var _entered_last_minute: bool = false
@@ -1421,7 +1426,7 @@ func _update_battle_timer(delta):
 		var seconds = int(_battle_time_remaining) % 60
 		_timer_label.text = "%d:%02d" % [minutes, seconds]
 		if _entered_last_minute:
-			_timer_label.text += "  x2"
+			_timer_label.text += "  x2,5" if _overtime else "  x2"
 			_timer_label.add_theme_color_override("font_color", Color(1.0, 0.45, 0.85))
 
 	# entrando no minuto final: recurso x2 pros dois lados + IA mais
@@ -1450,8 +1455,29 @@ func _update_battle_timer(delta):
 		_last_count_shown = whole
 		_show_count(whole)
 
-	if _battle_time_remaining <= 0.0:
+	# morte súbita: na prorrogação, quem perder torre primeiro perde a partida
+	if _overtime and towers_destroyed[GameManager.Team.PLAYER] != towers_destroyed[GameManager.Team.ENEMY]:
 		_resolve_time_up()
+		return
+	if _battle_time_remaining <= 0.0:
+		if !_overtime and towers_destroyed[GameManager.Team.PLAYER] == towers_destroyed[GameManager.Team.ENEMY] and !is_replay_mode:
+			_start_overtime()
+			return
+		_resolve_time_up()
+
+
+func _start_overtime():
+	_overtime = true
+	_battle_time_remaining = OVERTIME_SECONDS
+	_last_count_shown = -1
+	_show_big_banner("⏱ PRORROGAÇÃO", "+1 minuto · recurso x2,5 · a primeira torre que cair decide", Color(1.0, 0.5, 0.3))
+	# de x2 (último minuto) pra x2,5: o intervalo encolhe mais um pouco
+	var k = (LAST_MINUTE_PRODUCTION_MULT if _entered_last_minute else 1.0) / OVERTIME_PRODUCTION_MULT
+	$ProductionTimer.wait_time *= k
+	$EnemyProductionTimer.wait_time *= k
+	for extra_timer in _extra_production_timers:
+		if is_instance_valid(extra_timer):
+			extra_timer.wait_time *= k
 
 
 # timer zerou sem ninguém destruir a base do outro -- empata a partida.
@@ -1831,6 +1857,11 @@ func spawn_unit(unit_scene, team, spawn_position, card_data: CardData = null, le
 		# área normal, então não trava nada
 		if unit.stats != null and unit.stats.can_spawn_anywhere:
 			unit.global_position = raw_position
+		elif in_pocket(spawn_position, team):
+			# BOLSÃO: soltou no campo do outro onde caiu um módulo da frente -- nasce lá mesmo
+			# (antes o "trava na área do time" jogava a tropa de volta pro seu lado)
+			var pr: Rect2 = _pocket_at(spawn_position, team)
+			unit.global_position = Vector2(clampf(raw_position.x, pr.position.x + 4, pr.end.x - 4), clampf(raw_position.y, pr.position.y + 4, pr.end.y - 4))
 		else:
 			var team_area = spawn_player_area if team == GameManager.Team.PLAYER else spawn_enemy_area
 			unit.global_position = _clamp_to_area(raw_position, team_area)
@@ -1862,6 +1893,13 @@ func can_spawn(pos, area = spawn_player_area):
 		return true
 	var team = GameManager.Team.PLAYER if area == spawn_player_area else GameManager.Team.ENEMY
 	return in_pocket(pos, team)
+
+
+func _pocket_at(pos: Vector2, team) -> Rect2:
+	for r in pockets.get(team, []):
+		if r.has_point(pos):
+			return r
+	return Rect2(pos, Vector2.ONE)
 
 
 func in_pocket(pos: Vector2, team) -> bool:
