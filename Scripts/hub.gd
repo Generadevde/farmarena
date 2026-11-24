@@ -660,10 +660,22 @@ func _build_batalha(box: Node):
 			sb.modulate = Color(1.0, 0.9, 0.55)
 		srow.add_child(sb)
 
-	# (o baralho fica na aba Cartas; aqui só o atalho de qual está em uso)
-	var dk = _button("🃏 Baralho %d  ·  custo médio %.0f   ✏" % [Progresso.active_deck() + 1, Progresso.deck_average_cost(Progresso.active_deck())], _go_tab.bind(1), 17)
-	dk.custom_minimum_size.y = 52
-	box.add_child(dk)
+	# ---------------- o seu baralho (toque pra trocar na aba Cartas)
+	var dkp = _panel(box)
+	var dk = _button("🃏 Baralho %d  ·  custo médio %.1f   ✏ trocar" % [Progresso.active_deck() + 1, Progresso.deck_average_cost(Progresso.active_deck())], _go_tab.bind(1), 17)
+	dk.custom_minimum_size.y = 48
+	dkp.add_child(dk)
+	var dg = GridContainer.new()
+	dg.columns = 4
+	dg.add_theme_constant_override("h_separation", 6)
+	dg.add_theme_constant_override("v_separation", 6)
+	dkp.add_child(dg)
+	for c in Progresso.deck_cards(Progresso.active_deck()):
+		if c == null:
+			continue
+		var cv = CardView.make(c, 138, true)
+		cv.tapped.connect(func(_x = null): _go_tab(1))
+		dg.add_child(cv)
 
 	# ---------------- baús
 	var chest_panel = _panel(box)
@@ -792,10 +804,28 @@ func _show_modes():
 	var g = _grid(v, 2)
 	_tile(g, "📅", "Desafio do Dia", _swap_popup.bind(v, _show_daily), !Progresso.daily_done(), "feito ✔" if Progresso.daily_done() else "baralho pronto · %d de %d vitórias" % [Progresso.daily_wins(), Progresso.DAILY_WINS])
 	_tile(g, "🏟", "Torneios e Desafios", _swap_popup.bind(v, _show_tournament), Progresso.tournament_active() or Progresso.tournament_free_today(), Progresso.tournament_stage_text() if Progresso.tournament_active() else ("entrada grátis hoje" if Progresso.tournament_free_today() else "chave, 10 vitórias, maluco, sobrevivência"))
+	_tile(g, "🌪", "Modos malucos", _swap_popup.bind(v, _show_crazy_modes), false, "recurso em dobro, torres de palha, chuva de vaca")
 	_tile(g, "👥", "2 contra 2", _start_2v2, false, "você + um bot contra dois · não vale troféu")
 	_tile(g, "🤝", "Amistoso de clã", _swap_popup.bind(v, _go_tab.bind(4)), false, "na aba Clã · não vale troféu")
 	for t in g.get_children():
 		t.custom_minimum_size = Vector2(318, 132)
+	v.add_child(_button("Voltar", _close.bind(v)))
+
+
+# ================================================================ MODOS MALUCOS
+## os modificadores saíram da batalha normal (antes vinham sorteados) e moram aqui
+func _show_crazy_modes():
+	var v = _popup(660)
+	v.add_child(_title("🌪 Modos malucos"))
+	v.add_child(_wrap("Batalha normal contra um bot, mas com uma regra doida. A batalha do botão BATALHAR agora é sempre normal.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	var icons = ["", "⚡", "🌾", "🐄"]
+	for r in range(1, MatchSetup.RULE_NAMES.size()):
+		var p = _panel(v)
+		p.add_child(_label("%s %s" % [icons[r] if r < icons.size() else "🌪", MatchSetup.RULE_NAMES[r]], 20, ThemeBuilder.COLOR_GOLD))
+		p.add_child(_wrap(MatchSetup.RULE_TEXT[r], 15, ThemeBuilder.COLOR_STAT_LABEL))
+		var b = _button("⚔ Jogar", func(): MatchSetup.start_rule_match(get_tree(), r), 20)
+		b.custom_minimum_size.y = 60
+		p.add_child(b)
 	v.add_child(_button("Voltar", _close.bind(v)))
 
 
@@ -994,17 +1024,6 @@ func _show_settings():
 		p.add_child(slider)
 		value_label.text = "%d%%" % int(round(slider.value * 100)) if slider.value > 0.01 else "mudo"
 		slider.value_changed.connect(_on_volume.bind(str(spec[1]), value_label))
-	# só batalha normal: a partida comum nunca vem com modificador ("clima maluco")
-	var nb = CheckButton.new()
-	nb.text = "⚔ Só batalha normal (sem modificador nas partidas comuns)"
-	nb.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	nb.custom_minimum_size = Vector2(0, 64)
-	nb.add_theme_font_size_override("font_size", 17)
-	nb.button_pressed = bool(Config.data.get("so_normal", false))
-	nb.toggled.connect(func(on):
-		Config.data["so_normal"] = on
-		Config.save())
-	v.add_child(nb)
 	v.add_child(_label(Versao.texto(), 15, ThemeBuilder.COLOR_STAT_LABEL))
 	# LABORATÓRIO: as mudanças da Batalha 2.5, pra ligar/desligar e sentir a diferença
 	var lab = _panel(v)

@@ -161,12 +161,20 @@ func start_daily_match(tree: SceneTree, deck: Array):
 
 ## modificador da partida comum: 0 = batalha normal. Com a opção "só batalha
 ## normal" ligada nas Configurações, é sempre 0
+## (os modificadores agora ficam só em "Modos malucos": a batalha normal é sempre normal)
 func roll_weather() -> int:
-	if bool(Config.data.get("so_normal", false)):
-		return 0
-	if randf() < 0.15:
-		return 1 + randi() % (RULE_NAMES.size() - 1)
 	return 0
+
+
+## MODOS MALUCOS: batalha 1x1 com um modificador escolhido (1 recurso em dobro, 2 torres de palha, 3 chuva de vaca)
+func start_rule_match(tree: SceneTree, r: int):
+	if !CustomContent.can_battle():
+		return
+	clear_special()
+	rule = clampi(r, 0, RULE_NAMES.size() - 1)
+	mode = MODE_1V1
+	next_ai_profile = choose_opponent()
+	tree.change_scene_to_file(BATTLE_SCENE)
 
 
 func start_1v1(tree: SceneTree):

@@ -2367,20 +2367,12 @@ func _new_mechanics_test():
 	_aud_bad.clear()
 	var P = GameManager.Team.PLAYER
 	var E = GameManager.Team.ENEMY
-	# opção "só batalha normal": ligada, a partida comum NUNCA sorteia modificador;
-	# desligada, o sorteio continua existindo
-	var so_before = Config.data.get("so_normal", false)
-	Config.data["so_normal"] = true
-	var weather_on = 0
+	# batalha normal NUNCA sorteia modificador (eles moram em "Modos malucos")
+	var weather_any = 0
 	for k in 400:
-		weather_on += 1 if MatchSetup.roll_weather() != 0 else 0
-	Config.data["so_normal"] = false
-	var weather_off = 0
-	for k in 400:
-		weather_off += 1 if MatchSetup.roll_weather() != 0 else 0
-	Config.data["so_normal"] = so_before
-	if weather_on != 0 or weather_off == 0:
-		_aud_bad.append("so batalha normal: com a opcao %d modificadores, sem ela %d em 400" % [weather_on, weather_off])
+		weather_any += 1 if MatchSetup.roll_weather() != 0 else 0
+	if weather_any != 0 or !MatchSetup.has_method("start_rule_match"):
+		_aud_bad.append("batalha normal sorteou modificador %d vezes em 400 (ou falta Modos malucos)" % weather_any)
 	# selecionar SEM recurso: a carta fica selecionada, o toque no campo não gasta nem solta
 	# a seleção, e clear_selection solta
 	var sel_card: CardData = Catalogo.card("vaca_brava")
