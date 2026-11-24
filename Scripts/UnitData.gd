@@ -471,6 +471,37 @@ enum OnHitEffect {
 ## REFLETE PROJÉTEIS (Monge): chance de mandar o tiro de volta pra quem atirou
 @export var reflect_projectile_chance: float = 0.0
 ## COLETA ALMAS (Rei Esqueleto): cada morte perto vira uma alma; com X almas, invoca
+## REAÇÕES (gatilho + efeito): até 3 por tropa
+const REACT_TRIGGERS = ["Nada", "Ao entrar em campo", "Ao atacar", "Ao levar dano", "Ao matar", "Ao morrer", "A cada X segundos",
+	"Com metade da vida (1x)", "Com pouca vida, 25% (1x)", "Quando um aliado morre perto", "Quando inimigo chega perto", "Ao acertar construção"]
+const REACT_EFFECTS = ["Nada", "Explosão (dano em volta)", "Cura aliados em volta", "Cura a si mesma", "Escudo em si", "Fúria em si",
+	"Fúria nos aliados em volta", "Congela inimigos em volta", "Deixa lentos em volta", "Atordoa em volta", "Empurra em volta", "Puxa pra perto",
+	"Veneno em volta", "Invoca unidade", "Fica invisível", "Pula pra trás", "Ganha velocidade", "Ganha recurso", "Raio no inimigo mais perto",
+	"Fica mais forte (acumula)", "Fica invulnerável"]
+@export var r1_trigger: int = 0
+@export var r1_effect: int = 0
+@export var r1_value: float = 100.0
+@export var r1_radius: float = 70.0
+@export var r1_duration: float = 2.0
+@export var r1_chance: float = 1.0
+@export var r1_cooldown: float = 0.0
+@export var r1_scene: PackedScene
+@export var r2_trigger: int = 0
+@export var r2_effect: int = 0
+@export var r2_value: float = 100.0
+@export var r2_radius: float = 70.0
+@export var r2_duration: float = 2.0
+@export var r2_chance: float = 1.0
+@export var r2_cooldown: float = 0.0
+@export var r2_scene: PackedScene
+@export var r3_trigger: int = 0
+@export var r3_effect: int = 0
+@export var r3_value: float = 100.0
+@export var r3_radius: float = 70.0
+@export var r3_duration: float = 2.0
+@export var r3_chance: float = 1.0
+@export var r3_cooldown: float = 0.0
+@export var r3_scene: PackedScene
 @export var collects_souls: bool = false
 @export var soul_radius: float = 140.0
 @export var souls_needed: int = 4

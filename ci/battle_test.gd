@@ -2290,6 +2290,57 @@ func _legacy_audit():
 	var ys = ws.map(func(x): return x.global_position.y)
 	_check("muralha: invocação nasce em fila", ws.size() == 4 and xs.max() - xs.min() > 100.0 and ys.max() - ys.min() < 20.0,
 		"%d peças, largura %.0f, altura %.0f" % [ws.size(), (xs.max() - xs.min()) if ws.size() > 0 else 0.0, (ys.max() - ys.min()) if ws.size() > 0 else 0.0])
+	# REAÇÕES (gatilho + efeito)
+	await _wipe()
+	var rv = await _dummy(E, mid + Vector2(30, -20))
+	var bomb = (await _put_card(_make({"hp": 500, "move_speed": 0.0, "damage": 0, "r1_trigger": 5, "r1_effect": 1, "r1_value": 150.0, "r1_radius": 90.0}), P, mid))[0]
+	await get_tree().create_timer(0.3).timeout
+	bomb.take_damage(999999)
+	await get_tree().create_timer(0.3).timeout
+	_check("reação: explode ao morrer", is_instance_valid(rv) and rv.current_hp < 99999, str(rv.current_hp) if is_instance_valid(rv) else "-")
+	await _wipe()
+	var regen = (await _put_card(_make({"hp": 1000, "move_speed": 0.0, "damage": 0, "r1_trigger": 6, "r1_effect": 3, "r1_value": 200.0, "r1_cooldown": 1.0}), P, mid))[0]
+	regen.take_damage(600)
+	var hp_low = regen.current_hp
+	await get_tree().create_timer(1.6).timeout
+	_check("reação: se cura a cada X segundos", regen.current_hp > hp_low, "%d -> %d" % [hp_low, regen.current_hp])
+	await _wipe()
+	var stone = (await _put_card(_make({"hp": 1000, "move_speed": 0.0, "damage": 0, "r1_trigger": 7, "r1_effect": 4, "r1_value": 300.0, "r1_duration": 5.0}), P, mid))[0]
+	await get_tree().create_timer(0.2).timeout
+	stone.take_damage(600)
+	await get_tree().create_timer(0.2).timeout
+	_check("reação: escudo na metade da vida", stone.current_shield > 0, str(stone.current_shield))
+	await _wipe()
+	var sentry_t = await _dummy(E, mid + Vector2(0, -40))
+	await _put_card(_make({"hp": 9999, "move_speed": 0.0, "damage": 0, "r1_trigger": 10, "r1_effect": 1, "r1_value": 120.0, "r1_radius": 80.0, "r1_cooldown": 5.0}), P, mid)
+	await get_tree().create_timer(0.4).timeout
+	_check("reação: explode quando inimigo chega perto", is_instance_valid(sentry_t) and sentry_t.current_hp < 99999, str(sentry_t.current_hp) if is_instance_valid(sentry_t) else "-")
+	await _wipe()
+	await _dummy(E, mid + Vector2(0, -30))
+	var learner = (await _put_card(_make({"hp": 9999, "move_speed": 0.0, "damage": 10, "attack_speed": 0.3, "r1_trigger": 2, "r1_effect": 19, "r1_value": 50.0}), P, mid))[0]
+	await get_tree().create_timer(2.0).timeout
+	_check("reação: fica mais forte a cada golpe", learner._react_power > 1.05, "%.2f" % learner._react_power)
+
+	# as 32 PRONTAS rodam sem quebrar (entra, bate, apanha, cai pra 20%, morre)
+	var cm = load("res://creator/creator_menu.gd")
+	var crashed_free = 0
+	for pr in cm.REACT_PRESETS:
+		await _wipe()
+		await _dummy(E, mid + Vector2(0, -30))
+		var u_p = (await _put_card(_make({"hp": 1000, "move_speed": 0.0, "damage": 20, "attack_speed": 0.5,
+			"r1_trigger": int(pr[1]), "r1_effect": int(pr[2]), "r1_value": float(pr[3]), "r1_radius": float(pr[4]), "r1_duration": float(pr[5]),
+			"r1_chance": float(pr[6]), "r1_cooldown": float(pr[7])}), P, mid))[0]
+		u_p.stats.r1_scene = Catalogo.card("peao_forcado").unit_scene
+		await get_tree().create_timer(0.6).timeout
+		if is_instance_valid(u_p):
+			u_p.take_damage(800)
+		await get_tree().create_timer(0.3).timeout
+		if is_instance_valid(u_p):
+			u_p.take_damage(999999)
+		await get_tree().create_timer(0.2).timeout
+		crashed_free += 1
+	_check("as 32 reações prontas rodam", crashed_free == cm.REACT_PRESETS.size() and cm.REACT_PRESETS.size() == 32, "%d de %d" % [crashed_free, cm.REACT_PRESETS.size()])
+
 	# PRORROGAÇÃO: tempo acabou empatado em torres -> +1 minuto x2,5; a 1ª torre que cair decide
 	await _wipe()
 	battle.towers_destroyed[GameManager.Team.PLAYER] = 0

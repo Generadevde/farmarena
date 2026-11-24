@@ -1162,6 +1162,41 @@ const ABILITIES = [
 		["Efeito de maestria (nível alto)", "mastery_effect", ["mastery_effect_duration", "mastery_effect_strength", "mastery_effect_tick_interval"], {"mastery_effect": 1}],
 	]],
 ]
+## 32 REAÇÕES PRONTAS: [nome, gatilho, efeito, quanto, raio, duração, chance, recarga]
+const REACT_PRESETS = [
+	["💣 Bomba no peito: explode ao morrer", 5, 1, 150.0, 80.0, 2.0, 1.0, 0.0],
+	["😤 Último suspiro: fúria com pouca vida", 8, 5, 100.0, 70.0, 5.0, 1.0, 0.0],
+	["🪨 Pele de pedra: escudo na metade da vida", 7, 4, 300.0, 70.0, 6.0, 1.0, 0.0],
+	["🧛 Vampiro de batalha: cura ao matar", 4, 3, 150.0, 70.0, 2.0, 1.0, 0.0],
+	["📯 Grito de guerra: fúria nos aliados ao entrar", 1, 6, 100.0, 100.0, 4.0, 1.0, 0.0],
+	["🌾 Bênção da colheita: cura aliados a cada 5s", 6, 2, 40.0, 90.0, 2.0, 1.0, 5.0],
+	["🧊 Coração gelado: congela quem bate (20%)", 3, 7, 100.0, 60.0, 1.5, 0.2, 4.0],
+	["👣 Pisada sísmica: atordoa em volta a cada 6s", 6, 9, 100.0, 70.0, 0.8, 1.0, 6.0],
+	["🌵 Espinhos: machuca em volta quando apanha", 3, 1, 30.0, 40.0, 2.0, 1.0, 1.0],
+	["🥷 Fuga ninja: some na metade da vida", 7, 14, 100.0, 70.0, 3.0, 1.0, 0.0],
+	["🏃 Recuo tático: pula pra trás com pouca vida", 8, 15, 120.0, 70.0, 2.0, 1.0, 0.0],
+	["⚔ Vingança: fúria quando um aliado cai perto", 9, 5, 100.0, 70.0, 4.0, 1.0, 3.0],
+	["🕯 Luto: se cura quando um aliado cai perto", 9, 3, 120.0, 70.0, 2.0, 1.0, 2.0],
+	["💰 Caçador de recompensa: recurso ao matar", 4, 17, 1.0, 70.0, 2.0, 1.0, 0.0],
+	["⚡ Raio da sorte: 25% de raio no mais perto ao atacar", 2, 18, 120.0, 150.0, 2.0, 0.25, 0.0],
+	["🔨 Golpe trovão: 20% de atordoar ao atacar", 2, 9, 100.0, 40.0, 0.6, 0.2, 0.0],
+	["❄ Golpe gélido: 25% de deixar lentos ao atacar", 2, 8, 100.0, 50.0, 2.0, 0.25, 0.0],
+	["🐍 Veneno de cobra: envenena em volta ao atacar", 2, 12, 60.0, 40.0, 3.0, 1.0, 2.0],
+	["🌪 Furacão: empurra em volta a cada 5s", 6, 10, 100.0, 80.0, 2.0, 1.0, 5.0],
+	["🧲 Ímã: puxa os de perto a cada 6s", 6, 11, 120.0, 120.0, 2.0, 1.0, 6.0],
+	["🐺 Chamado do bando: invoca 3 na metade da vida", 7, 13, 3.0, 70.0, 2.0, 1.0, 0.0],
+	["🥚 Ninhada: solta 3 ao morrer", 5, 13, 3.0, 70.0, 2.0, 1.0, 0.0],
+	["🗼 Sentinela: explode quando inimigo chega perto", 10, 1, 120.0, 70.0, 2.0, 1.0, 8.0],
+	["🪤 Armadilha viva: congela quem chega perto", 10, 7, 100.0, 60.0, 2.0, 1.0, 10.0],
+	["💨 Corrida louca: mais rápida ao entrar", 1, 16, 100.0, 70.0, 4.0, 1.0, 0.0],
+	["🍖 Fome de guerra: +10% de dano a cada abate", 4, 19, 100.0, 70.0, 2.0, 1.0, 0.0],
+	["📈 Aprende batendo: +2% de dano a cada golpe", 2, 19, 20.0, 70.0, 2.0, 1.0, 0.0],
+	["🏚 Demolidor: explosão ao acertar construção", 11, 1, 80.0, 60.0, 2.0, 1.0, 3.0],
+	["😇 Muralha divina: invulnerável ao entrar", 1, 20, 100.0, 70.0, 2.0, 1.0, 0.0],
+	["🔥 Fênix: cura os aliados ao morrer", 5, 2, 200.0, 120.0, 2.0, 1.0, 0.0],
+	["🛡 Escudo de reforço: escudo a cada 8s", 6, 4, 150.0, 70.0, 4.0, 1.0, 8.0],
+	["😱 Aura de pânico: empurra em volta quando apanha", 3, 10, 120.0, 90.0, 2.0, 1.0, 6.0],
+]
 const PALETTE_KEYS = ["P", "S", "A", "K", "M", "W"]
 const PALETTE_NAMES = {"P": "Principal", "S": "Secundária", "A": "Detalhe", "K": "Pele / bico", "M": "Metal", "W": "Madeira"}
 const SWATCHES = ["#f0f0e8", "#c8c8c0", "#888890", "#484850", "#202028", "#e8c040", "#f0a030", "#e87028", "#c84838", "#a02828", "#f0a0b0",
@@ -1556,6 +1591,10 @@ func _tab_habilidades():
 		_only_on = !_only_on
 		_build_ed_body()))
 	var q = _ab_search.to_lower()
+	_reactions_block(st)
+	for i in 3:
+		for k in ["trigger", "effect", "value", "radius", "duration", "chance", "cooldown", "scene"]:
+			used["r%d_%s" % [i + 1, k]] = true
 	for group in ABILITIES:
 		var on_list: Array = []
 		var off_list: Array = []
@@ -1612,6 +1651,87 @@ func _tab_habilidades():
 		_section("Outros números")
 		for f in rest:
 			_field(st, f)
+
+
+## ⚡ REAÇÕES: até 3 "quando acontecer X, faça Y" -- e 32 prontas pra pôr com um toque
+func _reactions_block(st: UnitData):
+	var used_n = 0
+	for i in 3:
+		if int(st.get("r%d_trigger" % (i + 1))) != 0:
+			used_n += 1
+	var is_open = bool(_ab_open.get("⚡", used_n > 0))
+	var head = _button("%s ⚡ Reações: quando acontecer X, faz Y   (%d de 3)" % ["▾" if is_open else "▸", used_n], func():
+		_ab_open["⚡"] = !is_open
+		_build_ed_body())
+	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	head.custom_minimum_size.y = 52
+	if used_n > 0:
+		head.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+	_field_box.add_child(head)
+	if !is_open:
+		return
+	var names: Array = ["📚 Pôr uma pronta (32)…"]
+	for pr in REACT_PRESETS:
+		names.append(str(pr[0]))
+	_field_box.add_child(_option(names, 0, func(idx):
+		if idx <= 0:
+			return
+		var pr = REACT_PRESETS[idx - 1]
+		var slot = 2
+		for i in 3:
+			if int(st.get("r%d_trigger" % (i + 1))) == 0:
+				slot = i
+				break
+		var pre = "r%d_" % (slot + 1)
+		st.set(pre + "trigger", int(pr[1]))
+		st.set(pre + "effect", int(pr[2]))
+		st.set(pre + "value", float(pr[3]))
+		st.set(pre + "radius", float(pr[4]))
+		st.set(pre + "duration", float(pr[5]))
+		st.set(pre + "chance", float(pr[6]))
+		st.set(pre + "cooldown", float(pr[7]))
+		_ab_open["⚡"] = true
+		_build_ed_body()))
+	for i in 3:
+		var pre = "r%d_" % (i + 1)
+		var trg = int(st.get(pre + "trigger"))
+		var eff = int(st.get(pre + "effect"))
+		var p = PanelContainer.new()
+		_field_box.add_child(p)
+		var v = VBoxContainer.new()
+		v.add_theme_constant_override("separation", 6)
+		p.add_child(v)
+		var row = HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		v.add_child(row)
+		row.add_child(_label("%d." % (i + 1), 18))
+		row.add_child(_option(UnitData.REACT_TRIGGERS, trg, func(k):
+			st.set(pre + "trigger", k)
+			_build_ed_body()))
+		row.add_child(_label("→", 18))
+		row.add_child(_option(UnitData.REACT_EFFECTS, eff, func(k):
+			st.set(pre + "effect", k)
+			_build_ed_body()))
+		if trg == 0 or eff == 0:
+			continue
+		var keep = _field_box
+		_field_box = v
+		var what = "Quantos" if eff == 13 else ("Distância" if eff in [10, 11, 15] else ("Recurso" if eff == 17 else ("Força (+100 = +10%)" if eff == 19 else "Quanto (dano / cura / escudo)")))
+		if !(eff in [5, 6, 7, 8, 9, 14, 16, 20]):
+			_field(st, [pre + "value", what, "float", [0.0, 2000.0, 5.0]])
+		if eff in [1, 2, 6, 7, 8, 9, 10, 11, 12, 18] or trg == 10:
+			_field(st, [pre + "radius", "Raio", "float", [10.0, 300.0, 5.0]])
+		if eff in [4, 5, 6, 7, 8, 9, 12, 14, 16, 20]:
+			_field(st, [pre + "duration", "Duração (s)", "float", [0.1, 20.0, 0.1]])
+		if eff == 13:
+			_field(st, [pre + "scene", "Invoca esta unidade", "scene", []])
+		_field(st, [pre + "chance", "Chance (1 = sempre)", "float", [0.05, 1.0, 0.05]])
+		_field(st, [pre + "cooldown", "A cada X s" if trg == 6 else "Espera entre uma e outra (s)", "float", [0.0, 30.0, 0.5]])
+		_field_box = keep
+		v.add_child(_button("✕ Limpar esta reação", func():
+			st.set(pre + "trigger", 0)
+			st.set(pre + "effect", 0)
+			_build_ed_body()))
 
 
 func _ability_panel(st: UnitData, ab: Array, defs: Dictionary):

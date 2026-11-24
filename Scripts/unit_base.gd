@@ -1599,11 +1599,13 @@ func _get_effective_damage() -> int:
 		dmg *= stats.dash_damage_mult   # o golpe que vem logo depois de um avanço
 		_dash_bonus_pending = false
 	_pre_attack_done = true            # deu o golpe: a aceleração de chegada acabou
-	return round(dmg)
+	return round(dmg * _react_power)   # reação "fica mais forte" acumula aqui
 
 
 ## construção escondida debaixo da terra: sem alvo, ninguém acerta nem escolhe ela
 func is_hidden() -> bool:
+	if GameManager.game_time < _react_hidden_until and current_hp > 0:
+		return true   # reação "fica invisível"
 	if stats != null and stats.is_trap and !_trap_sprung and current_hp > 0:
 		return true   # armadilha armada: ninguém vê nem acerta
 	return stats != null and stats.hides_underground and (target == null or !is_instance_valid(target)) and current_hp > 0
@@ -1732,6 +1734,7 @@ func _enemies_within(r: float, ground_only: bool = false) -> Array:
 
 
 func _process_new_mechanics(delta):
+	_process_reactions(delta)
 	_process_hook()
 	if current_hp <= 0:
 		return
@@ -2046,6 +2049,7 @@ func _perform_attack():
 				target = null  # era meu alvo; agora é aliado
 
 	if target_killed:
+		_react(4)
 		if stats.heals_on_kill:
 			heal(stats.heal_on_kill_amount)
 		if stats.converts_kills_to_gold:
@@ -2058,6 +2062,11 @@ func _perform_attack():
 	if stats.lifesteal_percent > 0:
 		heal(round(dmg * stats.lifesteal_percent))
 
+	# REAÇÕES "ao atacar" / "ao acertar construção"
+	if has_reactions() and target != null and is_instance_valid(target):
+		_react(2, target.global_position)
+		if _is_base(target) or (target.get("stats") != null and target.stats.unit_type == UnitData.UnitType.BUILDING):
+			_react(11, target.global_position)
 	# ROUBO DE VELOCIDADE: o alvo fica lento e eu fico mais rápida
 	if stats.steals_speed and target != null and is_instance_valid(target) and target.has_method("apply_on_hit_effect") and !_is_base(target) and !_is_silenced():
 		var amt = clampf(stats.speed_steal_amount, 0.05, 0.8)
@@ -3052,6 +3061,159 @@ func _process_hook():
 		Sfx.play("tiro", 0.2, -6.0)
 
 
+# ================================================================ REAÇÕES (gatilho + efeito)
+var _react_cd := [0.0, 0.0, 0.0]
+var _react_once := [false, false, false]
+var _react_clock := [0.0, 0.0, 0.0]
+var _react_started := false
+var _react_hp_seen := -1
+var _react_hidden_until := 0.0
+var _react_power := 1.0
+
+
+func _rget(i: int, k: String):
+	return stats.get("r%d_%s" % [i + 1, k])
+
+
+func has_reactions() -> bool:
+	return stats != null and (stats.r1_trigger != 0 or stats.r2_trigger != 0 or stats.r3_trigger != 0)
+
+
+## dispara as reações desse gatilho (respeita chance e tempo de recarga)
+func _react(trigger: int, at: Vector2 = Vector2.INF):
+	if stats == null or !is_inside_tree():
+		return
+	for i in 3:
+		if int(_rget(i, "trigger")) != trigger or int(_rget(i, "effect")) == 0:
+			continue
+		if GameManager.game_time < _react_cd[i]:
+			continue
+		if randf() > clampf(float(_rget(i, "chance")), 0.0, 1.0):
+			continue
+		_react_cd[i] = GameManager.game_time + maxf(float(_rget(i, "cooldown")), 0.0)
+		_react_do(i, global_position if at == Vector2.INF else at)
+
+
+func _react_do(i: int, at: Vector2):
+	var eff = int(_rget(i, "effect"))
+	var val = float(_rget(i, "value")) * _level_mult_safe()
+	var rad = maxf(float(_rget(i, "radius")), 10.0)
+	var dur = maxf(float(_rget(i, "duration")), 0.1)
+	var par = get_parent()
+	if par == null:
+		return
+	var lp = par.to_local(at)
+	match eff:
+		1:
+			_deal_area_damage(at, rad, int(round(val)))
+			Fx.impact(par, lp, 2, 0, clampf(rad / 50.0, 0.6, 2.2))
+		2:
+			for b in get_tree().get_nodes_in_group("units"):
+				if is_instance_valid(b) and b.team == team and b.has_method("heal") and b.global_position.distance_to(at) <= rad:
+					b.heal(int(round(val)))
+			Fx.ring(par, lp, rad, Color(0.5, 1.0, 0.55), 0.4)
+		3:
+			heal(int(round(val)))
+			Fx.burst(par, position, Color(0.5, 1.0, 0.55), 6, 50.0, 3.0)
+		4:
+			current_shield = maxi(int(current_shield), int(round(val)))
+			get_tree().create_timer(dur, false).timeout.connect(func():
+				if is_instance_valid(self):
+					current_shield = 0)
+			Fx.ring(par, position, 22.0, Color(0.6, 0.85, 1.0), 0.35)
+		5:
+			apply_rage(1.35, 1.35, 1.35, dur)
+		6:
+			for b in get_tree().get_nodes_in_group("units"):
+				if is_instance_valid(b) and b.team == team and b.has_method("apply_rage") and b.global_position.distance_to(at) <= rad:
+					b.apply_rage(1.35, 1.35, 1.35, dur)
+			Fx.zone(par, lp, rad, Color(0.75, 0.35, 0.9), 0.6)
+		7:
+			_area_effect(at, rad, UnitData.OnHitEffect.FREEZE, dur, 1.0)
+			Fx.impact(par, lp, 7, 0, clampf(rad / 50.0, 0.6, 2.2))
+		8:
+			_area_effect(at, rad, UnitData.OnHitEffect.SLOW, dur, 0.6)
+			Fx.ring(par, lp, rad, Color(0.5, 0.8, 1.0), 0.4)
+		9:
+			_area_effect(at, rad, UnitData.OnHitEffect.STUN, dur, 1.0)
+			Fx.impact(par, lp, 8, 0, clampf(rad / 50.0, 0.6, 2.2))
+		10, 11:
+			for b in get_tree().get_nodes_in_group("units"):
+				if is_instance_valid(b) and b.team != team and b.global_position.distance_to(at) <= rad:
+					if eff == 10 and b.has_method("apply_knockback"):
+						b.apply_knockback(at, float(_rget(i, "value")) * 0.5)
+					elif eff == 11 and b.has_method("apply_pull"):
+						b.apply_pull(at, float(_rget(i, "value")) * 0.5)
+			Fx.ring(par, lp, rad, Color(1.0, 0.9, 0.6), 0.3)
+		12:
+			_area_effect(at, rad, UnitData.OnHitEffect.POISON, dur, maxf(val * 0.1, 1.0))
+			Fx.impact(par, lp, 9, 0, clampf(rad / 50.0, 0.6, 2.2))
+		13:
+			var sc = _rget(i, "scene")
+			if sc != null:
+				var n = clampi(int(round(float(_rget(i, "value")))), 1, 8)
+				for k in n:
+					_spawn_child(sc, at + Vector2.RIGHT.rotated(TAU * k / float(n)) * (0.0 if n == 1 else 24.0))
+		14:
+			_react_hidden_until = GameManager.game_time + dur
+		15:
+			var back = (global_position - target.global_position).normalized() if target != null and is_instance_valid(target) else Vector2(0, 1 if team == GameManager.Team.PLAYER else -1)
+			Fx.puff(par, position, 0.6)
+			global_position += back * clampf(float(_rget(i, "value")), 20.0, 200.0)
+			Fx.puff(par, position, 0.6)
+		16:
+			apply_speed_multiplier(1.5, dur)
+		17:
+			_grant_gold(int(round(float(_rget(i, "value")))))
+		18:
+			var best = null
+			var bd = rad
+			for b in get_tree().get_nodes_in_group("damageable"):
+				if is_instance_valid(b) and "team" in b and b.team != team and global_position.distance_to(b.global_position) <= bd:
+					bd = global_position.distance_to(b.global_position)
+					best = b
+			if best != null:
+				Fx.beam(par, position, par.to_local(best.global_position), Color(1.0, 0.95, 0.5), 3.0, 0.25)
+				best.take_damage(int(round(val)))
+		19:
+			_react_power = minf(_react_power + float(_rget(i, "value")) / 1000.0, 3.0)   # 100 = +10% por vez, até x3
+		20:
+			_spawn_invulnerable_until = maxf(_spawn_invulnerable_until, GameManager.game_time + dur)
+			Fx.ring(par, position, 24.0, Color(1.0, 0.95, 0.6), dur)
+
+
+## o que se confere a cada quadro: entrar em campo, tempo, vida e inimigo perto
+func _process_reactions(delta):
+	if !has_reactions():
+		return
+	if !_react_started:
+		_react_started = true
+		_react_hp_seen = current_hp
+		_react(1)
+	for i in 3:
+		var trg = int(_rget(i, "trigger"))
+		if trg == 6:
+			_react_clock[i] += delta
+			if _react_clock[i] >= maxf(float(_rget(i, "cooldown")), 0.5):
+				_react_clock[i] = 0.0
+				_react_cd[i] = 0.0
+				_react(6)
+		elif trg == 7 and !_react_once[i] and current_hp <= stats.hp * 0.5:
+			_react_once[i] = true
+			_react(7)
+		elif trg == 8 and !_react_once[i] and current_hp <= stats.hp * 0.25:
+			_react_once[i] = true
+			_react(8)
+		elif trg == 10 and GameManager.game_time >= _react_cd[i]:
+			for b in get_tree().get_nodes_in_group("units"):
+				if is_instance_valid(b) and b.team != team and global_position.distance_to(b.global_position) <= maxf(float(_rget(i, "radius")), 10.0):
+					_react(10)
+					break
+	if current_hp < _react_hp_seen:
+		_react(3)
+	_react_hp_seen = current_hp
+
+
 func _transform_half():
 	if !is_instance_valid(self) or is_queued_for_deletion():
 		return
@@ -3167,8 +3329,15 @@ func _death_ghost():
 
 func die():
 	died.emit(team, card_data)
+	if has_reactions():
+		_react(5)
 	# REI ESQUELETO: toda morte perto vira alma pra quem coleta (dos dois times)
+	# e REAÇÃO "quando um aliado morre perto"
 	if is_inside_tree():
+		for al in get_tree().get_nodes_in_group("units"):
+			if al != self and is_instance_valid(al) and al.team == team and al.has_method("has_reactions") and al.has_reactions() \
+					and al.global_position.distance_to(global_position) <= 160.0:
+				al._react(9, global_position)
 		for col in get_tree().get_nodes_in_group("units"):
 			if col != self and is_instance_valid(col) and col.get("stats") != null and col.stats.collects_souls \
 					and col.global_position.distance_to(global_position) <= col.stats.soul_radius and col.has_method("add_soul"):
