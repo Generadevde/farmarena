@@ -265,6 +265,7 @@ func _process_cannon(delta):
 			# Ataque em área (só torre "de tiro")
 			proj.is_aoe = base_data.is_aoe and is_cannon
 			proj.aoe_radius = base_data.aoe_radius
+			proj.shooter = self
 			proj.impact_fx = base_data.impact_fx
 			proj.impact_tint = base_data.impact_tint
 			proj.impact_size = base_data.impact_size

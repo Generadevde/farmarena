@@ -457,6 +457,25 @@ enum OnHitEffect {
 ## QUANTOS PROJÉTEIS por ataque (cada um com o dano todo). Saem juntos em leque
 ## (projectile_spread = distância entre eles) ou em rajada (projectile_burst_delay > 0 = um atrás do outro)
 @export var projectiles_per_attack: int = 1
+## TIRO EM LINHA (Arqueiro Mágico): o projétil segue reto além do alvo por esta distância e
+## pega todo mundo no caminho (0 = desligado)
+@export var projectile_line_distance: float = 0.0
+@export var projectile_line_width: float = 18.0
+@export var projectile_line_knockback: float = 0.0
+## ROLA NO CHÃO (Bowler): igual ao tiro em linha, mas rolando -- só pega quem está no chão
+@export var projectile_rolls: bool = false
+## GANCHO (Pescador): puxa o alvo que está longe pra perto dele
+@export var hook_pull: bool = false
+@export var hook_range: float = 220.0
+@export var hook_cooldown: float = 6.0
+## REFLETE PROJÉTEIS (Monge): chance de mandar o tiro de volta pra quem atirou
+@export var reflect_projectile_chance: float = 0.0
+## COLETA ALMAS (Rei Esqueleto): cada morte perto vira uma alma; com X almas, invoca
+@export var collects_souls: bool = false
+@export var soul_radius: float = 140.0
+@export var souls_needed: int = 4
+@export var soul_spawn_scene: PackedScene
+@export var soul_spawn_count: int = 3
 @export var projectile_spread: float = 10.0
 @export var projectile_burst_delay: float = 0.0
 @export var impact_tint: int = 0       # 0 = cor do efeito; 1.. = SpellData.TINT_NAMES

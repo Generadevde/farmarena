@@ -575,7 +575,12 @@ func _screens_test():
 		tabs_ok = tabs_ok and cr._field_box.get_child_count() > 0
 	_check("criador: as 5 abas da tropa montam, com o cabeçalho fixo", tabs_ok and cr._head.visible)
 	cr._work["stats"].hp = hp_before + 500
-	cr._toggle_ability(cr.ABILITIES[2][1][0], true)   # Escudo
+	var shield_ab = null
+	for grp in cr.ABILITIES:
+		for ab_x in grp[1]:
+			if ab_x[1] == "has_shield":
+				shield_ab = ab_x
+	cr._toggle_ability(shield_ab, true)   # Escudo
 	await get_tree().create_timer(0.3).timeout
 	_check("criador: ligar habilidade já põe um valor inicial", cr._work["stats"].has_shield and cr._work["stats"].shield_amount > 0)
 	cr._save_card()
@@ -2171,6 +2176,57 @@ func _legacy_audit():
 	await get_tree().create_timer(1.5).timeout
 	_check("tiro que erra ainda dá o dano em área onde cai", is_instance_valid(bystander) and bystander.current_hp < 99999 and is_instance_valid(runner) and runner.current_hp >= 99999,
 		"quem estava do lado: %s | quem fugiu: %s" % [str(bystander.current_hp) if is_instance_valid(bystander) else "-", str(runner.current_hp) if is_instance_valid(runner) else "-"])
+
+	# BOWLER: pedra rola em linha e pega todo mundo no caminho (só chão), empurrando
+	await _wipe()
+	var r1 = await _dummy(E, mid + Vector2(0, -90))
+	var r2 = await _dummy(E, mid + Vector2(0, -150))
+	var rair = (await _put("corujao", E, mid + Vector2(0, -120)))[0]
+	rair.stats = rair.stats.duplicate()
+	rair.stats.hp = 99999
+	rair.current_hp = 99999
+	rair.stats.move_speed = 0.0
+	rair.stats.damage = 0
+	var r2_y0 = r2.global_position.y
+	await _put_card(_make({"is_ranged": true, "attack_range": 100.0, "move_speed": 0.0, "damage": 100, "attack_speed": 60.0, "hp": 99999,
+		"target_type": UnitData.TargetType.GROUND, "projectile_rolls": true, "projectile_line_distance": 120.0, "projectile_line_knockback": 40.0}), P, mid)
+	await get_tree().create_timer(2.5).timeout
+	_check("bowler: rola em linha, pega os dois no caminho, não pega voador", is_instance_valid(r1) and r1.current_hp < 99999 and is_instance_valid(r2) and r2.current_hp < 99999 \
+		and is_instance_valid(rair) and rair.current_hp >= 99999, "1º %s, 2º %s, voador %s" % [r1.current_hp, r2.current_hp, rair.current_hp])
+	# PESCADOR: puxa o alvo que está longe
+	await _wipe()
+	var far = (await _put("vaca_brava", E, mid + Vector2(0, -190)))[0]
+	far.stats = far.stats.duplicate()
+	far.stats.move_speed = 0.0
+	far.stats.hp = 99999
+	far.current_hp = 99999
+	var fisher = (await _put_card(_make({"attack_range": 30.0, "move_speed": 0.0, "hp": 99999, "detection_range": 260.0, "hook_pull": true, "hook_range": 240.0}), P, mid))[0]
+	var d0 = fisher.global_position.distance_to(far.global_position)
+	await get_tree().create_timer(2.0).timeout
+	var d1 = fisher.global_position.distance_to(far.global_position) if is_instance_valid(far) else 999.0
+	_check("gancho puxa o alvo longe", d1 < d0 - 60.0, "antes %.0f, depois %.0f" % [d0, d1])
+	# MONGE: rebate o tiro de volta pra quem atirou
+	await _wipe()
+	var monk = (await _put_card(_make({"hp": 99999, "move_speed": 0.0, "reflect_projectile_chance": 1.0}), E, mid + Vector2(0, -120)))[0]
+	var gunner = (await _put_card(_make({"is_ranged": true, "attack_range": 160.0, "move_speed": 0.0, "damage": 50, "attack_speed": 60.0, "hp": 5000}), P, mid))[0]
+	var g_hp0 = gunner.current_hp
+	await get_tree().create_timer(2.5).timeout
+	_check("monge rebate o tiro", is_instance_valid(monk) and monk.current_hp >= 99999 and is_instance_valid(gunner) and gunner.current_hp < g_hp0,
+		"monge %s, atirador %s/%s" % [monk.current_hp, gunner.current_hp, g_hp0])
+	# REI ESQUELETO: mortes perto viram almas; com 2, invoca
+	await _wipe()
+	var king = (await _put_card(_make({"hp": 99999, "move_speed": 0.0, "damage": 0, "collects_souls": true, "souls_needed": 2, "soul_spawn_count": 2}), P, mid))[0]
+	king.stats.soul_spawn_scene = Catalogo.card("peao_forcado").unit_scene
+	var victims = []
+	for k in 2:
+		victims.append((await _put("peao_forcado", E, mid + Vector2(40 + k * 20, -40)))[0])
+	var before_k = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P).size()
+	for vv in victims:
+		if is_instance_valid(vv):
+			vv.take_damage(999999)
+	await get_tree().create_timer(0.5).timeout
+	var after_k = get_tree().get_nodes_in_group("units").filter(func(x): return is_instance_valid(x) and x.team == P).size()
+	_check("rei esqueleto coleta almas e invoca", after_k >= before_k + 2, "aliados %d -> %d" % [before_k, after_k])
 
 	# ESQUIVA: golpe de tropa às vezes passa batido; feitiço sempre pega
 	await _wipe()

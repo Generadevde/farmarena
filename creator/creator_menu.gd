@@ -1045,82 +1045,74 @@ const BASE_TYPE_FIELDS = {0: ["attack_damage", "attack_range", "attack_speed", "
 	2: ["heal_amount", "heal_radius", "heal_interval"], 3: [], 4: ["capacity_bonus"], 5: ["aura_radius", "effect", "effect_strength"]}
 # [título, propriedade que liga, [números dela], {valor inicial ao ligar}]
 const ABILITIES = [
-	["⚔ Ataque", [
+	["⚔ Dano e golpe", [
 		["Efeito ao acertar", "on_hit_effect", ["on_hit_effect_strength", "on_hit_effect_duration", "on_hit_effect_tick_interval", "knockback_distance"], {"on_hit_effect": 1, "on_hit_effect_strength": 0.3, "on_hit_effect_duration": 2.0}],
 		["Dano em área", "is_aoe", ["aoe_radius"], {"aoe_radius": 45.0}],
 		["Ataque giratório (360°)", "spin_attack", ["aoe_radius"], {"aoe_radius": 45.0}],
 		["Ataque em cone", "frontal_cone_attack", ["cone_angle_degrees", "aoe_radius"], {"aoe_radius": 45.0}],
 		["Acerta +1 alvo", "aoe_hits_extra_one", [], {}],
 		["Ataque contínuo", "continuous_attack", ["continuous_damage_per_second"], {"continuous_damage_per_second": 60.0}],
-		["Golpe carregado / investida (príncipe)", "charge_attack", ["charge_distance_needed", "charge_damage_multiplier", "charge_knockback_distance", "charge_speed_mult"], {"charge_speed_mult": 1.8}],
-		["Avanço instantâneo (bandida)", "bandit_dash", ["dash_speed_multiplier", "dash_duration", "dash_repeats", "dash_cooldown", "dash_min_range", "dash_damage_mult"], {}],
-		["Salto (mega cavaleiro): pula no alvo e cai em área", "jump_attack", ["jump_min_range", "jump_max_range", "jump_damage", "jump_radius", "jump_cooldown"], {}],
-		["Esquenta: depois de um tempo em campo fica mais forte", "late_boost_after", ["late_boost_damage_mult", "late_boost_speed_mult"], {"late_boost_after": 8.0}],
 		["1º ataque mais forte", "first_attack_bonus", ["first_attack_multiplier"], {}],
 		["Dano cresce a cada golpe", "ramping_damage", ["ramping_damage_per_hit", "ramping_damage_max_multiplier"], {}],
 		["Dano cresce no mesmo alvo", "same_target_ramping_damage", ["same_target_ramping_damage_per_hit", "same_target_ramping_damage_max_multiplier"], {}],
 		["Ataca cada vez mais rápido", "ramping_attack_speed", ["attack_speed_ramp_per_hit", "attack_speed_ramp_min_multiplier"], {}],
-		["Acelera quando chega perto do alvo", "pre_attack_speed_boost", ["pre_attack_boost_multiplier", "pre_attack_boost_range"], {}],
 		["Dano extra de longe", "distance_damage_bonus_per_100px", [], {"distance_damage_bonus_per_100px": 0.1}],
+		["Mais dano de perto (Caçador)", "close_damage_bonus", [], {"close_damage_bonus": 0.6}],
 		["Executa alvo fraco", "execute_threshold", ["execute_damage_mult"], {"execute_threshold": 0.2, "execute_damage_mult": 2.0}],
 		["Dano extra contra uma categoria", "extra_damage_vs_role_mult", ["extra_damage_vs_role"], {"extra_damage_vs_role_mult": 0.5}],
-		["Kamikaze", "kamikaze", [], {}],
+		["Mais dano em construção (Corredor) / menos (Mineiro)", "building_damage_mult", [], {"building_damage_mult": 2.0}],
 		["Segundo ataque (cavaleiro / atiradores nas costas)", "rider_attack", ["rider_damage", "rider_range", "rider_interval", "rider_count", "rider_effect", "rider_effect_duration", "rider_effect_strength"], {}],
+		["Kamikaze", "kamikaze", [], {}],
+	]],
+	["🏃 Movimento e investida", [
+		["Golpe carregado / investida (príncipe)", "charge_attack", ["charge_distance_needed", "charge_damage_multiplier", "charge_knockback_distance", "charge_speed_mult"], {"charge_speed_mult": 1.8}],
+		["Avanço instantâneo (bandida)", "bandit_dash", ["dash_speed_multiplier", "dash_duration", "dash_repeats", "dash_cooldown", "dash_min_range", "dash_damage_mult"], {}],
+		["Salto (mega cavaleiro): pula no alvo e cai em área", "jump_attack", ["jump_min_range", "jump_max_range", "jump_damage", "jump_radius", "jump_cooldown"], {}],
+		["Pisca: teleporta pra cima do alvo", "blinks", ["blink_interval", "blink_range"], {}],
+		["Acelera quando chega perto do alvo", "pre_attack_speed_boost", ["pre_attack_boost_multiplier", "pre_attack_boost_range"], {}],
+		["Esquenta: depois de um tempo em campo fica mais forte", "late_boost_after", ["late_boost_damage_mult", "late_boost_speed_mult"], {"late_boost_after": 8.0}],
+		["Rouba velocidade (alvo lento, ela rápida)", "steals_speed", ["speed_steal_amount", "speed_steal_duration"], {}],
+		["Gancho (Pescador): puxa o alvo que está longe", "hook_pull", ["hook_range", "hook_cooldown"], {}],
+		["Atravessa água", "crosses_water", [], {}],
 	]],
 	["🎯 Projétil (só pra quem atira)", [
-		["Tiro carregado (Sparky): carrega antes de atirar", "charged_shot", [], {}],
-		["Bumerangue (Executor): vai e volta", "projectile_returns", [], {}],
-		["Coice (Fogueteira): pula pra trás ao atirar", "recoil_distance", [], {"recoil_distance": 40.0}],
-		["Alcance mínimo (Morteiro)", "min_attack_range", [], {"min_attack_range": 90.0}],
-		["Raio contínuo (torre inferno)", "beam_attack", ["beam_tint", "beam_heats_red"], {}],
-		["Pode errar (tiro reto, não persegue)", "projectile_can_miss", [], {}],
-		["Sai em arco (ângulo de saída)", "projectile_launch_angle", [], {"projectile_launch_angle": 45.0}],
 		["Vários projéteis por ataque (leque ou rajada)", "projectiles_per_attack", ["projectile_spread", "projectile_burst_delay"], {"projectiles_per_attack": 3}],
+		["Rola no chão em linha (Bowler): pega todo mundo no caminho e empurra", "projectile_rolls", ["projectile_line_distance", "projectile_line_width", "projectile_line_knockback"], {"projectile_line_distance": 120.0, "projectile_line_width": 20.0, "projectile_line_knockback": 45.0}],
+		["Tiro em linha (Arqueiro Mágico): passa reto além do alvo", "projectile_line_distance", ["projectile_line_width", "projectile_line_knockback"], {"projectile_line_distance": 160.0}],
 		["Atravessa", "projectile_pierces", ["projectile_max_targets"], {"projectile_max_targets": 3}],
 		["Se divide", "projectile_splits", ["projectile_split_count", "projectile_split_range"], {}],
 		["Pula em cadeia", "projectile_chains", ["projectile_chain_max_targets", "projectile_chain_range"], {}],
+		["Bumerangue (Executor): vai e volta", "projectile_returns", [], {}],
+		["Pode errar (tiro reto, não persegue)", "projectile_can_miss", [], {}],
+		["Sai em arco (ângulo de saída)", "projectile_launch_angle", [], {"projectile_launch_angle": 45.0}],
+		["Tiro carregado (Sparky): carrega antes de atirar", "charged_shot", [], {}],
+		["Raio contínuo (torre inferno)", "beam_attack", ["beam_tint", "beam_heats_red"], {}],
+		["Coice (Fogueteira): pula pra trás ao atirar", "recoil_distance", [], {"recoil_distance": 40.0}],
+		["Alcance mínimo (Morteiro)", "min_attack_range", [], {"min_attack_range": 90.0}],
 	]],
-	["🛡 Defesa", [
+	["🛡 Defesa e vida", [
 		["Escudo", "has_shield", ["shield_amount", "shield_recharge_time"], {"shield_amount": 200}],
 		["Escudo temporário", "has_temp_shield", ["temp_shield_amount", "temp_shield_duration"], {"temp_shield_amount": 200, "temp_shield_duration": 4.0}],
 		["Redução de dano", "damage_reduction_percent", [], {"damage_reduction_percent": 0.2}],
+		["Esquiva (chance de não levar o golpe)", "dodge_chance", [], {"dodge_chance": 0.25}],
+		["Rebate projéteis (Monge): manda o tiro de volta", "reflect_projectile_chance", [], {"reflect_projectile_chance": 0.3}],
+		["Reflete dano", "reflects_damage", ["reflect_damage_percent"], {"reflect_damage_percent": 0.2}],
+		["Contra-ataque", "counter_attack_chance", [], {"counter_attack_chance": 0.25}],
+		["Choque de volta (Gigante Elétrico)", "zaps_attackers", ["zap_damage", "zap_radius", "zap_stun"], {}],
 		["Roubo de vida", "lifesteal_percent", [], {"lifesteal_percent": 0.2}],
 		["Regenera vida", "passive_regen", ["regen_amount", "regen_interval"], {"regen_amount": 20, "regen_interval": 1.0}],
 		["Cura ao matar", "heals_on_kill", ["heal_on_kill_amount"], {"heal_on_kill_amount": 100}],
 		["Ressuscita 1x", "can_resurrect", ["resurrect_hp_percent"], {"resurrect_hp_percent": 0.5}],
-		["Reflete dano", "reflects_damage", ["reflect_damage_percent"], {"reflect_damage_percent": 0.2}],
-		["Contra-ataque", "counter_attack_chance", [], {"counter_attack_chance": 0.25}],
-		["Esquiva (chance de não levar o golpe)", "dodge_chance", [], {"dodge_chance": 0.25}],
-		["Rouba velocidade (alvo lento, ela rápida)", "steals_speed", ["speed_steal_amount", "speed_steal_duration"], {}],
+		["Fúria com vida baixa", "low_hp_rage_threshold", ["low_hp_rage_damage_mult"], {"low_hp_rage_threshold": 0.3, "low_hp_rage_damage_mult": 1.5}],
 		["Vida compartilhada", "is_linked", ["link_share_percent"], {}],
 		["Imune a um efeito", "immune_to_effect", [], {"immune_to_effect": 1}],
 		["Imune a empurrão", "immune_to_knockback", [], {}],
 		["Imune a puxão", "immune_to_pull", [], {}],
 		["Imune enquanto anda", "immune_while_moving", [], {}],
 		["Invulnerável ao nascer", "spawn_invulnerability_duration", [], {"spawn_invulnerability_duration": 1.5}],
-		["Fúria com vida baixa", "low_hp_rage_threshold", ["low_hp_rage_damage_mult"], {"low_hp_rage_threshold": 0.3, "low_hp_rage_damage_mult": 1.5}],
-		["Construção que se esconde", "hides_underground", [], {}],
 	]],
-	["✨ Novas (campo e construção)", [
+	["🚪 Ao entrar em campo", [
 		["Choque ao cair (Mago Elétrico)", "entrance_effect", ["entrance_effect_duration", "entrance_shockwave_radius"], {"entrance_effect": UnitData.OnHitEffect.STUN, "entrance_effect_duration": 0.5}],
-		["Efeito ao morrer (Golem de Gelo)", "death_effect", ["death_effect_duration", "death_effect_strength", "death_effect_radius"], {"death_effect": UnitData.OnHitEffect.SLOW}],
-		["Fúria ao morrer (Lenhador)", "death_rage_duration", ["death_effect_radius"], {"death_rage_duration": 4.0}],
-		["Choque de volta (Gigante Elétrico)", "zaps_attackers", ["zap_damage", "zap_radius", "zap_stun"], {}],
-		["Maldição (Bruxa Mãe): quem morre amaldiçoado vira tropa sua", "curses_on_hit", ["curse_duration", "curse_spawn_scene"], {}],
-		["Mais dano em construção (Corredor) / menos (Mineiro)", "building_damage_mult", [], {"building_damage_mult": 2.0}],
-		["Mais dano de perto (Caçador)", "close_damage_bonus", [], {"close_damage_bonus": 0.6}],
-		["Vida útil: a vida cai sozinha (construções do Clash)", "lifetime", [], {"lifetime": 30.0}],
-		["Coletor: dá recurso pro dono", "produces_resource", ["resource_amount", "resource_interval"], {}],
-		["Aura: reforça os aliados em volta", "aura_buff", ["aura_radius", "aura_damage_mult", "aura_speed_mult", "aura_attack_speed_mult"], {}],
-		["Pulso: onda em volta de tempos em tempos", "pulses", ["pulse_interval", "pulse_damage", "pulse_radius", "pulse_effect", "pulse_effect_duration", "pulse_effect_strength"], {}],
-		["Rastro: deixa poças que machucam", "leaves_trail", ["trail_damage", "trail_duration", "trail_radius", "trail_slow"], {}],
-		["Cresce: mais dano quanto mais tempo viva", "grows_over_time", ["grow_interval", "grow_damage_step", "grow_max_mult"], {}],
-		["Armadilha (construção): escondida até pisarem", "is_trap", ["trap_trigger_radius", "trap_damage", "trap_radius", "trap_effect", "trap_effect_duration"], {}],
-		["Pisca: teleporta pra cima do alvo", "blinks", ["blink_interval", "blink_range"], {}],
-		["Conserta (construção): devolve vida pras construções em volta", "repairs_buildings", ["repair_amount", "repair_radius", "repair_interval", "repair_towers"], {}],
-		["Cúpula (construção): aliados em volta levam menos dano", "ward_allies", ["ward_radius", "ward_reduction"], {}],
-	]],
-	["🚪 Entrada em campo", [
 		["Fúria ao entrar", "entrance_rage_duration", ["entrance_rage_damage_mult", "entrance_rage_speed_mult"], {"entrance_rage_duration": 4.0}],
 		["Onda de choque ao entrar", "entrance_shockwave_damage", ["entrance_shockwave_radius"], {"entrance_shockwave_damage": 100, "entrance_shockwave_radius": 70.0}],
 		["Dano ao chegar", "deals_arrival_damage", ["arrival_damage", "arrival_damage_radius"], {"arrival_damage": 100, "arrival_damage_radius": 70.0}],
@@ -1128,27 +1120,44 @@ const ABILITIES = [
 		["Nasce disfarçada", "spawns_disguised", [], {}],
 		["Fica invisível", "can_stealth", ["stealth_reveal_range"], {}],
 		["Nasce em qualquer lugar", "can_spawn_anywhere", [], {}],
-		["Atravessa água", "crosses_water", [], {}],
 		["Reforço aéreo (pousa)", "landing_duration", [], {"landing_duration": 1.0}],
 	]],
-	["🐣 Invocação", [
-		["Invoca unidades", "spawns_units", ["spawn_unit_scene", "spawn_interval", "spawn_count"], {"spawn_interval": 6.0, "spawn_count": 1}],
+	["💀 Ao morrer", [
+		["Explode ao morrer", "explodes_on_death", ["death_explosion_damage", "death_explosion_radius"], {"death_explosion_damage": 150, "death_explosion_radius": 70.0}],
+		["Efeito ao morrer (Golem de Gelo)", "death_effect", ["death_effect_duration", "death_effect_strength", "death_effect_radius"], {"death_effect": UnitData.OnHitEffect.SLOW}],
+		["Fúria ao morrer (Lenhador)", "death_rage_duration", ["death_effect_radius"], {"death_rage_duration": 4.0}],
 		["Invoca ao morrer", "spawns_on_death", ["death_spawn_scene", "death_spawn_count"], {"death_spawn_count": 2}],
-		["Invoca ao atacar", "summons_on_attack", ["attack_summon_scene", "attack_summon_chance"], {"attack_summon_chance": 0.25}],
-		["Se clona", "can_clone", ["clone_hp_percent", "clone_count"], {}],
-		["Vira construção", "transforms_into_building", ["transform_after_seconds", "transformed_scene"], {}],
-		["Transforma na metade da vida", "transforms_at_half_hp", ["half_hp_scene"], {}],
-		["Converte inimigo", "can_convert_enemy", ["convert_max_targets"], {}],
+		["Dá recurso ao morrer", "grants_resource_on_death", ["death_resource_amount"], {}],
 	]],
-	["💚 Apoio e recurso", [
+	["🐣 Invocar e transformar", [
+		["Invoca unidades", "spawns_units", ["spawn_unit_scene", "spawn_interval", "spawn_count"], {"spawn_interval": 6.0, "spawn_count": 1}],
+		["Invoca ao atacar", "summons_on_attack", ["attack_summon_scene", "attack_summon_chance"], {"attack_summon_chance": 0.25}],
+		["Coleta almas (Rei Esqueleto): mortes perto viram invocação", "collects_souls", ["soul_radius", "souls_needed", "soul_spawn_scene", "soul_spawn_count"], {}],
+		["Se clona", "can_clone", ["clone_hp_percent", "clone_count"], {}],
+		["Maldição (Bruxa Mãe): quem morre amaldiçoado vira tropa sua", "curses_on_hit", ["curse_duration", "curse_spawn_scene"], {}],
+		["Converte inimigo", "can_convert_enemy", ["convert_max_targets"], {}],
+		["Transforma na metade da vida", "transforms_at_half_hp", ["half_hp_scene"], {}],
+		["Vira construção", "transforms_into_building", ["transform_after_seconds", "transformed_scene"], {}],
+	]],
+	["💚 Apoio a aliados", [
 		["Cura quem está perto a cada golpe", "heals_on_attack", ["attack_heal_amount", "attack_heal_radius"], {}],
 		["Cura aliados perto", "can_heal_allies", ["heal_aura_amount", "heal_aura_radius", "heal_aura_interval"], {"heal_aura_amount": 20, "heal_aura_radius": 90.0}],
+		["Aura: reforça os aliados em volta", "aura_buff", ["aura_radius", "aura_damage_mult", "aura_speed_mult", "aura_attack_speed_mult"], {}],
+		["Cúpula (construção): aliados em volta levam menos dano", "ward_allies", ["ward_radius", "ward_reduction"], {}],
 		["Provoca (puxa inimigos)", "forces_aggro", ["taunt_radius"], {"taunt_radius": 120.0}],
-		["Explode ao morrer", "explodes_on_death", ["death_explosion_damage", "death_explosion_radius"], {"death_explosion_damage": 150, "death_explosion_radius": 70.0}],
+		["Conserta (construção): devolve vida pras construções em volta", "repairs_buildings", ["repair_amount", "repair_radius", "repair_interval", "repair_towers"], {}],
+	]],
+	["🏗 Construção e recurso", [
+		["Vida útil: a vida cai sozinha (construções do Clash)", "lifetime", [], {"lifetime": 30.0}],
+		["Construção que se esconde", "hides_underground", [], {}],
+		["Armadilha (construção): escondida até pisarem", "is_trap", ["trap_trigger_radius", "trap_damage", "trap_radius", "trap_effect", "trap_effect_duration"], {}],
+		["Pulso: onda em volta de tempos em tempos", "pulses", ["pulse_interval", "pulse_damage", "pulse_radius", "pulse_effect", "pulse_effect_duration", "pulse_effect_strength"], {}],
+		["Rastro: deixa poças que machucam", "leaves_trail", ["trail_damage", "trail_duration", "trail_radius", "trail_slow"], {}],
+		["Cresce: mais dano quanto mais tempo viva", "grows_over_time", ["grow_interval", "grow_damage_step", "grow_max_mult"], {}],
+		["Coletor: dá recurso pro dono", "produces_resource", ["resource_amount", "resource_interval"], {}],
 		["Gera recurso", "generates_resource", ["resource_per_tick", "resource_tick_interval"], {}],
 		["Aumenta o limite de recurso", "stores_resource", ["storage_capacity_bonus"], {}],
 		["Rouba recurso ao bater na base", "steals_resource_on_base_hit", ["resource_steal_amount"], {}],
-		["Dá recurso ao morrer", "grants_resource_on_death", ["death_resource_amount"], {}],
 		["Ganha ouro ao matar", "converts_kills_to_gold", ["gold_per_kill"], {}],
 		["Efeito de maestria (nível alto)", "mastery_effect", ["mastery_effect_duration", "mastery_effect_strength", "mastery_effect_tick_interval"], {"mastery_effect": 1}],
 	]],
@@ -1181,6 +1190,8 @@ var _palette: Dictionary = {}
 var _recipe_touched := false
 var _parts_open := false
 var _only_on := false
+var _ab_open := {}         # grupo de habilidades aberto (os que têm ligada abrem sozinhos)
+var _ab_search := ""       # busca por nome de habilidade
 var _fill_kind := 0
 var _fdefs: Dictionary = {}
 var _h_art: TextureRect
@@ -1496,7 +1507,7 @@ func _update_readout():
 
 # ---------------------------------------------------------------- aba Habilidades
 # habilidades cujo "desligado" é 1 (multiplicador neutro), não 0
-const NEUTRAL_ONE = ["building_damage_mult"]
+const NEUTRAL_ONE = ["building_damage_mult", "projectiles_per_attack"]
 
 
 func _ability_on(st: UnitData, key: String) -> bool:
@@ -1521,10 +1532,30 @@ func _tab_habilidades():
 		for ab in group[1]:
 			if defs.has(ab[1]) and _ability_on(st, ab[1]):
 				on_total += 1
-	_field_box.add_child(_note("%d habilidade(s) ligada(s). Toque numa pra ligar: só a ligada mostra os números dela." % on_total, Color(0.75, 0.95, 1.0)))
+	_field_box.add_child(_note("%d habilidade(s) ligada(s). Abra um grupo e toque numa pra ligar; só a ligada mostra os números dela." % on_total, Color(0.75, 0.95, 1.0)))
+	var top = HBoxContainer.new()
+	top.add_theme_constant_override("separation", 6)
+	_field_box.add_child(top)
+	var search = LineEdit.new()
+	search.placeholder_text = "🔍 procurar (ex.: escudo, pula, cura...)"
+	search.text = _ab_search
+	search.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	search.custom_minimum_size.y = 52
+	search.text_submitted.connect(func(t):
+		_ab_search = t.strip_edges()
+		_build_ed_body())
+	top.add_child(search)
+	top.add_child(_button("Buscar", func():
+		_ab_search = search.text.strip_edges()
+		_build_ed_body()))
+	if _ab_search != "":
+		top.add_child(_button("✕", func():
+			_ab_search = ""
+			_build_ed_body()))
 	_field_box.add_child(_button("Mostrando: " + ("só as ligadas" if _only_on else "todas"), func():
 		_only_on = !_only_on
 		_build_ed_body()))
+	var q = _ab_search.to_lower()
 	for group in ABILITIES:
 		var on_list: Array = []
 		var off_list: Array = []
@@ -1538,9 +1569,25 @@ func _tab_habilidades():
 				on_list.append(ab)
 			else:
 				off_list.append(ab)
+		if q != "":
+			off_list = off_list.filter(func(ab): return str(ab[0]).to_lower().contains(q))
+			on_list = on_list.filter(func(ab): return str(ab[0]).to_lower().contains(q))
 		if on_list.is_empty() and (off_list.is_empty() or _only_on):
 			continue
-		_section(str(group[0]))
+		# grupo que abre e fecha: com habilidade ligada ou buscando, já vem aberto
+		var gname = str(group[0])
+		var is_open = q != "" or bool(_ab_open.get(gname, !on_list.is_empty()))
+		var head = _button("%s %s   (%d ligada%s · %d pra ligar)" % ["▾" if is_open else "▸", gname, on_list.size(), "" if on_list.size() == 1 else "s", off_list.size()],
+			func():
+				_ab_open[gname] = !is_open
+				_build_ed_body())
+		head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		head.custom_minimum_size.y = 52
+		if !on_list.is_empty():
+			head.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+		_field_box.add_child(head)
+		if !is_open:
+			continue
 		for ab in on_list:
 			_ability_panel(st, ab, defs)
 		if !_only_on and !off_list.is_empty():

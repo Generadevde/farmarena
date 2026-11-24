@@ -67,6 +67,9 @@ func _physics_process(delta):
 		_origin_set = true
 		origin = global_position  # o atirador coloca o projétil em cima dele antes do 1º quadro
 	var dir = _locked_direction
+	if line_distance > 0.0:
+		_line_move(delta)
+		return
 	if returns_to != null:
 		_boomerang(delta)
 		return
@@ -154,6 +157,13 @@ var hits := 0
 var impact_fx := 0        # Fx.IMPACT_NAMES (0 = faisquinha de sempre)
 var impact_tint := 0
 var impact_size := 1.0
+var shooter = null              # quem atirou (pro Monge mandar de volta)
+var line_distance := 0.0        # > 0: segue reto pegando todo mundo no caminho (Arqueiro Mágico / Bowler)
+var line_width := 18.0
+var line_knockback := 0.0
+var rolls := false              # rola no chão (Bowler): o desenho gira
+var _line_dir := Vector2.ZERO
+var _reflected := false
 
 
 func _allowed(body) -> bool:
@@ -240,12 +250,57 @@ func _retarget_to_nearest():
 
 
 func _apply_hit(body):
+	# MONGE: manda o tiro de volta pra quem atirou (o tiro não machuca ele)
+	if !_reflected and shooter != null and is_instance_valid(shooter) and "stats" in body and body.stats != null \
+			and body.stats.reflect_projectile_chance > 0.0 and randf() < body.stats.reflect_projectile_chance:
+		_reflected = true
+		attacker_team = body.team
+		target = shooter
+		_hit_targets.clear()        # agora é do time do monge: ele mesmo não é mais alvo
+		can_miss = false
+		_aim_point = Vector2.INF
+		pierces = false
+		chains = false
+		line_distance = 0.0
+		Fx.ring(get_parent(), position, 16.0, Color(1.0, 0.95, 0.6), 0.25)
+		return
 	if is_aoe:
 		_area_hit(body.global_position)
 	elif body.has_method("take_damage"):
 		body.take_damage(damage)
 		_apply_effect(body)
 		_report_base_damage(body)
+
+
+## TIRO EM LINHA / ROLANDO: vai reto na direção do alvo e pega cada um no caminho uma vez
+func _line_move(delta):
+	if _line_dir == Vector2.ZERO:
+		_line_dir = (target.global_position - global_position).normalized() if is_instance_valid(target) else Vector2.UP
+		if _line_dir == Vector2.ZERO:
+			_line_dir = Vector2.UP
+		rotation = _line_dir.angle()
+	var step = speed * delta
+	global_position += _line_dir * step
+	_travel_distance += step
+	if rolls and _sprite != null:
+		_sprite.rotation += step * 0.12          # pedra rolando
+		if Engine.get_physics_frames() % 6 == 0 and Regras.on("visual"):
+			Fx.puff(get_parent(), position, 0.25)
+	for body in get_tree().get_nodes_in_group("damageable"):
+		if body in _hit_targets or !is_instance_valid(body) or !("team" in body) or body.team == attacker_team or !_allowed(body):
+			continue
+		if global_position.distance_to(body.global_position) <= line_width + 6.0:
+			_hit_targets.append(body)
+			if body.has_method("take_damage"):
+				body.take_damage(damage)
+			if is_instance_valid(body):
+				_apply_effect(body)
+				_report_base_damage(body)
+				if line_knockback > 0.0 and body.has_method("apply_knockback"):
+					body.apply_knockback(global_position - _line_dir * 20.0, line_knockback)
+			Fx.impact(get_parent(), get_parent().to_local(body.global_position), impact_fx, impact_tint, impact_size)
+	if _travel_distance >= line_distance:
+		_finish()
 
 
 ## dano em área em volta de um ponto (acertou alguém OU caiu no chão)

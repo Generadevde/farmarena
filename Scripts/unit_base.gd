@@ -1732,6 +1732,7 @@ func _enemies_within(r: float, ground_only: bool = false) -> Array:
 
 
 func _process_new_mechanics(delta):
+	_process_hook()
 	if current_hp <= 0:
 		return
 	# AURA: reforça os aliados em volta (a fúria vale o maior valor, então duas auras não somam)
@@ -2971,11 +2972,21 @@ func _fire_shot(dmg, side: Vector2):
 		return
 	var proj = Projectile.new()
 	proj.target = target
+	proj.shooter = self
+	if stats.projectile_line_distance > 0.0 or stats.projectile_rolls:
+		# em linha: vai até o alvo e passa reto mais um pedaço
+		var extra = stats.projectile_line_distance if stats.projectile_line_distance > 0.0 else 120.0
+		proj.line_distance = global_position.distance_to(target.global_position) + extra
+		proj.line_width = stats.projectile_line_width
+		proj.line_knockback = stats.projectile_line_knockback
+		proj.rolls = stats.projectile_rolls
 	proj.buildings_only = stats.target_type == UnitData.TargetType.BUILDING
 	proj.impact_fx = stats.impact_fx
 	proj.impact_tint = stats.impact_tint
 	proj.impact_size = stats.impact_size
 	proj.hits = 1 if stats.target_type == UnitData.TargetType.GROUND else (2 if stats.target_type == UnitData.TargetType.AIR else 0)
+	if stats.projectile_rolls:
+		proj.hits = 1   # rolando no chão: voador passa por cima
 	proj.damage = dmg
 	proj.speed = stats.projectile_speed
 	proj.texture = stats.projectile_texture
@@ -3005,6 +3016,40 @@ func _fire_shot(dmg, side: Vector2):
 		proj.scale = Vector2.ONE * clampf(_visual_scale * 0.95, 1.25, 2.2)  # projétil acompanha o tamanho da tropa
 	get_parent().add_child(proj)
 	proj.global_position = global_position + side
+
+
+var _souls := 0
+var _hook_ready_at := 0.0
+
+
+func add_soul(from_pos: Vector2):
+	if current_hp <= 0 or is_queued_for_deletion():
+		return
+	_souls += 1
+	if Regras.on("visual") and get_parent() != null:
+		Fx.beam(get_parent(), get_parent().to_local(from_pos), position, Color(0.6, 0.95, 1.0, 0.8), 2.0, 0.3)
+	if _souls >= maxi(1, stats.souls_needed) and stats.soul_spawn_scene != null:
+		_souls = 0
+		Fx.ring(get_parent(), position, 50.0, Color(0.6, 0.95, 1.0), 0.5)
+		Fx.text(get_parent(), position + Vector2(0, -28), "ALMAS!", Color(0.6, 0.95, 1.0), 1.0)
+		for k in maxi(1, stats.soul_spawn_count):
+			_spawn_child(stats.soul_spawn_scene, global_position + Vector2.RIGHT.rotated(TAU * k / maxf(1.0, stats.soul_spawn_count)) * 26.0)
+
+
+## PESCADOR: alvo longe (mas no alcance do gancho) é puxado pra perto
+func _process_hook():
+	if !stats.hook_pull or target == null or !is_instance_valid(target) or GameManager.game_time < _hook_ready_at or _is_silenced():
+		return
+	if _is_base(target) or !target.has_method("apply_pull") or target.get("stats") == null or target.stats.unit_type == UnitData.UnitType.BUILDING:
+		return
+	var d = global_position.distance_to(target.global_position)
+	if d <= stats.attack_range + 20.0 or d > stats.hook_range:
+		return
+	_hook_ready_at = GameManager.game_time + maxf(stats.hook_cooldown, 0.5)
+	target.apply_pull(global_position, d - maxf(stats.attack_range, 20.0) * 0.8)
+	if get_parent() != null:
+		Fx.beam(get_parent(), position, get_parent().to_local(target.global_position), Color(0.75, 0.6, 0.4), 2.0, 0.35)
+		Sfx.play("tiro", 0.2, -6.0)
 
 
 func _transform_half():
@@ -3122,6 +3167,12 @@ func _death_ghost():
 
 func die():
 	died.emit(team, card_data)
+	# REI ESQUELETO: toda morte perto vira alma pra quem coleta (dos dois times)
+	if is_inside_tree():
+		for col in get_tree().get_nodes_in_group("units"):
+			if col != self and is_instance_valid(col) and col.get("stats") != null and col.stats.collects_souls \
+					and col.global_position.distance_to(global_position) <= col.stats.soul_radius and col.has_method("add_soul"):
+				col.add_soul(global_position)
 	if Regras.on("peso") and is_inside_tree():
 		_death_ghost()
 	_death_fx()
