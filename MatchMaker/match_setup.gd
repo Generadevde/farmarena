@@ -124,12 +124,35 @@ func start_test_match(tree: SceneTree):
 
 
 func clear_special():
+	watch = false
 	daily = false
 	teste = false
 	friendly = false
 	tournament = false
 	rule = 0
 	arena_override = 0
+
+
+## ASSISTIR: bot contra bot, você só olha. `deck_a`/`deck_b` vazios = o baralho do próprio bot
+var watch := false
+var watch_a: AIProfile = null     # embaixo (azul)
+var watch_b: AIProfile = null     # em cima (vermelho)
+
+
+func start_watch(tree: SceneTree, a: AIProfile, b: AIProfile, deck_a: Array = [], deck_b: Array = [], arena_i: int = 0):
+	clear_special()
+	watch = true
+	friendly = true
+	mode = MODE_1V1
+	arena_override = arena_i
+	watch_a = a.duplicate()
+	watch_b = b.duplicate()
+	if !deck_a.is_empty():
+		watch_a.deck.assign(deck_a)
+	if !deck_b.is_empty():
+		watch_b.deck.assign(deck_b)
+	next_ai_profile = watch_b
+	tree.change_scene_to_file(BATTLE_SCENE)
 
 
 ## partida de torneio contra um bot específico

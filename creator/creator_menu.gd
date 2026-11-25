@@ -2265,6 +2265,7 @@ func _tab_funcao():
 
 
 const MODULE_GROUPS = [
+	["📍 Onde fica no campo", ["preferred_spot"]],
 	["🎯 Tiro (toda torre atira)", ["targets", "projectile_speed", "projectile_can_miss", "projectile_launch_angle", "projectiles_per_shot", "projectile_spread", "projectile_burst_delay"]],
 	["🏹 Projétil", ["projectile_pierces", "projectile_max_targets", "projectile_splits", "projectile_split_count", "projectile_split_range",
 		"projectile_chains", "projectile_chain_max_targets", "projectile_chain_range"]],

@@ -804,11 +804,116 @@ func _show_modes():
 	var g = _grid(v, 2)
 	_tile(g, "📅", "Desafio do Dia", _swap_popup.bind(v, _show_daily), !Progresso.daily_done(), "feito ✔" if Progresso.daily_done() else "baralho pronto · %d de %d vitórias" % [Progresso.daily_wins(), Progresso.DAILY_WINS])
 	_tile(g, "🏟", "Torneios e Desafios", _swap_popup.bind(v, _show_tournament), Progresso.tournament_active() or Progresso.tournament_free_today(), Progresso.tournament_stage_text() if Progresso.tournament_active() else ("entrada grátis hoje" if Progresso.tournament_free_today() else "chave, 10 vitórias, maluco, sobrevivência"))
+	_tile(g, "📺", "Assistir bots", _swap_popup.bind(v, _show_watch), false, "escolha dois bots e os baralhos, e só assista")
 	_tile(g, "🌪", "Modos malucos", _swap_popup.bind(v, _show_crazy_modes), false, "recurso em dobro, torres de palha, chuva de vaca")
 	_tile(g, "👥", "2 contra 2", _start_2v2, false, "você + um bot contra dois · não vale troféu")
 	_tile(g, "🤝", "Amistoso de clã", _swap_popup.bind(v, _go_tab.bind(4)), false, "na aba Clã · não vale troféu")
 	for t in g.get_children():
 		t.custom_minimum_size = Vector2(318, 132)
+	v.add_child(_button("Voltar", _close.bind(v)))
+
+
+func _option(items: Array, selected: int, on_select: Callable) -> OptionButton:
+	var ob = OptionButton.new()
+	for it in items:
+		ob.add_item(str(it))
+	ob.select(clampi(selected, 0, maxi(items.size() - 1, 0)))
+	ob.add_theme_font_size_override("font_size", 17)
+	ob.custom_minimum_size.y = 56
+	ob.get_popup().add_theme_font_size_override("font_size", 18)
+	ob.item_selected.connect(on_select)
+	return ob
+
+
+# ================================================================ ASSISTIR (bot x bot)
+var _w_names: Array = ["", ""]     # bot de baixo (🔵) e de cima (🔴)
+var _w_deck: Array = [0, 0]        # 0 = baralho dele; 1..4 = "meu baralho N"
+var _w_arena := 0                  # 0 = a do bot de baixo
+
+
+func _watch_profile(i: int) -> AIProfile:
+	if _w_names[i] == "" or !(_w_names[i] in BotSimulator.roster_names):
+		var pool: Array = BotSimulator.roster_names.duplicate()
+		pool.shuffle()
+		for nm in pool:
+			if nm != _w_names[1 - i]:
+				_w_names[i] = nm
+				break
+	return BotLearning.get_or_create_profile(_w_names[i])
+
+
+func _watch_deck(i: int, prof: AIProfile) -> Array:
+	if int(_w_deck[i]) > 0:
+		return Progresso.deck_cards(int(_w_deck[i]) - 1)
+	return BotLearning.battle_deck(prof)
+
+
+func _show_watch():
+	var v = _popup(680, true)
+	v.add_child(_title("📺 Assistir bots"))
+	v.add_child(_wrap("Escolha quem joga embaixo e em cima, e com qual baralho. Você só assiste: não vale troféu, baú nem missão.", 15, ThemeBuilder.COLOR_STAT_LABEL))
+	BotSimulator.ensure_rivals()
+	var names: Array = BotSimulator.roster_names.duplicate()
+	names.sort_custom(func(a, b): return ArenaManager.get_trophies(a) > ArenaManager.get_trophies(b))
+	var profs: Array = [_watch_profile(0), _watch_profile(1)]
+	for i in 2:
+		var prof: AIProfile = profs[i]
+		var p = _panel(v)
+		var head = HBoxContainer.new()
+		head.add_theme_constant_override("separation", 8)
+		p.add_child(head)
+		head.add_child(_label("🔵 Embaixo" if i == 0 else "🔴 Em cima", 20, Color(0.55, 0.75, 1.0) if i == 0 else Color(1.0, 0.55, 0.5)))
+		var opts: Array = []
+		var sel = 0
+		for k in names.size():
+			opts.append("%s  ·  🏆 %d" % [names[k], ArenaManager.get_trophies(names[k])])
+			if names[k] == _w_names[i]:
+				sel = k
+		var ob = _option(opts, sel, func(k):
+			_w_names[i] = names[k]
+			_close(v)
+			_show_watch())
+		ob.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(ob)
+		head.add_child(_button("🎲", func():
+			_w_names[i] = ""
+			_close(v)
+			_show_watch()))
+		var fam = PushPlan.family_of(prof)
+		p.add_child(_label("Estilo: %s  ·  plano: %s  ·  nível médio %.1f" % [AIProfile.Archetype.keys()[int(prof.archetype)].capitalize(),
+			PushPlan.FAM_NAMES[fam] if fam >= 0 and fam < PushPlan.FAM_NAMES.size() else "?", MatchSetup.avg_level(prof)], 15, ThemeBuilder.COLOR_STAT_LABEL))
+		var dopts: Array = ["🃏 Baralho dele"]
+		for d in Progresso.DECK_SLOTS:
+			dopts.append("🃏 Meu baralho %d" % (d + 1))
+		p.add_child(_option(dopts, int(_w_deck[i]), func(k):
+			_w_deck[i] = k
+			_close(v)
+			_show_watch()))
+		var g = GridContainer.new()
+		g.columns = 4
+		g.add_theme_constant_override("h_separation", 6)
+		g.add_theme_constant_override("v_separation", 6)
+		p.add_child(g)
+		for c in _watch_deck(i, prof):
+			if c == null:
+				continue
+			var cv = CardView.make(c, 130, true)
+			cv.level_override = prof.get_card_level(c)
+			cv.mastery_override = 0
+			g.add_child(cv)
+		if i == 0:
+			v.add_child(_label("⚔  contra  ⚔", 22, ThemeBuilder.COLOR_GOLD))
+	var aopts: Array = ["🏟 Arena do bot de baixo"]
+	for a in range(1, ArenaManager.DEFAULT_ARENAS.size()):
+		aopts.append("%s %s" % [ArenaManager.DEFAULT_ARENAS[a].get("emoji", ""), ArenaManager.DEFAULT_ARENAS[a].get("name", "Arena %d" % a)])
+	v.add_child(_option(aopts, _w_arena, func(k):
+		_w_arena = k))
+	var go = _button("▶  ASSISTIR", func():
+		var a_arena = _w_arena if _w_arena > 0 else maxi(1, ArenaManager.get_participant_arena(_w_names[0]))
+		MatchSetup.start_watch(get_tree(), profs[0], profs[1], _watch_deck(0, profs[0]), _watch_deck(1, profs[1]), a_arena), 26)
+	go.custom_minimum_size.y = 84
+	go.modulate = Color(1.0, 0.92, 0.6)
+	v.add_child(go)
 	v.add_child(_button("Voltar", _close.bind(v)))
 
 
@@ -3929,7 +4034,8 @@ func _show_bot(who: String, match_deck: Array = []):
 	if prof.favorite_card != null:
 		v.add_child(_label("⭐ Carta favorita: %s (joga 1 nível acima e puxa os ataques dele)" % prof.favorite_card.card_name, 15, Color(1.0, 0.9, 0.55)))
 	# veio do histórico e ele já trocou de baralho: mostra os dois, cada um com o nome certo
-	var now_paths = prof.deck.filter(func(c): return c != null).map(func(c): return c.resource_path)
+	var real_deck: Array = BotLearning.battle_deck(prof)   # no "começar do zero" é o das suas cartas
+	var now_paths = real_deck.filter(func(c): return c != null).map(func(c): return c.resource_path)
 	var same = match_deck.is_empty() or match_deck.map(func(it): return str(it[0])) == now_paths
 	if !same:
 		v.add_child(_label("🃏 Baralho que ele usou contra você:", 16, ThemeBuilder.COLOR_GOLD))
@@ -3938,7 +4044,7 @@ func _show_bot(who: String, match_deck: Array = []):
 	else:
 		v.add_child(_label("🃏 Baralho de hoje  ·  nível médio %.1f" % MatchSetup.avg_level(prof), 16, ThemeBuilder.COLOR_GOLD))
 	var g = _grid(v, 4)
-	for c in prof.deck:
+	for c in real_deck:
 		if c == null:
 			continue
 		var cv = CardView.make(c, 140, true)

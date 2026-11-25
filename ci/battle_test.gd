@@ -3595,4 +3595,25 @@ func _general_audit():
 	_check("uns bots evoluem por igual, outros focam", split > 120 and split < 320, str(split))
 	var ap = AIProfile.new()
 	_check("nível médio do baralho = soma / quantidade", absf(MatchSetup.avg_level(ap) - 1.0) < 0.01 or ap.deck.is_empty(), str(MatchSetup.avg_level(ap)))
+	# MÓDULO COM LUGAR MARCADO no Criador: o bot põe na fileira certa (frente / lado / atrás)
+	var spot_ok = true
+	var spot_txt = ""
+	var mods_all: Array = BotSimulator.available_bases.filter(func(b): return b != null)
+	if !mods_all.is_empty():
+		var keep_spots = mods_all.map(func(b): return b.preferred_spot)
+		for spot in [1, 2, 3]:
+			for b in mods_all:
+				b.preferred_spot = spot
+			for k in 12:
+				var pr2 = BotLearning.get_or_create_profile(BotSimulator.roster_names[k * 3 % BotSimulator.roster_names.size()])
+				for it in Progresso.bot_module_loadout(pr2, 2):
+					var want_pts = Progresso.spot_points(spot, true)
+					if !(int(it["ponto"]) in want_pts):
+						spot_ok = false
+						spot_txt += "lugar %d caiu no ponto %d; " % [spot, int(it["ponto"])]
+		for k in mods_all.size():
+			mods_all[k].preferred_spot = keep_spots[k]
+	_check("módulo com lugar marcado vai pra fileira certa no bot", spot_ok, spot_txt.left(160))
+	# "começar do zero": o baralho do bot sai só das suas cartas (helper existe e devolve 8)
+	_check("assistir e baralho do bot existem", MatchSetup.has_method("start_watch") and BotLearning.has_method("battle_deck") and BotLearning.has_method("zero_deck_for"))
 	print("RESULTADO geral COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

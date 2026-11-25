@@ -75,6 +75,10 @@ enum BaseCategory { OFENSIVO, DEFENSIVO, ECONOMICO, SUPORTE }
 ## ECONOMICO: recurso. SUPORTE: aura, cura, reforço pros aliados. Os bots usam isso pra ESCOLHER o
 ## módulo pelo jeito deles e pra pôr cada um no lugar certo da base.
 @export var category: BaseCategory = BaseCategory.DEFENSIVO
+## ONDE este módulo deve ficar (os bots seguem; no jogador é a sugestão):
+## 0 = automático (pela função), 1 = frente, 2 = lado (meio), 3 = atrás
+const SPOT_NAMES = ["Automático (pela função)", "Frente", "Lado (meio)", "Atrás"]
+@export var preferred_spot: int = 0
 
 # --- Base Canhão: ataca sozinha ---
 @export var attack_damage: int = 50

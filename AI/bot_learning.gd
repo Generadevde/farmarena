@@ -358,6 +358,10 @@ func _generate_random_deck(preferred_role: int, known_cards: Array[CardData], st
 
 
 func _learn_custom_cards(bot_name: String, data: Dictionary, profile: AIProfile, style: Dictionary, known_paths: Array) -> bool:
+	# v2: avalia de novo as cartas criadas (antes a troca no baralho não era salva e se perdia)
+	if int(data.get("custom_learn_v", 0)) < 2:
+		data["custom_learn_v"] = 2
+		data["seen_custom_cards"] = []
 	var seen: Array = data.get("seen_custom_cards", [])
 	var changed = false
 	for card in CustomContent.custom_cards + Safra.all_cards():  # criadas no Criador + colhidas na Safra
@@ -367,13 +371,13 @@ func _learn_custom_cards(bot_name: String, data: Dictionary, profile: AIProfile,
 		changed = true
 		var roll = abs(hash(bot_name + card.resource_path)) % 100
 		var fit = DeckBuilder.score_card(card, style, [])
-		if roll < 35 + int(fit * 6.0):
+		if roll < 55 + int(fit * 6.0):
 			if !known_paths.has(card.resource_path):
 				known_paths.append(card.resource_path)
 			profile.known_cards.append(card)
 			# metade das vezes já testa a carta nova no deck, no lugar da que
 			# menos combina com o estilo dele
-			if roll % 2 == 0 and !profile.deck.is_empty() and !profile.deck.has(card):
+			if roll % 3 != 0 and !profile.deck.is_empty() and !profile.deck.has(card):
 				var worst_i = 0
 				var worst_s = INF
 				for i in profile.deck.size():
@@ -381,7 +385,9 @@ func _learn_custom_cards(bot_name: String, data: Dictionary, profile: AIProfile,
 					if sc < worst_s:
 						worst_s = sc
 						worst_i = i
+				# não tira outra carta que ele também acabou de pegar do Criador
 				profile.deck[worst_i] = card
+				data["deck_paths"] = _deck_to_paths(profile.deck)
 	if changed:
 		data["seen_custom_cards"] = seen
 		data["known_card_paths"] = known_paths
@@ -393,6 +399,29 @@ func get_deck_style_text(bot_name: String) -> String:
 	var data = _load_raw(bot_name)
 	var style = DeckBuilder.style_for_bot(bot_name, data.get("archetype", 0), data.get("preferred_role", CardData.CardRole.VERSATIL))
 	return DeckBuilder.describe_style(style)
+
+
+## "começar do zero": o bot monta o baralho com as SUAS cartas, escolhendo as que mais
+## combinam com o estilo dele (antes era sorteio puro)
+func zero_deck_for(prof) -> Array:
+	var nm = str(prof.profile_name)
+	var cap = ArenaManager.get_participant_arena(nm) + DeckBuilder.ARENA_PEEK
+	var style = DeckBuilder.style_for_bot(nm, int(prof.archetype), int(prof.preferred_role))
+	var pool: Array = CustomContent.zero_pool().filter(func(c): return c.unlock_arena <= cap)
+	if pool.is_empty():
+		pool = CustomContent.zero_pool()
+	var scored: Array = []
+	for c in pool:
+		scored.append([DeckBuilder.score_card(c, style, []) + float(abs(hash(nm + c.resource_path)) % 100) / 60.0, c])
+	scored.sort_custom(func(a, b): return a[0] > b[0])
+	return CustomContent.zero_deck(nm, scored.map(func(x): return x[1]), false, cap)
+
+
+## o baralho que o bot usa DE VERDADE agora (no "começar do zero" é o das suas cartas)
+func battle_deck(prof) -> Array:
+	if CustomContent.zero_on():
+		return zero_deck_for(prof)
+	return prof.deck
 
 
 func _load_deck(paths: Array) -> Array[CardData]:

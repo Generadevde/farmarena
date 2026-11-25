@@ -305,6 +305,8 @@ func _ready():
 
 	_apply_player_base()
 	_apply_ai_base()
+	if MatchSetup.watch:
+		_setup_watch.call_deferred()
 
 	# .start() força o timer a recomeçar já com o wait_time novo (já incluindo
 	# o ajuste de módulo acima) -- sem isso, o primeiro ciclo da partida
@@ -528,6 +530,10 @@ func module_speed_for(team, card: CardData) -> float:
 
 
 func _apply_player_base():
+	if Regras.modules() and MatchSetup.watch and MatchSetup.watch_a != null:
+		# assistindo: o lado de baixo também é um bot, com os módulos que ELE escolheria
+		_install_side_modules("player_base", GameManager.Team.PLAYER, Progresso.bot_module_loadout(MatchSetup.watch_a), maxi(1, int(MatchSetup.watch_a.base_level)))
+		return
 	if Regras.modules():
 		var loadout = Progresso.module_loadout()
 		_install_side_modules("player_base", GameManager.Team.PLAYER, loadout, MatchSetup.fixed_level() if MatchSetup.fixed_level() > 0 else Progresso.tower_level())
@@ -631,14 +637,13 @@ func _apply_ai_decision_speed():
 # sem isso, o bot escolhia direto do deck inteiro toda vez, podendo repetir
 # a mesma carta em ticks seguidos sem nenhuma rotação
 func _start_ai_hand():
-	if CustomContent.zero_on():
+	if CustomContent.zero_on() and !MatchSetup.watch:
 		# "começar do zero": o bot joga só com as cartas que existem agora (as suas)
 		ai_profile = ai_profile.duplicate()
-		ai_profile.deck.assign(CustomContent.zero_deck(str(ai_profile.profile_name), [], false,
-			ArenaManager.get_participant_arena(str(ai_profile.profile_name)) + DeckBuilder.ARENA_PEEK))
+		ai_profile.deck.assign(BotLearning.zero_deck_for(ai_profile))
 	# CARTA DA VEZ: 1 em cada 3 bots leva ela no baralho (no lugar da última), de qualquer arena
 	var feat: CardData = Progresso.featured_card()
-	if feat != null and !ai_profile.deck.has(feat) and !ai_profile.deck.is_empty() and abs(hash(str(ai_profile.profile_name) + feat.resource_path)) % 3 == 0:
+	if feat != null and CardDatabase.all_cards.has(feat) and !ai_profile.deck.has(feat) and !ai_profile.deck.is_empty() and abs(hash(str(ai_profile.profile_name) + feat.resource_path)) % 3 == 0:
 		ai_profile = ai_profile.duplicate()
 		ai_profile.deck[ai_profile.deck.size() - 1] = feat
 	ai_hand.resize(Regras.hand_size())
@@ -807,6 +812,112 @@ func _in_revenge_mode() -> bool:
 	return _revenge_until > 0.0 and Time.get_ticks_msec() / 1000.0 < _revenge_until
 
 
+# ---------------------------------------------------------------- ASSISTIR (bot x bot)
+var _watch_ctrl: BotController = null
+
+
+## o lado de baixo vira um bot também; a mão de cartas some (só assistir)
+func _setup_watch():
+	if MatchSetup.watch_a == null:
+		return
+	_watch_ctrl = BotController.new()
+	_watch_ctrl.name = "RoboAssistido"
+	_watch_ctrl.setup(self, MatchSetup.watch_a, GameManager.Team.PLAYER, spawn_player_area, [0.22, 0.78][randi() % 2])
+	add_child(_watch_ctrl)
+	_extra_ai_controllers.append(_watch_ctrl)
+	# o de cima também vira o MESMO tipo de robô (mesmo ritmo de recurso: partida justa)
+	if MatchSetup.watch_b != null:
+		var cb = BotController.new()
+		cb.name = "RoboAssistidoCima"
+		cb.setup(self, MatchSetup.watch_b, GameManager.Team.ENEMY, spawn_enemy_area, [0.22, 0.78][randi() % 2])
+		add_child(cb)
+		_extra_ai_controllers.append(cb)
+		ai_profile = null   # o robô principal sai: quem joga em cima é o controlador acima
+	for hand_button in get_tree().get_nodes_in_group("hand_card_button"):
+		hand_button.visible = false
+	var layer = CanvasLayer.new()
+	layer.layer = 20
+	add_child(layer)
+	var tag = Label.new()
+	tag.text = "📺 Assistindo:  🔵 %s   ×   🔴 %s" % [MatchSetup.watch_a.profile_name, MatchSetup.watch_b.profile_name if MatchSetup.watch_b else "?"]
+	tag.add_theme_font_size_override("font_size", 20)
+	tag.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	tag.add_theme_constant_override("outline_size", 5)
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	tag.position = Vector2(-300, -150)
+	tag.size = Vector2(600, 40)
+	layer.add_child(tag)
+	var out = Button.new()
+	out.text = "✕ Sair"
+	out.theme = ThemeBuilder.game_theme
+	out.add_theme_font_size_override("font_size", 20)
+	out.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	out.position = Vector2(-70, -100)
+	out.size = Vector2(140, 56)
+	out.pressed.connect(func():
+		get_tree().paused = false
+		MatchSetup.clear_special()
+		get_tree().change_scene_to_file(MAIN_MENU_SCENE))
+	layer.add_child(out)
+
+
+## fim de partida assistida: quem ganhou, e voltar / assistir a revanche
+func _show_watch_end(winner):
+	var overlay = CanvasLayer.new()
+	overlay.layer = 100
+	overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(overlay)
+	var bg = ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.7)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(bg)
+	var center = CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(center)
+	var panel = PanelContainer.new()
+	panel.theme = ThemeBuilder.game_theme
+	panel.custom_minimum_size = Vector2(520, 0)
+	center.add_child(panel)
+	var v = VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	panel.add_child(v)
+	var a_name = str(MatchSetup.watch_a.profile_name) if MatchSetup.watch_a else "Azul"
+	var b_name = str(MatchSetup.watch_b.profile_name) if MatchSetup.watch_b else "Vermelho"
+	var t = Label.new()
+	t.text = "🤝 Empate!" if winner == -1 else ("🏆 Vitória de 🔵 %s" % a_name if winner == GameManager.Team.PLAYER else "🏆 Vitória de 🔴 %s" % b_name)
+	t.add_theme_font_size_override("font_size", 28)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(t)
+	var sub = Label.new()
+	sub.text = "Torres derrubadas: 🔵 %d  ×  %d 🔴   ·   %s" % [towers_destroyed[GameManager.Team.ENEMY], towers_destroyed[GameManager.Team.PLAYER], _fmt_time(_get_match_elapsed())]
+	sub.add_theme_font_size_override("font_size", 17)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(sub)
+	var again = Button.new()
+	again.text = "🔁 Assistir a revanche"
+	again.add_theme_font_size_override("font_size", 20)
+	again.custom_minimum_size.y = 64
+	again.pressed.connect(func():
+		get_tree().paused = false
+		MatchSetup.start_watch(get_tree(), MatchSetup.watch_a, MatchSetup.watch_b, [], [], MatchSetup.arena_override))
+	v.add_child(again)
+	var back = Button.new()
+	back.text = "← Voltar"
+	back.add_theme_font_size_override("font_size", 20)
+	back.custom_minimum_size.y = 64
+	back.pressed.connect(func():
+		get_tree().paused = false
+		MatchSetup.clear_special()
+		get_tree().change_scene_to_file(MAIN_MENU_SCENE))
+	v.add_child(back)
+
+
+func _fmt_time(sec: float) -> String:
+	return "%d:%02d" % [int(sec) / 60, int(sec) % 60]
+
+
 func _show_replay_ended_screen():
 	var overlay = CanvasLayer.new()
 	overlay.layer = 100
@@ -962,6 +1073,9 @@ func _end_match(team):
 
 	if is_replay_mode:
 		_show_replay_ended_screen()
+		return
+	if MatchSetup.watch:
+		_show_watch_end(GameManager.Team.PLAYER if team == GameManager.Team.ENEMY else GameManager.Team.ENEMY)
 		return
 
 	var player_won = team == GameManager.Team.ENEMY  # a base destruída era do time inimigo
@@ -1478,6 +1592,9 @@ func _start_overtime():
 	for extra_timer in _extra_production_timers:
 		if is_instance_valid(extra_timer):
 			extra_timer.wait_time *= k
+	for ctrl in _extra_ai_controllers:   # robôs extras (2x2, assistir) também aceleram
+		if is_instance_valid(ctrl) and ctrl.get("_production") != null:
+			ctrl._production.wait_time *= k
 
 
 # timer zerou sem ninguém destruir a base do outro -- empata a partida.
@@ -1492,6 +1609,9 @@ func _end_match_as_draw():
 
 	if is_replay_mode:
 		_show_replay_ended_screen()
+		return
+	if MatchSetup.watch:
+		_show_watch_end(-1)
 		return
 
 	# mesma recompensa de uma DERROTA (nenhum lado destruiu a base do

@@ -1571,6 +1571,18 @@ static func role_points(cat: int, stance: int, home_left: bool) -> Array:
 	return [ba, bb, 4, sa]                     # econômico: no fundo
 
 
+## pontos de uma FILEIRA (pra módulo com lugar marcado no Criador)
+static func spot_points(spot: int, home_left: bool) -> Array:
+	match spot:
+		1:
+			return [1, 0 if home_left else 2, 2 if home_left else 0]
+		2:
+			return [3 if home_left else 5, 5 if home_left else 3]
+		3:
+			return [4, 6 if home_left else 7, 7 if home_left else 6]
+	return [0, 1, 2, 3, 4, 5, 6, 7]
+
+
 ## peso de cada função pra escolher o módulo, pelo jeito do bot
 static func _role_weight(cat: int, stance: int, preferred: int) -> float:
 	var w = 1.0
@@ -1653,7 +1665,11 @@ func bot_module_loadout(profile, slots: int = -1) -> Array:
 	for b in order:
 		var cat = int(b.category)
 		var pts: Array = role_points(cat, stance, home_left)
-		if stance == 2 or innovating:
+		var spot = int(b.get("preferred_spot")) if b.get("preferred_spot") != null else 0
+		if spot > 0:
+			# o Criador disse onde esse módulo fica: frente / lado / atrás (vale até pro bot caótico)
+			pts = spot_points(spot, home_left)
+		elif stance == 2 or innovating:
 			pts = [0, 1, 2, 3, 4, 5, 6, 7]
 			for i in range(pts.size() - 1, 0, -1):
 				var j2 = rng.randi_range(0, i)

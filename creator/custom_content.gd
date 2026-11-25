@@ -347,6 +347,7 @@ const BASE_FIELDS = [
 	["projectile_speed", "Velocidade do projétil", "float", [60.0, 1200.0, 20.0]],
 	["projectile_can_miss", "Tiro pode errar (vai reto pra onde o alvo estava)", "bool", []],
 	["projectile_launch_angle", "Ângulo de saída do tiro (0 = reto, maior = arco mais alto)", "float", [0.0, 80.0, 5.0]],
+	["preferred_spot", "Onde fica (os bots seguem)", "enum", BaseData.SPOT_NAMES],
 	["projectiles_per_shot", "Projéteis por tiro", "int", [1, 12, 1]],
 	["projectile_spread", "Distância entre eles no leque", "float", [2.0, 40.0, 1.0]],
 	["projectile_burst_delay", "Rajada: tempo entre um e outro (0 = todos juntos)", "float", [0.0, 1.0, 0.05]],
