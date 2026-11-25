@@ -3616,4 +3616,16 @@ func _general_audit():
 	_check("módulo com lugar marcado vai pra fileira certa no bot", spot_ok, spot_txt.left(160))
 	# "começar do zero": o baralho do bot sai só das suas cartas (helper existe e devolve 8)
 	_check("assistir e baralho do bot existem", MatchSetup.has_method("start_watch") and BotLearning.has_method("battle_deck") and BotLearning.has_method("zero_deck_for"))
+	# CARTA DESLIGADA nunca entra em batalha: sai do baralho e entra outra ligada
+	var off_prof = BotLearning.get_or_create_profile(BotSimulator.roster_names[5])
+	var off_card: CardData = off_prof.deck[0]
+	CardDatabase.all_cards.erase(off_card)
+	var cleaned: Array = BotLearning.only_enabled(off_prof.deck, off_prof)
+	var uniq = {}
+	for c in cleaned:
+		uniq[c] = true
+	CardDatabase.all_cards.append(off_card)
+	_check("carta desligada sai do baralho do bot (entra outra ligada)", !cleaned.has(off_card) and cleaned.size() == off_prof.deck.size() and uniq.size() == cleaned.size(),
+		"%d cartas, %d diferentes" % [cleaned.size(), uniq.size()])
+	_check("baralho todo ligado não é mexido", BotLearning.only_enabled(off_prof.deck, off_prof) == off_prof.deck)
 	print("RESULTADO geral COM PROBLEMA (", _aud_bad.size(), "): ", _aud_bad)

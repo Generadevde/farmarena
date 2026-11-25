@@ -641,6 +641,12 @@ func _start_ai_hand():
 		# "começar do zero": o bot joga só com as cartas que existem agora (as suas)
 		ai_profile = ai_profile.duplicate()
 		ai_profile.deck.assign(BotLearning.zero_deck_for(ai_profile))
+	elif !MatchSetup.watch:
+		# trava geral: carta desligada sai do baralho do bot antes da partida
+		var clean = BotLearning.only_enabled(ai_profile.deck, ai_profile)
+		if clean != ai_profile.deck:
+			ai_profile = ai_profile.duplicate()
+			ai_profile.deck.assign(clean)
 	# CARTA DA VEZ: 1 em cada 3 bots leva ela no baralho (no lugar da última), de qualquer arena
 	var feat: CardData = Progresso.featured_card()
 	if feat != null and CardDatabase.all_cards.has(feat) and !ai_profile.deck.has(feat) and !ai_profile.deck.is_empty() and abs(hash(str(ai_profile.profile_name) + feat.resource_path)) % 3 == 0:

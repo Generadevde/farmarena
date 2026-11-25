@@ -37,6 +37,11 @@ func setup(p_battle: Node, p_profile: AIProfile, p_team, p_area: CollisionShape2
 	if CustomContent.zero_on():
 		profile = p_profile.duplicate()
 		profile.deck.assign(BotLearning.zero_deck_for(p_profile))
+	elif !MatchSetup.watch:
+		var clean = BotLearning.only_enabled(p_profile.deck, p_profile)
+		if clean != p_profile.deck:
+			profile = p_profile.duplicate()
+			profile.deck.assign(clean)
 	team = p_team
 	spawn_area = p_area
 	max_money = MAX_MONEY

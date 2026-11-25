@@ -367,6 +367,8 @@ func _learn_custom_cards(bot_name: String, data: Dictionary, profile: AIProfile,
 	for card in CustomContent.custom_cards + Safra.all_cards():  # criadas no Criador + colhidas na Safra
 		if card == null or seen.has(card.resource_path) or CustomContent.is_spawn_only(card):
 			continue
+		if !CardDatabase.all_cards.has(card):
+			continue   # desligada agora (ex.: safra desligada): não aprende nem marca como vista
 		seen.append(card.resource_path)
 		changed = true
 		var roll = abs(hash(bot_name + card.resource_path)) % 100
@@ -421,7 +423,28 @@ func zero_deck_for(prof) -> Array:
 func battle_deck(prof) -> Array:
 	if CustomContent.zero_on():
 		return zero_deck_for(prof)
-	return prof.deck
+	return only_enabled(prof.deck, prof)
+
+
+## TRAVA GERAL: carta que está DESLIGADA (não está mais na lista do jogo: safra desligada,
+## carta apagada...) nunca entra em batalha. Sai do baralho e entra a ligada que mais combina.
+func only_enabled(deck: Array, prof = null) -> Array:
+	var pool: Array = CardDatabase.all_cards.filter(func(c): return c != null and !CustomContent.is_spawn_only(c))
+	if pool.is_empty():
+		return deck
+	var out: Array = deck.filter(func(c): return c != null and pool.has(c))
+	if out.size() == deck.size():
+		return deck
+	var style = DeckBuilder.style_for_bot(str(prof.profile_name), int(prof.archetype), int(prof.preferred_role)) if prof != null else {}
+	var cap = (ArenaManager.get_participant_arena(str(prof.profile_name)) + DeckBuilder.ARENA_PEEK) if prof != null else 99
+	var cands: Array = pool.filter(func(c): return !out.has(c) and c.unlock_arena <= cap)
+	if cands.is_empty():
+		cands = pool.filter(func(c): return !out.has(c))
+	if !style.is_empty():
+		cands.sort_custom(func(a, b): return DeckBuilder.score_card(a, style, out) > DeckBuilder.score_card(b, style, out))
+	while out.size() < deck.size() and !cands.is_empty():
+		out.append(cands.pop_front())
+	return out
 
 
 func _load_deck(paths: Array) -> Array[CardData]:

@@ -58,6 +58,9 @@ func start_deck():
 	if CustomContent.zero_on():
 		# "começar do zero": o baralho é o seu, só com cartas que existem agora
 		full_deck.assign(CustomContent.zero_deck("jogador", Progresso.deck_cards(Progresso.active_deck()), true))
+	elif !MatchSetup.watch and !MatchSetup.daily:
+		# carta desligada (ex.: safra desligada) também não entra no SEU baralho
+		full_deck.assign(BotLearning.only_enabled(full_deck))
 	draw_queue = full_deck.duplicate()
 	draw_queue.shuffle()
 
